@@ -24,7 +24,14 @@ type Challenge struct {
 }
 
 type IVerifier interface {
+	// Verify proof p for challenge c with verifier initialized with x and n
 	Verify(c Challenge, p Proof) bool
+
+	// Create a NIP challenge based on phi (root label value)
+	CreteNipChallenge(phi []byte)  Challenge
+
+	CreteRndChallenge() Challenge
+
 }
 
 
