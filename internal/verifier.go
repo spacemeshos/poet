@@ -15,7 +15,7 @@ type HashFunc = shared.HashFunc
 
 type SMVerifier struct {
 	x [] byte
-	n int32
+	n uint
 	h HashFunc
 }
 
@@ -46,9 +46,13 @@ func (s *SMVerifier) CreteRndChallenge() (Challenge, error) {
 
 	for i := 0; i < shared.T; i++ {
 
-		// set identifier - leaves are n bits long
-		buff := make([]byte, s.n / 8)
+		// generate l random bytes
+		var l = s.n / 8
+		if s.n % 8 != 0 {
+			l++
+		}
 
+		buff := make([]byte, l)
 		_, err := rand.Read(buff)
 
 		if err != nil {
@@ -57,10 +61,15 @@ func (s *SMVerifier) CreteRndChallenge() (Challenge, error) {
 			return Challenge{}, err
 		}
 
-		data[i] = "001001" //fmt.Sprintf("%s%.8b", buff, 256)
+		// create a binary string
+		b := NewBinaryStringFromInt(0, s.n)
+
+		data[i] = Identifier(b.GetStringValue())
 	}
 
-	return Challenge{data}, nil
+	c := Challenge{data}
+
+	return c, nil
 }
 
 // Create a new verifier for commitment X and param n

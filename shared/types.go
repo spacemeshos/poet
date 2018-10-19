@@ -9,7 +9,7 @@ type BinaryString interface {
 	GetStringValue() string
 
 	// Get the binary value encoded in the string. e.g. 12
-	GetBinaryValue() (uint64, error)
+	GetValue() uint64
 
 	// return number of digits including leading 0s if any
 	GetDigitsCount() uint
@@ -31,7 +31,7 @@ type Identifier string  // variable length binary string
 
 type Proof struct {
 	Phi Label		// dag root label
-	L [T]Labels	// a list of T lists of labels
+	L [T]Labels		// a list of T lists of labels
 }
 
 type Challenge struct {
@@ -43,7 +43,7 @@ type IVerifier interface {
 	Verify(c Challenge, p Proof) bool
 
 	// Create a NIP challenge based on phi (root label value)
-	CreteNipChallenge(phi []byte)  Challenge
+	CreteNipChallenge(phi []byte) Challenge
 
 	CreteRndChallenge() (Challenge, error)
 }
