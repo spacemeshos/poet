@@ -33,25 +33,24 @@ func (s *SMVerifier) CreteNipChallenge(phi []byte) (Challenge, error) {
 	buf := new(bytes.Buffer)
 
 	for i := 0; i < shared.T; i++ {
-
 		buf.Reset()
-		err := binary.Write(buf, binary.BigEndian, i)
+		err := binary.Write(buf, binary.BigEndian, uint8(i))
 		if err != nil {
 			// return error here
 			return Challenge{}, err
 		}
 
-		// pack (phi,t) into a bytes array
+		// pack (phi, i) into a bytes array
 		d := append(phi, buf.Bytes()...)
 
-		// Compute Hx(phi,t)
+		// Compute Hx(phi, i)
 		b := s.h.Hash(d)
 		bg := new(big.Int).SetBytes(b[:])
 		v := bg.Uint64()
 
 		// b is 256 bits long - we take the first s.n bits slice from it
 		str := strconv.FormatUint(v, 2)
-		strTrim := str[0: s.n - 1]
+		strTrim := str[0 : s.n]
 		data[i] = Identifier(strTrim)
 	}
 
