@@ -16,11 +16,11 @@ type Identifier string  // variable length binary string
 
 type Proof struct {
 	Phi Label		// dag root label
-	L [T] Labels	// a list of T lists of labels
+	L [T]Labels	// a list of T lists of labels
 }
 
 type Challenge struct {
-	data [T] Identifier
+	data [T]Identifier
 }
 
 type IVerifier interface {
