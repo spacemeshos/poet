@@ -59,7 +59,7 @@ func TestBinaryStringFromInt(t *testing.T) {
 	assert.Equal(t, uint(8), b.GetDigitsCount())
 	assert.Equal(t, v, b.GetValue())
 
-	// encode to an a 63 bits binary string
+	// encode to a 63 bits binary string
 	b, err = f.NewBinaryStringFromInt(v, 63)
 	assert.NoError(t, err)
 	//println(b.GetStringValue())

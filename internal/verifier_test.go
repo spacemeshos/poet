@@ -9,8 +9,9 @@ import (
 func TestNipChallenge(t *testing.T) {
 
 	const x = "this is a commitment"
-	const phi = "this is a mock root label"
-	const n = 41
+	const phi = "this is a test root label"
+	const n = 45
+
 	v := NewVerifier([]byte(x), n)
 
 	c, err := v.CreteNipChallenge([]byte(phi))
