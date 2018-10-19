@@ -53,7 +53,7 @@ type IVerifier interface {
 	Verify(c Challenge, p Proof) bool
 
 	// Create a NIP challenge based on phi (root label value)
-	CreteNipChallenge(phi []byte) Challenge
+	CreteNipChallenge(phi []byte) (Challenge, error)
 
 	CreteRndChallenge() (Challenge, error)
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"github.com/spacemeshos/poet-ref/shared"
 	"math/big"
+	"strconv"
 )
 
 type Challenge = shared.Challenge
@@ -23,13 +24,11 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 	return true
 }
 
-func (s *SMVerifier) CreteNipChallenge(phi []byte) (Challenge,error) {
+func (s *SMVerifier) CreteNipChallenge(phi []byte) (Challenge, error) {
 
 	// γ := (Hx(φ,1),...Hx(φ,t))
 
 	var data [shared.T]Identifier
-
-	f := NewSMBinaryStringFactory()
 
 	buf := new(bytes.Buffer)
 
@@ -47,12 +46,13 @@ func (s *SMVerifier) CreteNipChallenge(phi []byte) (Challenge,error) {
 
 		// Compute Hx(phi,t)
 		b := s.h.Hash(d)
-
-		// Convert hash to Uint64 and create a W bits long string
 		bg := new(big.Int).SetBytes(b[:])
 		v := bg.Uint64()
-		s, _ := f.NewBinaryStringFromInt(v, shared.W)
-		data[i] = Identifier(s.GetStringValue())
+
+		// b is 256 bits long - we take the first s.n bits slice from it
+		str := strconv.FormatUint(v, 2)
+		strTrim := str[0: s.n - 1]
+		data[i] = Identifier(strTrim)
 	}
 
 	return Challenge{Data: data}, nil
@@ -67,7 +67,6 @@ func (s *SMVerifier) CreteRndChallenge() (Challenge, error) {
 	f := NewSMBinaryStringFactory()
 
 	for i := 0; i < shared.T; i++ {
-
 		b, err := f.NewRandomBinaryString(s.n)
 
 		if err != nil {
