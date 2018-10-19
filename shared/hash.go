@@ -6,7 +6,7 @@ import (
 
 // HashFunc implementation
 type sha256Hash struct {
-	x []byte  // arbitrary binary data
+	x []byte // arbitrary binary data
 }
 
 // Returns a new HashFunc Hx()
@@ -16,7 +16,7 @@ func NewHashFunc(x []byte) HashFunc {
 }
 
 // Hash implements Hx()
-func(h *sha256Hash) Hash(data []byte) [WB]byte {
+func (h *sha256Hash) Hash(data []byte) [WB]byte {
 
 	//
 	// todo: benchmark the append here - it is performed on every hash
