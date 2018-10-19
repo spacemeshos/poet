@@ -48,10 +48,15 @@ func (s *SMVerifier) CreteNipChallenge(phi []byte) (Challenge, error) {
 		bg := new(big.Int).SetBytes(b[:])
 		v := bg.Uint64()
 
-		// b is 256 bits long - we take the first s.n bits slice from it
+
+		// v is up to 256 bits long - we take the last s.n bits slice from it
 		str := strconv.FormatUint(v, 2)
-		strTrim := str[0 : s.n]
-		data[i] = Identifier(strTrim)
+		l := uint(len(str))
+		if l > s.n {
+			str = str[l - s.n : l]
+		}
+
+		data[i] = Identifier(str)
 	}
 
 	return Challenge{Data: data}, nil

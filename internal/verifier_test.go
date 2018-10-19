@@ -16,10 +16,10 @@ func TestNipChallenge(t *testing.T) {
 	c, err := v.CreteNipChallenge([]byte(phi))
 
 	assert.NoError(t, err)
-	assert.Equal(t, shared.T, len(c.Data))
+	assert.Equal(t, shared.T, len(c.Data), "Expected t identifiers in challenge")
 
 	for _, id := range c.Data {
-		assert.Equal(t, n, len(id))
+		assert.Equal(t, n, len(id), "Unexpected identifier width")
 		println(id)
 	}
 }
@@ -32,10 +32,10 @@ func TestRndChallenge(t *testing.T) {
 	c, err := v.CreteRndChallenge()
 
 	assert.NoError(t, err)
-	assert.Equal(t, shared.T, len(c.Data))
+	assert.Equal(t, shared.T, len(c.Data), "Expected t identifiers in challenge")
 
 	for _, id := range c.Data {
-		assert.Equal(t, n, len(id))
+		assert.Equal(t, n, len(id), "Unexpected identifier width")
 		println(id)
 	}
 }
