@@ -1,5 +1,20 @@
 package shared
 
+
+// An immutable variable length binary string with possible leading 0s
+// e.g.
+type BinaryString interface {
+
+	// Get string representation. e.g. "00011"
+	GetStringValue() string
+
+	// Get the binary value encoded in the string. e.g. 12
+	GetBinaryValue() (uint64, error)
+
+	// return number of digits including leading 0s if any
+	GetDigitsCount() uint
+}
+
 type HashFunc interface {
 	Hash(data []byte) [WB]byte
 }
@@ -30,9 +45,9 @@ type IVerifier interface {
 	// Create a NIP challenge based on phi (root label value)
 	CreteNipChallenge(phi []byte)  Challenge
 
-	CreteRndChallenge() Challenge
-
+	CreteRndChallenge() (Challenge, error)
 }
+
 
 
 
