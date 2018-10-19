@@ -48,6 +48,7 @@ type Challenge struct {
 }
 
 type IVerifier interface {
+
 	// Verify proof p for challenge c with verifier initialized with x and n
 	Verify(c Challenge, p Proof) bool
 

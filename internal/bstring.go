@@ -102,7 +102,7 @@ func (s *SMBinaryString) GetStringValue() string {
 	// binary string encoding of s.v without any leading 0s
 	res := strconv.FormatUint(s.v, 2)
 
-	// append any leading 0s if needed
+	// prepend any leading 0s if needed
 	n := s.d - uint(len(res))
 	for n > 0 {
 		res = "0" + res

@@ -1,9 +1,8 @@
 package internal
 
 import (
-	"crypto/rand"
-	"fmt"
 	"github.com/spacemeshos/poet-ref/shared"
+	"math/big"
 )
 
 type Challenge = shared.Challenge
@@ -28,9 +27,17 @@ func (s *SMVerifier) CreteNipChallenge(phi []byte) Challenge {
 
 	var data [shared.T]Identifier
 
+	f := NewSMBinaryStringFactory()
+
 	for i := 0; i < shared.T; i++ {
 		// set identifier
-		data[i] = "010101"
+		b := s.h.Hash(phi) // todo: add i in bytes (bigEndian)
+
+		bg := new(big.Int).SetBytes(b[:])
+		v := bg.Uint64()
+
+		s, _ := f.NewBinaryStringFromInt(v, shared.W)
+		data[i] = Identifier(s.GetStringValue())
 	}
 
 	return Challenge{Data: data}
@@ -40,30 +47,14 @@ func (s *SMVerifier) CreteNipChallenge(phi []byte) Challenge {
 // that created a proof for shared params (x,t,n,w)
 func (s *SMVerifier) CreteRndChallenge() (Challenge, error) {
 
-	// todo use crypto.random to generate T challenges (each n bits long)
 	var data [shared.T]Identifier
 
 	f := NewSMBinaryStringFactory()
 
 	for i := 0; i < shared.T; i++ {
 
-		// generate l random bytes
-		var l = s.n / 8
-		if s.n%8 != 0 {
-			l++
-		}
+		b, err := f.NewRandomBinaryString(s.n)
 
-		buff := make([]byte, l)
-		_, err := rand.Read(buff)
-
-		if err != nil {
-			fmt.Println("error:", err)
-			// throw error here
-			return Challenge{}, err
-		}
-
-		// create a binary string
-		b, err := f.NewBinaryStringFromInt(0, s.n)
 		if err != nil {
 			return Challenge{}, err
 		}
@@ -71,7 +62,7 @@ func (s *SMVerifier) CreteRndChallenge() (Challenge, error) {
 		data[i] = Identifier(b.GetStringValue())
 	}
 
-	c := Challenge{data}
+	c := Challenge{Data: data}
 
 	return c, nil
 }
