@@ -65,7 +65,6 @@ func TestBTLeftSiblings(t *testing.T) {
 	}
 }
 
-
 func TestBinaryString(t *testing.T) {
 
 	const d = "00010001011010010001100111000010010101101111111111101110000110"

@@ -11,14 +11,14 @@ type IProver interface {
 	CreateProof(callback ProofCreatedFunc)
 }
 
-type ProofCreatedFunc func(phi Label, err error) ()
+type ProofCreatedFunc func(phi Label, err error)
 
 type Label shared.Label
 
 type SMProver struct {
-	x []byte   // commitment
-	n uint     // n param 1 <= n <= 63
-	h HashFunc // Hx()
+	x []byte                      // commitment
+	n uint                        // n param 1 <= n <= 63
+	h HashFunc                    // Hx()
 	m map[Identifier]shared.Label // label store - in memory for now
 	f BinaryStringFactory
 }
@@ -41,7 +41,7 @@ func NewProver(x []byte, n uint) (IProver, error) {
 	return res, nil
 }
 
-func (p* SMProver) CreateProof(callback ProofCreatedFunc) {
+func (p *SMProver) CreateProof(callback ProofCreatedFunc) {
 
 	rootLabel, err := p.computeDag(shared.RootIdentifier)
 
@@ -53,7 +53,7 @@ func (p* SMProver) CreateProof(callback ProofCreatedFunc) {
 }
 
 // Compute Dag with a root
-func (p* SMProver) computeDag(rootId Identifier) (Label, error) {
+func (p *SMProver) computeDag(rootId Identifier) (Label, error) {
 
 	leftNodeId := rootId + "0"
 	rightNodId := rootId + "1"
@@ -64,7 +64,7 @@ func (p* SMProver) computeDag(rootId Identifier) (Label, error) {
 
 	if childrenHeight == p.n { // children are leaves
 
-	leftNodeLabel, err = p.computeLeafLabel(leftNodeId)
+		leftNodeLabel, err = p.computeLeafLabel(leftNodeId)
 		if err != nil {
 			return Label{}, err
 		}
@@ -97,7 +97,7 @@ func (p* SMProver) computeDag(rootId Identifier) (Label, error) {
 
 // Given a leaf node with id leafId - return the value of its label
 // Pre-condition: all parent label values have been computed and are available for the implementation
-func (p* SMProver) computeLeafLabel(leafId Identifier) (Label, error) {
+func (p *SMProver) computeLeafLabel(leafId Identifier) (Label, error) {
 
 	bs, err := p.f.NewBinaryString(string(leafId))
 	if err != nil {

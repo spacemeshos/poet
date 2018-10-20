@@ -91,7 +91,7 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 
 			id := siblingId.GetStringValue()
 
-			if id[len(id) - 1] != '0' {
+			if id[len(id)-1] != '0' {
 				// only left siblings - siblings with an identifier that ends with 0 are parents of the leaf
 				// so we ignore right siblings on the path to the root
 				continue
