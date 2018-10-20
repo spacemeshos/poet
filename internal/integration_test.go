@@ -14,7 +14,7 @@ Computed root label: 68b4c66918faa1a6538920944f13957354910f741a87236ea4905f2a503
 PASS: TestProverBasic (1034.77s)
 */
 
-func TestProverBasic(t *testing.T) {
+func TestProtocol(t *testing.T) {
 
 	const x = "this is a commitment"
 	const n = 9
@@ -25,5 +25,13 @@ func TestProverBasic(t *testing.T) {
 	p.ComputeDag(func(phi Label, err error) {
 		fmt.Printf("Root label: %x\n", phi)
 		assert.NoError(t, err)
+
+		//v, err := NewVerifier([]byte(x), n)
+		//assert.NoError(t, err)
+
+		//c, err := v.CreteNipChallenge(phi[:])
+		//assert.NoError(t, err)
+
 	})
+
 }

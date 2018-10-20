@@ -7,7 +7,8 @@ import (
 
 // A simple POET prover
 type IProver interface {
-	CreateProof(callback ProofCreatedFunc)
+	ComputeDag(callback ProofCreatedFunc)
+	GetProof(c Challenge) (Proof, error)
 }
 
 type ProofCreatedFunc func(phi Label, err error)
@@ -39,17 +40,26 @@ func NewProver(x []byte, n uint) (IProver, error) {
 	return res, nil
 }
 
-func (p *SMProver) CreateProof(callback ProofCreatedFunc) {
-	rootLabel, err := p.computeDag(shared.RootIdentifier)
+func (p *SMProver) GetProof(c Challenge) (Proof, error) {
+	return Proof{}, nil
+}
+
+func (p *SMProver) ComputeDag(callback ProofCreatedFunc) {
+
+	rootLabel, err := p.computeDagInMemory(shared.RootIdentifier)
+
 	if err != nil {
 		callback(Label{}, err)
 	}
+
 	println("Map size: ", len(p.m))
 	callback(rootLabel, nil)
 }
 
 // Compute Dag with a root
-func (p *SMProver) computeDag(rootId Identifier) (Label, error) {
+func (p *SMProver) computeDagInMemory(rootId Identifier) (Label, error) {
+
+	//println("computeDag: " + rootId)
 
 	leftNodeId := rootId + "0"
 	rightNodId := rootId + "1"
@@ -71,12 +81,12 @@ func (p *SMProver) computeDag(rootId Identifier) (Label, error) {
 
 	} else { // children are internal dag nodes
 
-		leftNodeLabel, err = p.computeDag(leftNodeId)
+		leftNodeLabel, err = p.computeDagInMemory(leftNodeId)
 		if err != nil {
 			return Label{}, err
 		}
 
-		rightNodeLabel, err = p.computeDag(rightNodId)
+		rightNodeLabel, err = p.computeDagInMemory(rightNodId)
 		if err != nil {
 			return Label{}, err
 		}
