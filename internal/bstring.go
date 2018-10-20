@@ -3,7 +3,6 @@ package internal
 import (
 	"crypto/rand"
 	"errors"
-	"github.com/spacemeshos/poet-ref/shared"
 	"math"
 	"math/big"
 	"math/bits"
@@ -11,9 +10,8 @@ import (
 )
 
 type SMBinaryStringFactory struct{}
-type BinaryString = shared.BinaryString
 
-func NewSMBinaryStringFactory() shared.BinaryStringFactory {
+func NewSMBinaryStringFactory() BinaryStringFactory {
 	return &SMBinaryStringFactory{}
 }
 
@@ -27,7 +25,7 @@ type SMBinaryString struct {
 // Returns an error if s is not a valid binary string, e.g. it contains chars
 // other then 0 or 1
 // Any leading 0s will be included in the result
-func (f *SMBinaryStringFactory) NewBinaryString(s string) (shared.BinaryString, error) {
+func (f *SMBinaryStringFactory) NewBinaryString(s string) (BinaryString, error) {
 
 	v, err := strconv.ParseUint(s, 2, 64)
 	if err != nil {
