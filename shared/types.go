@@ -7,6 +7,7 @@ const (
 )
 
 type HashFunc interface {
+	// Hash takes arbitrary binary data and returns WB bytes
 	Hash(data []byte) [WB]byte
 }
 
