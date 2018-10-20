@@ -79,15 +79,24 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 			return false
 		}
 
+		//
 		// question to research: shouldn't we validate that the leaf label
 		// value is what provided by prover?
-
+		//
+		
 		// compute the challenge leaf node label (his parents are all the siblings
 		// and make sure it matches the label provided by the prover
 		data := []byte(leafNodeId.GetStringValue())
 		for _, siblingId := range siblingIds {
+
 			id := siblingId.GetStringValue()
-			data = append(data, m[id][:]...)
+
+			if val, ok := m[id]; ok {
+				data = append(data, val[:]...)
+			} else {
+				// unexpected error - all siblings should be in the memory map
+				return false
+			}
 		}
 
 		computedLeafLabelVal := s.h.Hash(data)
