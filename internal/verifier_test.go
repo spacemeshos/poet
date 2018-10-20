@@ -10,7 +10,7 @@ func TestNipChallenge(t *testing.T) {
 
 	const x = "this is a commitment"
 	const phi = "this is a test root label"
-	const n = 63
+	const n = 11
 
 	v, err := NewVerifier([]byte(x), n)
 	assert.NoError(t, err)

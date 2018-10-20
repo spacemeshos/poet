@@ -5,7 +5,7 @@ import (
 	"github.com/spacemeshos/poet-ref/shared"
 )
 
-// A simple poet prover
+// A simple POET prover
 
 type IProver interface {
 	CreateProof(callback ProofCreatedFunc)
@@ -19,9 +19,8 @@ type SMProver struct {
 	x []byte   // commitment
 	n uint     // n param 1 <= n <= 63
 	h HashFunc // Hx()
-	m map[Identifier]shared.Label // label storage - in memory for now
+	m map[Identifier]shared.Label // label store - in memory for now
 	f BinaryStringFactory
-
 }
 
 // Create a new prover with commitment X and param 1 <= n <= 63
@@ -43,7 +42,9 @@ func NewProver(x []byte, n uint) (IProver, error) {
 }
 
 func (p* SMProver) CreateProof(callback ProofCreatedFunc) {
-	rootLabel, err := p.ComputeDag(Identifier(""))
+
+	rootLabel, err := p.computeDag(shared.RootIdentifier)
+
 	if err != nil {
 		callback(Label{}, err)
 	}
@@ -52,18 +53,18 @@ func (p* SMProver) CreateProof(callback ProofCreatedFunc) {
 }
 
 // Compute Dag with a root
-func (p* SMProver) ComputeDag(rootId Identifier) (Label, error) {
+func (p* SMProver) computeDag(rootId Identifier) (Label, error) {
 
 	leftNodeId := rootId + "0"
 	rightNodId := rootId + "1"
 
-	height := uint(len(rootId)) + 1
+	childrenHeight := uint(len(rootId)) + 1
 	var leftNodeLabel, rightNodeLabel Label
 	var err error
 
-	if height == p.n {
-		// we are at a leaf
-		leftNodeLabel, err = p.computeLeafLabel(leftNodeId)
+	if childrenHeight == p.n { // children are leaves
+
+	leftNodeLabel, err = p.computeLeafLabel(leftNodeId)
 		if err != nil {
 			return Label{}, err
 		}
@@ -71,22 +72,24 @@ func (p* SMProver) ComputeDag(rootId Identifier) (Label, error) {
 		if err != nil {
 			return Label{}, err
 		}
-	}
+	} else { // children are internal dag nodes
 
-	leftNodeLabel, err = p.ComputeDag(leftNodeId)
-	if err != nil {
-		return Label{}, err
-	}
-	rightNodeLabel, err = p.ComputeDag(rightNodId)
-	if err != nil {
-		return Label{}, err
-	}
+		leftNodeLabel, err = p.computeDag(leftNodeId)
+		if err != nil {
+			return Label{}, err
+		}
 
-	// compute root label, store it and return it
+		rightNodeLabel, err = p.computeDag(rightNodId)
+		if err != nil {
+			return Label{}, err
+		}
+	}
 
 	// pack data to hash - hx(rootId, leftSibLabel, rightSibLabel)
 	labelData := append([]byte(rootId), leftNodeLabel[:]...)
 	labelData = append(labelData, rightNodeLabel[:]...)
+
+	// compute root label, store and return it
 	labelValue := p.h.Hash(labelData)
 	p.m[rootId] = labelValue
 	return labelValue, nil
