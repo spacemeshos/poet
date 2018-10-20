@@ -5,6 +5,25 @@ import (
 	"testing"
 )
 
+func TestBTSiblings(t *testing.T) {
+
+	const d = "00010001011010010001100111000010010101101111111111101110000110"
+	f := NewSMBinaryStringFactory()
+	b, err := f.NewBinaryString(d)
+	assert.NoError(t, err)
+
+	siblings, err := b.GetBNSiblings()
+	assert.NoError(t, err)
+
+	// we have this nice invariant regarding the # of siblings
+	// related to the height of b (and the # of bits in its id)
+	assert.Equal(t, len(d), len(siblings))
+
+	for _, s := range siblings {
+		println(s.GetStringValue())
+	}
+}
+
 func TestBinaryString(t *testing.T) {
 
 	const d = "00010001011010010001100111000010010101101111111111101110000110"

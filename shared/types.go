@@ -1,21 +1,25 @@
 package shared
 
 // An immutable variable length binary string with possible leading 0s
-// e.g.
 type BinaryString interface {
 
-	// Get string representation. e.g. "00011"
+	// Gets string representation. e.g. "00011"
 	GetStringValue() string
 
-	// Get the binary value encoded in the string. e.g. 12
+	// Gets the binary value encoded in the string. e.g. 12
 	GetValue() uint64
 
-	// return number of digits including leading 0s if any
+	// Returns number of digits including leading 0s if any
 	GetDigitsCount() uint
 
+	// Returns a new BinaryString with the LSB truncated. e.g. "0110" -> "011"
 	TruncateLSB() (BinaryString, error)
 
+	// Returns a new BinaryString with the LSB flipped. e.g. "0110" -> "0111"
 	FlipLSB() (BinaryString, error)
+
+	// Returns the siblings on the path from a node identified by the binary string to the root in a full binary tree
+	GetBNSiblings() ([]BinaryString, error)
 }
 
 type BinaryStringFactory interface {

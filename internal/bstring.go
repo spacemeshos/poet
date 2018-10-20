@@ -11,6 +11,7 @@ import (
 )
 
 type SMBinaryStringFactory struct{}
+type BinaryString = shared.BinaryString
 
 func NewSMBinaryStringFactory() shared.BinaryStringFactory {
 	return &SMBinaryStringFactory{}
@@ -44,7 +45,7 @@ func (f *SMBinaryStringFactory) NewBinaryString(s string) (shared.BinaryString, 
 
 // Create a new random d digits long BinaryString. e.g for digits = 4 "0110"
 // d <= 63
-func (f *SMBinaryStringFactory) NewRandomBinaryString(d uint) (shared.BinaryString, error) {
+func (f *SMBinaryStringFactory) NewRandomBinaryString(d uint) (BinaryString, error) {
 
 	if d > 63 {
 		return nil, errors.New("unsupported # of digits. must be less or equals to 64")
@@ -67,7 +68,7 @@ func (f *SMBinaryStringFactory) NewRandomBinaryString(d uint) (shared.BinaryStri
 
 
 // digits must be at least as large to represent v
-func (f *SMBinaryStringFactory) NewBinaryStringFromInt(v uint64, d uint) (shared.BinaryString, error) {
+func (f *SMBinaryStringFactory) NewBinaryStringFromInt(v uint64, d uint) (BinaryString, error) {
 
 	l := uint(bits.Len64(v))
 	if l > d {
@@ -83,18 +84,63 @@ func (f *SMBinaryStringFactory) NewBinaryStringFromInt(v uint64, d uint) (shared
 	return res, nil
 }
 
+// returns list of siblings on the path from s the root assuming s is a node identifier in a full binary tree
+func (s *SMBinaryString) GetBNSiblings() ([]BinaryString, error) {
+
+	// slice of siblings
+	res := []BinaryString{}
+
+	// current node pointer
+	var nodeId BinaryString
+
+	// initial value
+	nodeId = s
+
+	for {
+
+		// append node's sibling to result
+		siblingNode, err :=  nodeId.FlipLSB()
+		if err != nil {
+			return nil, err
+		}
+		res = append(res, siblingNode)
+
+		// println("Adding sibling: ", siblingNode.GetStringValue())
+
+		// continue with the node's parent node
+		nodeId, err = nodeId.TruncateLSB()
+
+		if err != nil {
+			return nil, err
+		}
+
+		if len(nodeId.GetStringValue()) == 0 {
+			break
+		}
+
+	}
+
+	return res, nil
+}
+
+
 // Returns a new BinaryString with the LSB truncated. e.g. "0010" => "001"
-func (s *SMBinaryString) TruncateLSB() (shared.BinaryString, error) {
+func (s *SMBinaryString) TruncateLSB() (BinaryString, error) {
 	return s.f.NewBinaryStringFromInt(s.v >> 1, s.d - 1)
 }
 
 // Flip LSB. e.g. "0010" => "0011"
-func (s *SMBinaryString) FlipLSB() (shared.BinaryString, error) {
+func (s *SMBinaryString) FlipLSB() (BinaryString, error) {
 	return s.f.NewBinaryStringFromInt(s.v ^ 1, s.d)
 }
 
 // Get string representation. e.g. "00011"
 func (s *SMBinaryString) GetStringValue() string {
+
+	if (s.d == 0) {
+		// special case - empty binary string:
+		return ""
+	}
 
 	// binary string encoding of s.v without any leading 0s
 	res := strconv.FormatUint(s.v, 2)
