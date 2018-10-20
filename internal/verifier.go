@@ -32,12 +32,12 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 	// iterate over each identifier in the challenge and verify the proof for it
 	for idx, id := range c.Data {
 
-		bs, err := f.NewBinaryString(string(id))
+		leafNodeId, err := f.NewBinaryString(string(id))
 		if err != nil {
 			return false
 		}
 
-		siblingIds, err := bs.GetBNSiblings()
+		siblingIds, err := leafNodeId.GetBNSiblings()
 		if err != nil {
 			return false
 		}
@@ -76,6 +76,24 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 
 		// labelValue should be equal to the root label provided by the proof
 		if bytes.Compare(labelValue[:], p.Phi[:]) != 0 {
+			return false
+		}
+
+		// question to research: shouldn't we validate that the leaf label
+		// value is what provided by prover?
+
+		// compute the challenge leaf node label (his parents are all the siblings
+		// and make sure it matches the label provided by the prover
+		data := []byte(leafNodeId.GetStringValue())
+		for _, siblingId := range siblingIds {
+			id := siblingId.GetStringValue()
+			data = append(data, m[id][:]...)
+		}
+
+		computedLeafLabelVal := s.h.Hash(data)
+		providedLeafLabel := p.L[idx][0]
+
+		if bytes.Compare(computedLeafLabelVal[:], providedLeafLabel[:]) != 0 {
 			return false
 		}
 	}
