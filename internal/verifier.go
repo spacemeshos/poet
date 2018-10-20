@@ -29,6 +29,8 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 	f := NewSMBinaryStringFactory()
 
 	for idx, id := range c.Data {
+
+		// go over each identifier in the challenge
 		println(idx,id)
 
 		bs, err := f.NewBinaryString(string(id))
@@ -41,28 +43,42 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 			return false
 		}
 
-		for _, siblingId := range siblingIds {
+		// a slice of all labels included in proof
+		proofLabels := p.L[idx][:]
 
-			key := siblingId.GetStringValue()
-			var label shared.Label
+		// first label in the list if the leaf (node id) label - read it and remove it from the slice
+		// we use labelValue as the label of the node on the path from the leaf to the root, including both leaf and root
+		labelValue, proofLabels := proofLabels[0], proofLabels[1:]
+
+		for _, siblingId := range siblingIds { // siblings ids up the path from the leaf to the root
+
+			sibId := siblingId.GetStringValue()
+			var sibValue shared.Label
 			var ok bool
-
-			if label, ok = m[key]; ok {
-
-				// label not in cache
-				//m[key] = ..
-			} else {
-				label = p.L[idx][0]
-				// label in cache
+			if sibValue, ok = m[sibId]; !ok { // label is not the k/v mem store - read it from the proof and store it in the k/v store
+				// take label from the head of the slice and remove it from the slice
+				sibValue, proofLabels = proofLabels[0], proofLabels[1:]
+				m[sibId] = sibValue
 			}
-			
+
+			// calculate next node up the path label based on the sibling's label and current node on path value
+			parentNodeId, err := siblingId.TruncateLSB()
+			if err != nil {
+				return false
+			}
+
+			// compute data to hash
+			labelData := append([]byte(parentNodeId.GetStringValue()), sibValue[:]...)
+			labelData = append(labelData, labelValue[:]...)
+
+			// hx(siblingPartentNodeId, siblingLabel, currentNodeOnPathValue)
+			labelValue = s.h.Hash(labelData)
 		}
 
-		// list of siblings in proof
-		// labels := p.L[i]
-
-		// todo: create list of sibling ids on the path from id to the root
-
+		// labelValue should be equal to the rootLabel value provided by the proof
+		if bytes.Compare(labelValue[:], p.Phi[:]) != 0 {
+			return false
+		}
 	}
 	return true
 }
