@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"github.com/spacemeshos/poet-ref/shared"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -22,7 +23,7 @@ func TestProtocol(t *testing.T) {
 	p, err := NewProver([]byte(x), n)
 	assert.NoError(t, err)
 
-	p.ComputeDag(func(phi Label, err error) {
+	p.ComputeDag(func(phi shared.Label, err error) {
 		fmt.Printf("Root label: %x\n", phi)
 		assert.NoError(t, err)
 
