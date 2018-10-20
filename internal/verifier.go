@@ -26,7 +26,7 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 
 	// We use k,v memory storage to store label values for identifiers
 	// as they are unique in p
-	m := make(map[string][shared.WB]byte)
+	m := make(map[string]shared.Label)
 	f := NewSMBinaryStringFactory()
 
 	// iterate over each identifier in the challenge and verify the proof for it
@@ -37,7 +37,7 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 			return false
 		}
 
-		siblingIds, err := leafNodeId.GetBNSiblings()
+		siblingIds, err := leafNodeId.GetBNSiblings(false)
 		if err != nil {
 			return false
 		}
@@ -83,13 +83,19 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 		// question to research: shouldn't we validate that the leaf label
 		// value is what provided by prover?
 		//
-		
+
 		// compute the challenge leaf node label (his parents are all the siblings
 		// and make sure it matches the label provided by the prover
 		data := []byte(leafNodeId.GetStringValue())
 		for _, siblingId := range siblingIds {
 
 			id := siblingId.GetStringValue()
+
+			if id[len(id) - 1] != '0' {
+				// only left siblings - siblings with an identifier that ends with 0 are parents of the leaf
+				// so we ignore right siblings on the path to the root
+				continue
+			}
 
 			if val, ok := m[id]; ok {
 				data = append(data, val[:]...)
@@ -106,6 +112,7 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 			return false
 		}
 	}
+
 	return true
 }
 

@@ -19,7 +19,7 @@ type BinaryString interface {
 	FlipLSB() (BinaryString, error)
 
 	// Returns the siblings on the path from a node identified by the binary string to the root in a full binary tree
-	GetBNSiblings() ([]BinaryString, error)
+	GetBNSiblings(leftOnly bool) ([]BinaryString, error)
 }
 
 type BinaryStringFactory interface {

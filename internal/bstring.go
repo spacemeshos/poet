@@ -85,7 +85,7 @@ func (f *SMBinaryStringFactory) NewBinaryStringFromInt(v uint64, d uint) (Binary
 }
 
 // returns list of siblings on the path from s the root assuming s is a node identifier in a full binary tree
-func (s *SMBinaryString) GetBNSiblings() ([]BinaryString, error) {
+func (s *SMBinaryString) GetBNSiblings(leftOnly bool) ([]BinaryString, error) {
 
 	// slice of siblings
 	res := []BinaryString{}
@@ -103,7 +103,12 @@ func (s *SMBinaryString) GetBNSiblings() ([]BinaryString, error) {
 		if err != nil {
 			return nil, err
 		}
-		res = append(res, siblingNode)
+
+		if !leftOnly || siblingNode.GetValue() % 2 == 0 {
+			// we add to results if caller didn't request leftOnly
+			// or she did and the sibling is a left sibling (LSB == '0')
+			res = append(res, siblingNode)
+		}
 
 		// println("Adding sibling: ", siblingNode.GetStringValue())
 

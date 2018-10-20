@@ -12,7 +12,7 @@ func TestBTSiblingsBasic(t *testing.T) {
 	b, err := f.NewBinaryString(d)
 	assert.NoError(t, err)
 
-	siblings, err := b.GetBNSiblings()
+	siblings, err := b.GetBNSiblings(false)
 	assert.NoError(t, err)
 
 	// we have this nice invariant regarding the # of siblings
@@ -33,7 +33,7 @@ func TestBTSiblings(t *testing.T) {
 	b, err := f.NewBinaryString(d)
 	assert.NoError(t, err)
 
-	siblings, err := b.GetBNSiblings()
+	siblings, err := b.GetBNSiblings(false)
 	assert.NoError(t, err)
 
 	// we have this nice invariant regarding the # of siblings
@@ -44,6 +44,29 @@ func TestBTSiblings(t *testing.T) {
 		assert.Equal(t, expectedResults[idx], s.GetStringValue())
 	}
 }
+
+func TestBTLeftSiblings(t *testing.T) {
+
+	const d = "0101"
+	var expectedResults = [2]string{"0100", "00"}
+
+	f := NewSMBinaryStringFactory()
+	b, err := f.NewBinaryString(d)
+	assert.NoError(t, err)
+
+	siblings, err := b.GetBNSiblings(true)
+	assert.NoError(t, err)
+
+	// we have this nice invariant regarding the # of siblings
+	// related to the height of b (and the # of bits in its id)
+	assert.Equal(t, len(expectedResults), len(siblings))
+
+	for idx, s := range siblings {
+		println(s.GetStringValue())
+		assert.Equal(t, expectedResults[idx], s.GetStringValue())
+	}
+}
+
 
 func TestBinaryString(t *testing.T) {
 
