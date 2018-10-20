@@ -51,10 +51,13 @@ func (f *SMBinaryStringFactory) NewRandomBinaryString(d uint) (BinaryString, err
 
 	// generate a random number with d digits
 
-	max := uint64(math.Exp2(float64(d)))
+	// compute 2^d
+	max := uint64(math.Pow(2, float64(d)))
+	//max := uint64(math.Exp2(float64(d)))
+
 	maxBig := new(big.Int).SetUint64(max)
 
-	// maxNum with d digits is 2^d - 1. The following returns 0 <= nBig <= maxNum
+	// max int with d digits is 2^d - 1. The following returns rnd in range [0...2^d-1]
 	rndBig, err := rand.Int(rand.Reader, maxBig)
 	if err != nil {
 		return nil, err

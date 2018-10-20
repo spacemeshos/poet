@@ -1,23 +1,61 @@
 package main
 
 import (
-	"github.com/minio/sha256-simd" // simd optimized sha256 computation
-	//"crypto/sha256" // use the go crypto lib for comparison
 	"bytes"
 	"fmt"
+	"github.com/minio/sha256-simd"
+	"github.com/spacemeshos/poet-ref/internal"
+	"github.com/spacemeshos/poet-ref/shared"
 	"math"
 	"runtime"
 	"time"
 )
 
 func main() {
-
 	runtime.GOMAXPROCS(runtime.NumCPU())
+	// BenchmarkSha256()
+	Playground()
+}
 
+func Playground() {
+
+	const x = "this is a commitment"
+	const phi = "this is a test root label"
+	const n = 63
+
+	v, err := internal.NewVerifier([]byte(x), n)
+	if err != nil {
+		println(err)
+		return
+	}
+
+	c, err := v.CreteNipChallenge([]byte(phi))
+	if err != nil {
+		println(err)
+		return
+	}
+
+	if len(c.Data) != shared.T  {
+		println ("Expected t identifiers in challenge")
+		return
+	}
+
+	println("Printing NIP challenge...")
+	for idx, id := range c.Data {
+		if len(id) != n {
+			println("Unexpected identifier width")
+			return
+		}
+
+		println(idx, id)
+	}
+}
+
+func BenchmarkSha256() {
 	buff := bytes.Buffer{}
 	buff.Write([]byte("Seed data goes here"))
 	out := [32]byte{}
-	n := uint64(math.Pow(10, 9))
+	n := uint64(math.Pow(10, 8))
 
 	fmt.Printf("Computing %d serial sha-256s...\n", n)
 
