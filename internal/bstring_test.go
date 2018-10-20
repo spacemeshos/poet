@@ -57,8 +57,6 @@ func TestBTLeftSiblings(t *testing.T) {
 	siblings, err := b.GetBNSiblings(true)
 	assert.NoError(t, err)
 
-	// we have this nice invariant regarding the # of siblings
-	// related to the height of b (and the # of bits in its id)
 	assert.Equal(t, len(expectedResults), len(siblings))
 
 	for idx, s := range siblings {

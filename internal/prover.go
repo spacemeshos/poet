@@ -6,17 +6,18 @@ import (
 )
 
 // A simple poet prover
-// For now - Holds a DAG in RAM - useful for generating proofs for small values of n
+
+type ProofDoneCallback func(phi shared.Label, err error) ()
 
 type IProver interface {
-
+	Start(callback ProofDoneCallback)
 }
 
 type SMProver struct {
 	x []byte   // commitment
 	n uint     // n param 1 <= n <= 63
 	h HashFunc // Hx()
-	m map[string]shared.Label // label storage
+	m map[string]shared.Label // label storage - in memory for now
 }
 
 // Create a new verifier for commitment X and param n
@@ -38,6 +39,7 @@ func NewProver(x []byte, n uint) (IProver, error) {
 
 
 /*
+ALGO
 Compute the labels of the left subtree (tree with root l0)
 Keep the label of l0 in memory and discard all other computed labels from memory
 Compute the labels of the right subtree (tree with root l1) - using l0
@@ -48,6 +50,6 @@ Note that this works because only l0 is needed for computing labels in the tree 
 Note that the reference Python code does not construct the DAG in this manner and keeps the whole DAG in memory. Please use the Python code as an example for simpler constructions such as binary strings, open and verify.
 */
 
-func BuildDag(height uint) (shared.Label) {
-	return shared.Label{}
+func (p* SMProver) Start(callback ProofDoneCallback) {
+
 }
