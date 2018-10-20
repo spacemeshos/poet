@@ -25,7 +25,6 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 	// as they are unique in p
 
 	m := make(map[string][shared.WB]byte)
-
 	f := NewSMBinaryStringFactory()
 
 	for idx, id := range c.Data {
@@ -61,13 +60,13 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 				m[sibId] = sibValue
 			}
 
-			// calculate next node up the path label based on the sibling's label and current node on path value
+			// calculate the label of the next node up the path to root, based on its parent nodes labels
 			parentNodeId, err := siblingId.TruncateLSB()
 			if err != nil {
 				return false
 			}
 
-			// compute data to hash
+			// pack data to hash
 			labelData := append([]byte(parentNodeId.GetStringValue()), sibValue[:]...)
 			labelData = append(labelData, labelValue[:]...)
 
@@ -75,7 +74,7 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 			labelValue = s.h.Hash(labelData)
 		}
 
-		// labelValue should be equal to the rootLabel value provided by the proof
+		// labelValue should be equal to the root label provided by the proof
 		if bytes.Compare(labelValue[:], p.Phi[:]) != 0 {
 			return false
 		}
