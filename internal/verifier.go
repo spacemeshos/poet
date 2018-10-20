@@ -3,6 +3,7 @@ package internal
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"github.com/spacemeshos/poet-ref/shared"
 	"math/big"
 )
@@ -152,10 +153,17 @@ func (s *SMVerifier) CreteRndChallenge() (Challenge, error) {
 }
 
 // Create a new verifier for commitment X and param n
-func NewVerifier(x []byte, n uint) IVerifier {
-	return &SMVerifier{
+func NewVerifier(x []byte, n uint) (IVerifier, error) {
+
+	if n < 1 || n > 63 {
+		return nil, errors.New("n must be in range [1, 63]")
+	}
+
+	res := &SMVerifier{
 		x: x,
 		n: n,
 		h: shared.NewHashFunc(x),
 	}
+
+	return res, nil
 }
