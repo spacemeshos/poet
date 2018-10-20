@@ -23,10 +23,40 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 
 	// We use k,v memory storage to store label values for identifiers
 	// as they are unique in p
-	// m := make(map[string]string)
 
-	for i, id := range c.Data {
-		println(i,id)
+	m := make(map[string][shared.WB]byte)
+
+	f := NewSMBinaryStringFactory()
+
+	for idx, id := range c.Data {
+		println(idx,id)
+
+		bs, err := f.NewBinaryString(string(id))
+		if err != nil {
+			return false
+		}
+
+		siblingIds, err := bs.GetBNSiblings()
+		if err != nil {
+			return false
+		}
+
+		for _, siblingId := range siblingIds {
+
+			key := siblingId.GetStringValue()
+			var label shared.Label
+			var ok bool
+
+			if label, ok = m[key]; ok {
+
+				// label not in cache
+				//m[key] = ..
+			} else {
+				label = p.L[idx][0]
+				// label in cache
+			}
+			
+		}
 
 		// list of siblings in proof
 		// labels := p.L[i]
