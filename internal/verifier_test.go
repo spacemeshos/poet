@@ -38,4 +38,3 @@ func TestRndChallenge(t *testing.T) {
 		println(id)
 	}
 }
-

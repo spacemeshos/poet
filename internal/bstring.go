@@ -66,7 +66,6 @@ func (f *SMBinaryStringFactory) NewRandomBinaryString(d uint) (BinaryString, err
 	return f.NewBinaryStringFromInt(v, d)
 }
 
-
 // digits must be at least as large to represent v
 func (f *SMBinaryStringFactory) NewBinaryStringFromInt(v uint64, d uint) (BinaryString, error) {
 
@@ -99,7 +98,7 @@ func (s *SMBinaryString) GetBNSiblings() ([]BinaryString, error) {
 	for {
 
 		// append node's sibling to result
-		siblingNode, err :=  nodeId.FlipLSB()
+		siblingNode, err := nodeId.FlipLSB()
 		if err != nil {
 			return nil, err
 		}
@@ -123,21 +122,20 @@ func (s *SMBinaryString) GetBNSiblings() ([]BinaryString, error) {
 	return res, nil
 }
 
-
 // Returns a new BinaryString with the LSB truncated. e.g. "0010" => "001"
 func (s *SMBinaryString) TruncateLSB() (BinaryString, error) {
-	return s.f.NewBinaryStringFromInt(s.v >> 1, s.d - 1)
+	return s.f.NewBinaryStringFromInt(s.v>>1, s.d-1)
 }
 
 // Flip LSB. e.g. "0010" => "0011"
 func (s *SMBinaryString) FlipLSB() (BinaryString, error) {
-	return s.f.NewBinaryStringFromInt(s.v ^ 1, s.d)
+	return s.f.NewBinaryStringFromInt(s.v^1, s.d)
 }
 
 // Get string representation. e.g. "00011"
 func (s *SMBinaryString) GetStringValue() string {
 
-	if (s.d == 0) {
+	if s.d == 0 {
 		// special case - empty binary string:
 		return ""
 	}

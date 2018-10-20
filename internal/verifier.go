@@ -14,9 +14,9 @@ type Identifier = shared.Identifier
 type HashFunc = shared.HashFunc
 
 type SMVerifier struct {
-	x []byte	// commitment
-	n uint		// n param 1 <= n <= 63
-	h HashFunc	// Hx()
+	x []byte   // commitment
+	n uint     // n param 1 <= n <= 63
+	h HashFunc // Hx()
 }
 
 func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
@@ -30,7 +30,7 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 	for idx, id := range c.Data {
 
 		// go over each identifier in the challenge
-		println(idx,id)
+		println(idx, id)
 
 		bs, err := f.NewBinaryString(string(id))
 		if err != nil {
@@ -119,7 +119,7 @@ func (s *SMVerifier) CreteNipChallenge(phi []byte) (Challenge, error) {
 		// take the first s.n bits from the 64 bits binary string
 		l := uint(len(str))
 		if l > s.n {
-			str = str[0 : s.n]
+			str = str[0:s.n]
 		}
 
 		data[i] = Identifier(str)
