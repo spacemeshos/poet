@@ -44,6 +44,7 @@ func (p *SMProver) CreateProof(callback ProofCreatedFunc) {
 	if err != nil {
 		callback(Label{}, err)
 	}
+	println("Map size: ", len(p.m))
 	callback(rootLabel, nil)
 }
 
@@ -67,7 +68,7 @@ func (p *SMProver) computeDag(rootId Identifier) (Label, error) {
 		if err != nil {
 			return Label{}, err
 		}
-		
+
 	} else { // children are internal dag nodes
 
 		leftNodeLabel, err = p.computeDag(leftNodeId)
