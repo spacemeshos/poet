@@ -6,13 +6,11 @@ import (
 )
 
 // A simple POET prover
-
 type IProver interface {
 	CreateProof(callback ProofCreatedFunc)
 }
 
 type ProofCreatedFunc func(phi Label, err error)
-
 type Label shared.Label
 
 type SMProver struct {
@@ -42,13 +40,10 @@ func NewProver(x []byte, n uint) (IProver, error) {
 }
 
 func (p *SMProver) CreateProof(callback ProofCreatedFunc) {
-
 	rootLabel, err := p.computeDag(shared.RootIdentifier)
-
 	if err != nil {
 		callback(Label{}, err)
 	}
-
 	callback(rootLabel, nil)
 }
 
@@ -72,6 +67,7 @@ func (p *SMProver) computeDag(rootId Identifier) (Label, error) {
 		if err != nil {
 			return Label{}, err
 		}
+		
 	} else { // children are internal dag nodes
 
 		leftNodeLabel, err = p.computeDag(leftNodeId)
