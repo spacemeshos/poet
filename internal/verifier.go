@@ -20,18 +20,17 @@ type SMVerifier struct {
 	h HashFunc // Hx()
 }
 
+// Verify proof p for challenge c.
+// Returns true iff the proof is verified, false otherwise
 func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 
 	// We use k,v memory storage to store label values for identifiers
 	// as they are unique in p
-
 	m := make(map[string][shared.WB]byte)
 	f := NewSMBinaryStringFactory()
 
+	// iterate over each identifier in the challenge and verify the proof for it
 	for idx, id := range c.Data {
-
-		// go over each identifier in the challenge
-		println(idx, id)
 
 		bs, err := f.NewBinaryString(string(id))
 		if err != nil {
@@ -83,14 +82,11 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 	return true
 }
 
+// γ := (Hx(φ,1),...Hx(φ,t))
 func (s *SMVerifier) CreteNipChallenge(phi []byte) (Challenge, error) {
 
-	// γ := (Hx(φ,1),...Hx(φ,t))
-
 	var data [shared.T]Identifier
-
 	buf := new(bytes.Buffer)
-
 	f := NewSMBinaryStringFactory()
 
 	for i := 0; i < shared.T; i++ {
@@ -134,21 +130,17 @@ func (s *SMVerifier) CreteNipChallenge(phi []byte) (Challenge, error) {
 func (s *SMVerifier) CreteRndChallenge() (Challenge, error) {
 
 	var data [shared.T]Identifier
-
 	f := NewSMBinaryStringFactory()
 
 	for i := 0; i < shared.T; i++ {
 		b, err := f.NewRandomBinaryString(s.n)
-
 		if err != nil {
 			return Challenge{}, err
 		}
-
 		data[i] = Identifier(b.GetStringValue())
 	}
 
 	c := Challenge{Data: data}
-
 	return c, nil
 }
 
