@@ -11,14 +11,17 @@ type IProver interface {
 	CreateProof(callback ProofCreatedFunc)
 }
 
-type ProofCreatedFunc func(phi shared.Label, err error) ()
+type ProofCreatedFunc func(phi Label, err error) ()
 
+type Label shared.Label
 
 type SMProver struct {
 	x []byte   // commitment
 	n uint     // n param 1 <= n <= 63
 	h HashFunc // Hx()
-	m map[string]shared.Label // label storage - in memory for now
+	m map[Identifier]shared.Label // label storage - in memory for now
+	f BinaryStringFactory
+
 }
 
 // Create a new prover with commitment X and param 1 <= n <= 63
@@ -32,24 +35,90 @@ func NewProver(x []byte, n uint) (IProver, error) {
 		x: x,
 		n: n,
 		h: shared.NewHashFunc(x),
-		m: make(map[string]shared.Label),
+		m: make(map[Identifier]shared.Label),
+		f: NewSMBinaryStringFactory(),
 	}
 
 	return res, nil
 }
 
-/*
-ALGO
-Compute the labels of the left subtree (tree with root l0)
-Keep the label of l0 in memory and discard all other computed labels from memory
-Compute the labels of the right subtree (tree with root l1) - using l0
-Once l1 is computed, discard all other computed labels from memory and keep l1
-Compute the root label le = Hx("", l0, l1)
-When a label value is computed by the algorithm, store it in persistent storage if the label's height <= m.
-Note that this works because only l0 is needed for computing labels in the tree rooted in l1. All of the additional edges to nodes in the tree rooted at l1 start at l0.
-Note that the reference Python code does not construct the DAG in this manner and keeps the whole DAG in memory. Please use the Python code as an example for simpler constructions such as binary strings, open and verify.
-*/
-
 func (p* SMProver) CreateProof(callback ProofCreatedFunc) {
+	rootLabel, err := p.ComputeDag(Identifier(""))
+	if err != nil {
+		callback(Label{}, err)
+	}
 
+	callback(rootLabel, nil)
+}
+
+// Compute Dag with a root
+func (p* SMProver) ComputeDag(rootId Identifier) (Label, error) {
+
+	leftNodeId := rootId + "0"
+	rightNodId := rootId + "1"
+
+	height := uint(len(rootId)) + 1
+	var leftNodeLabel, rightNodeLabel Label
+	var err error
+
+	if height == p.n {
+		// we are at a leaf
+		leftNodeLabel, err = p.computeLeafLabel(leftNodeId)
+		if err != nil {
+			return Label{}, err
+		}
+		rightNodeLabel, err = p.computeLeafLabel(rightNodId)
+		if err != nil {
+			return Label{}, err
+		}
+	}
+
+	leftNodeLabel, err = p.ComputeDag(leftNodeId)
+	if err != nil {
+		return Label{}, err
+	}
+	rightNodeLabel, err = p.ComputeDag(rightNodId)
+	if err != nil {
+		return Label{}, err
+	}
+
+	// compute root label, store it and return it
+
+	// pack data to hash - hx(rootId, leftSibLabel, rightSibLabel)
+	labelData := append([]byte(rootId), leftNodeLabel[:]...)
+	labelData = append(labelData, rightNodeLabel[:]...)
+	labelValue := p.h.Hash(labelData)
+	p.m[rootId] = labelValue
+	return labelValue, nil
+}
+
+// Given a leaf node with id leafId - return the value of its label
+// Pre-condition: all parent label values have been computed and are available for the implementation
+func (p* SMProver) computeLeafLabel(leafId Identifier) (Label, error) {
+
+	bs, err := p.f.NewBinaryString(string(leafId))
+	if err != nil {
+		return Label{}, err
+	}
+
+	// generate packed data to hash
+	data := []byte(leafId)
+
+	parentIds, err := bs.GetBNSiblings(true)
+	if err != nil {
+		return Label{}, err
+	}
+
+	for _, parentId := range parentIds {
+		parentValue := p.m[Identifier(parentId.GetStringValue())]
+		data = append(data, parentValue[:]...)
+	}
+
+	// note that the leftmost leaf has no parents in the dag
+	label := p.h.Hash(data)
+
+	// store it
+	p.m[leafId] = label
+
+	return label, nil
 }
