@@ -7,11 +7,12 @@ import (
 
 // A simple poet prover
 
-type ProofDoneCallback func(phi shared.Label, err error) ()
-
 type IProver interface {
-	Start(callback ProofDoneCallback)
+	CreateProof(callback ProofCreatedFunc)
 }
+
+type ProofCreatedFunc func(phi shared.Label, err error) ()
+
 
 type SMProver struct {
 	x []byte   // commitment
@@ -20,7 +21,7 @@ type SMProver struct {
 	m map[string]shared.Label // label storage - in memory for now
 }
 
-// Create a new verifier for commitment X and param n
+// Create a new prover with commitment X and param 1 <= n <= 63
 func NewProver(x []byte, n uint) (IProver, error) {
 
 	if n < 1 || n > 63 {
@@ -37,7 +38,6 @@ func NewProver(x []byte, n uint) (IProver, error) {
 	return res, nil
 }
 
-
 /*
 ALGO
 Compute the labels of the left subtree (tree with root l0)
@@ -50,6 +50,6 @@ Note that this works because only l0 is needed for computing labels in the tree 
 Note that the reference Python code does not construct the DAG in this manner and keeps the whole DAG in memory. Please use the Python code as an example for simpler constructions such as binary strings, open and verify.
 */
 
-func (p* SMProver) Start(callback ProofDoneCallback) {
+func (p* SMProver) CreateProof(callback ProofCreatedFunc) {
 
 }
