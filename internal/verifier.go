@@ -20,6 +20,19 @@ type SMVerifier struct {
 }
 
 func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
+
+	// need k,v memory storage to store label values for identifiers
+	// as they are unique in p
+
+	for i, id := range c.Data {
+		println(i,id)
+
+		// list of siblings in proof
+		// labels := p.L[i]
+
+		// todo: create list of sibling ids on the path from id to the root
+
+	}
 	return true
 }
 
@@ -37,7 +50,6 @@ func (s *SMVerifier) CreteNipChallenge(phi []byte) (Challenge, error) {
 		buf.Reset()
 		err := binary.Write(buf, binary.BigEndian, uint8(i))
 		if err != nil {
-			// return error here
 			return Challenge{}, err
 		}
 
@@ -48,17 +60,17 @@ func (s *SMVerifier) CreteNipChallenge(phi []byte) (Challenge, error) {
 		// Compute Hx(phi, i)
 		hash := s.h.Hash(d)
 
-		// we take the first 64 bits from the hash
+		// Take the first 64 bits from the hash
 		bg := new(big.Int).SetBytes(hash[0:8])
 
-		// Integer representation of the first 8 bytes
+		// Integer representation of the first 64 bits
 		v := bg.Uint64()
 
 		// encode v as a 64 bits binary string
 		bs, err := f.NewBinaryStringFromInt(v, 64)
 		str := bs.GetStringValue()
 
-		// take first s.n bits from the 64 bits binary string
+		// take the first s.n bits from the 64 bits binary string
 		l := uint(len(str))
 		if l > s.n {
 			str = str[0 : s.n]

@@ -10,10 +10,9 @@ func TestNipChallenge(t *testing.T) {
 
 	const x = "this is a commitment"
 	const phi = "this is a test root label"
-	const n = 45
+	const n = 63
 
 	v := NewVerifier([]byte(x), n)
-
 	c, err := v.CreteNipChallenge([]byte(phi))
 
 	assert.NoError(t, err)
@@ -27,9 +26,8 @@ func TestNipChallenge(t *testing.T) {
 
 func TestRndChallenge(t *testing.T) {
 	const x = "this is a commitment"
-	const n = 41
+	const n = 63
 	v := NewVerifier([]byte(x), n)
-
 	c, err := v.CreteRndChallenge()
 
 	assert.NoError(t, err)
