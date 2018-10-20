@@ -13,9 +13,9 @@ type BinaryString interface {
 	// return number of digits including leading 0s if any
 	GetDigitsCount() uint
 
-	TruncateLSB() BinaryString
+	TruncateLSB() (BinaryString, error)
 
-	FlipLSB() BinaryString
+	FlipLSB() (BinaryString, error)
 }
 
 type BinaryStringFactory interface {
@@ -47,7 +47,7 @@ type Challenge struct {
 	Data [T]Identifier
 }
 
-type IVerifier interface {
+type IBasicVerifier interface {
 
 	// Verify proof p for challenge c with verifier initialized with x and n
 	Verify(c Challenge, p Proof) bool

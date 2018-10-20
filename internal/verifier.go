@@ -9,7 +9,7 @@ import (
 
 type Challenge = shared.Challenge
 type Proof = shared.Proof
-type IVerifier = shared.IVerifier
+type IVerifier = shared.IBasicVerifier
 type Identifier = shared.Identifier
 type HashFunc = shared.HashFunc
 
@@ -21,8 +21,9 @@ type SMVerifier struct {
 
 func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 
-	// need k,v memory storage to store label values for identifiers
+	// We use k,v memory storage to store label values for identifiers
 	// as they are unique in p
+	// m := make(map[string]string)
 
 	for i, id := range c.Data {
 		println(i,id)

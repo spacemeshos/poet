@@ -16,6 +16,43 @@ func TestBinaryString(t *testing.T) {
 	assert.Equal(t, d, b.GetStringValue())
 }
 
+func TestFlipLSB(t *testing.T) {
+
+	const d = "101011100110000111110011101010101110111101000000001011110101110"
+	f := NewSMBinaryStringFactory()
+
+	b, err := f.NewBinaryString(d)
+	assert.NoError(t, err)
+
+	b1, err := b.FlipLSB()
+	assert.NoError(t, err)
+
+	s := b.GetStringValue()
+	s1 := b1.GetStringValue()
+	assert.NotEqual(t, s[len(s)-1], s1[len(s1)-1])
+}
+
+func TestTruncateLSB(t *testing.T) {
+
+	const d = "101011100110000111110011101010101110111101000000001011110101110"
+	f := NewSMBinaryStringFactory()
+
+	b, err := f.NewBinaryString(d)
+	assert.NoError(t, err)
+
+	b1, err := b.TruncateLSB()
+	assert.NoError(t, err)
+
+	s := b.GetStringValue()
+	s1 := b1.GetStringValue()
+	assert.Equal(t, len(s), len(s1)+1)
+
+	// reconstruct s by appending s[LSB] to s1 - the truncated string
+	s3 := s1 + s[len(s)-1:]
+	assert.Equal(t, s, s3)
+
+}
+
 func TestRandomBinaryString(t *testing.T) {
 	f := NewSMBinaryStringFactory()
 	for i := 0; i < 10000; i++ {

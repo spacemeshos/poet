@@ -83,17 +83,14 @@ func (f *SMBinaryStringFactory) NewBinaryStringFromInt(v uint64, d uint) (shared
 	return res, nil
 }
 
-// Returns a new BinaryString with the LSB truncared. e.g. "0010" => "001"
-func (s *SMBinaryString) TruncateLSB() shared.BinaryString {
-	res, _ := s.f.NewBinaryStringFromInt(s.v>>1, s.d-1)
-	return res
+// Returns a new BinaryString with the LSB truncated. e.g. "0010" => "001"
+func (s *SMBinaryString) TruncateLSB() (shared.BinaryString, error) {
+	return s.f.NewBinaryStringFromInt(s.v >> 1, s.d - 1)
 }
 
 // Flip LSB. e.g. "0010" => "0011"
-func (s *SMBinaryString) FlipLSB() shared.BinaryString {
-	v := s.v ^ 1
-	res, _ := s.f.NewBinaryStringFromInt(v, s.d)
-	return res
+func (s *SMBinaryString) FlipLSB() (shared.BinaryString, error) {
+	return s.f.NewBinaryStringFromInt(s.v ^ 1, s.d)
 }
 
 // Get string representation. e.g. "00011"
