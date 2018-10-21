@@ -17,10 +17,10 @@ PASS: TestProverBasic (1034.77s)
 
 func TestNip(t *testing.T) {
 
-	const x = "this is a commitment"
+	var x = []byte("this is a commitment")
 	const n = 13
 
-	p, err := NewProver([]byte(x), n)
+	p, err := NewProver(x, n)
 	assert.NoError(t, err)
 
 	p.ComputeDag(func(phi shared.Label, err error) {
@@ -30,7 +30,7 @@ func TestNip(t *testing.T) {
 		proof, err := p.GetNonInteractiveProof()
 		assert.NoError(t, err)
 
-		v, err := NewVerifier([]byte(x), n)
+		v, err := NewVerifier(x, n)
 		assert.NoError(t, err)
 
 		c, err := v.CreteNipChallenge(proof.Phi[:])
