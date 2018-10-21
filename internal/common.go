@@ -7,8 +7,12 @@ import (
 	"math/big"
 )
 
-// Shared logic between verifier and prover
+// Shared logic between reference verifier and prover
 
+// Both prover and verifier need to be able to create a nip challenge
+// phi - root label
+// h - Hx()
+// n - proof param
 func creteNipChallenge(phi []byte, h HashFunc, n uint) (Challenge, error) {
 
 	var data [shared.T]Identifier
