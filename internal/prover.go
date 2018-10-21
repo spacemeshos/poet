@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"encoding/hex"
 	"errors"
 	"github.com/spacemeshos/poet-ref/shared"
 )
@@ -31,6 +32,16 @@ func NewProver(x []byte, n uint) (shared.IProver, error) {
 	}
 
 	return res, nil
+}
+
+// for testing
+func (p *SMProver) GetLabel(id Identifier) (shared.Label, bool) {
+	l, ok := p.m[id]
+	return l, ok
+}
+
+func (p *SMProver) GetHashFunction() HashFunc {
+	return p.h
 }
 
 // generate proof and return it
@@ -112,7 +123,19 @@ func (p *SMProver) ComputeDag(callback shared.ProofCreatedFunc) {
 
 	p.phi = rootLabel
 	println("Map size: ", len(p.m))
+	p.printDag("")
 	callback(rootLabel, nil)
+}
+
+func (p* SMProver) printDag(rootId Identifier) {
+
+	if uint(len(rootId)) < p.n {
+		p.printDag(rootId + "0")
+		p.printDag(rootId + "1")
+	}
+
+	label := p.m[rootId]
+	println(rootId, hex.EncodeToString(label[:]))
 }
 
 // Compute Dag with a root

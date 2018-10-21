@@ -2,6 +2,7 @@ package internal
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"github.com/spacemeshos/poet-ref/shared"
 )
@@ -30,6 +31,8 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 	// iterate over each identifier in the challenge and verify the proof for it
 	for idx, id := range c.Data {
 
+		println("Verifying challenge:", idx, "Identifier:", id)
+
 		leafNodeId, err := f.NewBinaryString(string(id))
 		if err != nil {
 			return false
@@ -46,6 +49,8 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 		// first label in the list if the leaf (node id) label - read it and remove it from the slice
 		// we use labelValue as the label of the node on the path from the leaf to the root, including both leaf and root
 		labelValue, proofLabels := proofLabels[0], proofLabels[1:]
+
+		println(" leaf label: ", hex.EncodeToString(labelValue[:]))
 
 		for _, siblingId := range siblingIds { // siblings ids up the path from the leaf to the root
 
@@ -84,6 +89,7 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 
 		// compute the challenge leaf node label (his parents are all the siblings
 		// and make sure it matches the label provided by the prover
+
 		data := []byte(leafNodeId.GetStringValue())
 		for _, siblingId := range siblingIds {
 

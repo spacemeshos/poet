@@ -45,4 +45,8 @@ type IProver interface {
 	ComputeDag(callback ProofCreatedFunc)
 	GetProof(c Challenge) (Proof, error)
 	GetNonInteractiveProof() (Proof, error)
+
+	// for testing
+	GetLabel(id Identifier) (Label, bool)
+	GetHashFunction() HashFunc
 }

@@ -18,7 +18,7 @@ PASS: TestProverBasic (1034.77s)
 func TestNip(t *testing.T) {
 
 	var x = []byte("this is a commitment")
-	const n = 13
+	const n = 5
 
 	p, err := NewProver(x, n)
 	assert.NoError(t, err)
