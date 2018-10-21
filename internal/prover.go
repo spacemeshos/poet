@@ -5,14 +5,6 @@ import (
 	"github.com/spacemeshos/poet-ref/shared"
 )
 
-// A simple POET prover
-type IProver interface {
-	ComputeDag(callback ProofCreatedFunc)
-	GetProof(c Challenge) (Proof, error)
-	GetNonInteractiveProof() (Proof, error)
-}
-
-type ProofCreatedFunc func(phi shared.Label, err error)
 
 type SMProver struct {
 	x   []byte                      // commitment
@@ -24,7 +16,7 @@ type SMProver struct {
 }
 
 // Create a new prover with commitment X and param 1 <= n <= 63
-func NewProver(x []byte, n uint) (IProver, error) {
+func NewProver(x []byte, n uint) (shared.IProver, error) {
 
 	if n < 1 || n > 63 {
 		return nil, errors.New("n must be in range [1, 63]")
@@ -110,7 +102,7 @@ func (p *SMProver) GetNonInteractiveProof() (Proof, error) {
 	return p.GetProof(c)
 }
 
-func (p *SMProver) ComputeDag(callback ProofCreatedFunc) {
+func (p *SMProver) ComputeDag(callback shared.ProofCreatedFunc) {
 
 	rootLabel, err := p.computeDagInMemory(shared.RootIdentifier)
 

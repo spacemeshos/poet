@@ -37,3 +37,12 @@ type IBasicVerifier interface {
 	// create a random challenge, that consists of T random identifies (each n bits long)
 	CreteRndChallenge() (Challenge, error)
 }
+
+type ProofCreatedFunc func(phi Label, err error)
+
+// A simple POET prover
+type IProver interface {
+	ComputeDag(callback ProofCreatedFunc)
+	GetProof(c Challenge) (Proof, error)
+	GetNonInteractiveProof() (Proof, error)
+}
