@@ -130,7 +130,7 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 		computedLeafLabelVal := s.h.Hash(data)
 		providedLeafLabel := m[Identifier(leafNodeId.GetStringValue())]
 
-		if bytes.Compare(computedLeafLabelVal[:], providedLeafLabel[:]) != 0 {
+		if bytes.Equal(computedLeafLabelVal[:], providedLeafLabel[:]) == false {
 			return false
 		}
 

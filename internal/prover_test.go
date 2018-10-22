@@ -38,6 +38,6 @@ func TestProverBasic(t *testing.T) {
 		data = append(data, rightLabel[:]...)
 
 		l := p.GetHashFunction().Hash(data)
-		assert.True(t, bytes.Compare(phi[:], l[:]) == 0)
+		assert.True(t, bytes.Equal(phi[:], l[:]))
 	})
 }
