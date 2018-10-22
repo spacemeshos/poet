@@ -67,8 +67,13 @@ func (p *SMProver) GetProof(c Challenge) (Proof, error) {
 			return Proof{}, err
 		}
 
-		// add the identifier label to the labels list
-		labels = append(labels, p.m[Identifier(id)])
+		// if we didn't send the label of this node already then
+		// add it to the list
+		if _, ok := m[Identifier(id)]; !ok {
+			// add the identifier label to the labels list
+			labels = append(labels, p.m[Identifier(id)])
+			m[Identifier(id)] = p.m[Identifier(id)]
+		}
 
 		siblingsIds, err := bs.GetBNSiblings(false)
 		if err != nil {
@@ -121,12 +126,14 @@ func (p *SMProver) ComputeDag(callback shared.ProofCreatedFunc) {
 	}
 
 	p.phi = rootLabel
-	println("Map size: ", len(p.m))
 	p.printDag("")
 	callback(rootLabel, nil)
 }
 
 func (p *SMProver) printDag(rootId Identifier) {
+	if rootId == "" {
+		fmt.Printf("DAG: # of nodes: %d. n: %d\n", len(p.m), p.n)
+	}
 
 	if uint(len(rootId)) < p.n {
 		p.printDag(rootId + "0")
@@ -138,7 +145,7 @@ func (p *SMProver) printDag(rootId Identifier) {
 		fmt.Printf("Missing label value from map")
 	}
 
-	fmt.Printf("%s: %s", rootId, GetDisplayValue(label))
+	fmt.Printf("%s: %s\n", rootId, GetDisplayValue(label))
 }
 
 // Compute Dag with a root

@@ -1,7 +1,11 @@
 package shared
 
+import (
+	"fmt"
+)
+
 const (
-	T  = 150 // security param
+	T  = 13  // security param
 	W  = 256 // bits - label size and Hx() output size
 	WB = 32  // W in bytes
 )
@@ -19,6 +23,12 @@ const RootIdentifier = Identifier("")
 
 type Challenge struct {
 	Data [T]Identifier // A list of T identifiers
+}
+
+func (c *Challenge) Print() {
+	for idx, data := range c.Data {
+		fmt.Printf("[%d]: %s\n", idx, data)
+	}
 }
 
 type Proof struct {

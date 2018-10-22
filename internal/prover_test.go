@@ -19,7 +19,7 @@ PASS: TestProverBasic (1034.77s)
 func TestProverBasic(t *testing.T) {
 
 	const x = "this is a commitment"
-	const n = 4
+	const n = 2
 
 	p, err := NewProver([]byte(x), n)
 	assert.NoError(t, err)

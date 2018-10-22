@@ -2,8 +2,8 @@ package internal
 
 import (
 	"bytes"
-	"encoding/hex"
 	"errors"
+	"fmt"
 	"github.com/spacemeshos/poet-ref/shared"
 )
 
@@ -25,13 +25,13 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 
 	// We use k,v memory storage to store label values for identifiers
 	// as they are unique in p
-	m := make(map[string]shared.Label)
+	m := make(map[Identifier]shared.Label)
 	f := NewSMBinaryStringFactory()
 
 	// iterate over each identifier in the challenge and verify the proof for it
 	for idx, id := range c.Data {
 
-		println("Verifying challenge:", idx, "Identifier:", id)
+		println("Verifying challenge #:", idx, "Identifier:", id)
 
 		leafNodeId, err := f.NewBinaryString(string(id))
 		if err != nil {
@@ -43,21 +43,31 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 			return false
 		}
 
+		for _, sib := range siblingIds {
+			fmt.Printf("  Sibling: %s\n", sib.GetStringValue())
+		}
+
 		// a slice of all labels included in proof
 		proofLabels := p.L[idx][:]
 
-		// first label in the list if the leaf (node id) label - read it and remove it from the slice
-		// we use labelValue as the label of the node on the path from the leaf to the root, including both leaf and root
-		labelValue, proofLabels := proofLabels[0], proofLabels[1:]
+		labelValue, ok := m[id]
 
-		println(" leaf label: ", hex.EncodeToString(labelValue[:]))
+		if !ok { // leaf is not in cache
+			// first label in the list if the leaf (node id) label - read it and remove it from the slice
+			// we use labelValue as the label of the node on the path from the leaf to the root, including both leaf and root
+			labelValue, proofLabels = proofLabels[0], proofLabels[1:]
+			m[id] = labelValue
+		}
+
+		println(" Leaf id %d label: %s", id, GetDisplayValue(labelValue))
 
 		for _, siblingId := range siblingIds { // siblings ids up the path from the leaf to the root
 
-			sibId := siblingId.GetStringValue()
+			sibId := Identifier(siblingId.GetStringValue())
 			var sibValue shared.Label
 			var ok bool
-			if sibValue, ok = m[sibId]; !ok { // label is not the k/v mem store - read it from the proof and store it in the k/v store
+			if sibValue, ok = m[sibId]; !ok {
+				// label is not the k/v mem store - read it from the proof and store it in the k/v store
 				// take label from the head of the slice and remove it from the slice
 				sibValue, proofLabels = proofLabels[0], proofLabels[1:]
 				m[sibId] = sibValue
@@ -70,15 +80,23 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 			}
 
 			// pack data to hash
-			labelData := append([]byte(parentNodeId.GetStringValue()), sibValue[:]...)
-			labelData = append(labelData, labelValue[:]...)
+			if siblingId.IsEven() {
+				// hx(siblingParentNodeId, siblingLabel, currentNodeOnPathValue)
+				labelData := append([]byte(parentNodeId.GetStringValue()), sibValue[:]...)
+				labelData = append(labelData, labelValue[:]...)
+				labelValue = s.h.Hash(labelData)
+			} else {
+				// hx(siblingParentNodeId, currentNodeOnPathValue, siblingLabel)
+				labelData := append([]byte(parentNodeId.GetStringValue()), labelValue[:]...)
+				labelData = append(labelData, sibValue[:]...)
+				labelValue = s.h.Hash(labelData)
+			}
 
-			// hx(siblingPartentNodeId, siblingLabel, currentNodeOnPathValue)
-			labelValue = s.h.Hash(labelData)
+			println("  Computed label value: %s", GetDisplayValue(labelValue))
 		}
 
 		// labelValue should be equal to the root label provided by the proof
-		if bytes.Compare(labelValue[:], p.Phi[:]) != 0 {
+		if bytes.Equal(labelValue[:], p.Phi[:]) == false {
 			return false
 		}
 
@@ -93,7 +111,7 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 		data := []byte(leafNodeId.GetStringValue())
 		for _, siblingId := range siblingIds {
 
-			id := siblingId.GetStringValue()
+			id := Identifier(siblingId.GetStringValue())
 
 			if id[len(id)-1] != '0' {
 				// only left siblings - siblings with an identifier that ends with 0 are parents of the leaf
@@ -110,7 +128,7 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 		}
 
 		computedLeafLabelVal := s.h.Hash(data)
-		providedLeafLabel := p.L[idx][0]
+		providedLeafLabel := m[Identifier(leafNodeId.GetStringValue())]
 
 		if bytes.Compare(computedLeafLabelVal[:], providedLeafLabel[:]) != 0 {
 			return false

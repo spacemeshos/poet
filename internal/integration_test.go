@@ -44,7 +44,7 @@ func TestNip(t *testing.T) {
 func TestRndChallengeProof(t *testing.T) {
 
 	var x = []byte("this is a commitment")
-	const n = 2
+	const n = 11
 
 	p, err := NewProver(x, n)
 	assert.NoError(t, err)
@@ -59,8 +59,12 @@ func TestRndChallengeProof(t *testing.T) {
 		c, err := v.CreteRndChallenge()
 		assert.NoError(t, err)
 
+		println("Challenge data:")
+		c.Print()
+
 		proof, err := p.GetProof(c)
 		assert.NoError(t, err)
+		PrintProof(proof)
 
 		res := v.Verify(c, proof)
 		assert.True(t, res, "failed to verify proof")

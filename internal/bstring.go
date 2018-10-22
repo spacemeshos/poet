@@ -164,6 +164,14 @@ func (s *SMBinaryString) GetValue() uint64 {
 	return s.v
 }
 
+func (s *SMBinaryString) IsEven() bool {
+	return s.v % 2 == 0
+}
+
+func (s *SMBinaryString) IsOdd() bool {
+	return !s.IsEven()
+}
+
 // return number of digits including leading 0s if any
 func (s *SMBinaryString) GetDigitsCount() uint {
 	return s.d

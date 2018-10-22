@@ -8,12 +8,22 @@ import (
 	"math/big"
 )
 
+func PrintProof(p Proof) {
+	println("Proof data...")
+	fmt.Printf("Root label: %s\n", GetDisplayValue(p.Phi))
+	for idx, labels := range p.L {
+		fmt.Printf(" Labels for challenge # %d\n", idx)
+		for id, label := range labels {
+			fmt.Printf("  %d: %s\n", id, GetDisplayValue(label))
+		}
+	}
+}
+
 func GetDisplayValue(l shared.Label) string {
 	if len(l) < 8 {
-		return fmt.Sprintf("%x\n", l)
+		return fmt.Sprintf("%x", l)
 	}
-
-	return fmt.Sprintf("%x...%x\n", l[:2], l[len(l)-2:])
+	return fmt.Sprintf("%x...%x", l[:2], l[len(l)-2:])
 }
 
 // Shared logic between reference verifier and prover

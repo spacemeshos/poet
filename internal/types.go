@@ -20,6 +20,9 @@ type BinaryString interface {
 
 	// Returns the siblings on the path from a node identified by the binary string to the root in a full binary tree
 	GetBNSiblings(leftOnly bool) ([]BinaryString, error)
+
+	IsEven() bool
+	IsOdd() bool
 }
 
 type BinaryStringFactory interface {
