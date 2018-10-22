@@ -1,11 +1,10 @@
 package internal
 
 import (
-	"encoding/hex"
 	"errors"
+	"fmt"
 	"github.com/spacemeshos/poet-ref/shared"
 )
-
 
 type SMProver struct {
 	x   []byte                      // commitment
@@ -101,7 +100,7 @@ func (p *SMProver) GetProof(c Challenge) (Proof, error) {
 // γ := (Hx(φ,1),...Hx(φ,t))
 func (p *SMProver) creteNipChallenge() (Challenge, error) {
 	// use shared common func
-	return creteNipChallenge(p.phi[:], p.h, p.n)
+	return creteNipChallenge(p.phi, p.h, p.n)
 }
 
 func (p *SMProver) GetNonInteractiveProof() (Proof, error) {
@@ -127,15 +126,19 @@ func (p *SMProver) ComputeDag(callback shared.ProofCreatedFunc) {
 	callback(rootLabel, nil)
 }
 
-func (p* SMProver) printDag(rootId Identifier) {
+func (p *SMProver) printDag(rootId Identifier) {
 
 	if uint(len(rootId)) < p.n {
 		p.printDag(rootId + "0")
 		p.printDag(rootId + "1")
 	}
 
-	label := p.m[rootId]
-	println(rootId, hex.EncodeToString(label[:]))
+	label, ok := p.m[rootId]
+	if !ok {
+		fmt.Printf("Missing label value from map")
+	}
+
+	fmt.Printf("%s: %s", rootId, GetDisplayValue(label))
 }
 
 // Compute Dag with a root

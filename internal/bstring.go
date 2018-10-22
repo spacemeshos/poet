@@ -88,7 +88,7 @@ func (f *SMBinaryStringFactory) NewBinaryStringFromInt(v uint64, d uint) (Binary
 func (s *SMBinaryString) GetBNSiblings(leftOnly bool) ([]BinaryString, error) {
 
 	// slice of siblings
-	res := []BinaryString{}
+	var res []BinaryString
 
 	// current node pointer
 	var nodeId BinaryString

@@ -32,7 +32,7 @@ type IBasicVerifier interface {
 	Verify(c Challenge, p Proof) bool
 
 	// Create a NIP challenge based on Phi (root label value provided by a proof)
-	CreteNipChallenge(phi []byte) (Challenge, error)
+	CreteNipChallenge(phi Label) (Challenge, error)
 
 	// create a random challenge, that consists of T random identifies (each n bits long)
 	CreteRndChallenge() (Challenge, error)

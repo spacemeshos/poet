@@ -121,7 +121,7 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 }
 
 // γ := (Hx(φ,1),...Hx(φ,t))
-func (s *SMVerifier) CreteNipChallenge(phi []byte) (Challenge, error) {
+func (s *SMVerifier) CreteNipChallenge(phi shared.Label) (Challenge, error) {
 	// use shared common func
 	return creteNipChallenge(phi, s.h, s.n)
 }

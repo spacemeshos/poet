@@ -18,13 +18,13 @@ PASS: TestProverBasic (1034.77s)
 func TestNip(t *testing.T) {
 
 	var x = []byte("this is a commitment")
-	const n = 5
+	const n = 2
 
 	p, err := NewProver(x, n)
 	assert.NoError(t, err)
 
 	p.ComputeDag(func(phi shared.Label, err error) {
-		fmt.Printf("Dag root label: %x\n", phi)
+		fmt.Printf("Dag root label: %s\n", GetDisplayValue(phi))
 		assert.NoError(t, err)
 
 		proof, err := p.GetNonInteractiveProof()
@@ -33,7 +33,33 @@ func TestNip(t *testing.T) {
 		v, err := NewVerifier(x, n)
 		assert.NoError(t, err)
 
-		c, err := v.CreteNipChallenge(proof.Phi[:])
+		c, err := v.CreteNipChallenge(proof.Phi)
+		assert.NoError(t, err)
+
+		res := v.Verify(c, proof)
+		assert.True(t, res, "failed to verify proof")
+	})
+}
+
+func TestRndChallengeProof(t *testing.T) {
+
+	var x = []byte("this is a commitment")
+	const n = 2
+
+	p, err := NewProver(x, n)
+	assert.NoError(t, err)
+
+	p.ComputeDag(func(phi shared.Label, err error) {
+		fmt.Printf("Dag root label: %s\n", GetDisplayValue(phi))
+		assert.NoError(t, err)
+
+		v, err := NewVerifier(x, n)
+		assert.NoError(t, err)
+
+		c, err := v.CreteRndChallenge()
+		assert.NoError(t, err)
+
+		proof, err := p.GetProof(c)
 		assert.NoError(t, err)
 
 		res := v.Verify(c, proof)

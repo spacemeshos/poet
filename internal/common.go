@@ -3,9 +3,18 @@ package internal
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"github.com/spacemeshos/poet-ref/shared"
 	"math/big"
 )
+
+func GetDisplayValue(l shared.Label) string {
+	if len(l) < 8 {
+		return fmt.Sprintf("%x\n", l)
+	}
+
+	return fmt.Sprintf("%x...%x\n", l[:2], l[len(l)-2:])
+}
 
 // Shared logic between reference verifier and prover
 
@@ -13,7 +22,7 @@ import (
 // phi - root label
 // h - Hx()
 // n - proof param
-func creteNipChallenge(phi []byte, h HashFunc, n uint) (Challenge, error) {
+func creteNipChallenge(phi shared.Label, h HashFunc, n uint) (Challenge, error) {
 
 	var data [shared.T]Identifier
 	buf := new(bytes.Buffer)
@@ -28,7 +37,7 @@ func creteNipChallenge(phi []byte, h HashFunc, n uint) (Challenge, error) {
 
 		// pack (phi, i) into a bytes array
 		// Hx(phi, i) := Hx(phi ... bigEndianEncodedBytes(i))
-		d := append(phi, buf.Bytes()...)
+		d := append(phi[:], buf.Bytes()...)
 
 		// Compute Hx(phi, i)
 		hash := h.Hash(d)

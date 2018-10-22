@@ -19,13 +19,13 @@ PASS: TestProverBasic (1034.77s)
 func TestProverBasic(t *testing.T) {
 
 	const x = "this is a commitment"
-	const n = 3
+	const n = 4
 
 	p, err := NewProver([]byte(x), n)
 	assert.NoError(t, err)
 
 	p.ComputeDag(func(phi shared.Label, err error) {
-		fmt.Printf("Root label: %x\n", phi)
+		fmt.Printf("Root label: %x", phi)
 		assert.NoError(t, err)
 
 		// test root label computation from parents
