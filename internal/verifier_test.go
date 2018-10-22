@@ -35,7 +35,7 @@ func TestNipChallenge(t *testing.T) {
 
 func TestRndChallenge(t *testing.T) {
 	const x = "this is a commitment"
-	const n = 63
+	const n = 29
 	v, err := NewVerifier([]byte(x), n)
 	assert.NoError(t, err)
 
