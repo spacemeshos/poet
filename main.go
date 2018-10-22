@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"github.com/minio/sha256-simd"
 	"github.com/spacemeshos/poet-ref/internal"
@@ -20,7 +21,11 @@ func main() {
 func Playground() {
 
 	const x = "this is a shared commitment between prover and verifier"
-	var phi = make([]byte, shared.WB)
+
+	data, _ := hex.DecodeString("68b4c66918faa1a6538920944f13957354910f741a87236ea4905f2a50314c10")
+	var phi shared.Label
+	copy(phi[:], data)
+
 	const n = 63
 
 	v, err := internal.NewVerifier([]byte(x), n)

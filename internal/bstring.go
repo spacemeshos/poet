@@ -165,7 +165,7 @@ func (s *SMBinaryString) GetValue() uint64 {
 }
 
 func (s *SMBinaryString) IsEven() bool {
-	return s.v % 2 == 0
+	return s.v%2 == 0
 }
 
 func (s *SMBinaryString) IsOdd() bool {
