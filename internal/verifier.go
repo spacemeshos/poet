@@ -59,7 +59,7 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 			m[id] = labelValue
 		}
 
-		println(" Leaf id %d label: %s", id, GetDisplayValue(labelValue))
+		fmt.Printf(" Leaf id %s label: %s", id, GetDisplayValue(labelValue))
 
 		for _, siblingId := range siblingIds { // siblings ids up the path from the leaf to the root
 
@@ -133,7 +133,11 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 		if bytes.Compare(computedLeafLabelVal[:], providedLeafLabel[:]) != 0 {
 			return false
 		}
+
+		println("  Challenge verified.")
 	}
+
+	println("All challenges verified.")
 
 	return true
 }
