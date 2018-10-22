@@ -8,21 +8,15 @@ import (
 	"testing"
 )
 
-/*
-const x = "this is a commitment"
-const n = 25
-Map size:  67108863 ~20GB
-Computed root label: 68b4c66918faa1a6538920944f13957354910f741a87236ea4905f2a50314c10
-PASS: TestProverBasic (1034.77s)
-*/
-
-func TestHugeNip(t *testing.T) {
+func TestBigNip(t *testing.T) {
 
 	x := make([]byte, 32)
 	_, err := rand.Read(x)
 	assert.NoError(t, err)
 
-	const n = 20
+	// with n=25 and 16GB rqm:
+	// Map size:  67108863 entries ~20GB - runtime: 1034.77s
+	const n = 25
 
 	p, err := NewProver(x, n)
 	assert.NoError(t, err)
@@ -83,7 +77,8 @@ func TestRndChallengeProof(t *testing.T) {
 	assert.NoError(t, err)
 
 	p.ComputeDag(func(phi shared.Label, err error) {
-		fmt.Printf("Dag root label: %s\n", GetDisplayValue(phi))
+
+		//fmt.Printf("Dag root label: %s\n", GetDisplayValue(phi))
 		assert.NoError(t, err)
 
 		v, err := NewVerifier(x, n)
@@ -97,7 +92,7 @@ func TestRndChallengeProof(t *testing.T) {
 
 		proof, err := p.GetProof(c)
 		assert.NoError(t, err)
-		PrintProof(proof)
+		// PrintProof(proof)
 
 		res := v.Verify(c, proof)
 		assert.True(t, res, "failed to verify proof")
@@ -119,7 +114,8 @@ func TestRndChallengeProofEx(t *testing.T) {
 		assert.NoError(t, err)
 
 		p.ComputeDag(func(phi shared.Label, err error) {
-			fmt.Printf("Dag root label: %s\n", GetDisplayValue(phi))
+
+			//fmt.Printf("Dag root label: %s\n", GetDisplayValue(phi))
 			assert.NoError(t, err)
 
 			v, err := NewVerifier(x, n)
@@ -128,12 +124,12 @@ func TestRndChallengeProofEx(t *testing.T) {
 			c, err := v.CreteRndChallenge()
 			assert.NoError(t, err)
 
-			println("Challenge data:")
-			c.Print()
+			//println("Challenge data:")
+			//c.Print()
 
 			proof, err := p.GetProof(c)
 			assert.NoError(t, err)
-			PrintProof(proof)
+			// PrintProof(proof)
 
 			res := v.Verify(c, proof)
 			assert.True(t, res, "failed to verify proof")

@@ -3,7 +3,6 @@ package internal
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"github.com/spacemeshos/poet-ref/shared"
 )
 
@@ -31,7 +30,7 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 	// iterate over each identifier in the challenge and verify the proof for it
 	for idx, id := range c.Data {
 
-		println("Verifying challenge #:", idx, "Identifier:", id)
+		//println("Verifying challenge #:", idx, "Identifier:", id)
 
 		leafNodeId, err := f.NewBinaryString(string(id))
 		if err != nil {
@@ -43,9 +42,9 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 			return false
 		}
 
-		for _, sib := range siblingIds {
-			fmt.Printf("  Sibling: %s\n", sib.GetStringValue())
-		}
+		//for _, sib := range siblingIds {
+		//	fmt.Printf("  Sibling: %s\n", sib.GetStringValue())
+		//}
 
 		// a slice of all labels included in proof
 		proofLabels := p.L[idx][:]
@@ -59,7 +58,7 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 			m[id] = labelValue
 		}
 
-		fmt.Printf(" Leaf id %s label: %s", id, GetDisplayValue(labelValue))
+		// fmt.Printf(" Leaf id %s label: %s", id, GetDisplayValue(labelValue))
 
 		for _, siblingId := range siblingIds { // siblings ids up the path from the leaf to the root
 
@@ -92,7 +91,7 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 				labelValue = s.h.Hash(labelData)
 			}
 
-			println("  Computed label value: %s", GetDisplayValue(labelValue))
+			//println("  Computed label value: %s", GetDisplayValue(labelValue))
 		}
 
 		// labelValue should be equal to the root label provided by the proof
@@ -134,10 +133,10 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 			return false
 		}
 
-		println("  Challenge verified.")
+		//println("  Challenge verified.")
 	}
 
-	println("All challenges verified.")
+	//println("All challenges verified.")
 
 	return true
 }

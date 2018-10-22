@@ -126,7 +126,7 @@ func (p *SMProver) ComputeDag(callback shared.ProofCreatedFunc) {
 	}
 
 	p.phi = rootLabel
-	p.printDag("")
+	//p.printDag("")
 	callback(rootLabel, nil)
 }
 
