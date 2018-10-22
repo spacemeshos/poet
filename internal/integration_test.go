@@ -16,7 +16,7 @@ func TestBigNip(t *testing.T) {
 
 	// with n=25 and 16GB rqm:
 	// Map size:  67108863 entries ~20GB - runtime: 1034.77s
-	const n = 25
+	const n = 15
 
 	p, err := NewProver(x, n)
 	assert.NoError(t, err)

@@ -104,7 +104,7 @@ func (s *SMBinaryString) GetBNSiblings(leftOnly bool) ([]BinaryString, error) {
 			return nil, err
 		}
 
-		if !leftOnly || siblingNode.GetValue()%2 == 0 {
+		if !leftOnly || siblingNode.IsEven() {
 			// we add to results if caller didn't request leftOnly
 			// or she did and the sibling is a left sibling (LSB == '0')
 			res = append(res, siblingNode)
@@ -142,7 +142,7 @@ func (s *SMBinaryString) FlipLSB() (BinaryString, error) {
 func (s *SMBinaryString) GetStringValue() string {
 
 	if s.d == 0 {
-		// special case - empty binary string:
+		// special case - empty binary string
 		return ""
 	}
 
