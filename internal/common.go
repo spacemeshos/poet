@@ -10,11 +10,11 @@ import (
 
 func PrintProof(p Proof) {
 	println("Proof data...")
-	fmt.Printf("Root label: %s\n", GetDisplayValue(p.Phi))
+	fmt.Printf(" Root label: %s\n", GetDisplayValue(p.Phi))
 	for idx, labels := range p.L {
-		fmt.Printf(" Labels for challenge # %d\n", idx)
+		fmt.Printf("  Labels for challenge # %d\n", idx)
 		for id, label := range labels {
-			fmt.Printf("  %d: %s\n", id, GetDisplayValue(label))
+			fmt.Printf("   %d: %s\n", id, GetDisplayValue(label))
 		}
 	}
 }

@@ -16,7 +16,7 @@ func TestBigNip(t *testing.T) {
 
 	// with n=25 and 16GB rqm:
 	// Map size:  67108863 entries ~20GB - runtime: 1034.77s
-	const n = 15
+	const n = 25
 
 	p, err := NewProver(x, n)
 	assert.NoError(t, err)
@@ -101,7 +101,7 @@ func TestRndChallengeProof(t *testing.T) {
 
 func TestRndChallengeProofEx(t *testing.T) {
 
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 10000; i++ {
 
 		// generate random commitment
 		x := make([]byte, 32)

@@ -13,8 +13,6 @@ func TestNipChallenge(t *testing.T) {
 
 	const n = 25
 
-	// fake phi (32 bytes)
-	// e799e36d1877db4a520d67bc90eda74f376d3eb289468b8b01a0038c278d1c34
 	data, _ := hex.DecodeString("68b4c66918faa1a6538920944f13957354910f741a87236ea4905f2a50314c10")
 	var phi shared.Label
 	copy(phi[:], data)
