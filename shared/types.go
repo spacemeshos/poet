@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	T  = 13  // security param
+	T  = 150 // security param
 	W  = 256 // bits - label size and Hx() output size
 	WB = 32  // W in bytes
 )
