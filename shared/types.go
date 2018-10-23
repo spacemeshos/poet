@@ -1,8 +1,6 @@
 package shared
 
-import (
-	"fmt"
-)
+import "fmt"
 
 const (
 	T  = 150 // security param
@@ -23,12 +21,6 @@ const RootIdentifier = Identifier("")
 
 type Challenge struct {
 	Data [T]Identifier // A list of T identifiers
-}
-
-func (c *Challenge) Print() {
-	for idx, data := range c.Data {
-		fmt.Printf("[%d]: %s\n", idx, data)
-	}
 }
 
 type Proof struct {
@@ -59,4 +51,10 @@ type IProver interface {
 	// for testing
 	GetLabel(id Identifier) (Label, bool)
 	GetHashFunction() HashFunc
+}
+
+func (c *Challenge) Print() {
+	for idx, data := range c.Data {
+		fmt.Printf("[%d]: %s\n", idx, data)
+	}
 }
