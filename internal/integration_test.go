@@ -112,7 +112,7 @@ func TestRndChallengeProofEx(t *testing.T) {
 	_, err := rand.Read(x)
 	assert.NoError(t, err)
 
-	const n = 11
+	const n = 9
 
 	p, err := NewProver(x, n)
 

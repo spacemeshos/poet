@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/spacemeshos/poet-ref/shared"
+	"math"
 	"math/rand"
 	"os"
 	"path"
@@ -40,7 +41,6 @@ func NewProver(x []byte, n uint) (shared.IProver, error) {
 	fileName := fmt.Sprintf("./poet-%d.bin", rand.Uint64())
 
 	fmt.Printf("Dag store: %s\n", path.Join(dir, fileName))
-
 
 	store, err := NewKvFileStore(fileName, n)
 	if err != nil {
@@ -165,6 +165,9 @@ func (p *SMProver) GetNonInteractiveProof() (Proof, error) {
 
 func (p *SMProver) ComputeDag(callback shared.ProofCreatedFunc) {
 
+	N := math.Pow(2,float64(p.n+1)) - 1
+	fmt.Printf("Computing DAG(%d). Total nodes: %d\n", p.n, uint64(N))
+
 	rootLabel, err := p.computeDag(shared.RootIdentifier)
 
 	if err != nil {
@@ -288,5 +291,14 @@ func (p *SMProver) computeLeafLabel(leafId Identifier) (shared.Label, error) {
 
 	// store it
 	p.writeLabel(leafId, label)
+
+	if bs.GetValue() % 100000 == 0 {
+		i := bs.GetValue()
+		N := math.Pow(2,float64(p.n))
+		r := 100 * float64(i) / N
+
+		fmt.Printf("Computed label for leaf id %s. %d %.2v%% \n", leafId, i, r)
+	}
+
 	return label, nil
 }
