@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"bufio"
 	"errors"
 	"github.com/spacemeshos/poet-ref/shared"
 	"math"
@@ -22,10 +23,13 @@ type KVFileStore struct {
 	file     *os.File
 	n        uint // 1 <= n < 64
 	f        BinaryStringFactory
+	bw       *bufio.Writer
+	dirty    bool
 }
 
 // Create a new prover with commitment X and 1 <= n < 64
 // n specifies the leafs height from the root and the number of bits in leaf ids
+// buffSize - memory buffer size in bytes
 func NewKvFileStore(fileName string, n uint) (IKvStore, error) {
 
 	res := &KVFileStore{
@@ -48,6 +52,9 @@ func (d *KVFileStore) init() error {
 
 	d.file = f
 
+	// create buffer with default buf size
+	d.bw = bufio.NewWriter(f)
+
 	return nil
 }
 
@@ -57,6 +64,10 @@ func (d *KVFileStore) Reset() error {
 }
 
 func (d *KVFileStore) Close() error {
+	if d.dirty { // must flush before reading
+		d.bw.Flush()
+		d.dirty = false
+	}
 	return d.file.Close()
 }
 
@@ -75,6 +86,11 @@ func (d *KVFileStore) Size() uint64 {
 // Returns true iff node's label is in the store
 func (d *KVFileStore) IsLabelInStore(id Identifier) (bool, error) {
 
+	if d.dirty { // must flush before reading
+		d.bw.Flush()
+		d.dirty = false
+	}
+
 	idx, err := d.calcFileIndex(id)
 	if err != nil {
 		return false, err
@@ -92,6 +108,11 @@ func (d *KVFileStore) IsLabelInStore(id Identifier) (bool, error) {
 
 // Returns the label of node id or error if it is not in the store
 func (d *KVFileStore) Read(id Identifier) (shared.Label, error) {
+
+	if d.dirty { // must flush before reading
+		d.bw.Flush()
+		d.dirty = false
+	}
 
 	var label shared.Label
 
@@ -117,14 +138,20 @@ func (d *KVFileStore) Read(id Identifier) (shared.Label, error) {
 }
 
 func (d *KVFileStore) Write(id Identifier, l shared.Label) error {
-	idx, err := d.calcFileIndex(id)
-	if err != nil {
-		return err
-	}
 
-	//fmt.Printf("Writing %d bytes in offset %d\n", len(l[:]), idx)
-	_, err = d.file.WriteAt(l[:], int64(idx))
+	_, err := d.bw.Write(l[:])
+	d.dirty = true
 	return err
+
+	/*
+		idx, err := d.calcFileIndex(id)
+		if err != nil {
+			return err
+		}
+
+		//fmt.Printf("Writing %d bytes in offset %d\n", len(l[:]), idx)
+		_, err = d.file.WriteAt(l[:], int64(idx))
+		return err*/
 }
 
 // Returns the file offset for a node id
