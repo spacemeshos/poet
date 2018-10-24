@@ -99,7 +99,7 @@ func (s *SMBinaryString) GetBNSiblings(leftOnly bool) ([]BinaryString, error) {
 	// slice of siblings
 	var res []BinaryString
 
-	if s.v == 0 { // special case - dag root node
+	if s.v == 0 && s.d == 0 { // special case - dag root node
 		return res, nil
 	}
 
@@ -135,7 +135,10 @@ func (s *SMBinaryString) GetBNSiblings(leftOnly bool) ([]BinaryString, error) {
 		if len(nodeId.GetStringValue()) == 0 {
 			break
 		}
+	}
 
+	if len(res) == 0 && !leftOnly {
+		return res, errors.New("expected one or more siblings on the path to root")
 	}
 
 	return res, nil

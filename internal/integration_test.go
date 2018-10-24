@@ -112,9 +112,12 @@ func TestRndChallengeProofEx(t *testing.T) {
 	_, err := rand.Read(x)
 	assert.NoError(t, err)
 
-	const n = 15
+	const n = 11
 
 	p, err := NewProver(x, n)
+
+	defer p.DeleteStore()
+
 	assert.NoError(t, err)
 
 	p.ComputeDag(func(phi shared.Label, err error) {
@@ -125,22 +128,25 @@ func TestRndChallengeProofEx(t *testing.T) {
 		v, err := NewVerifier(x, n)
 		assert.NoError(t, err)
 
-		for i := 0; i < 100; i++ {
+		for i := 0; i < 10000; i++ {
 
 			c, err := v.CreteRndChallenge()
 			assert.NoError(t, err)
 
-			//println("Challenge data:")
-			//c.Print()
-
 			proof, err := p.GetProof(c)
 			assert.NoError(t, err)
-			// PrintProof(proof)
 
 			res := v.Verify(c, proof)
+
+			if !res {
+				println("Failed to verify proof. Challenge data:")
+				c.Print()
+				println("Proof:")
+				PrintProof(proof)
+			}
+
 			assert.True(t, res, "failed to verify proof")
 		}
 
-		p.DeleteStore()
 	})
 }

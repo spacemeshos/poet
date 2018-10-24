@@ -4,8 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/spacemeshos/poet-ref/shared"
-	"io/ioutil"
-	"path/filepath"
+	"math/rand"
 )
 
 type SMProver struct {
@@ -31,14 +30,9 @@ func NewProver(x []byte, n uint) (shared.IProver, error) {
 		f: NewSMBinaryStringFactory(),
 	}
 
-	dir, err := ioutil.TempDir("", "poet")
-	if err != nil {
-		panic(err)
-	}
+	fileName := fmt.Sprintf("./poet-%d.bin", rand.Uint64())
 
-	fmt.Printf("Dag temp folder: %s\n", dir)
-
-	store, err := NewKvFileStore(filepath.Join(dir, "store.bin"), n)
+	store, err := NewKvFileStore(fileName, n)
 	if err != nil {
 		return res, err
 	}
@@ -53,6 +47,7 @@ func NewProver(x []byte, n uint) (shared.IProver, error) {
 }
 
 func (p *SMProver) DeleteStore() {
+
 	p.store.Delete()
 }
 

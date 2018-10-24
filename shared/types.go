@@ -51,7 +51,6 @@ type IProver interface {
 	// for testing
 	GetLabel(id Identifier) (Label, bool)
 	GetHashFunction() HashFunc
-
 	DeleteStore()
 }
 

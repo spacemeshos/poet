@@ -27,11 +27,14 @@ func Playground() {
 		os.Exit(-1)
 	}
 
-	// with n=25 and 16GB rqm:
+	// with n=25 and 16GB ram:
 	// Map size:  67108863 entries ~20GB - runtime: 1034.77s
-	const n = 25
+	const n = 19
 
 	p, err := internal.NewProver(x, n)
+
+	defer p.DeleteStore()
+
 	if err != nil {
 		println("Failed to create prover.")
 		os.Exit(-1)
@@ -89,8 +92,6 @@ func Playground() {
 		d := time.Now().Unix() - t1
 
 		fmt.Printf("Proof generated in %d seconds.\n", d)
-
-		p.DeleteStore()
 
 	})
 
