@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/spacemeshos/poet-ref/shared"
 	"math/rand"
+	"os"
+	"path"
 )
 
 type SMProver struct {
@@ -30,7 +32,15 @@ func NewProver(x []byte, n uint) (shared.IProver, error) {
 		f: NewSMBinaryStringFactory(),
 	}
 
+	dir, err := os.Getwd()
+	if err != nil {
+		return res, err
+	}
+
 	fileName := fmt.Sprintf("./poet-%d.bin", rand.Uint64())
+
+	fmt.Printf("Dag store: %s\n", path.Join(dir, fileName))
+
 
 	store, err := NewKvFileStore(fileName, n)
 	if err != nil {

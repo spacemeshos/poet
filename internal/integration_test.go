@@ -14,9 +14,9 @@ func TestBigNip(t *testing.T) {
 	_, err := rand.Read(x)
 	assert.NoError(t, err)
 
-	// with n=25 and 16GB rqm:
+	// with n=25 and 16GB ram:
 	// Map size:  67108863 entries ~20GB - runtime: 1034.77s
-	const n = 13
+	const n = 25
 
 	p, err := NewProver(x, n)
 	assert.NoError(t, err)

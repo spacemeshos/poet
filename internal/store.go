@@ -143,7 +143,10 @@ func (d *KVFileStore) Write(id Identifier, l shared.Label) error {
 	d.dirty = true
 	return err
 
-	/*
+	// no need to calc index or to WriteAt because writes are sequential
+	//
+
+	/* no need to calc index or to WriteAt because writes are sequential
 		idx, err := d.calcFileIndex(id)
 		if err != nil {
 			return err
@@ -151,7 +154,8 @@ func (d *KVFileStore) Write(id Identifier, l shared.Label) error {
 
 		//fmt.Printf("Writing %d bytes in offset %d\n", len(l[:]), idx)
 		_, err = d.file.WriteAt(l[:], int64(idx))
-		return err*/
+		return err
+	*/
 }
 
 // Returns the file offset for a node id
