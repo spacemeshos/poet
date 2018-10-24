@@ -2,16 +2,19 @@ package internal
 
 import (
 	"errors"
+	"fmt"
 	"github.com/spacemeshos/poet-ref/shared"
 	"math"
 	"os"
 )
 
-// todo: add buffered reader and writter wrapper
-
 type IKvStore interface {
 	Read(id Identifier) (shared.Label, error)
 	Write(id Identifier, l shared.Label) error
+	IsLabelInStore(id Identifier) (bool, error)
+	Reset() error
+	Close() error
+	Delete() error
 }
 
 type KVFileStore struct {
@@ -21,7 +24,8 @@ type KVFileStore struct {
 	f        BinaryStringFactory
 }
 
-// Create a new prover with commitment X and param 1 <= n <= 63
+// Create a new prover with commitment X and 1 <= n < 64
+// n specifies the leafs height from the root and the number of bits in leaf ids
 func NewKvFileStore(fileName string, n uint) (IKvStore, error) {
 
 	res := &KVFileStore{
@@ -36,11 +40,28 @@ func NewKvFileStore(fileName string, n uint) (IKvStore, error) {
 }
 
 func (d *KVFileStore) init() error {
-	f, err := os.Create(d.fileName)
+
+	f, err := os.OpenFile(d.fileName, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
-		d.file = f
+		return err
 	}
-	return err
+
+	d.file = f
+
+	return nil
+}
+
+// Removes all data from the file
+func (d *KVFileStore) Reset() error {
+	return d.file.Truncate(0)
+}
+
+func (d *KVFileStore) Close() error {
+	return d.file.Close()
+}
+
+func (d *KVFileStore) Delete() error {
+	return os.Remove(d.fileName)
 }
 
 // Returns true iff node's label is in the store
@@ -71,23 +92,17 @@ func (d *KVFileStore) Read(id Identifier) (shared.Label, error) {
 		return label, err
 	}
 
-	_, err = d.file.Seek(int64(idx), 0)
-	if err != nil {
-		return label, err
-	}
-
 	// create a slice from the label array
-	lSlice := label[:]
+	// lSlice := label[:]
+	// buff := make([]byte, shared.WB)
 
-	//buff := make([]byte, shared.WB)
-
-	n, err := d.file.Read(lSlice)
+	n, err := d.file.ReadAt(label[:], int64(idx))
 	if err != nil {
 		return label, err
 	}
 
 	if n == 0 {
-		return label, errors.New("label for id is ont in store")
+		return label, errors.New("label for id is not in store")
 	}
 
 	return label, nil
@@ -99,22 +114,22 @@ func (d *KVFileStore) Write(id Identifier, l shared.Label) error {
 		return err
 	}
 
-	_, err = d.file.Seek(int64(idx), 0)
-	if err != nil {
-		return err
-	}
-
-	_, err = d.file.Write(l[:])
+	fmt.Printf("Writing %d bytes in offset %d\n", len(l[:]), idx)
+	_, err = d.file.WriteAt(l[:], int64(idx))
 	return err
 }
 
+// Returns the file offset for a node id
 func (d *KVFileStore) calcFileIndex(id Identifier) (uint64, error) {
 	s := d.subtreeSize(id)
 	s1, err := d.leftSiblingsSubtreeSize(id)
 	if err != nil {
 		return 0, err
 	}
-	return s + s1, nil
+
+	idx := (s + s1 - 1) * shared.WB
+	fmt.Printf("File offset bytes for node id %s: %d\n", id, idx)
+	return idx, nil
 }
 
 // Returns the size of the subtree rooted at node id
