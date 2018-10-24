@@ -1,10 +1,13 @@
 package internal
 
 import (
+	"errors"
 	"github.com/spacemeshos/poet-ref/shared"
 	"math"
 	"os"
 )
+
+// todo: add buffered reader and writter wrapper
 
 type IKvStore interface {
 	Read(id Identifier) (shared.Label, error)
@@ -40,29 +43,105 @@ func (d *KVFileStore) init() error {
 	return err
 }
 
-// You can store labels in the order in which they are computed,
-// and given a label reconstruct its index easily:
-// idx = sum of sizes of the subtrees under the left-siblings on path to root +
-// node’s own subtree. The size of a subtree under a node is simply 2^{height+1}-1
-// plus id as int value?
+// Returns true iff node's label is in the store
+func (d *KVFileStore) IsLabelInStore(id Identifier) (bool, error) {
 
+	idx, err := d.calcFileIndex(id)
+	if err != nil {
+		return false, err
+	}
+
+	stats, err := d.file.Stat()
+	if err != nil {
+		return false, err
+	}
+
+	fileSize := uint64(stats.Size())
+
+	return idx < fileSize, nil
+}
+
+// Returns the label of node id or error if it is not in the store
 func (d *KVFileStore) Read(id Identifier) (shared.Label, error) {
-	return shared.Label{}, nil
+
+	var label shared.Label
+
+	idx, err := d.calcFileIndex(id)
+	if err != nil {
+		return label, err
+	}
+
+	_, err = d.file.Seek(int64(idx), 0)
+	if err != nil {
+		return label, err
+	}
+
+	// create a slice from the label array
+	lSlice := label[:]
+
+	//buff := make([]byte, shared.WB)
+
+	n, err := d.file.Read(lSlice)
+	if err != nil {
+		return label, err
+	}
+
+	if n == 0 {
+		return label, errors.New("label for id is ont in store")
+	}
+
+	return label, nil
 }
 
 func (d *KVFileStore) Write(id Identifier, l shared.Label) error {
-	return nil
+	idx, err := d.calcFileIndex(id)
+	if err != nil {
+		return err
+	}
+
+	_, err = d.file.Seek(int64(idx), 0)
+	if err != nil {
+		return err
+	}
+
+	_, err = d.file.Write(l[:])
+	return err
 }
 
-func calcFileIndex(id Identifier) uint64 {
-	return 0
+func (d *KVFileStore) calcFileIndex(id Identifier) (uint64, error) {
+	s := d.subtreeSize(id)
+	s1, err := d.leftSiblingsSubtreeSize(id)
+	if err != nil {
+		return 0, err
+	}
+	return s + s1, nil
 }
 
-// given a node id, return the size of the subtree rooted with it
+// Returns the size of the subtree rooted at node id
 func (d *KVFileStore) subtreeSize(id Identifier) uint64 {
 	// node depth is the number of bits in its id
 	depth := uint(len(id))
 	height := d.n - depth
 	return uint64(math.Pow(2, float64(height+1)) - 1)
+}
 
+// Returns the size of the subtrees rooted at left siblings on the path
+// from node id to the root node
+func (d *KVFileStore) leftSiblingsSubtreeSize(id Identifier) (uint64, error) {
+	bs, err := d.f.NewBinaryString(string(id))
+	if err != nil {
+		return 0, err
+	}
+
+	siblings, err := bs.GetBNSiblings(true)
+	if err != nil {
+		return 0, err
+	}
+	var res uint64
+
+	for _, s := range siblings {
+		res += d.subtreeSize(Identifier(s.GetStringValue()))
+	}
+
+	return res, nil
 }
