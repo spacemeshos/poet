@@ -8,6 +8,12 @@ import (
 	"testing"
 )
 
+/*
+	Latest results:
+	n= 25 total time = 2356.15s (29 minutes)
+
+
+ */
 func TestBigNip(t *testing.T) {
 
 	x := make([]byte, 32)

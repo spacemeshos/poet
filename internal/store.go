@@ -53,6 +53,7 @@ func (d *KVFileStore) init() error {
 	d.file = f
 
 	// create buffer with default buf size
+	// tood: compare pref w/o buffers
 	d.bw = bufio.NewWriterSize(f, 4096 * 100000)
 
 	return nil

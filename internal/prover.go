@@ -297,6 +297,10 @@ func (p *SMProver) computeLeafLabel(leafId Identifier) (shared.Label, error) {
 		N := math.Pow(2,float64(p.n))
 		r := 100 * float64(i) / N
 
+		if r > 100 {
+			r = 100
+		}
+
 		fmt.Printf("Computed label for leaf id %s. %d %.2v%% \n", leafId, i, r)
 	}
 
