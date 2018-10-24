@@ -27,9 +27,14 @@ type SMBinaryString struct {
 // Any leading 0s will be included in the result
 func (f *SMBinaryStringFactory) NewBinaryString(s string) (BinaryString, error) {
 
-	v, err := strconv.ParseUint(s, 2, 64)
-	if err != nil {
-		return nil, err
+	var v uint64
+
+	if s != "" {
+		parsed, err := strconv.ParseUint(s, 2, 64)
+		if err != nil {
+			return nil, err
+		}
+		v = parsed
 	}
 
 	res := &SMBinaryString{
@@ -47,6 +52,10 @@ func (f *SMBinaryStringFactory) NewRandomBinaryString(d uint) (BinaryString, err
 
 	if d > 63 {
 		return nil, errors.New("unsupported # of digits. must be less or equals to 64")
+	}
+
+	if d == 0 { // the only id with 0 digits is ""
+		return f.NewBinaryString("")
 	}
 
 	// generate a random number with d digits
@@ -89,6 +98,10 @@ func (s *SMBinaryString) GetBNSiblings(leftOnly bool) ([]BinaryString, error) {
 
 	// slice of siblings
 	var res []BinaryString
+
+	if s.v == 0 { // special case - dag root node
+		return res, nil
+	}
 
 	// current node pointer
 	var nodeId BinaryString

@@ -2,7 +2,6 @@ package internal
 
 import (
 	"errors"
-	"fmt"
 	"github.com/spacemeshos/poet-ref/shared"
 	"math"
 	"os"
@@ -15,6 +14,7 @@ type IKvStore interface {
 	Reset() error
 	Close() error
 	Delete() error
+	Size() uint64
 }
 
 type KVFileStore struct {
@@ -62,6 +62,14 @@ func (d *KVFileStore) Close() error {
 
 func (d *KVFileStore) Delete() error {
 	return os.Remove(d.fileName)
+}
+
+func (d *KVFileStore) Size() uint64 {
+	stats, err := d.file.Stat()
+	if err != nil {
+		println(err)
+	}
+	return uint64(stats.Size())
 }
 
 // Returns true iff node's label is in the store
@@ -114,7 +122,7 @@ func (d *KVFileStore) Write(id Identifier, l shared.Label) error {
 		return err
 	}
 
-	fmt.Printf("Writing %d bytes in offset %d\n", len(l[:]), idx)
+	//fmt.Printf("Writing %d bytes in offset %d\n", len(l[:]), idx)
 	_, err = d.file.WriteAt(l[:], int64(idx))
 	return err
 }
@@ -127,9 +135,10 @@ func (d *KVFileStore) calcFileIndex(id Identifier) (uint64, error) {
 		return 0, err
 	}
 
-	idx := (s + s1 - 1) * shared.WB
-	fmt.Printf("File offset bytes for node id %s: %d\n", id, idx)
-	return idx, nil
+	idx := s + s1 - 1
+	offset := idx * shared.WB
+	//fmt.Printf("Node id %s. Index: %d. Offset: %d\n", id, idx, offset)
+	return offset, nil
 }
 
 // Returns the size of the subtree rooted at node id

@@ -25,7 +25,7 @@ func TestProverBasic(t *testing.T) {
 	assert.NoError(t, err)
 
 	p.ComputeDag(func(phi shared.Label, err error) {
-		fmt.Printf("Root label: %x", phi)
+		fmt.Printf("Root label: %x\n", phi)
 		assert.NoError(t, err)
 
 		// test root label computation from parents

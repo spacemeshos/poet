@@ -2,12 +2,13 @@ package main
 
 import (
 	"bytes"
-	"encoding/hex"
+	"crypto/rand"
 	"fmt"
 	"github.com/minio/sha256-simd"
 	"github.com/spacemeshos/poet-ref/internal"
 	"github.com/spacemeshos/poet-ref/shared"
 	"math"
+	"os"
 	"runtime"
 	"time"
 )
@@ -20,40 +21,79 @@ func main() {
 
 func Playground() {
 
-	const x = "this is a shared commitment between prover and verifier"
-
-	data, _ := hex.DecodeString("68b4c66918faa1a6538920944f13957354910f741a87236ea4905f2a50314c10")
-	var phi shared.Label
-	copy(phi[:], data)
-
-	const n = 63
-
-	v, err := internal.NewVerifier([]byte(x), n)
+	x := make([]byte, 32)
+	_, err := rand.Read(x)
 	if err != nil {
-		println(err)
-		return
+		os.Exit(-1)
 	}
 
-	c, err := v.CreteNipChallenge(phi)
+	// with n=25 and 16GB rqm:
+	// Map size:  67108863 entries ~20GB - runtime: 1034.77s
+	const n = 25
+
+	p, err := internal.NewProver(x, n)
 	if err != nil {
-		println(err)
-		return
+		println("Failed to create prover.")
+		os.Exit(-1)
 	}
 
-	if len(c.Data) != shared.T {
-		println("Expected t identifiers in challenge")
-		return
-	}
+	println("Computing dag...")
 
-	println("Printing NIP challenge...")
-	for idx, id := range c.Data {
-		if len(id) != n {
-			println("Unexpected identifier width")
-			return
+	t1 := time.Now().Unix()
+
+	p.ComputeDag(func(phi shared.Label, err error) {
+		fmt.Printf("Dag root label: %s\n", internal.GetDisplayValue(phi))
+		if err != nil {
+			println("Failed to compute dag.")
+			os.Exit(-1)
 		}
 
-		println(idx, id)
-	}
+		proof, err := p.GetNonInteractiveProof()
+		if err != nil {
+			println("Failed to create NIP.")
+			os.Exit(-1)
+		}
+
+		v, err := internal.NewVerifier(x, n)
+		if err != nil {
+			println("Failed to create verifier.")
+			os.Exit(-1)
+		}
+
+		c, err := v.CreteNipChallenge(proof.Phi)
+		if err != nil {
+			println("Failed to create NIP challenge.")
+			os.Exit(-1)
+		}
+
+		res := v.Verify(c, proof)
+		if res == false {
+			println("Failed to verify NIP proof.")
+			os.Exit(-1)
+		}
+
+		c1, err := v.CreteRndChallenge()
+		if err != nil {
+			println("Failed to create rnd challenge.")
+			os.Exit(-1)
+		}
+
+		proof1, err := p.GetProof(c1)
+
+		res = v.Verify(c1, proof1)
+		if res == false {
+			println("Failed to verify interactive proof.")
+			os.Exit(-1)
+		}
+
+		d := time.Now().Unix() - t1
+
+		fmt.Printf("Proof generated in %d seconds.\n", d)
+
+		p.DeleteStore()
+
+	})
+
 }
 
 func BenchmarkSha256() {

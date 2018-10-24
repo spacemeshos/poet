@@ -16,7 +16,7 @@ func TestBigNip(t *testing.T) {
 
 	// with n=25 and 16GB rqm:
 	// Map size:  67108863 entries ~20GB - runtime: 1034.77s
-	const n = 11
+	const n = 13
 
 	p, err := NewProver(x, n)
 	assert.NoError(t, err)
@@ -36,13 +36,15 @@ func TestBigNip(t *testing.T) {
 
 		res := v.Verify(c, proof)
 		assert.True(t, res, "failed to verify proof")
+
+		p.DeleteStore()
 	})
 }
 
 func TestNip(t *testing.T) {
 
 	var x = []byte("Spacemesh launched its mainent")
-	const n = 11
+	const n = 11 // 33.6mb storage
 
 	p, err := NewProver(x, n)
 	assert.NoError(t, err)
@@ -62,6 +64,8 @@ func TestNip(t *testing.T) {
 
 		res := v.Verify(c, proof)
 		assert.True(t, res, "failed to verify proof")
+
+		p.DeleteStore()
 	})
 }
 
@@ -71,7 +75,7 @@ func TestRndChallengeProof(t *testing.T) {
 	_, err := rand.Read(x)
 	assert.NoError(t, err)
 
-	const n = 11
+	const n = 9
 
 	p, err := NewProver(x, n)
 	assert.NoError(t, err)
@@ -87,8 +91,8 @@ func TestRndChallengeProof(t *testing.T) {
 		c, err := v.CreteRndChallenge()
 		assert.NoError(t, err)
 
-		println("Challenge data:")
-		c.Print()
+		// println("Challenge data:")
+		// c.Print()
 
 		proof, err := p.GetProof(c)
 		assert.NoError(t, err)
@@ -96,30 +100,32 @@ func TestRndChallengeProof(t *testing.T) {
 
 		res := v.Verify(c, proof)
 		assert.True(t, res, "failed to verify proof")
+
+		p.DeleteStore()
 	})
 }
 
 func TestRndChallengeProofEx(t *testing.T) {
 
-	for i := 0; i < 10000; i++ {
+	// generate random commitment
+	x := make([]byte, 32)
+	_, err := rand.Read(x)
+	assert.NoError(t, err)
 
-		// generate random commitment
-		x := make([]byte, 32)
-		_, err := rand.Read(x)
+	const n = 15
+
+	p, err := NewProver(x, n)
+	assert.NoError(t, err)
+
+	p.ComputeDag(func(phi shared.Label, err error) {
+
+		//fmt.Printf("Dag root label: %s\n", GetDisplayValue(phi))
 		assert.NoError(t, err)
 
-		const n = 9
-
-		p, err := NewProver(x, n)
+		v, err := NewVerifier(x, n)
 		assert.NoError(t, err)
 
-		p.ComputeDag(func(phi shared.Label, err error) {
-
-			//fmt.Printf("Dag root label: %s\n", GetDisplayValue(phi))
-			assert.NoError(t, err)
-
-			v, err := NewVerifier(x, n)
-			assert.NoError(t, err)
+		for i := 0; i < 100; i++ {
 
 			c, err := v.CreteRndChallenge()
 			assert.NoError(t, err)
@@ -133,6 +139,8 @@ func TestRndChallengeProofEx(t *testing.T) {
 
 			res := v.Verify(c, proof)
 			assert.True(t, res, "failed to verify proof")
-		})
-	}
+		}
+
+		p.DeleteStore()
+	})
 }

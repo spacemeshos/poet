@@ -4,15 +4,17 @@ import (
 	"errors"
 	"fmt"
 	"github.com/spacemeshos/poet-ref/shared"
+	"io/ioutil"
+	"path/filepath"
 )
 
 type SMProver struct {
-	x   []byte                      // commitment
-	n   uint                        // n param 1 <= n <= 63
-	h   HashFunc                    // Hx()
-	m   map[Identifier]shared.Label // label store - in memory for now
-	f   BinaryStringFactory
-	phi shared.Label
+	x     []byte   // commitment
+	n     uint     // n param 1 <= n <= 63
+	h     HashFunc // Hx()
+	f     BinaryStringFactory
+	phi   shared.Label
+	store IKvStore
 }
 
 // Create a new prover with commitment X and param 1 <= n <= 63
@@ -26,17 +28,55 @@ func NewProver(x []byte, n uint) (shared.IProver, error) {
 		x: x,
 		n: n,
 		h: shared.NewHashFunc(x),
-		m: make(map[Identifier]shared.Label),
 		f: NewSMBinaryStringFactory(),
 	}
 
+	dir, err := ioutil.TempDir("", "poet")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("Dag temp folder: %s\n", dir)
+
+	store, err := NewKvFileStore(filepath.Join(dir, "store.bin"), n)
+	if err != nil {
+		return res, err
+	}
+
+	err = store.Reset()
+	if err != nil {
+		return res, err
+	}
+
+	res.store = store
 	return res, nil
+}
+
+func (p *SMProver) DeleteStore() {
+	p.store.Delete()
 }
 
 // for testing
 func (p *SMProver) GetLabel(id Identifier) (shared.Label, bool) {
-	l, ok := p.m[id]
-	return l, ok
+
+	inStore, err := p.store.IsLabelInStore(id)
+	if err != nil {
+		println(err)
+		return shared.Label{}, false
+	}
+
+	if !inStore {
+		println("Warning: label not found in store")
+		return shared.Label{}, false
+	}
+
+	l, err := p.store.Read(id)
+	if err != nil {
+		println(err)
+		return shared.Label{}, false
+	}
+
+	return l, true
 }
 
 func (p *SMProver) GetHashFunction() HashFunc {
@@ -71,8 +111,9 @@ func (p *SMProver) GetProof(c Challenge) (Proof, error) {
 		// add it to the list
 		if _, ok := m[Identifier(id)]; !ok {
 			// add the identifier label to the labels list
-			labels = append(labels, p.m[Identifier(id)])
-			m[Identifier(id)] = p.m[Identifier(id)]
+			label := p.readLabel(Identifier(id))
+			labels = append(labels, label)
+			m[Identifier(id)] = label
 		}
 
 		siblingsIds, err := bs.GetBNSiblings(false)
@@ -86,7 +127,7 @@ func (p *SMProver) GetProof(c Challenge) (Proof, error) {
 				// label was not already included in this proof
 
 				// get its value - currently from the memory store
-				sibLabel := p.m[Identifier(sibId)]
+				sibLabel := p.readLabel(Identifier(sibId))
 
 				// store it in m so we won't add it again in another labels list in the proof
 				m[Identifier(sibId)] = sibLabel
@@ -119,7 +160,7 @@ func (p *SMProver) GetNonInteractiveProof() (Proof, error) {
 
 func (p *SMProver) ComputeDag(callback shared.ProofCreatedFunc) {
 
-	rootLabel, err := p.computeDagInMemory(shared.RootIdentifier)
+	rootLabel, err := p.computeDag(shared.RootIdentifier)
 
 	if err != nil {
 		callback(shared.Label{}, err)
@@ -132,7 +173,8 @@ func (p *SMProver) ComputeDag(callback shared.ProofCreatedFunc) {
 
 func (p *SMProver) printDag(rootId Identifier) {
 	if rootId == "" {
-		fmt.Printf("DAG: # of nodes: %d. n: %d\n", len(p.m), p.n)
+		items := p.store.Size() / shared.WB
+		fmt.Printf("DAG: # of nodes: %d. n: %d\n", items, p.n)
 	}
 
 	if uint(len(rootId)) < p.n {
@@ -140,16 +182,20 @@ func (p *SMProver) printDag(rootId Identifier) {
 		p.printDag(rootId + "1")
 	}
 
-	label, ok := p.m[rootId]
-	if !ok {
-		fmt.Printf("Missing label value from map")
+	ok, err := p.store.IsLabelInStore(rootId)
+
+	if !ok || err != nil {
+		fmt.Printf("Missing label value from map for is %s", rootId)
+		return
 	}
+
+	label := p.readLabel(rootId)
 
 	fmt.Printf("%s: %s\n", rootId, GetDisplayValue(label))
 }
 
 // Compute Dag with a root
-func (p *SMProver) computeDagInMemory(rootId Identifier) (shared.Label, error) {
+func (p *SMProver) computeDag(rootId Identifier) (shared.Label, error) {
 
 	leftNodeId := rootId + "0"
 	rightNodId := rootId + "1"
@@ -171,12 +217,12 @@ func (p *SMProver) computeDagInMemory(rootId Identifier) (shared.Label, error) {
 
 	} else { // children are internal dag nodes
 
-		leftNodeLabel, err = p.computeDagInMemory(leftNodeId)
+		leftNodeLabel, err = p.computeDag(leftNodeId)
 		if err != nil {
 			return shared.Label{}, err
 		}
 
-		rightNodeLabel, err = p.computeDagInMemory(rightNodId)
+		rightNodeLabel, err = p.computeDag(rightNodId)
 		if err != nil {
 			return shared.Label{}, err
 		}
@@ -188,8 +234,26 @@ func (p *SMProver) computeDagInMemory(rootId Identifier) (shared.Label, error) {
 
 	// compute root label, store and return it
 	labelValue := p.h.Hash(labelData)
-	p.m[rootId] = labelValue
+	p.writeLabel(rootId, labelValue)
 	return labelValue, nil
+}
+
+func (p *SMProver) writeLabel(id Identifier, l shared.Label) {
+	err := p.store.Write(id, l)
+	if err != nil {
+		println(err)
+		panic(err)
+	}
+}
+
+func (p *SMProver) readLabel(id Identifier) shared.Label {
+	l, err := p.store.Read(id)
+	if err != nil {
+		println(err)
+		panic(err)
+	}
+
+	return l
 }
 
 // Given a leaf node with id leafId - return the value of its label
@@ -210,7 +274,7 @@ func (p *SMProver) computeLeafLabel(leafId Identifier) (shared.Label, error) {
 	}
 
 	for _, parentId := range parentIds {
-		parentValue := p.m[Identifier(parentId.GetStringValue())]
+		parentValue := p.readLabel(Identifier(parentId.GetStringValue()))
 		data = append(data, parentValue[:]...)
 	}
 
@@ -218,6 +282,6 @@ func (p *SMProver) computeLeafLabel(leafId Identifier) (shared.Label, error) {
 	label := p.h.Hash(data)
 
 	// store it
-	p.m[leafId] = label
+	p.writeLabel(leafId, label)
 	return label, nil
 }
