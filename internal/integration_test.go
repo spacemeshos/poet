@@ -128,7 +128,7 @@ func TestRndChallengeProofEx(t *testing.T) {
 		v, err := NewVerifier(x, n)
 		assert.NoError(t, err)
 
-		for i := 0; i < 10000; i++ {
+		for i := 0; i < 1000; i++ {
 
 			c, err := v.CreteRndChallenge()
 			assert.NoError(t, err)
