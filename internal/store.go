@@ -54,7 +54,7 @@ func (d *KVFileStore) init() error {
 
 	// create buffer with default buf size
 	// tood: compare pref w/o buffers
-	d.bw = bufio.NewWriterSize(f, 4096 * 100000)
+	d.bw = bufio.NewWriterSize(f, 4096)
 
 	return nil
 }
@@ -148,14 +148,14 @@ func (d *KVFileStore) Write(id Identifier, l shared.Label) error {
 	//
 
 	/* no need to calc index or to WriteAt because writes are sequential
-		idx, err := d.calcFileIndex(id)
-		if err != nil {
-			return err
-		}
-
-		//fmt.Printf("Writing %d bytes in offset %d\n", len(l[:]), idx)
-		_, err = d.file.WriteAt(l[:], int64(idx))
+	idx, err := d.calcFileIndex(id)
+	if err != nil {
 		return err
+	}
+
+	//fmt.Printf("Writing %d bytes in offset %d\n", len(l[:]), idx)
+	_, err = d.file.WriteAt(l[:], int64(idx))
+	return err
 	*/
 }
 

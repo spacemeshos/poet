@@ -165,7 +165,7 @@ func (p *SMProver) GetNonInteractiveProof() (Proof, error) {
 
 func (p *SMProver) ComputeDag(callback shared.ProofCreatedFunc) {
 
-	N := math.Pow(2,float64(p.n+1)) - 1
+	N := math.Pow(2, float64(p.n+1)) - 1
 	fmt.Printf("Computing DAG(%d). Total nodes: %d\n", p.n, uint64(N))
 
 	rootLabel, err := p.computeDag(shared.RootIdentifier)
@@ -292,9 +292,9 @@ func (p *SMProver) computeLeafLabel(leafId Identifier) (shared.Label, error) {
 	// store it
 	p.writeLabel(leafId, label)
 
-	if bs.GetValue() % 100000 == 0 {
+	if bs.GetValue()%100000 == 0 {
 		i := bs.GetValue()
-		N := math.Pow(2,float64(p.n))
+		N := math.Pow(2, float64(p.n))
 		r := 100 * float64(i) / N
 
 		if r > 100 {

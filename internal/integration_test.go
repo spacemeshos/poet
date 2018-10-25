@@ -13,7 +13,7 @@ import (
 	n= 25 total time = 2356.15s (29 minutes)
 
 
- */
+*/
 func TestBigNip(t *testing.T) {
 
 	x := make([]byte, 32)
@@ -21,8 +21,8 @@ func TestBigNip(t *testing.T) {
 	assert.NoError(t, err)
 
 	// with n=25 and 16GB ram:
-	// Map size:  67108863 entries ~20GB - runtime: 1034.77s
-	const n = 25
+	// Map size:  67108863 entries ~20GB in ram w map - runtime: 1034.77s
+	const n = 16
 
 	p, err := NewProver(x, n)
 	assert.NoError(t, err)
@@ -43,7 +43,7 @@ func TestBigNip(t *testing.T) {
 		res := v.Verify(c, proof)
 		assert.True(t, res, "failed to verify proof")
 
-		p.DeleteStore()
+		// p.DeleteStore()
 	})
 }
 
