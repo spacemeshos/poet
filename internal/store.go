@@ -24,8 +24,10 @@ type KVFileStore struct {
 	n        uint // 1 <= n < 64
 	f        BinaryStringFactory
 	bw       *bufio.Writer
-	dirty    bool
+	c   	 uint64 // num of labels written to store in this session
 }
+
+const buffSizeBytes = 4096 * 100
 
 // Create a new prover with commitment X and 1 <= n < 64
 // n specifies the leafs height from the root and the number of bits in leaf ids
@@ -53,7 +55,7 @@ func (d *KVFileStore) init() error {
 	d.file = f
 
 	// create buffer with default buf size
-	// tood: compare pref w/o buffers
+	// todo: compare pref w/o buffers
 	d.bw = bufio.NewWriterSize(f, 4096)
 
 	return nil
@@ -61,14 +63,13 @@ func (d *KVFileStore) init() error {
 
 // Removes all data from the file
 func (d *KVFileStore) Reset() error {
+	d.bw.Flush()
+	d.c = 0
 	return d.file.Truncate(0)
 }
 
 func (d *KVFileStore) Close() error {
-	if d.dirty { // must flush before reading
-		d.bw.Flush()
-		d.dirty = false
-	}
+	d.bw.Flush()
 	return d.file.Close()
 }
 
@@ -76,21 +77,18 @@ func (d *KVFileStore) Delete() error {
 	return os.Remove(d.fileName)
 }
 
+
 func (d *KVFileStore) Size() uint64 {
 	stats, err := d.file.Stat()
 	if err != nil {
 		println(err)
 	}
-	return uint64(stats.Size())
+
+	return uint64(stats.Size()) + uint64(d.bw.Buffered())
 }
 
 // Returns true iff node's label is in the store
 func (d *KVFileStore) IsLabelInStore(id Identifier) (bool, error) {
-
-	if d.dirty { // must flush before reading
-		d.bw.Flush()
-		d.dirty = false
-	}
 
 	idx, err := d.calcFileIndex(id)
 	if err != nil {
@@ -102,29 +100,38 @@ func (d *KVFileStore) IsLabelInStore(id Identifier) (bool, error) {
 		return false, err
 	}
 
-	fileSize := uint64(stats.Size())
 
+	if d.bw.Buffered() > 0 && idx < (d.c * shared.WB) {
+		// label is in file or in the buffer
+		return true, nil
+	}
+
+	fileSize := uint64(stats.Size())
 	return idx < fileSize, nil
 }
 
 // Returns the label of node id or error if it is not in the store
 func (d *KVFileStore) Read(id Identifier) (shared.Label, error) {
 
-	if d.dirty { // must flush before reading
-		d.bw.Flush()
-		d.dirty = false
-	}
-
 	var label shared.Label
 
+	// total labels written - buffered labels == idx of label at buff start
+	// say 4 labels were written, and Buffered() is 64 bytes. 2 last labels
+	// are in buffer and the index of the label at buff start is 2.
+	idAtBuffStart := d.c  - uint64(d.bw.Buffered() / shared.WB)
+
+	// label file index
 	idx, err := d.calcFileIndex(id)
 	if err != nil {
 		return label, err
 	}
 
-	// create a slice from the label array
-	// lSlice := label[:]
-	// buff := make([]byte, shared.WB)
+	if idx >= idAtBuffStart * shared.WB {
+		// label is in buffer - we need to flush it to file before reading
+		// todo: find best way to just read the data from the buffer w/o flushing
+		// this might be a significant optimization
+		d.bw.Flush()
+	}
 
 	n, err := d.file.ReadAt(label[:], int64(idx))
 	if err != nil {
@@ -139,24 +146,9 @@ func (d *KVFileStore) Read(id Identifier) (shared.Label, error) {
 }
 
 func (d *KVFileStore) Write(id Identifier, l shared.Label) error {
-
+	d.c += 1
 	_, err := d.bw.Write(l[:])
-	d.dirty = true
 	return err
-
-	// no need to calc index or to WriteAt because writes are sequential
-	//
-
-	/* no need to calc index or to WriteAt because writes are sequential
-	idx, err := d.calcFileIndex(id)
-	if err != nil {
-		return err
-	}
-
-	//fmt.Printf("Writing %d bytes in offset %d\n", len(l[:]), idx)
-	_, err = d.file.WriteAt(l[:], int64(idx))
-	return err
-	*/
 }
 
 // Returns the file offset for a node id
