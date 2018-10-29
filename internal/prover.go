@@ -3,6 +3,7 @@ package internal
 import (
 	"errors"
 	"fmt"
+	"github.com/golang/groupcache/lru"
 	"github.com/spacemeshos/poet-ref/shared"
 	"math"
 	"math/rand"
@@ -17,6 +18,7 @@ type SMProver struct {
 	f     BinaryStringFactory
 	phi   shared.Label
 	store IKvStore
+	lru   *lru.Cache
 }
 
 // Create a new prover with commitment X and param 1 <= n <= 63
@@ -31,6 +33,8 @@ func NewProver(x []byte, n uint) (shared.IProver, error) {
 		n: n,
 		h: shared.NewHashFunc(x),
 		f: NewSMBinaryStringFactory(),
+		lru: lru.New(int(n)),
+
 	}
 
 	dir, err := os.Getwd()
@@ -53,6 +57,8 @@ func NewProver(x []byte, n uint) (shared.IProver, error) {
 	}
 
 	res.store = store
+
+
 	return res, nil
 }
 
@@ -163,10 +169,13 @@ func (p *SMProver) GetNonInteractiveProof() (Proof, error) {
 	return p.GetProof(c)
 }
 
+//type LabelsCache map[Identifier]shared.Label
+
 func (p *SMProver) ComputeDag(callback shared.ProofCreatedFunc) {
 
 	N := math.Pow(2, float64(p.n+1)) - 1
 	fmt.Printf("Computing DAG(%d). Total nodes: %d\n", p.n, uint64(N))
+
 
 	rootLabel, err := p.computeDag(shared.RootIdentifier)
 
@@ -215,9 +224,13 @@ func (p *SMProver) computeDag(rootId Identifier) (shared.Label, error) {
 	if childrenHeight == p.n { // children are leaves
 
 		leftNodeLabel, err = p.computeLeafLabel(leftNodeId)
+
+		p.lru.Add(string(leftNodeId), leftNodeLabel)
+
 		if err != nil {
 			return shared.Label{}, err
 		}
+
 		rightNodeLabel, err = p.computeLeafLabel(rightNodId)
 		if err != nil {
 			return shared.Label{}, err
@@ -226,6 +239,9 @@ func (p *SMProver) computeDag(rootId Identifier) (shared.Label, error) {
 	} else { // children are internal dag nodes
 
 		leftNodeLabel, err = p.computeDag(leftNodeId)
+
+		p.lru.Add(string(leftNodeId), leftNodeLabel)
+
 		if err != nil {
 			return shared.Label{}, err
 		}
@@ -237,12 +253,16 @@ func (p *SMProver) computeDag(rootId Identifier) (shared.Label, error) {
 	}
 
 	// pack data to hash - hx(rootId, leftSibLabel, rightSibLabel)
+
+	// todo: change def of hash to efficiently encode identifiers. e.g. prefix d and encode v...
+
 	labelData := append([]byte(rootId), leftNodeLabel[:]...)
 	labelData = append(labelData, rightNodeLabel[:]...)
 
 	// compute root label, store and return it
 	labelValue := p.h.Hash(labelData)
 	p.writeLabel(rootId, labelValue)
+
 	return labelValue, nil
 }
 
@@ -282,8 +302,19 @@ func (p *SMProver) computeLeafLabel(leafId Identifier) (shared.Label, error) {
 	}
 
 	for _, parentId := range parentIds {
-		parentValue := p.readLabel(Identifier(parentId.GetStringValue()))
-		data = append(data, parentValue[:]...)
+
+		// read from lru cache
+		parentValue, ok := p.lru.Get(string(parentId.GetStringValue()))
+		if !ok {
+			return shared.Label{}, errors.New("expected label value in parents lru cache")
+		}
+
+		// read from store...
+		// parentValue := p.readLabel(Identifier(parentId.GetStringValue()))
+
+		var l shared.Label = parentValue.(shared.Label)
+
+		data = append(data, l[:]...)
 	}
 
 	// note that the leftmost leaf has no parents in the dag

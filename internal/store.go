@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"bufio"
 	"errors"
 	"github.com/spacemeshos/poet-ref/shared"
 	"math"
@@ -23,7 +22,7 @@ type KVFileStore struct {
 	file     *os.File
 	n        uint // 1 <= n < 64
 	f        BinaryStringFactory
-	bw       *bufio.Writer
+	bw       *Writer
 	c   	 uint64 // num of labels written to store in this session
 }
 
@@ -56,7 +55,7 @@ func (d *KVFileStore) init() error {
 
 	// create buffer with default buf size
 	// todo: compare pref w/o buffers
-	d.bw = bufio.NewWriterSize(f, 4096)
+	d.bw = NewWriterSize(f, buffSizeBytes)
 
 	return nil
 }
@@ -126,12 +125,16 @@ func (d *KVFileStore) Read(id Identifier) (shared.Label, error) {
 		return label, err
 	}
 
-	if idx >= idAtBuffStart * shared.WB {
+	idxBuffStart := idAtBuffStart * shared.WB
+
+	if idx >= idxBuffStart {
 		// label is in buffer - we need to flush it to file before reading
 		// todo: find best way to just read the data from the buffer w/o flushing
 		// this might be a significant optimization
+
 		d.bw.Flush()
 	}
+
 
 	n, err := d.file.ReadAt(label[:], int64(idx))
 	if err != nil {

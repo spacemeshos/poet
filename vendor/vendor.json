@@ -3,6 +3,12 @@
 	"ignore": "test",
 	"package": [
 		{
+			"checksumSHA1": "01dE5shJRxXaBGdlZtQ9h0REpdA=",
+			"path": "github.com/golang/groupcache",
+			"revision": "c65c006176ff7ff98bb916961c7abbc6b0afc0aa",
+			"revisionTime": "2018-10-24T23:09:25Z"
+		},
+		{
 			"checksumSHA1": "vCbb0vMh0GcGoYk33LRxReyLZlM=",
 			"path": "github.com/minio/sha256-simd",
 			"revision": "ad98a36ba0da87206e3378c556abbfeaeaa98668",
