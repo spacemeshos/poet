@@ -23,7 +23,7 @@ type KVFileStore struct {
 	n        uint // 1 <= n < 64
 	f        BinaryStringFactory
 	bw       *Writer
-	c   	 uint64 // num of labels written to store in this session
+	c        uint64 // num of labels written to store in this session
 }
 
 const buffSizeBytes = 4096 * 100
@@ -76,7 +76,6 @@ func (d *KVFileStore) Delete() error {
 	return os.Remove(d.fileName)
 }
 
-
 func (d *KVFileStore) Size() uint64 {
 	stats, err := d.file.Stat()
 	if err != nil {
@@ -99,8 +98,7 @@ func (d *KVFileStore) IsLabelInStore(id Identifier) (bool, error) {
 		return false, err
 	}
 
-
-	if d.bw.Buffered() > 0 && idx < (d.c * shared.WB) {
+	if d.bw.Buffered() > 0 && idx < (d.c*shared.WB) {
 		// label is in file or in the buffer
 		return true, nil
 	}
@@ -117,7 +115,7 @@ func (d *KVFileStore) Read(id Identifier) (shared.Label, error) {
 	// total labels written - buffered labels == idx of label at buff start
 	// say 4 labels were written, and Buffered() is 64 bytes. 2 last labels
 	// are in buffer and the index of the label at buff start is 2.
-	idAtBuffStart := d.c  - uint64(d.bw.Buffered() / shared.WB)
+	idAtBuffStart := d.c - uint64(d.bw.Buffered()/shared.WB)
 
 	// label file index
 	idx, err := d.calcFileIndex(id)
@@ -134,7 +132,6 @@ func (d *KVFileStore) Read(id Identifier) (shared.Label, error) {
 
 		d.bw.Flush()
 	}
-
 
 	n, err := d.file.ReadAt(label[:], int64(idx))
 	if err != nil {

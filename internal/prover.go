@@ -29,11 +29,11 @@ func NewProver(x []byte, n uint) (shared.IProver, error) {
 	}
 
 	res := &SMProver{
-		x: x,
-		n: n,
-		h: shared.NewHashFunc(x),
-		f: NewSMBinaryStringFactory(),
-		lru: lru.New(int(n)),
+		x:   x,
+		n:   n,
+		h:   shared.NewHashFunc(x),
+		f:   NewSMBinaryStringFactory(),
+		lru: lru.New(int(n)), // we only need n entries in the labels cache
 
 	}
 
@@ -57,7 +57,6 @@ func NewProver(x []byte, n uint) (shared.IProver, error) {
 	}
 
 	res.store = store
-
 
 	return res, nil
 }
@@ -175,7 +174,6 @@ func (p *SMProver) ComputeDag(callback shared.ProofCreatedFunc) {
 
 	N := math.Pow(2, float64(p.n+1)) - 1
 	fmt.Printf("Computing DAG(%d). Total nodes: %d\n", p.n, uint64(N))
-
 
 	rootLabel, err := p.computeDag(shared.RootIdentifier)
 
@@ -303,7 +301,7 @@ func (p *SMProver) computeLeafLabel(leafId Identifier) (shared.Label, error) {
 
 	for _, parentId := range parentIds {
 
-		// read from lru cache
+		// read all parent label values from the lru cache
 		parentValue, ok := p.lru.Get(string(parentId.GetStringValue()))
 		if !ok {
 			return shared.Label{}, errors.New("expected label value in parents lru cache")

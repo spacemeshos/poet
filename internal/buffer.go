@@ -8,7 +8,6 @@ const (
 	defaultBufSize = 4096
 )
 
-
 // buffered output
 
 // Writer implements buffering for an io.Writer object.
@@ -25,7 +24,7 @@ type Writer struct {
 }
 
 // get the underlying buffer slice
-func (b* Writer) GetBuffer() []byte {
+func (b *Writer) GetBuffer() []byte {
 	return b.buf
 }
 
