@@ -113,46 +113,49 @@ func TestRndChallengeProof(t *testing.T) {
 
 func TestRndChallengeProofEx(t *testing.T) {
 
-	// generate random commitment
-	x := make([]byte, 32)
-	_, err := rand.Read(x)
-	assert.NoError(t, err)
+	for j := 0; j < 10; j++ {
 
-	const n = 15
-
-	p, err := NewProver(x, n)
-
-	defer p.DeleteStore()
-
-	assert.NoError(t, err)
-
-	p.ComputeDag(func(phi shared.Label, err error) {
-
-		//fmt.Printf("Dag root label: %s\n", GetDisplayValue(phi))
+		// generate random commitment
+		x := make([]byte, 32)
+		_, err := rand.Read(x)
 		assert.NoError(t, err)
 
-		v, err := NewVerifier(x, n)
+		const n = 15
+
+		p, err := NewProver(x, n)
+
+		defer p.DeleteStore()
+
 		assert.NoError(t, err)
 
-		for i := 0; i < 1000; i++ {
+		p.ComputeDag(func(phi shared.Label, err error) {
 
-			c, err := v.CreteRndChallenge()
+			//fmt.Printf("Dag root label: %s\n", GetDisplayValue(phi))
 			assert.NoError(t, err)
 
-			proof, err := p.GetProof(c)
+			v, err := NewVerifier(x, n)
 			assert.NoError(t, err)
 
-			res := v.Verify(c, proof)
+			for i := 0; i < 100; i++ {
 
-			if !res {
-				println("Failed to verify proof. Challenge data:")
-				c.Print()
-				println("Proof:")
-				PrintProof(proof)
+				c, err := v.CreteRndChallenge()
+				assert.NoError(t, err)
+
+				proof, err := p.GetProof(c)
+				assert.NoError(t, err)
+
+				res := v.Verify(c, proof)
+
+				if !res {
+					println("Failed to verify proof. Challenge data:")
+					c.Print()
+					println("Proof:")
+					PrintProof(proof)
+				}
+
+				assert.True(t, res, "failed to verify proof")
 			}
 
-			assert.True(t, res, "failed to verify proof")
-		}
-
-	})
+		})
+	}
 }

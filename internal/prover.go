@@ -18,7 +18,7 @@ type SMProver struct {
 	f     BinaryStringFactory
 	phi   shared.Label
 	store IKvStore
-	lru   *lru.Cache
+	cache *lru.Cache
 }
 
 // Create a new prover with commitment X and param 1 <= n <= 63
@@ -29,11 +29,11 @@ func NewProver(x []byte, n uint) (shared.IProver, error) {
 	}
 
 	res := &SMProver{
-		x:   x,
-		n:   n,
-		h:   shared.NewHashFunc(x),
-		f:   NewSMBinaryStringFactory(),
-		lru: lru.New(int(n)), // we only need n entries in the labels cache
+		x:     x,
+		n:     n,
+		h:     shared.NewHashFunc(x),
+		f:     NewSMBinaryStringFactory(),
+		cache: lru.New(int(n)), // we only need n entries in the labels cache
 
 	}
 
@@ -223,7 +223,7 @@ func (p *SMProver) computeDag(rootId Identifier) (shared.Label, error) {
 
 		leftNodeLabel, err = p.computeLeafLabel(leftNodeId)
 
-		p.lru.Add(string(leftNodeId), leftNodeLabel)
+		p.cache.Add(string(leftNodeId), leftNodeLabel)
 
 		if err != nil {
 			return shared.Label{}, err
@@ -238,7 +238,7 @@ func (p *SMProver) computeDag(rootId Identifier) (shared.Label, error) {
 
 		leftNodeLabel, err = p.computeDag(leftNodeId)
 
-		p.lru.Add(string(leftNodeId), leftNodeLabel)
+		p.cache.Add(string(leftNodeId), leftNodeLabel)
 
 		if err != nil {
 			return shared.Label{}, err
@@ -252,7 +252,8 @@ func (p *SMProver) computeDag(rootId Identifier) (shared.Label, error) {
 
 	// pack data to hash - hx(rootId, leftSibLabel, rightSibLabel)
 
-	// todo: change def of hash to efficiently encode identifiers. e.g. prefix d and encode v...
+	// TODO: change def of hash to more efficiently encode identifiers. e.g. prefix d && v int value
+	// right now we use 1 byte per binary digit which is wasteful.
 
 	labelData := append([]byte(rootId), leftNodeLabel[:]...)
 	labelData = append(labelData, rightNodeLabel[:]...)
@@ -302,7 +303,7 @@ func (p *SMProver) computeLeafLabel(leafId Identifier) (shared.Label, error) {
 	for _, parentId := range parentIds {
 
 		// read all parent label values from the lru cache
-		parentValue, ok := p.lru.Get(string(parentId.GetStringValue()))
+		parentValue, ok := p.cache.Get(parentId.GetStringValue())
 		if !ok {
 			return shared.Label{}, errors.New("expected label value in parents lru cache")
 		}

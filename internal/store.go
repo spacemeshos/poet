@@ -26,7 +26,7 @@ type KVFileStore struct {
 	c        uint64 // num of labels written to store in this session
 }
 
-const buffSizeBytes = 4096 * 100
+const buffSizeBytes = 4096 * 1000
 
 // Create a new prover with commitment X and 1 <= n < 64
 // n specifies the leafs height from the root and the number of bits in leaf ids
