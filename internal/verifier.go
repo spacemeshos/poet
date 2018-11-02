@@ -81,14 +81,21 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 			// pack data to hash
 			if siblingId.IsEven() {
 				// hx(siblingParentNodeId, siblingLabel, currentNodeOnPathValue)
-				labelData := append([]byte(parentNodeId.GetStringValue()), sibValue[:]...)
-				labelData = append(labelData, labelValue[:]...)
-				labelValue = s.h.Hash(labelData)
+
+				// labelData := append([]byte(parentNodeId.GetStringValue()), sibValue[:]...)
+				// labelData = append(labelData, labelValue[:]...)
+				// labelValue = s.h.Hash(labelData)
+
+				labelValue = s.h.Hash([]byte(parentNodeId.GetStringValue()), sibValue, labelValue)
+
 			} else {
 				// hx(siblingParentNodeId, currentNodeOnPathValue, siblingLabel)
-				labelData := append([]byte(parentNodeId.GetStringValue()), labelValue[:]...)
-				labelData = append(labelData, sibValue[:]...)
-				labelValue = s.h.Hash(labelData)
+
+				// labelData := append([]byte(parentNodeId.GetStringValue()), labelValue[:]...)
+				// labelData = append(labelData, sibValue[:]...)
+				// labelValue = s.h.Hash(labelData)
+
+				labelValue = s.h.Hash([]byte(parentNodeId.GetStringValue()), labelValue, sibValue)
 			}
 
 			//println("  Computed label value: %s", GetDisplayValue(labelValue))

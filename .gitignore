@@ -2,3 +2,6 @@ poet-ref
 .idea
 .DS_Store
 *.bin
+*.prof
+*.pdf
+*.test

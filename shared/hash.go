@@ -2,23 +2,32 @@ package shared
 
 import (
 	"github.com/minio/sha256-simd" // simd optimized sha256 computation
+	"hash"
 )
 
 // HashFunc implementation
 type sha256Hash struct {
-	x []byte // arbitrary binary data
+	x    []byte // arbitrary binary data
+	hash hash.Hash
 }
 
 // Returns a new HashFunc Hx() for commitment X
 func NewHashFunc(x []byte) HashFunc {
-	return &sha256Hash{x: x}
+	return &sha256Hash{x: x, hash: sha256.New()}
 }
 
 // Hash implements Hx()
-func (h *sha256Hash) Hash(data []byte) [WB]byte {
+//func (h *sha256Hash) Hash(data []byte) [WB]byte {
+//	return sha256.Sum256(append(h.x, data...))
+//}
 
-	// todo: benchmark the append here - it is performed on every hash
-	// ... It is likely that append() copies 1 byte at a time
+// Hash implements Hx()
+func (h *sha256Hash) Hash(data ...[]byte) []byte {
+	h.hash.Reset()
+	h.hash.Write(h.x)
+	for _, d := range data {
+		_, _ = h.hash.Write(d)
+	}
 
-	return sha256.Sum256(append(h.x, data...))
+	return h.hash.Sum([]byte{})
 }

@@ -111,7 +111,7 @@ func TestRndChallengeProof(t *testing.T) {
 	})
 }
 
-func TestRndChallengeProofEx(t *testing.T) {
+func BenchmarkProofEx(t *testing.B) {
 
 	for j := 0; j < 10; j++ {
 

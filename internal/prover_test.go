@@ -1,8 +1,6 @@
 package internal
 
 import (
-	"bytes"
-	"fmt"
 	"github.com/spacemeshos/poet-ref/shared"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -16,6 +14,7 @@ Computed root label: 68b4c66918faa1a6538920944f13957354910f741a87236ea4905f2a503
 PASS: TestProverBasic (1034.77s)
 */
 
+/*
 func TestProverBasic(t *testing.T) {
 
 	const x = "this is a commitment"
@@ -39,5 +38,18 @@ func TestProverBasic(t *testing.T) {
 
 		l := p.GetHashFunction().Hash(data)
 		assert.True(t, bytes.Equal(phi[:], l[:]))
+	})
+}*/
+
+func BenchmarkProver(t *testing.B) {
+
+	const x = "this is a commitment"
+	const n = 21
+
+	p, err := NewProver([]byte(x), n)
+	assert.NoError(t, err)
+
+	p.ComputeDag(func(phi shared.Label, err error) {
+
 	})
 }

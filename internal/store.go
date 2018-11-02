@@ -5,16 +5,27 @@ import (
 	"github.com/spacemeshos/poet-ref/shared"
 	"math"
 	"os"
+	"sync"
 )
+
+type WriteData struct {
+	id shared.Identifier
+	l  shared.Label
+}
+
+type WriteChan chan *WriteData
 
 type IKvStore interface {
 	Read(id Identifier) (shared.Label, error)
-	Write(id Identifier, l shared.Label) error
+	Write(id Identifier, l shared.Label)
 	IsLabelInStore(id Identifier) (bool, error)
 	Reset() error
-	Close() error
 	Delete() error
 	Size() uint64
+	Finalize()    // finalize writing w/o closing the file
+	Close() error // finalize and close
+
+	//GetWriteChan() WriteChan
 }
 
 type KVFileStore struct {
@@ -24,9 +35,12 @@ type KVFileStore struct {
 	f        BinaryStringFactory
 	bw       *Writer
 	c        uint64 // num of labels written to store in this session
+	wc       WriteChan
+	wg       sync.WaitGroup
+	once     sync.Once
 }
 
-const buffSizeBytes = 4096 * 1000
+const buffSizeBytes = 1024 * 1024 * 1024
 
 // Create a new prover with commitment X and 1 <= n < 64
 // n specifies the leafs height from the root and the number of bits in leaf ids
@@ -37,6 +51,7 @@ func NewKvFileStore(fileName string, n uint) (IKvStore, error) {
 		fileName: fileName,
 		n:        n,
 		f:        NewSMBinaryStringFactory(),
+		wc:       make(WriteChan, 100),
 	}
 
 	err := res.init()
@@ -53,11 +68,29 @@ func (d *KVFileStore) init() error {
 
 	d.file = f
 
-	// create buffer with default buf size
 	// todo: compare pref w/o buffers
 	d.bw = NewWriterSize(f, buffSizeBytes)
 
+	d.wg.Add(1)
+
+	go d.beginEventProcessing()
+
 	return nil
+}
+
+func (d *KVFileStore) beginEventProcessing() {
+	defer d.wg.Done()
+	for dataItem := range d.wc {
+		d.c += 1
+		_, err := d.bw.Write(dataItem.l)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+func (d *KVFileStore) Write(id Identifier, l shared.Label) {
+	d.wc <- &WriteData{id, l}
 }
 
 // Removes all data from the file
@@ -67,8 +100,19 @@ func (d *KVFileStore) Reset() error {
 	return d.file.Truncate(0)
 }
 
-func (d *KVFileStore) Close() error {
+func (d *KVFileStore) Finalize() {
+
+	d.once.Do(func() { close(d.wc) })
+
+	// wait for all buffered writes to be added to the buffer
+	d.wg.Wait()
+
+	// flush buffer to file
 	d.bw.Flush()
+}
+
+func (d *KVFileStore) Close() error {
+	d.Finalize()
 	return d.file.Close()
 }
 
@@ -107,12 +151,13 @@ func (d *KVFileStore) IsLabelInStore(id Identifier) (bool, error) {
 	return idx < fileSize, nil
 }
 
+// Read label value from the store
 // Returns the label of node id or error if it is not in the store
 func (d *KVFileStore) Read(id Identifier) (shared.Label, error) {
 
-	var label shared.Label
+	label := make(shared.Label, shared.WB)
 
-	// total labels written - buffered labels == idx of label at buff start
+	// total # of labels written - # of buffered labels == idx of label at buff start
 	// say 4 labels were written, and Buffered() is 64 bytes. 2 last labels
 	// are in buffer and the index of the label at buff start is 2.
 	idAtBuffStart := d.c - uint64(d.bw.Buffered()/shared.WB)
@@ -127,13 +172,14 @@ func (d *KVFileStore) Read(id Identifier) (shared.Label, error) {
 
 	if idx >= idxBuffStart {
 		// label is in buffer - we need to flush it to file before reading
+
 		// todo: find best way to just read the data from the buffer w/o flushing
-		// this might be a significant optimization
+		// this might be a significant optimization - more profiling needed
 
 		d.bw.Flush()
 	}
 
-	n, err := d.file.ReadAt(label[:], int64(idx))
+	n, err := d.file.ReadAt(label, int64(idx))
 	if err != nil {
 		return label, err
 	}
@@ -143,12 +189,6 @@ func (d *KVFileStore) Read(id Identifier) (shared.Label, error) {
 	}
 
 	return label, nil
-}
-
-func (d *KVFileStore) Write(id Identifier, l shared.Label) error {
-	d.c += 1
-	_, err := d.bw.Write(l[:])
-	return err
 }
 
 // Returns the file offset for a node id

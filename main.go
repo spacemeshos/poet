@@ -27,9 +27,7 @@ func Playground() {
 		os.Exit(-1)
 	}
 
-	// with n=25 and 16GB ram:
-	// Map size:  67108863 entries ~20GB - runtime: 1034.77s
-	const n = 23
+	const n = 15
 
 	p, err := internal.NewProver(x, n)
 

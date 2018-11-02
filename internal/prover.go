@@ -62,7 +62,6 @@ func NewProver(x []byte, n uint) (shared.IProver, error) {
 }
 
 func (p *SMProver) DeleteStore() {
-
 	p.store.Delete()
 }
 
@@ -255,22 +254,19 @@ func (p *SMProver) computeDag(rootId Identifier) (shared.Label, error) {
 	// TODO: change def of hash to more efficiently encode identifiers. e.g. prefix d && v int value
 	// right now we use 1 byte per binary digit which is wasteful.
 
-	labelData := append([]byte(rootId), leftNodeLabel[:]...)
-	labelData = append(labelData, rightNodeLabel[:]...)
+	//labelData := append([]byte(rootId), leftNodeLabel[:]...)
+	//labelData = append(labelData, rightNodeLabel[:]...)
 
 	// compute root label, store and return it
-	labelValue := p.h.Hash(labelData)
+	// Hx(id, leftNodeLabel, rightNodeLabel)
+	labelValue := p.h.Hash([]byte(rootId), leftNodeLabel, rightNodeLabel)
 	p.writeLabel(rootId, labelValue)
 
 	return labelValue, nil
 }
 
 func (p *SMProver) writeLabel(id Identifier, l shared.Label) {
-	err := p.store.Write(id, l)
-	if err != nil {
-		println(err)
-		panic(err)
-	}
+	p.store.Write(id, l)
 }
 
 func (p *SMProver) readLabel(id Identifier) shared.Label {

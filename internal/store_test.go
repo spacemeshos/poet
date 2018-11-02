@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"bytes"
 	"crypto/rand"
 	"github.com/spacemeshos/poet-ref/shared"
 	"github.com/stretchr/testify/assert"
@@ -12,21 +11,13 @@ import (
 // that value was written by reading it
 func writeAndVerify(t *testing.T, s IKvStore, id Identifier, l shared.Label) {
 
-	err := s.Write(id, l)
-	assert.NoError(t, err)
+	s.Write(id, l)
+	s.Close()
 
-	res, err := s.IsLabelInStore(id)
-	assert.NoError(t, err)
-	assert.True(t, res)
-
-	l1, err := s.Read(id)
-	assert.NoError(t, err)
-
-	assert.True(t, bytes.Equal(l[:], l1[:]))
 }
 
 func genRndLabel(t *testing.T) shared.Label {
-	var l shared.Label
+	l := make(shared.Label, shared.WB)
 	_, err := rand.Read(l[:])
 	assert.NoError(t, err)
 	return l
@@ -42,36 +33,37 @@ func TestWrites(t *testing.T) {
 	err = s.Reset()
 	assert.NoError(t, err)
 
-	writeAndVerify(t, s, "0000", genRndLabel(t))
-	writeAndVerify(t, s, "0001", genRndLabel(t))
-	writeAndVerify(t, s, "000", genRndLabel(t))
+	s.Write("0000", genRndLabel(t))
+	s.Write("0001", genRndLabel(t))
+	s.Write("0011", genRndLabel(t))
+	s.Write("001", genRndLabel(t))
 
-	writeAndVerify(t, s, "0010", genRndLabel(t))
-	writeAndVerify(t, s, "0011", genRndLabel(t))
-	writeAndVerify(t, s, "001", genRndLabel(t))
+	s.Write("00", genRndLabel(t))
+	s.Write("0100", genRndLabel(t))
+	s.Write("0101", genRndLabel(t))
+	s.Write("010", genRndLabel(t))
 
-	writeAndVerify(t, s, "00", genRndLabel(t))
+	s.Write("0110", genRndLabel(t))
+	s.Write("0111", genRndLabel(t))
+	s.Write("011", genRndLabel(t))
+	s.Write("01", genRndLabel(t))
+	s.Write("0", genRndLabel(t))
 
-	writeAndVerify(t, s, "0100", genRndLabel(t))
-	writeAndVerify(t, s, "0101", genRndLabel(t))
-	writeAndVerify(t, s, "010", genRndLabel(t))
+	s.Finalize()
 
-	writeAndVerify(t, s, "0110", genRndLabel(t))
-	writeAndVerify(t, s, "0111", genRndLabel(t))
-	writeAndVerify(t, s, "011", genRndLabel(t))
-
-	writeAndVerify(t, s, "01", genRndLabel(t))
-
-	writeAndVerify(t, s, "0", genRndLabel(t))
+	res, err := s.IsLabelInStore("0000")
+	assert.NoError(t, err)
+	assert.True(t, res)
 
 	// test for non-existing value
-	res, err := s.IsLabelInStore(Identifier("1111"))
+	res, err = s.IsLabelInStore(Identifier("1111"))
 	assert.NoError(t, err)
 	assert.False(t, res)
 
 	err = s.Close()
 	assert.NoError(t, err)
 }
+
 
 func TestDAG(t *testing.T) {
 
@@ -83,17 +75,15 @@ func TestDAG(t *testing.T) {
 	err = s.Reset()
 	assert.NoError(t, err)
 
-	writeAndVerify(t, s, "00", genRndLabel(t))
-	writeAndVerify(t, s, "01", genRndLabel(t))
-	writeAndVerify(t, s, "0", genRndLabel(t))
+	s.Write("01", genRndLabel(t))
+	s.Write("0", genRndLabel(t))
+	s.Write("10", genRndLabel(t))
+	s.Write("11", genRndLabel(t))
+	s.Write("", genRndLabel(t))
 
-	writeAndVerify(t, s, "10", genRndLabel(t))
-	writeAndVerify(t, s, "11", genRndLabel(t))
-	writeAndVerify(t, s, "1", genRndLabel(t))
+	s.Finalize()
 
-	writeAndVerify(t, s, "", genRndLabel(t))
-
-	assert.Equal(t, uint64(7), s.Size()/shared.WB)
+	assert.Equal(t, uint64(5), s.Size()/shared.WB)
 
 	err = s.Close()
 	assert.NoError(t, err)

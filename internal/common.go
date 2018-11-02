@@ -47,10 +47,10 @@ func creteNipChallenge(phi shared.Label, h HashFunc, n uint) (Challenge, error) 
 
 		// pack (phi, i) into a bytes array
 		// Hx(phi, i) := Hx(phi ... bigEndianEncodedBytes(i))
-		d := append(phi[:], buf.Bytes()...)
+		// d := append(phi[:], buf.Bytes()...)
 
 		// Compute Hx(phi, i)
-		hash := h.Hash(d)
+		hash := h.Hash(phi, buf.Bytes())
 
 		// Take the first 64 bits from the hash
 		bg := new(big.Int).SetBytes(hash[0:8])
