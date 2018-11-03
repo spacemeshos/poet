@@ -71,9 +71,9 @@ func (d *KVFileStore) init() error {
 	// todo: compare pref w/o buffers
 	d.bw = NewWriterSize(f, buffSizeBytes)
 
-	d.wg.Add(1)
+	// d.wg.Add(1)
 
-	go d.beginEventProcessing()
+	// go d.beginEventProcessing()
 
 	return nil
 }
@@ -90,7 +90,14 @@ func (d *KVFileStore) beginEventProcessing() {
 }
 
 func (d *KVFileStore) Write(id Identifier, l shared.Label) {
-	d.wc <- &WriteData{id, l}
+
+	//d.wc <- &WriteData{id, l}
+
+	d.c += 1
+	_, err := d.bw.Write(l)
+	if err != nil {
+		panic(err)
+	}
 }
 
 // Removes all data from the file
@@ -102,10 +109,12 @@ func (d *KVFileStore) Reset() error {
 
 func (d *KVFileStore) Finalize() {
 
-	d.once.Do(func() { close(d.wc) })
+	d.once.Do(func() {
+		close(d.wc)
+	})
 
 	// wait for all buffered writes to be added to the buffer
-	d.wg.Wait()
+	// d.wg.Wait()
 
 	// flush buffer to file
 	d.bw.Flush()
@@ -160,7 +169,7 @@ func (d *KVFileStore) Read(id Identifier) (shared.Label, error) {
 	// total # of labels written - # of buffered labels == idx of label at buff start
 	// say 4 labels were written, and Buffered() is 64 bytes. 2 last labels
 	// are in buffer and the index of the label at buff start is 2.
-	idAtBuffStart := d.c - uint64(d.bw.Buffered()/shared.WB)
+	// idAtBuffStart := d.c - uint64(d.bw.Buffered()/shared.WB)
 
 	// label file index
 	idx, err := d.calcFileIndex(id)
@@ -168,16 +177,17 @@ func (d *KVFileStore) Read(id Identifier) (shared.Label, error) {
 		return label, err
 	}
 
-	idxBuffStart := idAtBuffStart * shared.WB
+	/*
+		idxBuffStart := idAtBuffStart * shared.WB
 
-	if idx >= idxBuffStart {
-		// label is in buffer - we need to flush it to file before reading
+		if idx >= idxBuffStart {
+			// label is in buffer - we need to flush it to file before reading
 
-		// todo: find best way to just read the data from the buffer w/o flushing
-		// this might be a significant optimization - more profiling needed
+			// todo: find best way to just read the data from the buffer w/o flushing
+			// this might be a significant optimization - more profiling needed
 
-		d.bw.Flush()
-	}
+			d.bw.Flush()
+		}*/
 
 	n, err := d.file.ReadAt(label, int64(idx))
 	if err != nil {

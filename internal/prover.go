@@ -31,7 +31,7 @@ func NewProver(x []byte, n uint) (shared.IProver, error) {
 	res := &SMProver{
 		x:     x,
 		n:     n,
-		h:     shared.NewHashFunc(x),
+		h:     shared.NewScryptHashFunc(x),
 		f:     NewSMBinaryStringFactory(),
 		cache: lru.New(int(n)), // we only need n entries in the labels cache
 
@@ -181,6 +181,9 @@ func (p *SMProver) ComputeDag(callback shared.ProofCreatedFunc) {
 	}
 
 	p.phi = rootLabel
+
+	p.store.Finalize()
+
 	//p.printDag("")
 	callback(rootLabel, nil)
 }
@@ -237,6 +240,7 @@ func (p *SMProver) computeDag(rootId Identifier) (shared.Label, error) {
 
 		leftNodeLabel, err = p.computeDag(leftNodeId)
 
+		// we cache left nodes as they are leaf parents
 		p.cache.Add(string(leftNodeId), leftNodeLabel)
 
 		if err != nil {
@@ -249,24 +253,13 @@ func (p *SMProver) computeDag(rootId Identifier) (shared.Label, error) {
 		}
 	}
 
-	// pack data to hash - hx(rootId, leftSibLabel, rightSibLabel)
-
-	// TODO: change def of hash to more efficiently encode identifiers. e.g. prefix d && v int value
-	// right now we use 1 byte per binary digit which is wasteful.
-
-	//labelData := append([]byte(rootId), leftNodeLabel[:]...)
-	//labelData = append(labelData, rightNodeLabel[:]...)
-
 	// compute root label, store and return it
 	// Hx(id, leftNodeLabel, rightNodeLabel)
 	labelValue := p.h.Hash([]byte(rootId), leftNodeLabel, rightNodeLabel)
-	p.writeLabel(rootId, labelValue)
+
+	p.store.Write(rootId, labelValue)
 
 	return labelValue, nil
-}
-
-func (p *SMProver) writeLabel(id Identifier, l shared.Label) {
-	p.store.Write(id, l)
 }
 
 func (p *SMProver) readLabel(id Identifier) shared.Label {
@@ -304,21 +297,19 @@ func (p *SMProver) computeLeafLabel(leafId Identifier) (shared.Label, error) {
 			return shared.Label{}, errors.New("expected label value in parents lru cache")
 		}
 
-		// read from store...
-		// parentValue := p.readLabel(Identifier(parentId.GetStringValue()))
-
-		var l shared.Label = parentValue.(shared.Label)
-
-		data = append(data, l[:]...)
+		var l = parentValue.(shared.Label)
+		data = append(data, l...)
 	}
 
 	// note that the leftmost leaf has no parents in the dag
 	label := p.h.Hash(data)
 
 	// store it
-	p.writeLabel(leafId, label)
+	p.store.Write(leafId, label)
 
-	if bs.GetValue()%100000 == 0 {
+	//println(bs.GetStringValue())
+
+	if bs.GetValue()%5000 == 0 {
 		i := bs.GetValue()
 		N := math.Pow(2, float64(p.n))
 		r := 100 * float64(i) / N

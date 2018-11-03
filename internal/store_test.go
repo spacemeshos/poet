@@ -64,7 +64,6 @@ func TestWrites(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-
 func TestDAG(t *testing.T) {
 
 	const n = 2

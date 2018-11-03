@@ -183,7 +183,7 @@ func NewVerifier(x []byte, n uint) (IVerifier, error) {
 	res := &SMVerifier{
 		x: x,
 		n: n,
-		h: shared.NewHashFunc(x),
+		h: shared.NewScryptHashFunc(x),
 	}
 
 	return res, nil

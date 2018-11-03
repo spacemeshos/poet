@@ -16,6 +16,7 @@ import (
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	//BenchmarkSha256()
+	//BenchmarkScrypt()
 	Playground()
 }
 
@@ -24,10 +25,10 @@ func Playground() {
 	x := make([]byte, 32)
 	_, err := rand.Read(x)
 	if err != nil {
-		os.Exit(-1)
+		panic(err)
 	}
 
-	const n = 15
+	const n = 20
 
 	p, err := internal.NewProver(x, n)
 
@@ -43,7 +44,13 @@ func Playground() {
 	t1 := time.Now().Unix()
 
 	p.ComputeDag(func(phi shared.Label, err error) {
+
+		d := time.Now().Unix() - t1
+
+		fmt.Printf("Proof generated in %d seconds.\n", d)
+
 		fmt.Printf("Dag root label: %s\n", internal.GetDisplayValue(phi))
+
 		if err != nil {
 			println("Failed to compute dag.")
 			os.Exit(-1)
@@ -87,12 +94,11 @@ func Playground() {
 			os.Exit(-1)
 		}
 
-		d := time.Now().Unix() - t1
+		d1 := time.Now().Unix() - t1
 
-		fmt.Printf("Proof generated in %d seconds.\n", d)
+		fmt.Printf("Proof generated and verified in %d seconds.\n", d1)
 
 	})
-
 }
 
 func BenchmarkSha256() {
@@ -114,6 +120,31 @@ func BenchmarkSha256() {
 	d := time.Now().Unix() - t1
 	r := n / uint64(d)
 
-	// my 2016 mbp w 2.5 GHz Intel Core i7 does ~3m hashes per second
-	fmt.Printf("Final hash: %x took: %d secs. Hash-rate:%d hashes-per-sec\n", buff.Bytes(), d, r)
+	fmt.Printf("Final hash: %x. Running time: %d secs. Hash-rate:%d hashes-per-sec\n", buff.Bytes(), d, r)
+}
+
+func BenchmarkScrypt() {
+
+	x := make([]byte, 32)
+	_, err := rand.Read(x)
+	if err != nil {
+		panic(err)
+	}
+
+	io := make([]byte, 32)
+	_, err = rand.Read(io)
+	if err != nil {
+		panic(err)
+	}
+
+	n := 1000000
+	hash := shared.NewScryptHashFunc(x)
+	fmt.Printf("Computing %d serial scrypts...\n", n)
+	t1 := time.Now().Unix()
+	for i := 0; i < n; i++ {
+		io = hash.HashSingle(io)
+	}
+	d := time.Now().Unix() - t1
+	r := int64(n) / d
+	fmt.Printf("Final hash: %x. Running time: %d secs. Hash-rate: %d hashes-per-sec\n", io, d, r)
 }

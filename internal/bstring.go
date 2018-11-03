@@ -5,20 +5,45 @@ import (
 	"errors"
 	"math"
 	"math/big"
-	"math/bits"
 	"strconv"
 )
 
-type SMBinaryStringFactory struct{}
+type SMBinaryStringFactory struct {
+	// cache map[uint64] map[uint]*SMBinaryString
+	// cache1 map[string] *SMBinaryString
+}
 
 func NewSMBinaryStringFactory() BinaryStringFactory {
-	return &SMBinaryStringFactory{}
+
+	return &SMBinaryStringFactory{
+		// make(map[uint64] map[uint]*SMBinaryString, 500),
+		// make(map[string]*SMBinaryString, 500),
+	}
 }
 
 type SMBinaryString struct {
 	v uint64 // stored value
 	d uint   // number of binary digits to display
 	f *SMBinaryStringFactory
+}
+
+// digits must be at least as large to represent v
+func (f *SMBinaryStringFactory) NewBinaryStringFromInt(v uint64, d uint) (BinaryString, error) {
+
+	// todo: only test in debug builds but not in production ones
+	/*
+		l := uint(bits.Len64(v))
+		if l > d {
+			return nil, errors.New("invalid digits. Digits must be large enough to represent v in bits")
+		}*/
+
+	res := &SMBinaryString{
+		v: v,
+		d: d,
+		f: f,
+	}
+
+	return res, nil
 }
 
 // Create a new BinaryString from a string of 0s and 1s, e.g. "00111"
@@ -74,23 +99,6 @@ func (f *SMBinaryStringFactory) NewRandomBinaryString(d uint) (BinaryString, err
 
 	v := rndBig.Uint64()
 	return f.NewBinaryStringFromInt(v, d)
-}
-
-// digits must be at least as large to represent v
-func (f *SMBinaryStringFactory) NewBinaryStringFromInt(v uint64, d uint) (BinaryString, error) {
-
-	l := uint(bits.Len64(v))
-	if l > d {
-		return nil, errors.New("invalid digits. Digits must be large enough to represent v in bits")
-	}
-
-	res := &SMBinaryString{
-		v: v,
-		d: d,
-		f: f,
-	}
-
-	return res, nil
 }
 
 // returns list of siblings on the path from s the root assuming s is a node identifier in a full binary tree

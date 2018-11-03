@@ -31,3 +31,10 @@ func (h *sha256Hash) Hash(data ...[]byte) []byte {
 
 	return h.hash.Sum([]byte{})
 }
+
+func (h *sha256Hash) HashSingle(data []byte) []byte {
+	h.hash.Reset()
+	h.hash.Write(h.x)
+	h.hash.Write(data)
+	return h.hash.Sum([]byte{})
+}

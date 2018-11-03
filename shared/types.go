@@ -9,8 +9,12 @@ const (
 )
 
 type HashFunc interface {
+
+	// todo: support errors
+
 	// Hash takes arbitrary binary data and returns WB bytes
 	Hash(data ...[]byte) []byte
+	HashSingle(data []byte) []byte
 }
 
 type Label []byte      // label is WB bytes long

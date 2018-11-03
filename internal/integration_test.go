@@ -22,7 +22,7 @@ func TestBigNip(t *testing.T) {
 
 	// with n=25 and 16GB ram:
 	// Map size:  67108863 entries ~20GB in ram w map - runtime: 1034.77s
-	const n = 16
+	const n = 10
 
 	p, err := NewProver(x, n)
 	assert.NoError(t, err)

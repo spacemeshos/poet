@@ -1,6 +1,7 @@
-package internal
+package main
 
 import (
+	"github.com/spacemeshos/poet-ref/internal"
 	"github.com/spacemeshos/poet-ref/shared"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -44,9 +45,9 @@ func TestProverBasic(t *testing.T) {
 func BenchmarkProver(t *testing.B) {
 
 	const x = "this is a commitment"
-	const n = 23
+	const n = 15
 
-	p, err := NewProver([]byte(x), n)
+	p, err := internal.NewProver([]byte(x), n)
 	assert.NoError(t, err)
 
 	p.ComputeDag(func(phi shared.Label, err error) {
