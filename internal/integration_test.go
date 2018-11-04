@@ -24,7 +24,7 @@ func TestBigNip(t *testing.T) {
 	// Map size:  67108863 entries ~20GB in ram w map - runtime: 1034.77s
 	const n = 10
 
-	p, err := NewProver(x, n)
+	p, err := NewProver(x, n, shared.NewScryptHashFunc(x))
 	assert.NoError(t, err)
 
 	p.ComputeDag(func(phi shared.Label, err error) {
@@ -34,7 +34,7 @@ func TestBigNip(t *testing.T) {
 		proof, err := p.GetNonInteractiveProof()
 		assert.NoError(t, err)
 
-		v, err := NewVerifier(x, n)
+		v, err := NewVerifier(x, n, shared.NewScryptHashFunc(x))
 		assert.NoError(t, err)
 
 		c, err := v.CreteNipChallenge(proof.Phi)
@@ -52,7 +52,7 @@ func TestNip(t *testing.T) {
 	var x = []byte("Spacemesh launched its mainent")
 	const n = 11 // 33.6mb storage
 
-	p, err := NewProver(x, n)
+	p, err := NewProver(x, n, shared.NewScryptHashFunc(x))
 	assert.NoError(t, err)
 
 	p.ComputeDag(func(phi shared.Label, err error) {
@@ -62,7 +62,7 @@ func TestNip(t *testing.T) {
 		proof, err := p.GetNonInteractiveProof()
 		assert.NoError(t, err)
 
-		v, err := NewVerifier(x, n)
+		v, err := NewVerifier(x, n, shared.NewScryptHashFunc(x))
 		assert.NoError(t, err)
 
 		c, err := v.CreteNipChallenge(proof.Phi)
@@ -83,7 +83,7 @@ func TestRndChallengeProof(t *testing.T) {
 
 	const n = 9
 
-	p, err := NewProver(x, n)
+	p, err := NewProver(x, n, shared.NewScryptHashFunc(x))
 	assert.NoError(t, err)
 
 	p.ComputeDag(func(phi shared.Label, err error) {
@@ -91,7 +91,7 @@ func TestRndChallengeProof(t *testing.T) {
 		//fmt.Printf("Dag root label: %s\n", GetDisplayValue(phi))
 		assert.NoError(t, err)
 
-		v, err := NewVerifier(x, n)
+		v, err := NewVerifier(x, n, shared.NewScryptHashFunc(x))
 		assert.NoError(t, err)
 
 		c, err := v.CreteRndChallenge()
@@ -122,7 +122,7 @@ func BenchmarkProofEx(t *testing.B) {
 
 		const n = 15
 
-		p, err := NewProver(x, n)
+		p, err := NewProver(x, n, shared.NewScryptHashFunc(x))
 
 		defer p.DeleteStore()
 
@@ -133,7 +133,7 @@ func BenchmarkProofEx(t *testing.B) {
 			//fmt.Printf("Dag root label: %s\n", GetDisplayValue(phi))
 			assert.NoError(t, err)
 
-			v, err := NewVerifier(x, n)
+			v, err := NewVerifier(x, n, shared.NewScryptHashFunc(x))
 			assert.NoError(t, err)
 
 			for i := 0; i < 100; i++ {

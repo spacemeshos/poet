@@ -22,7 +22,7 @@ type SMProver struct {
 }
 
 // Create a new prover with commitment X and param 1 <= n <= 63
-func NewProver(x []byte, n uint) (shared.IProver, error) {
+func NewProver(x []byte, n uint, h HashFunc) (shared.IProver, error) {
 
 	if n < 1 || n > 63 {
 		return nil, errors.New("n must be in range [1, 63]")
@@ -31,7 +31,7 @@ func NewProver(x []byte, n uint) (shared.IProver, error) {
 	res := &SMProver{
 		x:     x,
 		n:     n,
-		h:     shared.NewScryptHashFunc(x),
+		h:     h,
 		f:     NewSMBinaryStringFactory(),
 		cache: lru.New(int(n)), // we only need n entries in the labels cache
 

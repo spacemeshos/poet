@@ -28,9 +28,9 @@ func Playground() {
 		panic(err)
 	}
 
-	const n = 20
+	const n = 22
 
-	p, err := internal.NewProver(x, n)
+	p, err := internal.NewProver(x, n, shared.NewScryptHashFunc(x))
 
 	defer p.DeleteStore()
 
@@ -62,7 +62,7 @@ func Playground() {
 			os.Exit(-1)
 		}
 
-		v, err := internal.NewVerifier(x, n)
+		v, err := internal.NewVerifier(x, n, shared.NewScryptHashFunc(x))
 		if err != nil {
 			println("Failed to create verifier.")
 			os.Exit(-1)
@@ -144,6 +144,7 @@ func BenchmarkScrypt() {
 	for i := 0; i < n; i++ {
 		io = hash.HashSingle(io)
 	}
+
 	d := time.Now().Unix() - t1
 	r := int64(n) / d
 	fmt.Printf("Final hash: %x. Running time: %d secs. Hash-rate: %d hashes-per-sec\n", io, d, r)

@@ -31,6 +31,7 @@ type SMBinaryString struct {
 func (f *SMBinaryStringFactory) NewBinaryStringFromInt(v uint64, d uint) (BinaryString, error) {
 
 	// todo: only test in debug builds but not in production ones
+
 	/*
 		l := uint(bits.Len64(v))
 		if l > d {

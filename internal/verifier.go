@@ -174,7 +174,7 @@ func (s *SMVerifier) CreteRndChallenge() (Challenge, error) {
 }
 
 // Create a new verifier for commitment X and param n
-func NewVerifier(x []byte, n uint) (IVerifier, error) {
+func NewVerifier(x []byte, n uint, h HashFunc) (IVerifier, error) {
 
 	if n < 1 || n > 63 {
 		return nil, errors.New("n must be in range [1, 63]")
@@ -183,7 +183,7 @@ func NewVerifier(x []byte, n uint) (IVerifier, error) {
 	res := &SMVerifier{
 		x: x,
 		n: n,
-		h: shared.NewScryptHashFunc(x),
+		h: h,
 	}
 
 	return res, nil

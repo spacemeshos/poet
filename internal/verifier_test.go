@@ -9,7 +9,7 @@ import (
 
 func TestNipChallenge(t *testing.T) {
 
-	const x = "this is a commitment"
+	x := []byte("this is a commitment")
 
 	const n = 25
 
@@ -17,7 +17,7 @@ func TestNipChallenge(t *testing.T) {
 	var phi shared.Label
 	copy(phi[:], data)
 
-	v, err := NewVerifier([]byte(x), n)
+	v, err := NewVerifier(x, n, shared.NewScryptHashFunc(x))
 	assert.NoError(t, err)
 
 	c, err := v.CreteNipChallenge(phi)
@@ -32,9 +32,10 @@ func TestNipChallenge(t *testing.T) {
 }
 
 func TestRndChallenge(t *testing.T) {
-	const x = "this is a commitment"
+	x := []byte("this is a commitment")
 	const n = 29
-	v, err := NewVerifier([]byte(x), n)
+
+	v, err := NewVerifier(x, n, shared.NewScryptHashFunc(x))
 	assert.NoError(t, err)
 
 	c, err := v.CreteRndChallenge()
