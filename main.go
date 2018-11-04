@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto/rand"
+	"flag"
 	"fmt"
 	"github.com/minio/sha256-simd"
 	"github.com/spacemeshos/poet-ref/internal"
@@ -12,6 +13,16 @@ import (
 	"runtime"
 	"time"
 )
+
+var (
+	n uint
+)
+
+func init() {
+	flag.UintVar(&n, "n", 10, "time parameter. Shared between verifier and prover")
+	flag.Parse()
+	fmt.Printf("n = %d\n", n)
+}
 
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
@@ -27,8 +38,6 @@ func Playground() {
 	if err != nil {
 		panic(err)
 	}
-
-	const n = 22
 
 	p, err := internal.NewProver(x, n, shared.NewScryptHashFunc(x))
 
@@ -144,7 +153,6 @@ func BenchmarkScrypt() {
 	for i := 0; i < n; i++ {
 		io = hash.HashSingle(io)
 	}
-
 	d := time.Now().Unix() - t1
 	r := int64(n) / d
 	fmt.Printf("Final hash: %x. Running time: %d secs. Hash-rate: %d hashes-per-sec\n", io, d, r)
