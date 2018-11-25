@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	rpcAddr      = "localhost:80"
-	webProxyAddr = "localhost:8080"
+	rpcAddr      = "localhost:50052"
+	webProxyAddr = "localhost:8082"
 )
 
 func Start() error {
