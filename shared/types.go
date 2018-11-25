@@ -37,6 +37,8 @@ type IBasicVerifier interface {
 	// Verify proof p provided for challenge c using a verifier initialized with x and n where T and W shared between verifier and prover
 	Verify(c Challenge, p Proof) bool
 
+	VerifyNIP(p Proof) (bool, error)
+
 	// Create a NIP challenge based on Phi (root label value provided by a proof)
 	CreteNipChallenge(phi Label) (Challenge, error)
 
@@ -48,7 +50,7 @@ type ProofCreatedFunc func(phi Label, err error)
 
 // A simple POET prover
 type IProver interface {
-	ComputeDag(callback ProofCreatedFunc)
+	ComputeDag() (phi Label, err error)
 	GetProof(c Challenge) (Proof, error)
 	GetNonInteractiveProof() (Proof, error)
 

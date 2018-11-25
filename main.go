@@ -7,32 +7,40 @@ import (
 	"fmt"
 	"github.com/minio/sha256-simd"
 	"github.com/spacemeshos/poet-ref/internal"
+	"github.com/spacemeshos/poet-ref/service"
 	"github.com/spacemeshos/poet-ref/shared"
+	"log"
 	"math"
 	"os"
-	"runtime"
 	"time"
 )
 
 var (
-	n uint
+	n   uint
+	rpc bool
 )
 
 func init() {
-	flag.UintVar(&n, "n", 10, "time parameter. Shared between verifier and prover")
+	flag.BoolVar(&rpc, "rpc", false, "start RPC server")
+	flag.UintVar(&n, "n", 1, "time parameter. Shared between verifier and prover")
 	flag.Parse()
 	fmt.Printf("n = %d\n", n)
 }
 
 func main() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-	//BenchmarkSha256()
-	//BenchmarkScrypt()
-	Playground()
+	if rpc {
+		if err := service.Start(); err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		//	runtime.GOMAXPROCS(runtime.NumCPU())
+		//BenchmarkSha256()
+		//BenchmarkScrypt()
+		Playground()
+	}
 }
 
 func Playground() {
-
 	x := make([]byte, 32)
 	_, err := rand.Read(x)
 	if err != nil {
@@ -52,62 +60,64 @@ func Playground() {
 
 	t1 := time.Now().Unix()
 
-	p.ComputeDag(func(phi shared.Label, err error) {
+	phi, err := p.ComputeDag()
 
-		d := time.Now().Unix() - t1
+	d := time.Now().Unix() - t1
 
-		fmt.Printf("Proof generated in %d seconds.\n", d)
+	fmt.Printf("Proof generated in %d seconds.\n", d)
 
-		fmt.Printf("Dag root label: %s\n", internal.GetDisplayValue(phi))
+	fmt.Printf("Dag root label: %s\n", internal.GetDisplayValue(phi))
 
-		if err != nil {
-			println("Failed to compute dag.")
-			os.Exit(-1)
-		}
+	if err != nil {
+		println("Failed to compute dag.")
+		os.Exit(-1)
+	}
 
-		proof, err := p.GetNonInteractiveProof()
-		if err != nil {
-			println("Failed to create NIP.")
-			os.Exit(-1)
-		}
+	proof, err := p.GetNonInteractiveProof()
+	if err != nil {
+		println("Failed to create NIP.")
+		os.Exit(-1)
+	}
 
-		v, err := internal.NewVerifier(x, n, shared.NewScryptHashFunc(x))
-		if err != nil {
-			println("Failed to create verifier.")
-			os.Exit(-1)
-		}
+	v, err := internal.NewVerifier(x, n, shared.NewScryptHashFunc(x))
+	if err != nil {
+		println("Failed to create verifier.")
+		os.Exit(-1)
+	}
 
-		c, err := v.CreteNipChallenge(proof.Phi)
-		if err != nil {
-			println("Failed to create NIP challenge.")
-			os.Exit(-1)
-		}
+	a, err := v.VerifyNIP(proof)
+	println(a)
 
-		res := v.Verify(c, proof)
-		if res == false {
-			println("Failed to verify NIP proof.")
-			os.Exit(-1)
-		}
+	c, err := v.CreteNipChallenge(proof.Phi)
+	if err != nil {
+		println("Failed to create NIP challenge.")
+		os.Exit(-1)
+	}
 
-		c1, err := v.CreteRndChallenge()
-		if err != nil {
-			println("Failed to create rnd challenge.")
-			os.Exit(-1)
-		}
+	res := v.Verify(c, proof)
+	if res == false {
+		println("Failed to verify NIP proof.")
+		os.Exit(-1)
+	}
 
-		proof1, err := p.GetProof(c1)
+	c1, err := v.CreteRndChallenge()
+	if err != nil {
+		println("Failed to create rnd challenge.")
+		os.Exit(-1)
+	}
 
-		res = v.Verify(c1, proof1)
-		if res == false {
-			println("Failed to verify interactive proof.")
-			os.Exit(-1)
-		}
+	proof1, err := p.GetProof(c1)
 
-		d1 := time.Now().Unix() - t1
+	res = v.Verify(c1, proof1)
+	if res == false {
+		println("Failed to verify interactive proof.")
+		os.Exit(-1)
+	}
 
-		fmt.Printf("Proof generated and verified in %d seconds.\n", d1)
+	d1 := time.Now().Unix() - t1
 
-	})
+	fmt.Printf("Proof generated and verified in %d seconds.\n", d1)
+
 }
 
 func BenchmarkSha256() {

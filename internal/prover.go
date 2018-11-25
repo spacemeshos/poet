@@ -169,23 +169,26 @@ func (p *SMProver) GetNonInteractiveProof() (Proof, error) {
 
 //type LabelsCache map[Identifier]shared.Label
 
-func (p *SMProver) ComputeDag(callback shared.ProofCreatedFunc) {
+func (p *SMProver) ComputeDag() (phi shared.Label, err error) {
 
 	N := math.Pow(2, float64(p.n+1)) - 1
 	fmt.Printf("Computing DAG(%d). Total nodes: %d\n", p.n, uint64(N))
 
+	fmt.Printf("commitment: %x\n", p.x)
+	fmt.Printf("commitmentHash: %x\n", p.h.Hash(p.x))
+
+
 	rootLabel, err := p.computeDag(shared.RootIdentifier)
 
 	if err != nil {
-		callback(shared.Label{}, err)
+		return shared.Label{}, err
 	}
 
 	p.phi = rootLabel
 
 	p.store.Finalize()
 
-	//p.printDag("")
-	callback(rootLabel, nil)
+	return rootLabel, nil
 }
 
 func (p *SMProver) printDag(rootId Identifier) {
@@ -256,6 +259,8 @@ func (p *SMProver) computeDag(rootId Identifier) (shared.Label, error) {
 	// compute root label, store and return it
 	// Hx(id, leftNodeLabel, rightNodeLabel)
 	labelValue := p.h.Hash([]byte(rootId), leftNodeLabel, rightNodeLabel)
+	fmt.Printf("node %s left:%x right:%x\n", rootId, leftNodeLabel, rightNodeLabel)
+	fmt.Printf("node %s hash: %x\n", rootId, labelValue)
 
 	p.store.Write(rootId, labelValue)
 
@@ -303,6 +308,7 @@ func (p *SMProver) computeLeafLabel(leafId Identifier) (shared.Label, error) {
 
 	// note that the leftmost leaf has no parents in the dag
 	label := p.h.Hash(data)
+	fmt.Printf("leaf node %s label:%x\n", leafId, label)
 
 	// store it
 	p.store.Write(leafId, label)
