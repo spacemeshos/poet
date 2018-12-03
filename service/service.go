@@ -8,6 +8,8 @@ import (
 	"github.com/spacemeshos/poet-ref/shared"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/peer"
+	"log"
 	"net"
 	"net/http"
 )
@@ -25,7 +27,8 @@ func Start() error {
 	// Initialize, and register our implementation of the gRPC interface
 	// exported by the rpcServer.
 	rpcServer := NewRPCServer(internal.NewProver, internal.NewVerifier, shared.NewHashFunc, shared.NewScryptHashFunc)
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(loggerInterceptor()))
+
 	pcrpc.RegisterPoetCoreProverServer(grpcServer, rpcServer)
 	pcrpc.RegisterPoetVerifierServer(grpcServer, rpcServer)
 
@@ -58,4 +61,27 @@ func Start() error {
 	// the interrupt handler.
 	<-ShutdownChannel()
 	return nil
+}
+
+func loggerInterceptor() func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+		peer, _ := peer.FromContext(ctx)
+
+		maxDispLen := 50
+		reqStr := fmt.Sprintf("%v", req)
+		var reqDispStr string
+		if len(reqStr) > maxDispLen {
+			reqDispStr = reqStr[:maxDispLen] + "..."
+		} else {
+			reqDispStr = reqStr
+		}
+		log.Printf("%v: %v %v\n", peer.Addr.String(), info.FullMethod, reqDispStr)
+
+		resp, err := handler(ctx, req)
+
+		if err != nil {
+			log.Printf("%v: FAILURE %v %s", peer.Addr.String(), info.FullMethod, err)
+		}
+		return resp, err
+	}
 }

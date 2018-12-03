@@ -259,8 +259,8 @@ func (p *SMProver) computeDag(rootId Identifier) (shared.Label, error) {
 	// compute root label, store and return it
 	// Hx(id, leftNodeLabel, rightNodeLabel)
 	labelValue := p.h.Hash([]byte(rootId), leftNodeLabel, rightNodeLabel)
-	fmt.Printf("node %s left:%x right:%x\n", rootId, leftNodeLabel, rightNodeLabel)
-	fmt.Printf("node %s hash: %x\n", rootId, labelValue)
+	//fmt.Printf("node %s left:%x right:%x\n", rootId, leftNodeLabel, rightNodeLabel)
+//	fmt.Printf("node %s hash: %x\n", rootId, labelValue)
 
 	p.store.Write(rootId, labelValue)
 
@@ -308,7 +308,7 @@ func (p *SMProver) computeLeafLabel(leafId Identifier) (shared.Label, error) {
 
 	// note that the leftmost leaf has no parents in the dag
 	label := p.h.Hash(data)
-	fmt.Printf("leaf node %s label:%x\n", leafId, label)
+	//fmt.Printf("leaf node %s label:%x\n", leafId, label)
 
 	// store it
 	p.store.Write(leafId, label)
