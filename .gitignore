@@ -5,3 +5,4 @@ poet-ref
 *.prof
 *.pdf
 *.test
+vendor/*/
