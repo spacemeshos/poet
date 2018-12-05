@@ -4,6 +4,8 @@ import (
 	"crypto/rand"
 	"github.com/spacemeshos/poet-ref/shared"
 	"github.com/stretchr/testify/assert"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -27,7 +29,7 @@ func TestWrites(t *testing.T) {
 
 	const n = 4
 
-	s, err := NewKvFileStore("/Users/avive/dev/store.bin", n)
+	s, err := NewKvFileStore(filepath.Join(os.TempDir(), "store.bin"), n)
 	assert.NoError(t, err)
 
 	err = s.Reset()
@@ -68,7 +70,7 @@ func TestDAG(t *testing.T) {
 
 	const n = 2
 
-	s, err := NewKvFileStore("/Users/avive/dev/store.bin", n)
+	s, err := NewKvFileStore(filepath.Join(os.TempDir(), "store.bin"), n)
 	assert.NoError(t, err)
 
 	err = s.Reset()
