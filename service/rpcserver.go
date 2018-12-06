@@ -23,8 +23,9 @@ type rpcServer struct {
 }
 
 // A compile time check to ensure that rpcServer fully implements the
-// PoetCoreProverServer gRPC service.
+// PoetCoreProverServer and PoetVerifierServer gRPC services.
 var _ pcrpc.PoetCoreProverServer = (*rpcServer)(nil)
+var _ pcrpc.PoetVerifierServer = (*rpcServer)(nil)
 
 // newRPCServer creates and returns a new instance of the rpcServer.
 func NewRPCServer(
@@ -176,6 +177,7 @@ func (r *rpcServer) GetRndChallenge(ctx context.Context, in *pcrpc.GetRndChallen
 	return &pcrpc.GetRndChallengeResponse{C: nativeChallengeToWire(c.Data)}, nil
 }
 
+// TODO: find a better way to do this
 func wireLabelsToNative(in []*pcrpc.Labels) (native [shared.T]shared.Labels) {
 	for i, inLabels := range in {
 		var outLabels shared.Labels
@@ -187,6 +189,7 @@ func wireLabelsToNative(in []*pcrpc.Labels) (native [shared.T]shared.Labels) {
 	return native
 }
 
+// TODO: find a better way to do this
 func nativeLabelsToWire(native [shared.T]shared.Labels) (out []*pcrpc.Labels) {
 	for _, labels := range native {
 		var labelsMsg pcrpc.Labels
@@ -198,6 +201,7 @@ func nativeLabelsToWire(native [shared.T]shared.Labels) (out []*pcrpc.Labels) {
 	return out
 }
 
+// TODO: find a better way to do this
 func wireChallengeToNative(in []string) (native [shared.T]shared.Identifier) {
 	for i, identifier := range in {
 		native[i] = shared.Identifier(identifier)
@@ -205,6 +209,7 @@ func wireChallengeToNative(in []string) (native [shared.T]shared.Identifier) {
 	return native
 }
 
+// TODO: find a better way to do this
 func nativeChallengeToWire(native [shared.T]shared.Identifier) (out []string) {
 	for _, identifier := range native {
 		out = append(out, string(identifier))

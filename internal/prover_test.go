@@ -8,17 +8,7 @@ import (
 	"testing"
 )
 
-/*
-const x = "this is a commitment"
-const n = 25
-Map size:  67108863 ~20GB
-Computed root label: 68b4c66918faa1a6538920944f13957354910f741a87236ea4905f2a50314c10
-PASS: TestProverBasic (1034.77s)
-*/
-
-
 func TestProverBasic(t *testing.T) {
-
 	x := []byte("this is a commitment")
 	const n= 2
 
@@ -41,11 +31,9 @@ func TestProverBasic(t *testing.T) {
 
 	l := p.GetHashFunction().Hash(data)
 	assert.True(t, bytes.Equal(phi[:], l[:]))
-
 }
 
 func BenchmarkProver(t *testing.B) {
-
 	x := []byte("this is a commitment")
 	const n = 15
 

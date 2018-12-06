@@ -14,15 +14,13 @@ import (
 	"net/http"
 )
 
-const (
-	rpcAddr      = "0.0.0.0:50052"
-	webProxyAddr = "0.0.0.0:8082"
-)
-
-func Start() error {
+func Start(rpcPort, wProxyPort uint) error {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
+	rpcAddr := net.JoinHostPort("0.0.0.0", fmt.Sprint(rpcPort))
+	webProxyAddr := net.JoinHostPort("0.0.0.0", fmt.Sprint(wProxyPort))
 
 	// Initialize, and register our implementation of the gRPC interface
 	// exported by the rpcServer.
@@ -53,8 +51,11 @@ func Start() error {
 	}
 
 	go func() {
-		fmt.Printf("webproxy is listening on %s\n", webProxyAddr)
-		http.ListenAndServe(webProxyAddr, mux)
+		fmt.Printf("webproxy start listening on %s\n", webProxyAddr)
+		err := http.ListenAndServe(webProxyAddr, mux)
+		if err != nil {
+			fmt.Printf("webproxy failed listening: %s\n", err)
+		}
 	}()
 
 	// Wait for shutdown signal from either a graceful service stop or from
