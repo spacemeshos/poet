@@ -7,16 +7,16 @@ import (
 
 // HashFunc implementation
 type sha256Hash struct {
-	x    []byte // arbitrary binary data
-	hash hash.Hash
-	iters int
+	x          []byte // arbitrary binary data
+	hash       hash.Hash
+	iters      int
 	emptySlice []byte
 }
 
 // Returns a new HashFunc Hx() for commitment X
 func NewHashFunc(x []byte) HashFunc {
 
-	// todo: pick it form parsm
+	// todo: pick iter value form params
 	iters := 50
 
 	return &sha256Hash{x: x, hash: sha256.New(), iters: iters}
@@ -63,7 +63,6 @@ func (h *sha256Hash) HashIters(data ...[]byte) []byte {
 
 	return digest
 }
-
 
 func (h *sha256Hash) HashSingle(data []byte) []byte {
 	h.hash.Reset()

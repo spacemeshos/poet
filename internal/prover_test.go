@@ -10,7 +10,7 @@ import (
 
 func TestProverBasic(t *testing.T) {
 	x := []byte("this is a commitment")
-	const n= 2
+	const n = 2
 
 	p, err := NewProver(x, n, shared.NewScryptHashFunc(x))
 	assert.NoError(t, err)

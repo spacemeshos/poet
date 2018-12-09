@@ -216,5 +216,3 @@ func nativeChallengeToWire(native [shared.T]shared.Identifier) (out []string) {
 	}
 	return out
 }
-
-

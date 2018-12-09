@@ -148,7 +148,6 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 	return true
 }
 
-
 func (s *SMVerifier) VerifyNIP(p Proof) (bool, error) {
 	// use shared common func
 	c, err := creteNipChallenge(p.Phi, s.h, s.n)
@@ -158,7 +157,6 @@ func (s *SMVerifier) VerifyNIP(p Proof) (bool, error) {
 
 	return s.Verify(c, p), nil
 }
-
 
 // γ := (Hx(φ,1),...Hx(φ,t))
 func (s *SMVerifier) CreteNipChallenge(phi shared.Label) (Challenge, error) {

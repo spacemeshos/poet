@@ -22,7 +22,7 @@ func TestBigNip(t *testing.T) {
 
 	// with n=25 and 16GB ram:
 	// Map size:  67108863 entries ~20GB in ram w map - runtime: 1034.77s
-	const n= 10
+	const n = 10
 
 	p, err := NewProver(x, n, shared.NewScryptHashFunc(x))
 	assert.NoError(t, err)
@@ -43,14 +43,14 @@ func TestBigNip(t *testing.T) {
 	res := v.Verify(c, proof)
 	assert.True(t, res, "failed to verify proof")
 
-	 p.DeleteStore()
+	p.DeleteStore()
 
 }
 
 func TestNip(t *testing.T) {
 
-	var x= []byte("Spacemesh launched its mainent")
-	const n= 11 // 33.6mb storage
+	var x = []byte("Spacemesh launched its mainent")
+	const n = 11 // 33.6mb storage
 
 	p, err := NewProver(x, n, shared.NewScryptHashFunc(x))
 	assert.NoError(t, err)
@@ -80,7 +80,7 @@ func TestRndChallengeProof(t *testing.T) {
 	_, err := rand.Read(x)
 	assert.NoError(t, err)
 
-	const n= 9
+	const n = 9
 
 	p, err := NewProver(x, n, shared.NewScryptHashFunc(x))
 	assert.NoError(t, err)
@@ -157,5 +157,3 @@ func BenchmarkProofEx(t *testing.B) {
 
 	}
 }
-
-

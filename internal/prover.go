@@ -177,7 +177,6 @@ func (p *SMProver) ComputeDag() (phi shared.Label, err error) {
 	fmt.Printf("commitment: %x\n", p.x)
 	fmt.Printf("commitmentHash: %x\n", p.h.Hash(p.x))
 
-
 	rootLabel, err := p.computeDag(shared.RootIdentifier)
 
 	if err != nil {

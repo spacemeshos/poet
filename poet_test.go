@@ -40,7 +40,6 @@ func TestProverAndVerifier(t *testing.T) {
 	assert.NoError(t, err, "Failed to verify NIP.")
 	assert.True(t, a, "Failed to verify NIP.")
 
-
 	c, err := v.CreteNipChallenge(proof.Phi)
 	assert.NoError(t, err, "Failed to create NIP challenge.")
 
