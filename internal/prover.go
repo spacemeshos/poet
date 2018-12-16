@@ -169,23 +169,25 @@ func (p *SMProver) GetNonInteractiveProof() (Proof, error) {
 
 //type LabelsCache map[Identifier]shared.Label
 
-func (p *SMProver) ComputeDag(callback shared.ProofCreatedFunc) {
+func (p *SMProver) ComputeDag() (phi shared.Label, err error) {
 
 	N := math.Pow(2, float64(p.n+1)) - 1
 	fmt.Printf("Computing DAG(%d). Total nodes: %d\n", p.n, uint64(N))
 
+	fmt.Printf("commitment: %x\n", p.x)
+	fmt.Printf("commitmentHash: %x\n", p.h.Hash(p.x))
+
 	rootLabel, err := p.computeDag(shared.RootIdentifier)
 
 	if err != nil {
-		callback(shared.Label{}, err)
+		return shared.Label{}, err
 	}
 
 	p.phi = rootLabel
 
 	p.store.Finalize()
 
-	//p.printDag("")
-	callback(rootLabel, nil)
+	return rootLabel, nil
 }
 
 func (p *SMProver) printDag(rootId Identifier) {

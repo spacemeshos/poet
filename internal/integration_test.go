@@ -27,24 +27,24 @@ func TestBigNip(t *testing.T) {
 	p, err := NewProver(x, n, shared.NewScryptHashFunc(x))
 	assert.NoError(t, err)
 
-	p.ComputeDag(func(phi shared.Label, err error) {
-		fmt.Printf("Dag root label: %s\n", GetDisplayValue(phi))
-		assert.NoError(t, err)
+	phi, err := p.ComputeDag()
+	fmt.Printf("Dag root label: %s\n", GetDisplayValue(phi))
+	assert.NoError(t, err)
 
-		proof, err := p.GetNonInteractiveProof()
-		assert.NoError(t, err)
+	proof, err := p.GetNonInteractiveProof()
+	assert.NoError(t, err)
 
-		v, err := NewVerifier(x, n, shared.NewScryptHashFunc(x))
-		assert.NoError(t, err)
+	v, err := NewVerifier(x, n, shared.NewScryptHashFunc(x))
+	assert.NoError(t, err)
 
-		c, err := v.CreteNipChallenge(proof.Phi)
-		assert.NoError(t, err)
+	c, err := v.CreteNipChallenge(proof.Phi)
+	assert.NoError(t, err)
 
-		res := v.Verify(c, proof)
-		assert.True(t, res, "failed to verify proof")
+	res := v.Verify(c, proof)
+	assert.True(t, res, "failed to verify proof")
 
-		// p.DeleteStore()
-	})
+	p.DeleteStore()
+
 }
 
 func TestNip(t *testing.T) {
@@ -55,24 +55,23 @@ func TestNip(t *testing.T) {
 	p, err := NewProver(x, n, shared.NewScryptHashFunc(x))
 	assert.NoError(t, err)
 
-	p.ComputeDag(func(phi shared.Label, err error) {
-		fmt.Printf("Dag root label: %s\n", GetDisplayValue(phi))
-		assert.NoError(t, err)
+	phi, err := p.ComputeDag()
+	fmt.Printf("Dag root label: %s\n", GetDisplayValue(phi))
+	assert.NoError(t, err)
 
-		proof, err := p.GetNonInteractiveProof()
-		assert.NoError(t, err)
+	proof, err := p.GetNonInteractiveProof()
+	assert.NoError(t, err)
 
-		v, err := NewVerifier(x, n, shared.NewScryptHashFunc(x))
-		assert.NoError(t, err)
+	v, err := NewVerifier(x, n, shared.NewScryptHashFunc(x))
+	assert.NoError(t, err)
 
-		c, err := v.CreteNipChallenge(proof.Phi)
-		assert.NoError(t, err)
+	c, err := v.CreteNipChallenge(proof.Phi)
+	assert.NoError(t, err)
 
-		res := v.Verify(c, proof)
-		assert.True(t, res, "failed to verify proof")
+	res := v.Verify(c, proof)
+	assert.True(t, res, "failed to verify proof")
 
-		p.DeleteStore()
-	})
+	p.DeleteStore()
 }
 
 func TestRndChallengeProof(t *testing.T) {
@@ -86,29 +85,29 @@ func TestRndChallengeProof(t *testing.T) {
 	p, err := NewProver(x, n, shared.NewScryptHashFunc(x))
 	assert.NoError(t, err)
 
-	p.ComputeDag(func(phi shared.Label, err error) {
+	_, err = p.ComputeDag()
 
-		//fmt.Printf("Dag root label: %s\n", GetDisplayValue(phi))
-		assert.NoError(t, err)
+	//fmt.Printf("Dag root label: %s\n", GetDisplayValue(phi))
+	assert.NoError(t, err)
 
-		v, err := NewVerifier(x, n, shared.NewScryptHashFunc(x))
-		assert.NoError(t, err)
+	v, err := NewVerifier(x, n, shared.NewScryptHashFunc(x))
+	assert.NoError(t, err)
 
-		c, err := v.CreteRndChallenge()
-		assert.NoError(t, err)
+	c, err := v.CreteRndChallenge()
+	assert.NoError(t, err)
 
-		// println("Challenge data:")
-		// c.Print()
+	// println("Challenge data:")
+	// c.Print()
 
-		proof, err := p.GetProof(c)
-		assert.NoError(t, err)
-		// PrintProof(proof)
+	proof, err := p.GetProof(c)
+	assert.NoError(t, err)
+	// PrintProof(proof)
 
-		res := v.Verify(c, proof)
-		assert.True(t, res, "failed to verify proof")
+	res := v.Verify(c, proof)
+	assert.True(t, res, "failed to verify proof")
 
-		p.DeleteStore()
-	})
+	p.DeleteStore()
+
 }
 
 func BenchmarkProofEx(t *testing.B) {
@@ -128,34 +127,33 @@ func BenchmarkProofEx(t *testing.B) {
 
 		assert.NoError(t, err)
 
-		p.ComputeDag(func(phi shared.Label, err error) {
+		_, err = p.ComputeDag()
 
-			//fmt.Printf("Dag root label: %s\n", GetDisplayValue(phi))
+		//fmt.Printf("Dag root label: %s\n", GetDisplayValue(phi))
+		assert.NoError(t, err)
+
+		v, err := NewVerifier(x, n, shared.NewScryptHashFunc(x))
+		assert.NoError(t, err)
+
+		for i := 0; i < 100; i++ {
+
+			c, err := v.CreteRndChallenge()
 			assert.NoError(t, err)
 
-			v, err := NewVerifier(x, n, shared.NewScryptHashFunc(x))
+			proof, err := p.GetProof(c)
 			assert.NoError(t, err)
 
-			for i := 0; i < 100; i++ {
+			res := v.Verify(c, proof)
 
-				c, err := v.CreteRndChallenge()
-				assert.NoError(t, err)
-
-				proof, err := p.GetProof(c)
-				assert.NoError(t, err)
-
-				res := v.Verify(c, proof)
-
-				if !res {
-					println("Failed to verify proof. Challenge data:")
-					c.Print()
-					println("Proof:")
-					PrintProof(proof)
-				}
-
-				assert.True(t, res, "failed to verify proof")
+			if !res {
+				println("Failed to verify proof. Challenge data:")
+				c.Print()
+				println("Proof:")
+				PrintProof(proof)
 			}
 
-		})
+			assert.True(t, res, "failed to verify proof")
+		}
+
 	}
 }
