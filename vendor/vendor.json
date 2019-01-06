@@ -104,13 +104,7 @@
 			"path": "github.com/grpc-ecosystem/grpc-gateway/utilities",
 			"revision": "f2862b476edcef83412c7af8687c9cd8e4097c0f",
 			"revisionTime": "2017-07-24T00:48:29Z"
-		},
-		{
-			"checksumSHA1": "vCbb0vMh0GcGoYk33LRxReyLZlM=",
-			"path": "github.com/minio/sha256-simd",
-			"revision": "ad98a36ba0da87206e3378c556abbfeaeaa98668",
-			"revisionTime": "2017-12-13T22:06:25Z"
-		},
+		}
 		{
 			"checksumSHA1": "LuFv4/jlrmFNnDb/5SCSEPAM9vU=",
 			"path": "github.com/pmezard/go-difflib/difflib",
@@ -122,6 +116,12 @@
 			"path": "github.com/spacemeshos/poet-core-api/pcrpc",
 			"revision": "baa36c476850a1993284319639d9c9c6e08dbd4f",
 			"revisionTime": "2018-12-02T13:08:52Z"
+		},
+		{
+			"checksumSHA1": "rSFvwZFPDLwt2VNEeT3Fwkbxgjw=",
+			"path": "github.com/spacemeshos/sha256-simd",
+			"revision": "a8fce312d27f5c018de775f4addbeabb3b573d9c",
+			"revisionTime": "2019-01-06T15:39:23Z"
 		},
 		{
 			"checksumSHA1": "v3LEmqP4Cb6qGCIP7mJk7l2ZXw8=",
@@ -184,7 +184,7 @@
 			"revisionTime": "2018-11-30T00:35:12Z"
 		},
 		{
-			"checksumSHA1": "eN5/8hSUqH0fYPyLwxMeLfPxslk=",
+			"checksumSHA1": "0lYy3rZu/WgPAXXLHPLN1YWEZmI=",
 			"path": "golang.org/x/sys/unix",
 			"revision": "66b7b1311ac80bbafcd2daeef9a5e6e2cd1e2399",
 			"revisionTime": "2018-11-07T12:45:52Z"
@@ -202,13 +202,13 @@
 			"revisionTime": "2018-10-29T18:00:05Z"
 		},
 		{
-			"checksumSHA1": "kRHVIuePi38RXAJmksH3MfQzTJI=",
+			"checksumSHA1": "qjFbU4RWY+Caxaa5/TlMJW82E+A=",
 			"path": "golang.org/x/text/unicode/bidi",
 			"revision": "6f44c5a2ea40ee3593d98cdcc905cc1fdaa660e2",
 			"revisionTime": "2018-10-29T18:00:05Z"
 		},
 		{
-			"checksumSHA1": "lBB8oUHgIK0RUuDchkQVfMXJQh0=",
+			"checksumSHA1": "vAScJLvb0ucuuclyN9vmJUyWTBA=",
 			"path": "golang.org/x/text/unicode/norm",
 			"revision": "6f44c5a2ea40ee3593d98cdcc905cc1fdaa660e2",
 			"revisionTime": "2018-10-29T18:00:05Z"

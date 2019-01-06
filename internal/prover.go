@@ -34,7 +34,6 @@ func NewProver(x []byte, n uint, h HashFunc) (shared.IProver, error) {
 		h:     h,
 		f:     NewSMBinaryStringFactory(),
 		cache: lru.New(int(n)), // we only need n entries in the labels cache
-
 	}
 
 	dir, err := os.Getwd()
