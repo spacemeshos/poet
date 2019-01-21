@@ -28,7 +28,7 @@ func NewHashFunc(x []byte) HashFunc {
 //}
 
 // Hash implements Hx()
-func (h *sha256Hash) Hash(data ...[]byte) []byte {
+func (h *sha256Hash) HashTemp(data ...[]byte) []byte {
 	h.hash.Reset()
 	h.hash.Write(h.x)
 	for _, d := range data {
@@ -39,7 +39,7 @@ func (h *sha256Hash) Hash(data ...[]byte) []byte {
 }
 
 // Multiple iterations hash using client provided iters
-func (h *sha256Hash) HashIters(data ...[]byte) []byte {
+func (h *sha256Hash) Hash(data ...[]byte) []byte {
 
 	h.hash.Reset()
 

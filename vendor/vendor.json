@@ -104,7 +104,7 @@
 			"path": "github.com/grpc-ecosystem/grpc-gateway/utilities",
 			"revision": "f2862b476edcef83412c7af8687c9cd8e4097c0f",
 			"revisionTime": "2017-07-24T00:48:29Z"
-		}
+		},
 		{
 			"checksumSHA1": "LuFv4/jlrmFNnDb/5SCSEPAM9vU=",
 			"path": "github.com/pmezard/go-difflib/difflib",

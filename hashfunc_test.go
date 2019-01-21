@@ -19,7 +19,7 @@ func BenchmarkSha256(t *testing.B) {
 
 	fmt.Printf("Computing %d serial sha-256s...\n", n)
 
-	t1 := time.Now().Unix()
+	t1 := time.Now()
 
 	for i := uint64(0); i < n; i++ {
 		out = sha256.Sum256(buff.Bytes())
@@ -27,10 +27,9 @@ func BenchmarkSha256(t *testing.B) {
 		buff.Write(out[:])
 	}
 
-	d := time.Now().Unix() - t1
-	r := n / uint64(d)
-
-	fmt.Printf("Final hash: %x. Running time: %d secs. Hash-rate:%d hashes-per-sec\n", buff.Bytes(), d, r)
+	e := time.Since(t1)
+	r := n / (uint64(e.Seconds()))
+	fmt.Printf("Final hash: %x. Running time: %s secs. Hash-rate: %d hashes-per-sec\n", buff.Bytes(), e, r)
 }
 
 func BenchmarkScrypt(t *testing.B) {

@@ -11,29 +11,29 @@ import (
 
 func TestProverAndVerifier(t *testing.T) {
 	x := make([]byte, 32)
-	n := uint(16)
+	n := uint(20)
 
 	_, err := rand.Read(x)
 	assert.NoError(t, err)
 
-	p, err := internal.NewProver(x, n, shared.NewScryptHashFunc(x))
+	p, err := internal.NewProver(x, n, shared.NewHashFunc(x))
 	defer p.DeleteStore()
 	assert.NoError(t, err, "Failed to create prover.")
 
 	t.Log("Computing dag...")
-	t1 := time.Now().Unix()
+	t1 := time.Now()
 
 	phi, err := p.ComputeDag()
 	assert.NoError(t, err, "Failed to compute dag.")
 
-	d := time.Now().Unix() - t1
-	t.Logf("Proof generated in %d seconds.\n", d)
+	e := time.Since(t1)
+	t.Logf("Proof generated in %s seconds.\n", e)
 	t.Logf("Dag root label: %s\n", internal.GetDisplayValue(phi))
 
 	proof, err := p.GetNonInteractiveProof()
 	assert.NoError(t, err, "Failed to create NIP.")
 
-	v, err := internal.NewVerifier(x, n, shared.NewScryptHashFunc(x))
+	v, err := internal.NewVerifier(x, n, shared.NewHashFunc(x))
 	assert.NoError(t, err, "Failed to create verifier.")
 
 	a, err := v.VerifyNIP(proof)
@@ -55,6 +55,6 @@ func TestProverAndVerifier(t *testing.T) {
 	res = v.Verify(c1, proof1)
 	assert.True(t, res, "Failed to verify interactive proof")
 
-	d1 := time.Now().Unix() - t1
-	t.Logf("Proof generated and verified in %d seconds.\n", d1)
+	e1 := time.Since(t1)
+	t.Logf("Proof generated and verified in %s seconds.\n", e1)
 }
