@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-const EMPTY_STRING = ""
+const EmptyString = ""
 
 type SMBinaryStringFactory struct {
 	// cache map[uint64] map[uint]*SMBinaryString
@@ -17,7 +17,6 @@ type SMBinaryStringFactory struct {
 }
 
 func NewSMBinaryStringFactory() BinaryStringFactory {
-
 	return &SMBinaryStringFactory{
 		// make(map[uint64] map[uint]*SMBinaryString, 500),
 		// make(map[string]*SMBinaryString, 500),
@@ -58,7 +57,7 @@ func (f *SMBinaryStringFactory) NewBinaryString(s string) (BinaryString, error) 
 
 	var v uint64
 
-	if s != EMPTY_STRING {
+	if s != EmptyString {
 		parsed, err := strconv.ParseUint(s, 2, 64)
 		if err != nil {
 			return nil, err
@@ -84,7 +83,7 @@ func (f *SMBinaryStringFactory) NewRandomBinaryString(d uint) (BinaryString, err
 	}
 
 	if d == 0 { // the only id with 0 digits is ""
-		return f.NewBinaryString(EMPTY_STRING)
+		return f.NewBinaryString(EmptyString)
 	}
 
 	// generate a random number with d digits
@@ -166,12 +165,23 @@ func (s *SMBinaryString) FlipLSB() (BinaryString, error) {
 	return s.f.NewBinaryStringFromInt(s.v^1, s.d)
 }
 
+// Get a unique []byte for a binary string
+// todo: write tests!!!
+func (s *SMBinaryString) GetHash() uint64 {
+	// create uint in the form of:
+	n := 1 << (s.d +1)
+	return uint64(n) + s.v
+	//res := make([]byte, 8)
+	//binary.BigEndian.PutUint64(res, i)
+	//return res
+}
+
 // Get string representation. e.g. "00011"
 func (s *SMBinaryString) GetStringValue() string {
 
 	if s.d == 0 {
 		// special case - empty binary string
-		return EMPTY_STRING
+		return EmptyString
 	}
 
 	// binary string encoding of s.v without any leading 0s

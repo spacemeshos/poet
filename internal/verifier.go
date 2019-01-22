@@ -25,7 +25,7 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 
 	// We use k,v memory storage to store label values for identifiers
 	// as they are unique in p
-	m := make(map[Identifier]shared.Label)
+	m := make(map[uint64]shared.Label)
 	f := NewSMBinaryStringFactory()
 
 	// println("Starting verification...")
@@ -51,14 +51,14 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 
 		// a slice of all labels included in proof
 		proofLabels := p.L[idx][:]
-
-		labelValue, ok := m[id]
+		h := leafNodeId.GetHash()
+		labelValue, ok := m[h]
 
 		if !ok { // leaf is not in cache
 			// first label in the list if the leaf (node id) label - read it and remove it from the slice
 			// we use labelValue as the label of the node on the path from the leaf to the root, including both leaf and root
 			labelValue, proofLabels = proofLabels[0], proofLabels[1:]
-			m[id] = labelValue
+			m[h] = labelValue
 		} else {
 			// label is is in cache - we already verified the Merkle path from it to the root
 			// so we can skip to the next id...
@@ -66,7 +66,7 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 			continue
 		}
 
-		// fmt.Printf(" Veryfing merkle proof for leaf node id %s label: %s \n", id, GetDisplayValue(labelValue))
+		// fmt.Printf(" Varying Merkle proof for leaf node id %s label: %s \n", id, GetDisplayValue(labelValue))
 
 		// todo: dynamically compute next sibling id to avoid expensive call to GetBNSiblings()
 
@@ -79,12 +79,11 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 			// what is a unique hash for (digits, value) ????
 			// we only use sibId as a key to the cache map
 
-			// sibId := s.h.Hash(  siblingId.GetDigitsCount(), siblingId.GetValue())
-			sibId := Identifier(siblingId.GetStringValue())
 			var sibValue shared.Label
 			var ok bool
 
-			sibValue, ok = m[sibId]
+			key := siblingId.GetHash()
+			sibValue, ok = m[key]
 
 			// fmt.Printf("Considering sibling: %s....\n", sibId)
 
@@ -92,7 +91,7 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 				// label is not the k/v mem store - read it from the proof and store it in the k/v store
 				// take label from the head of the slice and remove it from the slice
 				sibValue, proofLabels = proofLabels[0], proofLabels[1:]
-				m[sibId] = sibValue
+				m[key] = sibValue
 			} else {
 				// Optimization
 				// we already verified the Merkle proof from this sibling to the root
@@ -137,24 +136,21 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 		data := []byte(leafNodeId.GetStringValue())
 		for _, siblingId := range siblingIds {
 
-			id := Identifier(siblingId.GetStringValue())
-
 			if siblingId.IsOdd() {
 				// only left siblings - siblings with an identifier that ends with 0 are parents of the leaf
 				// so we ignore right siblings on the path to the root
 				continue
 			}
 
-			if val, ok := m[id]; ok {
+			if val, ok := m[siblingId.GetHash()]; ok {
 				data = append(data, val[:]...)
 			} else {
 				// unexpected error - all left siblings should be in the memory map
 				return false
 			}
 		}
-
 		computedLeafLabelVal := s.h.Hash(data)
-		providedLeafLabel := m[Identifier(leafNodeId.GetStringValue())]
+		providedLeafLabel := m[leafNodeId.GetHash()]
 
 		if bytes.Equal(computedLeafLabelVal[:], providedLeafLabel[:]) == false {
 			return false
