@@ -165,17 +165,6 @@ func (s *SMBinaryString) FlipLSB() (BinaryString, error) {
 	return s.f.NewBinaryStringFromInt(s.v^1, s.d)
 }
 
-// Get a unique []byte for a binary string
-// todo: write tests!!!
-func (s *SMBinaryString) GetHash() uint64 {
-	// create uint in the form of:
-	n := 1 << (s.d +1)
-	return uint64(n) + s.v
-	//res := make([]byte, 8)
-	//binary.BigEndian.PutUint64(res, i)
-	//return res
-}
-
 // Get string representation. e.g. "00011"
 func (s *SMBinaryString) GetStringValue() string {
 

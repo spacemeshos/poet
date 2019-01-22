@@ -9,9 +9,6 @@ type BinaryString interface {
 	// Gets the binary value encoded in the string. e.g. 12
 	GetValue() uint64
 
-	// Returns unique hash
-	GetHash() uint64
-
 	// Returns number of digits including leading 0s if any
 	GetDigitsCount() uint
 
