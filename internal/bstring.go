@@ -6,7 +6,10 @@ import (
 	"math"
 	"math/big"
 	"strconv"
+	"strings"
 )
+
+const EMPTY_STRING = ""
 
 type SMBinaryStringFactory struct {
 	// cache map[uint64] map[uint]*SMBinaryString
@@ -55,7 +58,7 @@ func (f *SMBinaryStringFactory) NewBinaryString(s string) (BinaryString, error) 
 
 	var v uint64
 
-	if s != "" {
+	if s != EMPTY_STRING {
 		parsed, err := strconv.ParseUint(s, 2, 64)
 		if err != nil {
 			return nil, err
@@ -81,7 +84,7 @@ func (f *SMBinaryStringFactory) NewRandomBinaryString(d uint) (BinaryString, err
 	}
 
 	if d == 0 { // the only id with 0 digits is ""
-		return f.NewBinaryString("")
+		return f.NewBinaryString(EMPTY_STRING)
 	}
 
 	// generate a random number with d digits
@@ -141,7 +144,7 @@ func (s *SMBinaryString) GetBNSiblings(leftOnly bool) ([]BinaryString, error) {
 			return nil, err
 		}
 
-		if len(nodeId.GetStringValue()) == 0 {
+		if nodeId.GetDigitsCount() == 0 {
 			break
 		}
 	}
@@ -168,7 +171,7 @@ func (s *SMBinaryString) GetStringValue() string {
 
 	if s.d == 0 {
 		// special case - empty binary string
-		return ""
+		return EMPTY_STRING
 	}
 
 	// binary string encoding of s.v without any leading 0s
@@ -176,12 +179,20 @@ func (s *SMBinaryString) GetStringValue() string {
 
 	// prepend any leading 0s if needed
 	n := s.d - uint(len(res))
-	for n > 0 {
-		res = "0" + res
-		n--
+	if n == 0 {
+		return res
 	}
 
-	return res
+	// use a string build to prepend 0s
+	var b strings.Builder
+	for n > 0 {
+		b.WriteString("0")
+		n--
+	}
+	// append the values
+	b.WriteString(res)
+
+	return b.String()
 }
 
 // Get the binary value encoded in the string. e.g. 12

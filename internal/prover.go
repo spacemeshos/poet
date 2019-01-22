@@ -310,7 +310,7 @@ func (p *SMProver) computeLeafLabel(leafId Identifier) (shared.Label, error) {
 
 	//println(bs.GetStringValue())
 
-	if bs.GetValue()%500000 == 0 {
+	if bs.GetValue()%50000 == 0 {
 		i := bs.GetValue()
 		N := math.Pow(2, float64(p.n))
 		r := 100 * float64(i) / N

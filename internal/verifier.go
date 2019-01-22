@@ -3,6 +3,7 @@ package internal
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"github.com/spacemeshos/poet-ref/shared"
 )
 
@@ -27,10 +28,12 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 	m := make(map[Identifier]shared.Label)
 	f := NewSMBinaryStringFactory()
 
-	// iterate over each identifier in the challenge and verify the proof for it
-	for idx, id := range c.Data {
+	// println("Starting verification...")
+	// fmt.Printf("Challenges count: %d\n", len(c.Data))
 
-		//println("Verifying challenge #:", idx, "Identifier:", id)
+	// Iterate over each identifier in the challenge and verify the proof for it
+	for idx, id := range c.Data {
+		// fmt.Printf("Verifying challenge # %d for leaf id: %s\n", idx, id)
 
 		leafNodeId, err := f.NewBinaryString(string(id))
 		if err != nil {
@@ -42,9 +45,9 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 			return false
 		}
 
-		//for _, sib := range siblingIds {
+		// for _, sib := range siblingIds {
 		//	fmt.Printf("  Sibling: %s\n", sib.GetStringValue())
-		//}
+		// }
 
 		// a slice of all labels included in proof
 		proofLabels := p.L[idx][:]
@@ -56,20 +59,47 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 			// we use labelValue as the label of the node on the path from the leaf to the root, including both leaf and root
 			labelValue, proofLabels = proofLabels[0], proofLabels[1:]
 			m[id] = labelValue
+		} else {
+			// label is is in cache - we already verified the Merkle path from it to the root
+			// so we can skip to the next id...
+			fmt.Printf("  Skipping - already verified proof for label with id %s\n", id)
+			continue
 		}
 
-		// fmt.Printf(" Leaf id %s label: %s", id, GetDisplayValue(labelValue))
+		// fmt.Printf(" Veryfing merkle proof for leaf node id %s label: %s \n", id, GetDisplayValue(labelValue))
+
+		// todo: dynamically compute next sibling id to avoid expensive call to GetBNSiblings()
+
+		// flag set to true when we already proved a path
+		proved := false
 
 		for _, siblingId := range siblingIds { // siblings ids up the path from the leaf to the root
 
+			// todo: is there a better way to find unique node id than to use the slow getStringValue()?
+			// what is a unique hash for (digits, value) ????
+			// we only use sibId as a key to the cache map
+
+			// sibId := s.h.Hash(  siblingId.GetDigitsCount(), siblingId.GetValue())
 			sibId := Identifier(siblingId.GetStringValue())
 			var sibValue shared.Label
 			var ok bool
-			if sibValue, ok = m[sibId]; !ok {
+
+			sibValue, ok = m[sibId]
+
+			// fmt.Printf("Considering sibling: %s....\n", sibId)
+
+			if !ok {
 				// label is not the k/v mem store - read it from the proof and store it in the k/v store
 				// take label from the head of the slice and remove it from the slice
 				sibValue, proofLabels = proofLabels[0], proofLabels[1:]
 				m[sibId] = sibValue
+			} else {
+				// Optimization
+				// we already verified the Merkle proof from this sibling to the root
+				// so we can skip the rest of the proof for this leaf
+				// fmt.Printf("=>> already verified proof from sibling id %s\n", sibId)
+				proved = true
+				break
 			}
 
 			// calculate the label of the next node up the path to root, based on its parent nodes labels
@@ -81,28 +111,18 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 			// pack data to hash
 			if siblingId.IsEven() {
 				// hx(siblingParentNodeId, siblingLabel, currentNodeOnPathValue)
-
-				// labelData := append([]byte(parentNodeId.GetStringValue()), sibValue[:]...)
-				// labelData = append(labelData, labelValue[:]...)
-				// labelValue = s.h.Hash(labelData)
-
 				labelValue = s.h.Hash([]byte(parentNodeId.GetStringValue()), sibValue, labelValue)
 
 			} else {
 				// hx(siblingParentNodeId, currentNodeOnPathValue, siblingLabel)
-
-				// labelData := append([]byte(parentNodeId.GetStringValue()), labelValue[:]...)
-				// labelData = append(labelData, sibValue[:]...)
-				// labelValue = s.h.Hash(labelData)
-
 				labelValue = s.h.Hash([]byte(parentNodeId.GetStringValue()), labelValue, sibValue)
 			}
 
 			//println("  Computed label value: %s", GetDisplayValue(labelValue))
 		}
 
-		// labelValue should be equal to the root label provided by the proof
-		if bytes.Equal(labelValue[:], p.Phi[:]) == false {
+		// final Merkle proof verification - labelValue should be equal to the root label provided by the proof
+		if !proved && bytes.Equal(labelValue[:], p.Phi[:]) == false {
 			return false
 		}
 
@@ -128,7 +148,7 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 			if val, ok := m[id]; ok {
 				data = append(data, val[:]...)
 			} else {
-				// unexpected error - all siblings should be in the memory map
+				// unexpected error - all left siblings should be in the memory map
 				return false
 			}
 		}

@@ -36,6 +36,7 @@ func (h *sha256Hash) HashTemp(data ...[]byte) []byte {
 	}
 
 	return h.hash.Sum([]byte{})
+
 }
 
 // Multiple iterations hash using client provided iters

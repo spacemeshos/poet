@@ -11,7 +11,7 @@ import (
 
 func TestProverAndVerifier(t *testing.T) {
 	x := make([]byte, 32)
-	n := uint(20)
+	n := uint(22)
 
 	_, err := rand.Read(x)
 	assert.NoError(t, err)
@@ -27,7 +27,7 @@ func TestProverAndVerifier(t *testing.T) {
 	assert.NoError(t, err, "Failed to compute dag.")
 
 	e := time.Since(t1)
-	t.Logf("Proof generated in %s seconds.\n", e)
+	t.Logf("Proof generated in %s\n", e)
 	t.Logf("Dag root label: %s\n", internal.GetDisplayValue(phi))
 
 	proof, err := p.GetNonInteractiveProof()
@@ -56,5 +56,5 @@ func TestProverAndVerifier(t *testing.T) {
 	assert.True(t, res, "Failed to verify interactive proof")
 
 	e1 := time.Since(t1)
-	t.Logf("Proof generated and verified in %s seconds.\n", e1)
+	t.Logf("Proof verified in %s\n", e1 - e)
 }
