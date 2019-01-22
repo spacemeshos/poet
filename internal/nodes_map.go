@@ -9,12 +9,12 @@ type NodesMap struct {
 }
 
 func NewNodesMap() *NodesMap {
-	return &NodesMap {
+	return &NodesMap{
 		make(map[uint]map[uint64]shared.Label),
 	}
 }
 
-func (nm* NodesMap) Put(id BinaryString, l shared.Label) {
+func (nm *NodesMap) Put(id BinaryString, l shared.Label) {
 	d := id.GetDigitsCount()
 	v, ok := nm.m[d]
 	if !ok {
@@ -24,7 +24,7 @@ func (nm* NodesMap) Put(id BinaryString, l shared.Label) {
 	v[id.GetValue()] = l
 }
 
-func (nm* NodesMap) Get(id BinaryString) (shared.Label, bool) {
+func (nm *NodesMap) Get(id BinaryString) (shared.Label, bool) {
 	v, ok := nm.m[id.GetDigitsCount()]
 	if !ok {
 		return nil, false
@@ -32,4 +32,3 @@ func (nm* NodesMap) Get(id BinaryString) (shared.Label, bool) {
 	label, ok := v[id.GetValue()]
 	return label, ok
 }
-

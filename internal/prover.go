@@ -91,12 +91,8 @@ func (p *SMProver) GetHashFunction() HashFunc {
 	return p.h
 }
 
-// generate proof and return it
+// Returns proof for a challenge
 func (p *SMProver) GetProof(c Challenge) (Proof, error) {
-
-	if len(c.Data) != shared.T {
-		return Proof{}, errors.New("invalid challenge data")
-	}
 
 	proof := Proof{}
 	proof.Phi = p.phi
@@ -115,10 +111,9 @@ func (p *SMProver) GetProof(c Challenge) (Proof, error) {
 			return Proof{}, err
 		}
 
-		// if we didn't send the label of this node already then
-		// add it to the list
+		// Add the label to the list only if it is not already included
 		if _, ok := m[Identifier(id)]; !ok {
-			// add the identifier label to the labels list
+			// add the identifier's label to the labels list
 			label := p.readLabel(Identifier(id))
 			labels = append(labels, label)
 			m[Identifier(id)] = label
@@ -132,7 +127,8 @@ func (p *SMProver) GetProof(c Challenge) (Proof, error) {
 		for _, siblingId := range siblingsIds { // siblings ids up the path from the leaf to the root
 			sibId := siblingId.GetStringValue()
 			if _, ok := m[Identifier(sibId)]; !ok {
-				// label was not already included in this proof
+
+				// label is not already included in this proof
 
 				// get its value - currently from the memory store
 				sibLabel := p.readLabel(Identifier(sibId))
@@ -166,8 +162,6 @@ func (p *SMProver) GetNonInteractiveProof() (Proof, error) {
 	return p.GetProof(c)
 }
 
-//type LabelsCache map[Identifier]shared.Label
-
 func (p *SMProver) ComputeDag() (phi shared.Label, err error) {
 
 	N := math.Pow(2, float64(p.n+1)) - 1
@@ -183,9 +177,7 @@ func (p *SMProver) ComputeDag() (phi shared.Label, err error) {
 	}
 
 	p.phi = rootLabel
-
 	p.store.Finalize()
-
 	return rootLabel, nil
 }
 
@@ -208,7 +200,6 @@ func (p *SMProver) printDag(rootId Identifier) {
 	}
 
 	label := p.readLabel(rootId)
-
 	fmt.Printf("%s: %s\n", rootId, GetDisplayValue(label))
 }
 

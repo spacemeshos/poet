@@ -56,5 +56,5 @@ func TestProverAndVerifier(t *testing.T) {
 	assert.True(t, res, "Failed to verify interactive proof")
 
 	e1 := time.Since(t1)
-	t.Logf("Proof verified in %s (%f)\n", e1-e, (e1 -e).Seconds())
+	t.Logf("Proof verified in %s (%f)\n", e1-e, (e1 - e).Seconds())
 }
