@@ -1,7 +1,7 @@
 package shared
 
 import (
-	"github.com/minio/sha256-simd" // simd optimized sha256 computation
+	"github.com/spacemeshos/sha256-simd" // simd optimized sha256 computation
 	"hash"
 )
 
