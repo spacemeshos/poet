@@ -23,11 +23,6 @@ func NewHashFunc(x []byte) HashFunc {
 }
 
 // Hash implements Hx()
-//func (h *sha256Hash) Hash(data []byte) [WB]byte {
-//	return sha256.Sum256(append(h.x, data...))
-//}
-
-// Hash implements Hx()
 func (h *sha256Hash) HashTemp(data ...[]byte) []byte {
 	h.hash.Reset()
 	h.hash.Write(h.x)
@@ -35,7 +30,7 @@ func (h *sha256Hash) HashTemp(data ...[]byte) []byte {
 		_, _ = h.hash.Write(d)
 	}
 
-	return h.hash.Sum([]byte{})
+	return h.hash.Sum(h.emptySlice)
 
 }
 
@@ -69,5 +64,5 @@ func (h *sha256Hash) HashSingle(data []byte) []byte {
 	h.hash.Reset()
 	h.hash.Write(h.x)
 	h.hash.Write(data)
-	return h.hash.Sum([]byte{})
+	return h.hash.Sum(h.emptySlice)
 }

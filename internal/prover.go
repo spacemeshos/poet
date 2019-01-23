@@ -130,7 +130,7 @@ func (p *SMProver) GetProof(c Challenge) (Proof, error) {
 
 				// label is not already included in this proof
 
-				// get its value - currently from the memory store
+				// get its value
 				sibLabel := p.readLabel(Identifier(sibId))
 
 				// store it in m so we won't add it again in another labels list in the proof

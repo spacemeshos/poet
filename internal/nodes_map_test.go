@@ -10,7 +10,8 @@ func TestNodesMap(t *testing.T) {
 
 	f := NewSMBinaryStringFactory()
 
-	const d = "00010001011010010001100111000010010101101111111111101110000110"
+	const d = "0000010001011010010001100111000010010101101111111111101110000110"
+
 	b, err := f.NewBinaryString(d)
 	assert.NoError(t, err)
 

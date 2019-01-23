@@ -8,20 +8,12 @@ import (
 	"testing"
 )
 
-/*
-	Latest results:
-	n= 25 total time = 2356.15s (29 minutes)
-
-
-*/
 func TestBigNip(t *testing.T) {
 
 	x := make([]byte, 32)
 	_, err := rand.Read(x)
 	assert.NoError(t, err)
 
-	// with n=25 and 16GB ram:
-	// Map size:  67108863 entries ~20GB in ram w map - runtime: 1034.77s
 	const n = 10
 
 	p, err := NewProver(x, n, shared.NewScryptHashFunc(x))
