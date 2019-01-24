@@ -23,8 +23,7 @@ type SMProver struct {
 	store IKvStore
 	cache *lru.Cache
 
-	t0	  time.Time
-	t1    time.Time
+	t0 time.Time
 }
 
 // Create a new prover with commitment X and param 1 <= n <= 63
@@ -176,7 +175,7 @@ func (p *SMProver) ComputeDag() (phi shared.Label, err error) {
 	fmt.Printf("Commitment: %x\n", p.x)
 	fmt.Printf("Commitment hash: %x\n", p.h.Hash(p.x))
 
-	p.t1 = time.Now()
+	p.t0 = time.Now()
 
 	rootLabel, err := p.computeDag(shared.RootIdentifier)
 
@@ -311,14 +310,14 @@ func (p *SMProver) computeLeafLabel(leafId Identifier) (shared.Label, error) {
 
 	if bs.GetValue()%statsSampleSize == 0 {
 
-		freq := statsSampleSize / time.Since(p.t1).Seconds()
+		freq := statsSampleSize / time.Since(p.t0).Seconds()
 
 		i := bs.GetValue()
 		N := math.Pow(2, float64(p.n))
-		r := math.Min(100.0, 100 * float64(i) / N)
+		r := math.Min(100.0, 100*float64(i)/N)
 
-		fmt.Printf("Computed label for leaf id %s - %d %.2v%% freq: %0.2f leaves/sec \n", leafId, i, r, freq)
-		p.t1 = time.Now()
+		fmt.Printf("Leaf %s %d %.2v%% %0.2f leaves/sec \n", leafId, i, r, freq)
+		p.t0 = time.Now()
 
 	}
 
