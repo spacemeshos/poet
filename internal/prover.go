@@ -223,9 +223,7 @@ func (p *SMProver) computeDag(rootId Identifier) (shared.Label, error) {
 	if childrenHeight == p.n { // children are leaves
 
 		leftNodeLabel, err = p.computeLeafLabel(leftNodeId)
-
 		p.cache.Add(string(leftNodeId), leftNodeLabel)
-
 		if err != nil {
 			return shared.Label{}, err
 		}
@@ -272,7 +270,7 @@ func (p *SMProver) readLabel(id Identifier) shared.Label {
 }
 
 // Given a leaf node with id leafId - return the value of its label
-// Pre-condition: all parent label values have been computed and are available for the implementation
+// Pre-condition: all parent labels values have been computed and are available for the implementation
 func (p *SMProver) computeLeafLabel(leafId Identifier) (shared.Label, error) {
 
 	bs, err := p.f.NewBinaryString(string(leafId))
@@ -318,7 +316,6 @@ func (p *SMProver) computeLeafLabel(leafId Identifier) (shared.Label, error) {
 
 		fmt.Printf("Leaf %s %d %.2v%% %0.2f leaves/sec \n", leafId, i, r, freq)
 		p.t0 = time.Now()
-
 	}
 
 	return label, nil

@@ -5,7 +5,6 @@ import (
 	"github.com/spacemeshos/poet-ref/shared"
 	"math"
 	"os"
-	"sync"
 )
 
 type WriteData struct {
@@ -35,23 +34,18 @@ type KVFileStore struct {
 	f        BinaryStringFactory
 	bw       *Writer
 	c        uint64 // num of labels written to store in this session
-	wc       WriteChan
-	wg       sync.WaitGroup
-	once     sync.Once
 }
 
 const buffSizeBytes = 1024 * 1024 * 1024
 
 // Create a new prover with commitment X and 1 <= n < 64
 // n specifies the leafs height from the root and the number of bits in leaf ids
-// buffSize - memory buffer size in bytes
 func NewKvFileStore(fileName string, n uint) (IKvStore, error) {
 
 	res := &KVFileStore{
 		fileName: fileName,
 		n:        n,
 		f:        NewSMBinaryStringFactory(),
-		wc:       make(WriteChan, 100),
 	}
 
 	err := res.init()
@@ -71,27 +65,10 @@ func (d *KVFileStore) init() error {
 	// todo: compare pref w/o buffers
 	d.bw = NewWriterSize(f, buffSizeBytes)
 
-	// d.wg.Add(1)
-
-	// go d.beginEventProcessing()
-
 	return nil
 }
 
-func (d *KVFileStore) beginEventProcessing() {
-	defer d.wg.Done()
-	for dataItem := range d.wc {
-		d.c += 1
-		_, err := d.bw.Write(dataItem.l)
-		if err != nil {
-			panic(err)
-		}
-	}
-}
-
 func (d *KVFileStore) Write(id Identifier, l shared.Label) {
-
-	//d.wc <- &WriteData{id, l}
 
 	d.c += 1
 	_, err := d.bw.Write(l)
@@ -108,13 +85,6 @@ func (d *KVFileStore) Reset() error {
 }
 
 func (d *KVFileStore) Finalize() {
-
-	d.once.Do(func() {
-		close(d.wc)
-	})
-
-	// wait for all buffered writes to be added to the buffer
-	// d.wg.Wait()
 
 	// flush buffer to file
 	d.bw.Flush()

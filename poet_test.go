@@ -17,7 +17,7 @@ func TestProverAndVerifier(t *testing.T) {
 	assert.NoError(t, err)
 
 	p, err := internal.NewProver(x, n, shared.NewHashFunc(x))
-	defer p.DeleteStore()
+	// defer p.DeleteStore()
 	assert.NoError(t, err, "Failed to create prover")
 
 	t.Log("Computing dag...")
