@@ -12,15 +12,10 @@ import (
 const EmptyString = ""
 
 type SMBinaryStringFactory struct {
-	// cache map[uint64] map[uint]*SMBinaryString
-	// cache1 map[string] *SMBinaryString
 }
 
 func NewSMBinaryStringFactory() BinaryStringFactory {
-	return &SMBinaryStringFactory{
-		// make(map[uint64] map[uint]*SMBinaryString, 500),
-		// make(map[string]*SMBinaryString, 500),
-	}
+	return &SMBinaryStringFactory{}
 }
 
 type SMBinaryString struct {
@@ -31,15 +26,6 @@ type SMBinaryString struct {
 
 // digits must be at least as large to represent v
 func (f *SMBinaryStringFactory) NewBinaryStringFromInt(v uint64, d uint) (BinaryString, error) {
-
-	// todo: only test in debug builds but not in production ones
-
-	/*
-		l := uint(bits.Len64(v))
-		if l > d {
-			return nil, errors.New("invalid digits. Digits must be large enough to represent v in bits")
-		}*/
-
 	res := &SMBinaryString{
 		v: v,
 		d: d,

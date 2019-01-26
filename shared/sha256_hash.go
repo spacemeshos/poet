@@ -37,19 +37,19 @@ func (h *sha256Hash) HashTemp(data ...[]byte) []byte {
 // Multiple iterations hash using client provided iters
 func (h *sha256Hash) Hash(data ...[]byte) []byte {
 
-	h.hash.Reset()
-
 	// first, hash x
+	h.hash.Reset()
 	h.hash.Write(h.x)
 
-	// hash all user provided data
+	// hash user provided data
 	for _, d := range data {
 		_, _ = h.hash.Write(d)
 	}
 
-	digest := h.hash.Sum([]byte{})
+	// digest
+	digest := h.hash.Sum(h.emptySlice)
 
-	// perform iter hashes of x and user data
+	// perform iter sequential hashes of x and user data
 	for i := 0; i < h.iters; i++ {
 		h.hash.Reset()
 		h.hash.Write(h.x)

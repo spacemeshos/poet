@@ -147,18 +147,6 @@ func (d *KVFileStore) Read(id Identifier) (shared.Label, error) {
 		return label, err
 	}
 
-	/*
-		idxBuffStart := idAtBuffStart * shared.WB
-
-		if idx >= idxBuffStart {
-			// label is in buffer - we need to flush it to file before reading
-
-			// todo: find best way to just read the data from the buffer w/o flushing
-			// this might be a significant optimization - more profiling needed
-
-			d.bw.Flush()
-		}*/
-
 	n, err := d.file.ReadAt(label, int64(idx))
 	if err != nil {
 		return label, err
@@ -171,9 +159,9 @@ func (d *KVFileStore) Read(id Identifier) (shared.Label, error) {
 	return label, nil
 }
 
-// Returns the file offset for a node id
+// Returns the store file offset for the data of a node identified by id
 func (d *KVFileStore) calcFileIndex(id Identifier) (uint64, error) {
-	s := d.subtreeSize(id)
+	s := d.subtreeSize(len(id))
 	s1, err := d.leftSiblingsSubtreeSize(id)
 	if err != nil {
 		return 0, err
@@ -185,12 +173,11 @@ func (d *KVFileStore) calcFileIndex(id Identifier) (uint64, error) {
 	return offset, nil
 }
 
-// Returns the size of the subtree rooted at node id
-func (d *KVFileStore) subtreeSize(id Identifier) uint64 {
-	// node depth is the number of bits in its id
-	depth := uint(len(id))
-	height := d.n - depth
-	return uint64(math.Pow(2, float64(height+1)) - 1)
+// Returns the size of the subtree rooted at a node at tree depth
+func (d *KVFileStore) subtreeSize(depth int) uint64 {
+	// Subtree height for a node at depth d
+	h := d.n - uint(depth)
+	return uint64(math.Pow(2, float64(h+1)) - 1)
 }
 
 // Returns the size of the subtrees rooted at left siblings on the path
@@ -205,10 +192,10 @@ func (d *KVFileStore) leftSiblingsSubtreeSize(id Identifier) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-	var res uint64
 
+	var res uint64
 	for _, s := range siblings {
-		res += d.subtreeSize(Identifier(s.GetStringValue()))
+		res += d.subtreeSize(int(s.GetDigitsCount()))
 	}
 
 	return res, nil

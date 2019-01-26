@@ -54,7 +54,7 @@ func NewWriter(w io.Writer) *Writer {
 // Size returns the size of the underlying buffer in bytes.
 func (b *Writer) Size() int { return len(b.buf) }
 
-// Reset discards any unflushed buffered data, clears any error, and
+// Reset discards any un-flushed buffered data, clears any error, and
 // resets b to write its output to w.
 func (b *Writer) Reset(w io.Writer) {
 	b.err = nil
@@ -97,23 +97,30 @@ func (b *Writer) Buffered() int { return b.n }
 // If nn < len(p), it also returns an error explaining
 // why the write is short.
 func (b *Writer) Write(p []byte) (nn int, err error) {
+
 	for len(p) > b.Available() && b.err == nil {
-		var n int
+
+		// data is too big to fit in the buffer
+
+		var n int // number of bytes written to the underlying writer
 		if b.Buffered() == 0 {
-			// Large write, empty buffer.
-			// Write directly from p to avoid copy.
+			// Large write, empty buffer. Write directly from p to avoid copy.
 			n, b.err = b.wr.Write(p)
 		} else {
+			// write from p to the buffer which has n space...
 			n = copy(b.buf[b.n:], p)
 			b.n += n
-			b.Flush()
+			b.err = b.Flush()
 		}
 		nn += n
 		p = p[n:]
 	}
+
 	if b.err != nil {
 		return nn, b.err
 	}
+
+	// copy the incoming data to the buffer and consider the n bytes written
 	n := copy(b.buf[b.n:], p)
 	b.n += n
 	nn += n

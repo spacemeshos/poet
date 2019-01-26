@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"os"
 	"path"
+	"strings"
 	"time"
 )
 
@@ -23,14 +24,16 @@ type SMProver struct {
 	store IKvStore
 	cache *lru.Cache
 
+	sb strings.Builder
+
 	t0 time.Time
 }
 
 // Create a new prover with commitment X and param 1 <= n <= 63
 func NewProver(x []byte, n uint, h HashFunc) (shared.IProver, error) {
 
-	if n < 1 || n > 63 {
-		return nil, errors.New("n must be in range [1, 63]")
+	if n < 9 || n > 63 {
+		return nil, errors.New("n must be in (9, 63)")
 	}
 
 	res := &SMProver{
@@ -39,6 +42,7 @@ func NewProver(x []byte, n uint, h HashFunc) (shared.IProver, error) {
 		h:     h,
 		f:     NewSMBinaryStringFactory(),
 		cache: lru.New(int(n)), // we only need n entries in the labels cache
+		sb:    strings.Builder{},
 	}
 
 	dir, err := os.Getwd()
@@ -47,7 +51,6 @@ func NewProver(x []byte, n uint, h HashFunc) (shared.IProver, error) {
 	}
 
 	fileName := fmt.Sprintf("./poet-%d.bin", rand.Uint64())
-
 	fmt.Printf("Dag store: %s\n", path.Join(dir, fileName))
 
 	store, err := NewKvFileStore(fileName, n)
@@ -66,10 +69,9 @@ func NewProver(x []byte, n uint, h HashFunc) (shared.IProver, error) {
 }
 
 func (p *SMProver) DeleteStore() {
-	p.store.Delete()
+	_ = p.store.Delete()
 }
 
-// for testing
 func (p *SMProver) GetLabel(id Identifier) (shared.Label, bool) {
 
 	inStore, err := p.store.IsLabelInStore(id)
@@ -79,7 +81,7 @@ func (p *SMProver) GetLabel(id Identifier) (shared.Label, bool) {
 	}
 
 	if !inStore {
-		println("Warning: label not found in store")
+		println("Warning: label for id %s not found in store", id)
 		return shared.Label{}, false
 	}
 
@@ -170,15 +172,17 @@ func (p *SMProver) GetNonInteractiveProof() (Proof, error) {
 func (p *SMProver) ComputeDag() (phi shared.Label, err error) {
 
 	N := math.Pow(2, float64(p.n+1)) - 1
-	fmt.Printf("Computing DAG(%d). Total nodes: %d\n", p.n, uint64(N))
+	L := math.Pow(2, float64(p.n))
 
-	fmt.Printf("Commitment: %x\n", p.x)
-	fmt.Printf("Commitment hash: %x\n", p.h.Hash(p.x))
+	fmt.Printf("DAG(%d):\n", p.n)
+	fmt.Printf("> Nodes: %d\n", uint64(N))
+	fmt.Printf("> Leaves: %d\n", uint64(L))
+	fmt.Printf("> Commitment: %x\n", p.x)
+	fmt.Printf("> Commitment hash: %x\n", p.h.Hash(p.x))
 
 	p.t0 = time.Now()
 
 	rootLabel, err := p.computeDag(shared.RootIdentifier)
-
 	if err != nil {
 		return shared.Label{}, err
 	}
@@ -213,8 +217,15 @@ func (p *SMProver) printDag(rootId Identifier) {
 // Compute Dag with a root
 func (p *SMProver) computeDag(rootId Identifier) (shared.Label, error) {
 
-	leftNodeId := rootId + "0"
-	rightNodId := rootId + "1"
+	p.sb.Reset()
+	p.sb.WriteString(string(rootId))
+	p.sb.WriteString("0")
+	leftNodeId := Identifier(p.sb.String())
+
+	p.sb.Reset()
+	p.sb.WriteString(string(rootId))
+	p.sb.WriteString("1")
+	rightNodId := Identifier(p.sb.String())
 
 	childrenHeight := uint(len(rootId)) + 1
 	var leftNodeLabel, rightNodeLabel shared.Label
@@ -252,11 +263,9 @@ func (p *SMProver) computeDag(rootId Identifier) (shared.Label, error) {
 
 	// compute root label, store and return it
 	// Hx(id, leftNodeLabel, rightNodeLabel)
-	labelValue := p.h.Hash([]byte(rootId), leftNodeLabel, rightNodeLabel)
-
-	p.store.Write(rootId, labelValue)
-
-	return labelValue, nil
+	rootLabelValue := p.h.Hash([]byte(rootId), leftNodeLabel, rightNodeLabel)
+	p.store.Write(rootId, rootLabelValue)
+	return rootLabelValue, nil
 }
 
 func (p *SMProver) readLabel(id Identifier) shared.Label {
@@ -291,7 +300,7 @@ func (p *SMProver) computeLeafLabel(leafId Identifier) (shared.Label, error) {
 		// read all parent label values from the lru cache
 		parentValue, ok := p.cache.Get(parentId.GetStringValue())
 		if !ok {
-			return shared.Label{}, errors.New("expected label value in parents lru cache")
+			return shared.Label{}, errors.New("expected all parents labels in the lru cache")
 		}
 
 		var l = parentValue.(shared.Label)
@@ -304,16 +313,12 @@ func (p *SMProver) computeLeafLabel(leafId Identifier) (shared.Label, error) {
 	// store it
 	p.store.Write(leafId, label)
 
-	//println(bs.GetStringValue())
-
+	// show stats
 	if bs.GetValue()%statsSampleSize == 0 {
-
 		freq := statsSampleSize / time.Since(p.t0).Seconds()
-
 		i := bs.GetValue()
 		N := math.Pow(2, float64(p.n))
 		r := math.Min(100.0, 100*float64(i)/N)
-
 		fmt.Printf("Leaf %s %d %.2v%% %0.2f leaves/sec \n", leafId, i, r, freq)
 		p.t0 = time.Now()
 	}
