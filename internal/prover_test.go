@@ -36,9 +36,7 @@ func TestProverBasic(t *testing.T) {
 func BenchmarkProver(t *testing.B) {
 	x := []byte("this is a commitment")
 	const n = 15
-
 	p, err := NewProver(x, n, shared.NewScryptHashFunc(x))
 	assert.NoError(t, err)
-
-	p.ComputeDag()
+	_, _ = p.ComputeDag()
 }

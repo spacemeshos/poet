@@ -180,7 +180,6 @@ func (s *SMVerifier) CreteNipChallenge(phi shared.Label) (Challenge, error) {
 // create a random challenge that can be used to challenge a prover
 // that created a proof for shared params (x,t,n,w)
 func (s *SMVerifier) CreteRndChallenge() (Challenge, error) {
-
 	var data [shared.T]Identifier
 	f := NewSMBinaryStringFactory()
 
@@ -199,8 +198,8 @@ func (s *SMVerifier) CreteRndChallenge() (Challenge, error) {
 // Create a new verifier for commitment X and param n
 func NewVerifier(x []byte, n uint, h HashFunc) (IVerifier, error) {
 
-	if n < 1 || n > 63 {
-		return nil, errors.New("n must be in range [1, 63]")
+	if n < 9 || n > 63 {
+		return nil, errors.New("n must be in range (9, 63)")
 	}
 
 	res := &SMVerifier{

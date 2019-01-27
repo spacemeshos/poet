@@ -2,6 +2,7 @@ package internal
 
 import (
 	"errors"
+	"fmt"
 	"github.com/spacemeshos/poet-ref/shared"
 	"math"
 	"os"
@@ -21,8 +22,8 @@ type IKvStore interface {
 	Reset() error
 	Delete() error
 	Size() uint64
-	Finalize()    // finalize writing w/o closing the file
-	Close() error // finalize and close
+	Finalize() error // finalize writing w/o closing the file
+	Close() error    // finalize and close
 
 	//GetWriteChan() WriteChan
 }
@@ -30,10 +31,12 @@ type IKvStore interface {
 type KVFileStore struct {
 	fileName string
 	file     *os.File
-	n        uint // 1 <= n < 64
+	n        uint // 9 <= n < 64
 	f        BinaryStringFactory
 	bw       *Writer
-	c        uint64 // num of labels written to store in this session
+
+	c  uint64 // num of labels written to store in this session
+	sz uint64 // num of bytes written
 }
 
 const buffSizeBytes = 1024 * 1024 * 1024
@@ -70,7 +73,10 @@ func (d *KVFileStore) init() error {
 
 func (d *KVFileStore) Write(id Identifier, l shared.Label) {
 
+	// update stats
 	d.c += 1
+	d.sz += uint64(len(l))
+
 	_, err := d.bw.Write(l)
 	if err != nil {
 		panic(err)
@@ -79,19 +85,32 @@ func (d *KVFileStore) Write(id Identifier, l shared.Label) {
 
 // Removes all data from the file
 func (d *KVFileStore) Reset() error {
-	d.bw.Flush()
+	err := d.bw.Flush()
+	if err != nil {
+		return err
+	}
+
 	d.c = 0
+	d.sz = 0
 	return d.file.Truncate(0)
 }
 
-func (d *KVFileStore) Finalize() {
+func (d *KVFileStore) Finalize() error {
 
-	// flush buffer to file
-	d.bw.Flush()
+	// flush buffered ata to the underling writer
+	err := d.bw.Flush()
+
+	fmt.Printf("Finalizing store. Wrote %d leaves. Total bytes: %d\n", d.c, d.sz)
+
+	return err
 }
 
 func (d *KVFileStore) Close() error {
-	d.Finalize()
+	err := d.Finalize()
+	if err != nil {
+		return err
+	}
+
 	return d.file.Close()
 }
 

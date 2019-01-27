@@ -67,9 +67,11 @@ func (b *Writer) Flush() error {
 	if b.err != nil {
 		return b.err
 	}
+
 	if b.n == 0 {
 		return nil
 	}
+
 	n, err := b.wr.Write(b.buf[0:b.n])
 	if n < b.n && err == nil {
 		err = io.ErrShortWrite
@@ -82,6 +84,7 @@ func (b *Writer) Flush() error {
 		b.err = err
 		return err
 	}
+
 	b.n = 0
 	return nil
 }

@@ -188,30 +188,12 @@ func (p *SMProver) ComputeDag() (phi shared.Label, err error) {
 	}
 
 	p.phi = rootLabel
-	p.store.Finalize()
+	err = p.store.Finalize()
+	if err != nil {
+		return shared.Label{}, err
+	}
+
 	return rootLabel, nil
-}
-
-func (p *SMProver) printDag(rootId Identifier) {
-	if rootId == "" {
-		items := p.store.Size() / shared.WB
-		fmt.Printf("DAG: # of nodes: %d. n: %d\n", items, p.n)
-	}
-
-	if uint(len(rootId)) < p.n {
-		p.printDag(rootId + "0")
-		p.printDag(rootId + "1")
-	}
-
-	ok, err := p.store.IsLabelInStore(rootId)
-
-	if !ok || err != nil {
-		fmt.Printf("Missing label value from map for is %s", rootId)
-		return
-	}
-
-	label := p.readLabel(rootId)
-	fmt.Printf("%s: %s\n", rootId, GetDisplayValue(label))
 }
 
 // Compute Dag with a root
@@ -268,16 +250,6 @@ func (p *SMProver) computeDag(rootId Identifier) (shared.Label, error) {
 	return rootLabelValue, nil
 }
 
-func (p *SMProver) readLabel(id Identifier) shared.Label {
-	l, err := p.store.Read(id)
-	if err != nil {
-		println(err)
-		panic(err)
-	}
-
-	return l
-}
-
 // Given a leaf node with id leafId - return the value of its label
 // Pre-condition: all parent labels values have been computed and are available for the implementation
 func (p *SMProver) computeLeafLabel(leafId Identifier) (shared.Label, error) {
@@ -324,4 +296,36 @@ func (p *SMProver) computeLeafLabel(leafId Identifier) (shared.Label, error) {
 	}
 
 	return label, nil
+}
+
+func (p *SMProver) printDag(rootId Identifier) {
+	if rootId == "" {
+		items := p.store.Size() / shared.WB
+		fmt.Printf("DAG: # of nodes: %d. n: %d\n", items, p.n)
+	}
+
+	if uint(len(rootId)) < p.n {
+		p.printDag(rootId + "0")
+		p.printDag(rootId + "1")
+	}
+
+	ok, err := p.store.IsLabelInStore(rootId)
+
+	if !ok || err != nil {
+		fmt.Printf("Missing label value from map for is %s", rootId)
+		return
+	}
+
+	label := p.readLabel(rootId)
+	fmt.Printf("%s: %s\n", rootId, GetDisplayValue(label))
+}
+
+func (p *SMProver) readLabel(id Identifier) shared.Label {
+	l, err := p.store.Read(id)
+	if err != nil {
+		println(err)
+		panic(err)
+	}
+
+	return l
 }

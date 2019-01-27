@@ -51,7 +51,8 @@ func TestWrites(t *testing.T) {
 	s.Write("01", genRndLabel(t))
 	s.Write("0", genRndLabel(t))
 
-	s.Finalize()
+	err = s.Finalize()
+	assert.NoError(t, err)
 
 	res, err := s.IsLabelInStore("0000")
 	assert.NoError(t, err)
@@ -82,7 +83,8 @@ func TestDAG(t *testing.T) {
 	s.Write("11", genRndLabel(t))
 	s.Write("", genRndLabel(t))
 
-	s.Finalize()
+	err = s.Finalize()
+	assert.NoError(t, err)
 
 	assert.Equal(t, uint64(5), s.Size()/shared.WB)
 
