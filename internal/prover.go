@@ -317,7 +317,7 @@ func PrintMemUsage() {
 	runtime.ReadMemStats(&m)
 	// For info on each, see: https://golang.org/pkg/runtime/#MemStats
 	fmt.Printf("Alloc = %0.2f GiB", bToGb(m.Alloc))
-	fmt.Printf("\tAllocObj = %v", m.Mallocs - m.Frees)
+	fmt.Printf("\tAllocObj = %v", m.Mallocs-m.Frees)
 	fmt.Printf("\tHeapObjs = %v", m.HeapObjects)
 	fmt.Printf("\tNumGC = %v\n", m.NumGC)
 
