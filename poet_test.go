@@ -11,7 +11,7 @@ import (
 
 func TestProverAndVerifier(t *testing.T) {
 	x := make([]byte, 32)
-	n := uint(20)
+	n := uint(33)
 
 	_, err := rand.Read(x)
 	assert.NoError(t, err)

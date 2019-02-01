@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"os"
 	"path"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -27,6 +28,8 @@ type SMProver struct {
 	sb strings.Builder
 
 	t0 time.Time
+
+	sd uint64 // stack depth for debugging
 }
 
 // Create a new prover with commitment X and param 1 <= n <= 63
@@ -188,6 +191,8 @@ func (p *SMProver) ComputeDag() (phi shared.Label, err error) {
 	}
 
 	p.phi = rootLabel
+
+	// Finalize writing w/o closing the file
 	err = p.store.Finalize()
 	if err != nil {
 		return shared.Label{}, err
@@ -196,8 +201,10 @@ func (p *SMProver) ComputeDag() (phi shared.Label, err error) {
 	return rootLabel, nil
 }
 
-// Compute Dag with a root
+// Compute dag rooted at node with identifier rootId
 func (p *SMProver) computeDag(rootId Identifier) (shared.Label, error) {
+
+	p.sd++
 
 	p.sb.Reset()
 	p.sb.WriteString(string(rootId))
@@ -243,10 +250,13 @@ func (p *SMProver) computeDag(rootId Identifier) (shared.Label, error) {
 		}
 	}
 
-	// compute root label, store and return it
-	// Hx(id, leftNodeLabel, rightNodeLabel)
+	// Compute root label, store and return it
 	rootLabelValue := p.h.Hash([]byte(rootId), leftNodeLabel, rightNodeLabel)
+
 	p.store.Write(rootId, rootLabelValue)
+
+	p.sd--
+
 	return rootLabelValue, nil
 }
 
@@ -291,11 +301,33 @@ func (p *SMProver) computeLeafLabel(leafId Identifier) (shared.Label, error) {
 		i := bs.GetValue()
 		N := math.Pow(2, float64(p.n))
 		r := math.Min(100.0, 100*float64(i)/N)
-		fmt.Printf("Leaf %s %d %.2v%% %0.2f leaves/sec \n", leafId, i, r, freq)
+		fmt.Printf("sd: %d, Leaf %s %d %.2v%% %0.2f leaves/sec \n", p.sd, leafId, i, r, freq)
 		p.t0 = time.Now()
+
+		PrintMemUsage()
 	}
 
 	return label, nil
+}
+
+// PrintMemUsage outputs the current, total and OS memory being used. As well as the number
+// of garage collection cycles completed.
+func PrintMemUsage() {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	// For info on each, see: https://golang.org/pkg/runtime/#MemStats
+	fmt.Printf("Alloc = %0.2f GiB", bToGb(m.Alloc))
+	fmt.Printf("\tTotalAlloc = %0.2f GiB", bToGb(m.TotalAlloc))
+	fmt.Printf("\tSys = %0.2f GiB", bToGb(m.Sys))
+	fmt.Printf("\tNumGC = %v\n", m.NumGC)
+}
+
+func bToMb(b uint64) uint64 {
+	return b / 1024 / 1024
+}
+
+func bToGb(b uint64) float64 {
+	return float64(b) / 1024 / 1024 / 1024
 }
 
 func (p *SMProver) printDag(rootId Identifier) {
