@@ -317,9 +317,21 @@ func PrintMemUsage() {
 	runtime.ReadMemStats(&m)
 	// For info on each, see: https://golang.org/pkg/runtime/#MemStats
 	fmt.Printf("Alloc = %0.2f GiB", bToGb(m.Alloc))
-	fmt.Printf("\tTotalAlloc = %0.2f GiB", bToGb(m.TotalAlloc))
-	fmt.Printf("\tSys = %0.2f GiB", bToGb(m.Sys))
+	fmt.Printf("\tAllocObj = %v", m.Mallocs - m.Frees)
+	fmt.Printf("\tHeapObjs = %v", m.HeapObjects)
 	fmt.Printf("\tNumGC = %v\n", m.NumGC)
+
+	fmt.Printf("Sys = %0.2f GiB\n", bToGb(m.Sys))
+	fmt.Printf(" > HeapSys = %v MiB\n", bToMb(m.HeapSys))
+	fmt.Printf(" > Stack = %v MiB\n", bToMb(m.StackSys))
+	fmt.Printf(" > MSpan = %v MiB\n", bToMb(m.MSpanSys))
+	fmt.Printf(" > MCache = %v MiB\n", bToMb(m.MCacheSys))
+	fmt.Printf(" > Buckhash = %v MiB\n", bToMb(m.BuckHashSys))
+	fmt.Printf(" > GC = %v MiB\n", bToMb(m.GCSys))
+	fmt.Printf(" > Other = %v MiB\n\n", bToMb(m.OtherSys))
+
+	// runtime.GC()
+
 }
 
 func bToMb(b uint64) uint64 {
