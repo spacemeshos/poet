@@ -15,14 +15,14 @@
     "application/json"
   ],
   "paths": {
-    "/v1/prover/serviceinfo": {
+    "/v1/serviceinfo": {
       "get": {
         "operationId": "GetServiceInfo",
         "responses": {
           "200": {
             "description": "",
             "schema": {
-              "$ref": "#/definitions/poetrpcGetServiceInfoResponse"
+              "$ref": "#/definitions/apiGetServiceInfoResponse"
             }
           }
         },
@@ -33,7 +33,7 @@
     }
   },
   "definitions": {
-    "poetrpcGetServiceInfoResponse": {
+    "apiGetServiceInfoResponse": {
       "type": "object",
       "properties": {
         "info": {

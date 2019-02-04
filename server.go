@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	proxy "github.com/grpc-ecosystem/grpc-gateway/runtime"
-	"github.com/spacemeshos/poet-core-api/pcrpc"
 	"github.com/spacemeshos/poet-ref/internal"
 	"github.com/spacemeshos/poet-ref/rpc"
 	"github.com/spacemeshos/poet-ref/rpc/api"
@@ -26,6 +25,7 @@ func startServer() error {
 
 	// Initialize and register the implementation of gRPC interface
 	var grpcServer *grpc.Server
+	var proxyRegstr []func(context.Context, *proxy.ServeMux, string, []grpc.DialOption) error
 	options := []grpc.ServerOption{
 		grpc.UnaryInterceptor(loggerInterceptor()),
 	}
@@ -33,12 +33,17 @@ func startServer() error {
 	if cfg.CoreServiceMode {
 		rpcServer := rpccore.NewRPCServer(s, internal.NewProver, internal.NewVerifier, shared.NewHashFunc, shared.NewScryptHashFunc)
 		grpcServer = grpc.NewServer(options...)
+
 		apicore.RegisterPoetCoreProverServer(grpcServer, rpcServer)
 		apicore.RegisterPoetVerifierServer(grpcServer, rpcServer)
+		proxyRegstr = append(proxyRegstr, apicore.RegisterPoetCoreProverHandlerFromEndpoint)
+		proxyRegstr = append(proxyRegstr, apicore.RegisterPoetVerifierHandlerFromEndpoint)
 	} else {
 		rpcServer := rpc.NewRPCServer()
 		grpcServer = grpc.NewServer(options...)
+
 		api.RegisterPoetServer(grpcServer, rpcServer)
+		proxyRegstr = append(proxyRegstr, api.RegisterPoetHandlerFromEndpoint)
 	}
 
 	// Start the gRPC server listening for HTTP/2 connections.
@@ -55,9 +60,11 @@ func startServer() error {
 
 	// Start the REST proxy for the gRPC server above.
 	mux := proxy.NewServeMux()
-	err = pcrpc.RegisterPoetCoreProverHandlerFromEndpoint(ctx, mux, cfg.RESTListener.String(), []grpc.DialOption{grpc.WithInsecure()})
-	if err != nil {
-		return err
+	for _, r := range proxyRegstr {
+		err := r(ctx, mux, cfg.RPCListener.String(), []grpc.DialOption{grpc.WithInsecure()})
+		if err != nil {
+			return err
+		}
 	}
 
 	go func() {
@@ -68,7 +75,7 @@ func startServer() error {
 
 	// Wait for shutdown signal from either a graceful server stop or from
 	// the interrupt handler.
-	<- s.ShutdownChannel()
+	<-s.ShutdownChannel()
 	return nil
 }
 

@@ -7,10 +7,11 @@ package api;
 service Poet {
     rpc GetServiceInfo (GetServiceInfoRequest) returns (GetServiceInfoResponse) {
         option (google.api.http) = {
-            get: "/v1/prover/serviceinfo"
+            get: "/v1/serviceinfo"
         };
     }
 }
+
 
 message GetServiceInfoRequest {
 }

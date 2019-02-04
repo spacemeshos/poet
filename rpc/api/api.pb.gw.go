@@ -2,7 +2,7 @@
 // source: api.proto
 
 /*
-Package poetrpc is a reverse proxy.
+Package api is a reverse proxy.
 
 It translates gRPC into RESTful JSON APIs.
 */
@@ -100,7 +100,7 @@ func RegisterPoetHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.
 }
 
 var (
-	pattern_Poet_GetServiceInfo_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 2, 2}, []string{"v1", "prover", "serviceinfo"}, ""))
+	pattern_Poet_GetServiceInfo_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "serviceinfo"}, ""))
 )
 
 var (

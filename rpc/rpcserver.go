@@ -6,7 +6,7 @@ import (
 )
 
 // rpcServer is a gRPC, RPC front end to poet
-type rpcServer struct {}
+type rpcServer struct{}
 
 // A compile time check to ensure that rpcService fully implements
 // the PoetServer gRPC rpc.
