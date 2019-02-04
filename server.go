@@ -17,6 +17,7 @@ import (
 	"net/http"
 )
 
+// startServer starts the RPC server.
 func startServer() error {
 	s := signal.NewSignal()
 	ctx := context.Background()
@@ -79,6 +80,7 @@ func startServer() error {
 	return nil
 }
 
+// loggerInterceptor returns UnaryServerInterceptor handler to log all RPC server incoming requests.
 func loggerInterceptor() func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		peer, _ := peer.FromContext(ctx)
