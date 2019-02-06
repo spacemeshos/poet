@@ -15,8 +15,8 @@ import (
 )
 
 var (
-	n          uint // protocol n param
-	cpu		   bool // cpu profiling
+	n   uint // protocol n param
+	cpu bool // cpu profiling
 )
 
 func init() {
@@ -27,7 +27,6 @@ func init() {
 	flag.BoolVar(&cpu, "cpu", false, "profile cpu use")
 	flag.UintVar(&n, "n", 10, "Table size = 2^n")
 	flag.Parse()
-
 
 }
 

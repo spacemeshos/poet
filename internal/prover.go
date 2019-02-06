@@ -1,12 +1,13 @@
 package internal
 
 import (
+	"crypto/rand"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"github.com/golang/groupcache/lru"
 	"github.com/spacemeshos/poet-ref/shared"
 	"math"
-	"math/rand"
 	"os"
 	"path"
 	"runtime"
@@ -26,8 +27,7 @@ type SMProver struct {
 	cache *lru.Cache
 
 	sb strings.Builder
-	t time.Time
-
+	t  time.Time
 }
 
 // Create a new prover with commitment X and param 1 <= n <= 63
@@ -51,7 +51,13 @@ func NewProver(x []byte, n uint, h HashFunc) (shared.IProver, error) {
 		return res, err
 	}
 
-	fileName := fmt.Sprintf("./poet-%d.bin", rand.Uint64())
+	d := make([]byte, 64)
+	_, err = rand.Read(d)
+	if err != nil {
+		return res, err
+	}
+
+	fileName := fmt.Sprintf("./poet-%d.bin", binary.BigEndian.Uint64(d))
 	fmt.Printf("Dag store: %s\n", path.Join(dir, fileName))
 
 	store, err := NewKvFileStore(fileName, n)
