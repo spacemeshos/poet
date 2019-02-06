@@ -18,7 +18,7 @@ const statsSampleSize = 100000
 
 type SMProver struct {
 	x     []byte   // commitment
-	n     uint     // n param 1 <= n <= 63
+	n     uint     // n param 9 <= n <= 63
 	h     HashFunc // Hx()
 	f     BinaryStringFactory
 	phi   shared.Label
@@ -26,10 +26,8 @@ type SMProver struct {
 	cache *lru.Cache
 
 	sb strings.Builder
+	t time.Time
 
-	t0 time.Time
-
-	sd uint64 // stack depth for debugging
 }
 
 // Create a new prover with commitment X and param 1 <= n <= 63
@@ -183,7 +181,7 @@ func (p *SMProver) ComputeDag() (phi shared.Label, err error) {
 	fmt.Printf("> Commitment: %x\n", p.x)
 	fmt.Printf("> Commitment hash: %x\n", p.h.Hash(p.x))
 
-	p.t0 = time.Now()
+	p.t = time.Now()
 
 	rootLabel, err := p.computeDag(shared.RootIdentifier)
 	if err != nil {
@@ -203,8 +201,6 @@ func (p *SMProver) ComputeDag() (phi shared.Label, err error) {
 
 // Compute dag rooted at node with identifier rootId
 func (p *SMProver) computeDag(rootId Identifier) (shared.Label, error) {
-
-	p.sd++
 
 	p.sb.Reset()
 	p.sb.WriteString(string(rootId))
@@ -255,8 +251,6 @@ func (p *SMProver) computeDag(rootId Identifier) (shared.Label, error) {
 
 	p.store.Write(rootId, rootLabelValue)
 
-	p.sd--
-
 	return rootLabelValue, nil
 }
 
@@ -297,14 +291,14 @@ func (p *SMProver) computeLeafLabel(leafId Identifier) (shared.Label, error) {
 
 	// show stats
 	if bs.GetValue()%statsSampleSize == 0 {
-		freq := statsSampleSize / time.Since(p.t0).Seconds()
+		freq := statsSampleSize / time.Since(p.t).Seconds()
 		i := bs.GetValue()
 		N := math.Pow(2, float64(p.n))
 		r := math.Min(100.0, 100*float64(i)/N)
-		fmt.Printf("sd: %d, Leaf %s %d %.2v%% %0.2f leaves/sec \n", p.sd, leafId, i, r, freq)
-		p.t0 = time.Now()
+		fmt.Printf("Leaf %s %d %.2v%% %0.2f leaves/sec \n", leafId, i, r, freq)
+		p.t = time.Now()
 
-		PrintMemUsage()
+		// PrintMemUsage()
 	}
 
 	return label, nil

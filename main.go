@@ -6,30 +6,58 @@ import (
 	"fmt"
 	"github.com/spacemeshos/poet-ref/internal"
 	"github.com/spacemeshos/poet-ref/shared"
+	"log"
+	"os"
+	"path"
 	"runtime"
+	"runtime/pprof"
 	"time"
 )
 
 var (
-	rpcPort    uint
-	wProxyPort uint
-	n          uint
+	n          uint // protocol n param
+	cpu		   bool // cpu profiling
 )
 
 func init() {
 
-	// disable memory profiling which cause memory to grow unbounded
 	runtime.MemProfileRate = 0
+	println("Memory profiling disabled.")
 
+	flag.BoolVar(&cpu, "cpu", false, "profile cpu use")
 	flag.UintVar(&n, "n", 10, "Table size = 2^n")
-
-	flag.UintVar(&rpcPort, "rpcport", 50052, "RPC server listening port")
-	flag.UintVar(&wProxyPort, "wproxyport", 8080, "RPC server web proxy listening port")
 	flag.Parse()
+
+
 }
 
 func main() {
-	x := make([]byte, 32)
+
+	if cpu { // enable memory profiling
+
+		dir, err := os.Getwd()
+		if err != nil {
+			log.Fatal("cant get current dir", err)
+		}
+
+		profFilePath := path.Join(dir, "./cpu.prof")
+
+		fmt.Printf("CPU profile: %s\n", profFilePath)
+
+		f, err := os.Create(profFilePath)
+		if err != nil {
+			log.Fatal("could not create CPU profile: ", err)
+		}
+		if err := pprof.StartCPUProfile(f); err != nil {
+			log.Fatal("could not start CPU profile: ", err)
+		}
+		defer pprof.StopCPUProfile()
+
+		println("Cpu profiling enabled and started...")
+
+	}
+
+	x := make([]byte, 20)
 
 	_, err := rand.Read(x)
 	if err != nil {
