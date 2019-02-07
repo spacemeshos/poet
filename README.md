@@ -130,8 +130,6 @@ For example, the root node's label is `lε = Hx(bytes(""), l0, l1)` as it has 2 
 - Labels are arbitrary 32 bytes of binary data so they don't need any encoding.
 - As an example, to compute the input for Hx("001", label1, label2), encode the binary string to a utf-8 encoded bytes array and append to it the labels byte arrays.
 
-
-
 ##### Computing node parents ids
 Given a node i in a DAG(n), we need a way determine its set of parent nodes. For example, we use the set to compute its label. This can be implemented without having to store all DAG edges in storage.
 
@@ -145,23 +143,6 @@ Note that with this binary string labeling scheme we get the following propertie
 `If id has n bits (node is a leaf in DAG(n)) then add the ids of all left siblings of the nodes on the path from the node to the root, else add to the set the 2 nodes below it (left and right nodes) as defined by the binary tree Bn.`
 
 - So for example, for n=4, for the node l1 with id `0`, the parents are the nodes with ids `00` and `01` and the ids of the parents of leaf node `0011` are `0010` and `000`. The ids of the parents of node `1101` are `1100`, `10` and `0`.
-
-- The following Python function demonstrates how to implement this algorithm. It returns a sorted set of parent ids for input which consists of node id (binary string) and the value of n (int):
-
-``` python
-def get_parents(binary_str, n=DEFAULT_n):
-    parents = []
-    bit_list = binary_str.get_bit_list()
-    length = binary_str.length
-    if length == n:
-        for i in range(1, length + 1):
-            if bit_list[i - 1] == 1:
-                parents.append(BinaryString(i, bits_to_int(bit_list[:i - 1] + [0])))
-    else:
-        parents.append(BinaryString(length + 1, bits_to_int(bit_list + [0])))
-        parents.append(BinaryString(length + 1, bits_to_int(bit_list + [1])))
-    return sorted(parents)
-```
 
 - Note that leaf nodes parents are not all the siblings on the path to the root from the leaf. The parents are only the left siblings on that path. e.g. siblings with ids that end with a `0`.
 
@@ -178,7 +159,6 @@ Recursive computation of the labels of DAG(n):
 4. Once l1 is computed, discard all other computed labels from memory and keep l1
 5. Compute the root label le = Hx("", l0, l1)
 
-
 - When a label value is computed by the algorithm, store it in persistent storage if the label's height <= m.
 - Note that this works because only l0 is needed for computing labels in the tree rooted in l1. All of the additional edges to nodes in the tree rooted at l1 start at l0.
 - Note that the reference Python code does not construct the DAG in this manner and keeps the whole DAG in memory. Please use the Python code as an example for simpler constructions such as binary strings, open and verify.
@@ -191,124 +171,6 @@ Given a node id, the index of the label value in the data file can be computed b
      idx = sum of sizes of the subtrees under the left-siblings on path to root + node's own subtree.
 
 The size of a subtree under a node is simply `2^{height+1}-1` * the label size. e.g. 32 bytes.
-
-##### APIs
-
-
-// See notes about data types below (Commitment, Proof and Challenge)
-
-```
-Base { // shared functionality and constants between verifier and Prover
-
-    // Returns the NIP's challenge based on the provided x and φ - phi  
-    // Implementation: c = (Hx(φ,1),...Hx(φ,t))
-    CreteNipChallenge(x: bytes, phi: bytes) returns c:Challenge;
-}
-
-Verifier extends Base {
-    // Set new commitment and provide callback for POET server result POSW(n)
-    // Verifier should start a new prover with the provided commitment and n
-    // The callback includes the NIP proof or an error.
-    SetCommitment(commitment: bytes, n: int, callback: (proof: Proof, error));
-
-    // Verify a proof for a challenge
-    Verify(challenge: Challenge, proof: Proof);
-
-    // Verify a random challenge
-    VerifyRandomChallenge() returns (result:bool, error: Error);
-}
-
-Prover extends Base {
-    // start POSW(n) and return NIP or error in callback after POSW(n) is complete
-    Start(commitment: bytes, n: int, callback: (result: Proof, error: Error);
-
-    // returns a proof based on challenge
-    GetProof(challenge: Challenge) returns Proof;
-}
-
-// This method implements verifyH(x,N,φ,γ,τ) using provided input arguments and
-// verifier constants
-Verifer.Verify(challenge: Challenge, proof: Proof) {
-
-    // Verify that the sets of identifiers in challenge and proof are identical.
-
-    phi = proof.phi;
-    for (i=0; i < t; i++) {
-
-        // Note that verifier knows the identifier from the challenge it issued and can't trust the prover
-        // to return the correct id. So node_id is taken from the challenge and not from the proof:
-        node_id =  challenge.identifer(i);
-
-        node_label = proof.label(i);
-
-        // Note that labels that were already included in sibling lists in the proofs will be omitted from the sibling list. The verifier should to use the labels of node ids it already knows about. e.g. It builds an in-memory dictionary [node_id : node_lablel] and update it as a proof data is read. If the dictionary includes an entry for a node_id then the value should be read from the dictionary and not from the sibling list.
-
-        siblings = proof.siblings(i);
-
-        // Check the Merkle-like commitment
-        // Compute the labels of the nodes on the path from node_id to the root node phi
-        // using the siblings labels and node_label
-        // return false if the computed root node does not equal to phi.
-    }
-
-    return true;
-}
-
-Verifier.VerifyRandomChallenge() returns bool {
-
-    // Create a valid challenge with t random leaf identifiers
-    challenge = new Challenge();
-
-    // Get a proof from the verifier for the challenge
-    proof = verifier.GetProof(challenge);
-
-    // verify the proof
-    return verify(challenge, proof);
-}
-
-TestNip() {
-    const n = 40;
-    const c = randomBytes(32)
-    v = new Verifier();
-    v.SetCommitment(c, n callback);
-
-    callback(proof: Proof, error: Error) {
-        assertNoError(error);    
-        c: Challenge = CreteNipChallenge();
-        res = v.Verify(c, proof);
-        assert(res);
-    }
-}
-
-TestBasicRandomChallenge() {
-    const n = 40;
-    const c = crypto.randomBytes(32)
-    v = new Verifier();
-
-    v.SetCommitment(c, n, callback);
-    callback(proof: Proof, error: Error) {
-        assertNoError(error)
-        res = v.VerifyRandomChallenge();
-        assert(res);
-    }
-}
-
-TestRndChallenges() {
-    const n = 40;
-    const c = randomBytes(32)
-    v = new Verifier();
-    v.SetCommitment(c, n, callback);
-    callback(proof: Proof, error: Error) {
-        assertNoError(error);
-        for (i = 1 to 1000) {
-            res = v.VerifyRandomChallenge();
-            assert(res);
-        }
-    }
-}
-
-
-```
 
 ### Data Types
 
@@ -335,7 +197,6 @@ The complete proof data can be encoded in a tuple where the first value is φ an
 Note that we don't need to include identifier_t in the proof as the identifiers needs to be computed by the verifier.
 
 Also note that the proof should omit from the siblings list labels that were already included previously once in the proof. The verifier should create a dictionary of label values keyed by their node id, populate it from the siblings list it receives, and use it to get label values omitted from siblings lists - as the verifier knows the ids of all siblings on the path to the root from a given node.
-
 
 ### About NIPs
 
