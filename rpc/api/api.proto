@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+import "google/api/annotations.proto";
+
+package api;
+
+service Poet {
+    rpc GetServiceInfo (GetServiceInfoRequest) returns (GetServiceInfoResponse) {
+        option (google.api.http) = {
+            get: "/v1/serviceinfo"
+        };
+    }
+}
+
+
+message GetServiceInfoRequest {
+}
+
+message GetServiceInfoResponse {
+    string info = 1 [json_name = "info"];
+}

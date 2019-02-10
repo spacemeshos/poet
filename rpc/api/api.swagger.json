@@ -1,0 +1,45 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "api.proto",
+    "version": "version not set"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/v1/serviceinfo": {
+      "get": {
+        "operationId": "GetServiceInfo",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/apiGetServiceInfoResponse"
+            }
+          }
+        },
+        "tags": [
+          "Poet"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "apiGetServiceInfoResponse": {
+      "type": "object",
+      "properties": {
+        "info": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
