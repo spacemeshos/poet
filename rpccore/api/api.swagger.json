@@ -1,0 +1,342 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "api.proto",
+    "version": "version not set"
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/v1/prover/clean": {
+      "get": {
+        "operationId": "Clean",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/apiCleanResponse"
+            }
+          }
+        },
+        "tags": [
+          "PoetCoreProver"
+        ]
+      }
+    },
+    "/v1/prover/compute": {
+      "get": {
+        "operationId": "Compute",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/apiComputeResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "d.x",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "d.n",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int64"
+          },
+          {
+            "name": "d.h",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "PoetCoreProver"
+        ]
+      }
+    },
+    "/v1/prover/getnip": {
+      "get": {
+        "operationId": "GetProof",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/apiGetProofResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "c",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        ],
+        "tags": [
+          "PoetCoreProver"
+        ]
+      }
+    },
+    "/v1/prover/shutdown": {
+      "get": {
+        "operationId": "Shutdown",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/apiShutdownResponse"
+            }
+          }
+        },
+        "tags": [
+          "PoetCoreProver"
+        ]
+      }
+    },
+    "/v1/verifier/getrndchallenge": {
+      "get": {
+        "operationId": "GetRndChallenge",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/apiGetRndChallengeResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "d.x",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "d.n",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int64"
+          },
+          {
+            "name": "d.h",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "PoetVerifier"
+        ]
+      }
+    },
+    "/v1/verifier/verify": {
+      "get": {
+        "operationId": "VerifyProof",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/apiVerifyProofResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "d.x",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "d.n",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int64"
+          },
+          {
+            "name": "d.h",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "p.phi",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "c",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        ],
+        "tags": [
+          "PoetVerifier"
+        ]
+      }
+    },
+    "/v1/verifier/verifynip": {
+      "get": {
+        "operationId": "VerifyNIP",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/apiVerifyNIPResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "d.x",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "d.n",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int64"
+          },
+          {
+            "name": "d.h",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          },
+          {
+            "name": "p.phi",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          }
+        ],
+        "tags": [
+          "PoetVerifier"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "apiCleanResponse": {
+      "type": "object"
+    },
+    "apiComputeResponse": {
+      "type": "object",
+      "properties": {
+        "phi": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "apiGetNIPResponse": {
+      "type": "object",
+      "properties": {
+        "proof": {
+          "$ref": "#/definitions/apiProof"
+        }
+      }
+    },
+    "apiGetProofResponse": {
+      "type": "object",
+      "properties": {
+        "proof": {
+          "$ref": "#/definitions/apiProof"
+        }
+      }
+    },
+    "apiGetRndChallengeResponse": {
+      "type": "object",
+      "properties": {
+        "c": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "apiLabels": {
+      "type": "object",
+      "properties": {
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
+          }
+        }
+      }
+    },
+    "apiProof": {
+      "type": "object",
+      "properties": {
+        "phi": {
+          "type": "string",
+          "format": "byte"
+        },
+        "l": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/apiLabels"
+          }
+        }
+      }
+    },
+    "apiShutdownResponse": {
+      "type": "object"
+    },
+    "apiVerifyNIPResponse": {
+      "type": "object",
+      "properties": {
+        "verified": {
+          "type": "boolean",
+          "format": "boolean"
+        }
+      }
+    },
+    "apiVerifyProofResponse": {
+      "type": "object",
+      "properties": {
+        "verified": {
+          "type": "boolean",
+          "format": "boolean"
+        }
+      }
+    }
+  }
+}

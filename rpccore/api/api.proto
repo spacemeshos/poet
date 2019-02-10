@@ -1,0 +1,132 @@
+syntax = "proto3";
+
+import "google/api/annotations.proto";
+
+package api;
+
+service PoetCoreProver {
+    rpc Compute (ComputeRequest) returns (ComputeResponse) {
+        option (google.api.http) = {
+            get: "/v1/prover/compute"
+        };
+    }
+
+    rpc GetNIP (GetNIPRequest) returns (GetNIPResponse) {
+        option (google.api.http) = {
+            get: "/v1/prover/getnip"
+        };
+    }
+
+    rpc GetProof (GetProofRequest) returns (GetProofResponse) {
+        option (google.api.http) = {
+            get: "/v1/prover/getnip"
+        };
+    }
+
+    rpc Clean (CleanRequest) returns (CleanResponse) {
+        option (google.api.http) = {
+            get: "/v1/prover/clean"
+        };
+    }
+
+    rpc Shutdown (ShutdownRequest) returns (ShutdownResponse) {
+        option (google.api.http) = {
+            get: "/v1/prover/shutdown"
+        };
+    }
+}
+
+service PoetVerifier {
+    rpc VerifyProof (VerifyProofRequest) returns (VerifyProofResponse) {
+        option (google.api.http) = {
+            get: "/v1/verifier/verify"
+        };
+    }
+
+    rpc VerifyNIP (VerifyNIPRequest) returns (VerifyNIPResponse) {
+        option (google.api.http) = {
+            get: "/v1/verifier/verifynip"
+        };
+    }
+
+    rpc GetRndChallenge (GetRndChallengeRequest) returns (GetRndChallengeResponse) {
+        option (google.api.http) = {
+            get: "/v1/verifier/getrndchallenge"
+        };
+    }
+}
+
+message ComputeRequest {
+    DagParams d = 1 [json_name = "d"];
+}
+
+message ComputeResponse {
+    bytes phi = 1 [json_name = "phi"];
+}
+
+message GetNIPRequest {
+}
+
+message GetNIPResponse {
+    Proof proof = 1 [json_name = "proof"];
+}
+
+message GetProofRequest {
+    repeated string c = 1 [json_name = "c"];
+}
+
+message GetProofResponse {
+    Proof proof = 1 [json_name = "proof"];
+}
+
+message CleanRequest {
+}
+message CleanResponse {
+}
+
+message ShutdownRequest {
+}
+message ShutdownResponse {
+}
+
+message VerifyProofRequest {
+    DagParams d = 1 [json_name = "d"];
+    Proof p = 2 [json_name = "p"];
+    repeated string c = 3 [json_name = "c"];
+}
+
+message VerifyProofResponse {
+    bool verified = 1 [json_name = "verified"];
+}
+
+message VerifyNIPRequest {
+    DagParams d = 1 [json_name = "d"];
+    Proof p = 2 [json_name = "p"];
+}
+
+message VerifyNIPResponse {
+    bool verified = 1 [json_name = "verified"];
+}
+
+message GetRndChallengeRequest {
+    DagParams d = 1 [json_name = "d"];
+}
+
+message GetRndChallengeResponse {
+    repeated string c = 3 [json_name = "c"];
+}
+
+message DagParams {
+    bytes x = 1 [json_name = "x"];
+    uint32 n = 2 [json_name = "n"];
+    string h = 3 [json_name = "h"];
+}
+
+message Proof {
+    bytes phi = 1 [json_name = "phi"];
+    repeated Labels l = 2 [json_name = "l"];
+}
+
+message Labels {
+    repeated bytes labels = 1 [json_name = "labels"];
+}

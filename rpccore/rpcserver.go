@@ -1,8 +1,9 @@
-package service
+package rpccore
 
 import (
-	"github.com/spacemeshos/poet-core-api/pcrpc"
+	"github.com/spacemeshos/poet-ref/rpccore/api"
 	"github.com/spacemeshos/poet-ref/shared"
+	"github.com/spacemeshos/poet-ref/signal"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -14,8 +15,9 @@ var (
 	ErrInvalidHashFunc = status.Error(codes.FailedPrecondition, "invalid hash function")
 )
 
-// rpcServer is a gRPC, RPC front end to the poet core
+// rpcServer is a gRPC, RPC front end to poet core
 type rpcServer struct {
+	s *signal.Signal
 	newProver   func(x []byte, n uint, h shared.HashFunc) (shared.IProver, error)
 	newVerifier func(x []byte, n uint, h shared.HashFunc) (shared.IBasicVerifier, error)
 	hashFuncMap map[string]func([]byte) shared.HashFunc
@@ -24,17 +26,19 @@ type rpcServer struct {
 
 // A compile time check to ensure that rpcServer fully implements the
 // PoetCoreProverServer and PoetVerifierServer gRPC services.
-var _ pcrpc.PoetCoreProverServer = (*rpcServer)(nil)
-var _ pcrpc.PoetVerifierServer = (*rpcServer)(nil)
+var _ api.PoetCoreProverServer = (*rpcServer)(nil)
+var _ api.PoetVerifierServer = (*rpcServer)(nil)
 
 // newRPCServer creates and returns a new instance of the rpcServer.
 func NewRPCServer(
+	s *signal.Signal,
 	newProver func(x []byte, n uint, h shared.HashFunc) (shared.IProver, error),
 	newVerifier func(x []byte, n uint, h shared.HashFunc) (shared.IBasicVerifier, error),
 	newSHA256HashFunc func(x []byte) shared.HashFunc,
 	newScryptHashFunc func(x []byte) shared.HashFunc,
 ) *rpcServer {
 	return &rpcServer{
+		s: s,
 		newProver:   newProver,
 		newVerifier: newVerifier,
 		hashFuncMap: map[string]func([]byte) shared.HashFunc{
@@ -45,7 +49,7 @@ func NewRPCServer(
 	}
 }
 
-func (r *rpcServer) Compute(ctx context.Context, in *pcrpc.ComputeRequest) (*pcrpc.ComputeResponse, error) {
+func (r *rpcServer) Compute(ctx context.Context, in *api.ComputeRequest) (*api.ComputeResponse, error) {
 	if r.prover != nil {
 		return nil, ErrProverExists
 	}
@@ -63,10 +67,10 @@ func (r *rpcServer) Compute(ctx context.Context, in *pcrpc.ComputeRequest) (*pcr
 
 	phi, err := r.prover.ComputeDag()
 
-	return &pcrpc.ComputeResponse{Phi: phi}, nil
+	return &api.ComputeResponse{Phi: phi}, nil
 }
 
-func (r *rpcServer) Clean(ctx context.Context, in *pcrpc.CleanRequest) (*pcrpc.CleanResponse, error) {
+func (r *rpcServer) Clean(ctx context.Context, in *api.CleanRequest) (*api.CleanResponse, error) {
 	if r.prover == nil {
 		return nil, ErrNoProverExists
 	}
@@ -74,10 +78,10 @@ func (r *rpcServer) Clean(ctx context.Context, in *pcrpc.CleanRequest) (*pcrpc.C
 	r.prover.DeleteStore()
 	r.prover = nil
 
-	return &pcrpc.CleanResponse{}, nil
+	return &api.CleanResponse{}, nil
 }
 
-func (r *rpcServer) GetNIP(ctx context.Context, in *pcrpc.GetNIPRequest) (*pcrpc.GetNIPResponse, error) {
+func (r *rpcServer) GetNIP(ctx context.Context, in *api.GetNIPRequest) (*api.GetNIPResponse, error) {
 	if r.prover == nil {
 		return nil, ErrNoProverExists
 	}
@@ -87,13 +91,13 @@ func (r *rpcServer) GetNIP(ctx context.Context, in *pcrpc.GetNIPRequest) (*pcrpc
 		return nil, err
 	}
 
-	return &pcrpc.GetNIPResponse{Proof: &pcrpc.Proof{
+	return &api.GetNIPResponse{Proof: &api.Proof{
 		Phi: proof.Phi,
 		L:   nativeLabelsToWire(proof.L),
 	}}, nil
 }
 
-func (r *rpcServer) GetProof(ctx context.Context, in *pcrpc.GetProofRequest) (*pcrpc.GetProofResponse, error) {
+func (r *rpcServer) GetProof(ctx context.Context, in *api.GetProofRequest) (*api.GetProofResponse, error) {
 	if r.prover == nil {
 		return nil, ErrNoProverExists
 	}
@@ -103,18 +107,18 @@ func (r *rpcServer) GetProof(ctx context.Context, in *pcrpc.GetProofRequest) (*p
 		return nil, err
 	}
 
-	return &pcrpc.GetProofResponse{Proof: &pcrpc.Proof{
+	return &api.GetProofResponse{Proof: &api.Proof{
 		Phi: proof.Phi,
 		L:   nativeLabelsToWire(proof.L),
 	}}, nil
 }
 
-func (r *rpcServer) Shutdown(context.Context, *pcrpc.ShutdownRequest) (*pcrpc.ShutdownResponse, error) {
-	RequestShutdown()
-	return &pcrpc.ShutdownResponse{}, nil
+func (r *rpcServer) Shutdown(context.Context, *api.ShutdownRequest) (*api.ShutdownResponse, error) {
+	r.s.RequestShutdown()
+	return &api.ShutdownResponse{}, nil
 }
 
-func (r *rpcServer) VerifyProof(ctx context.Context, in *pcrpc.VerifyProofRequest) (*pcrpc.VerifyProofResponse, error) {
+func (r *rpcServer) VerifyProof(ctx context.Context, in *api.VerifyProofRequest) (*api.VerifyProofResponse, error) {
 	hashFunc, ok := r.hashFuncMap[in.D.H]
 	if !ok {
 		return nil, ErrInvalidHashFunc
@@ -133,10 +137,10 @@ func (r *rpcServer) VerifyProof(ctx context.Context, in *pcrpc.VerifyProofReques
 		return nil, err
 	}
 
-	return &pcrpc.VerifyProofResponse{Verified: verified}, nil
+	return &api.VerifyProofResponse{Verified: verified}, nil
 }
 
-func (r *rpcServer) VerifyNIP(ctx context.Context, in *pcrpc.VerifyNIPRequest) (*pcrpc.VerifyNIPResponse, error) {
+func (r *rpcServer) VerifyNIP(ctx context.Context, in *api.VerifyNIPRequest) (*api.VerifyNIPResponse, error) {
 	hashFunc, ok := r.hashFuncMap[in.D.H]
 	if !ok {
 		return nil, ErrInvalidHashFunc
@@ -155,10 +159,10 @@ func (r *rpcServer) VerifyNIP(ctx context.Context, in *pcrpc.VerifyNIPRequest) (
 		return nil, err
 	}
 
-	return &pcrpc.VerifyNIPResponse{Verified: verified}, nil
+	return &api.VerifyNIPResponse{Verified: verified}, nil
 }
 
-func (r *rpcServer) GetRndChallenge(ctx context.Context, in *pcrpc.GetRndChallengeRequest) (*pcrpc.GetRndChallengeResponse, error) {
+func (r *rpcServer) GetRndChallenge(ctx context.Context, in *api.GetRndChallengeRequest) (*api.GetRndChallengeResponse, error) {
 	hashFunc, ok := r.hashFuncMap[in.D.H]
 	if !ok {
 		return nil, ErrInvalidHashFunc
@@ -174,11 +178,11 @@ func (r *rpcServer) GetRndChallenge(ctx context.Context, in *pcrpc.GetRndChallen
 		return nil, err
 	}
 
-	return &pcrpc.GetRndChallengeResponse{C: nativeChallengeToWire(c.Data)}, nil
+	return &api.GetRndChallengeResponse{C: nativeChallengeToWire(c.Data)}, nil
 }
 
 // TODO: find a better way to do this
-func wireLabelsToNative(in []*pcrpc.Labels) (native [shared.T]shared.Labels) {
+func wireLabelsToNative(in []*api.Labels) (native [shared.T]shared.Labels) {
 	for i, inLabels := range in {
 		var outLabels shared.Labels
 		for _, inLabel := range inLabels.Labels {
@@ -190,9 +194,9 @@ func wireLabelsToNative(in []*pcrpc.Labels) (native [shared.T]shared.Labels) {
 }
 
 // TODO: find a better way to do this
-func nativeLabelsToWire(native [shared.T]shared.Labels) (out []*pcrpc.Labels) {
+func nativeLabelsToWire(native [shared.T]shared.Labels) (out []*api.Labels) {
 	for _, labels := range native {
-		var labelsMsg pcrpc.Labels
+		var labelsMsg api.Labels
 		for _, label := range labels {
 			labelsMsg.Labels = append(labelsMsg.Labels, label)
 		}
