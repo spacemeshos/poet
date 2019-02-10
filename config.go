@@ -185,7 +185,7 @@ func loadConfig() (*config, error) {
 	// for the poet n parameter
 	if cfg.Service.N < 1 || cfg.CoreService.N < 1 {
 		fmt.Fprintln(os.Stderr, usageMessage)
-		err := fmt.Errorf( "%s: n must be positive", funcName)
+		err := fmt.Errorf("%s: n must be positive", funcName)
 		return nil, err
 	}
 

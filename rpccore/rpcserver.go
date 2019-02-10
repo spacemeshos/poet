@@ -17,7 +17,7 @@ var (
 
 // rpcServer is a gRPC, RPC front end to poet core
 type rpcServer struct {
-	s *signal.Signal
+	s           *signal.Signal
 	newProver   func(x []byte, n uint, h shared.HashFunc) (shared.IProver, error)
 	newVerifier func(x []byte, n uint, h shared.HashFunc) (shared.IBasicVerifier, error)
 	hashFuncMap map[string]func([]byte) shared.HashFunc
@@ -38,7 +38,7 @@ func NewRPCServer(
 	newScryptHashFunc func(x []byte) shared.HashFunc,
 ) *rpcServer {
 	return &rpcServer{
-		s: s,
+		s:           s,
 		newProver:   newProver,
 		newVerifier: newVerifier,
 		hashFuncMap: map[string]func([]byte) shared.HashFunc{

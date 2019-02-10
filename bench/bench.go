@@ -1,4 +1,4 @@
-package main
+package bench
 
 import (
 	"crypto/rand"
@@ -30,7 +30,7 @@ func init() {
 
 }
 
-func main() {
+func Bench() {
 
 	if cpu { // enable memory profiling
 

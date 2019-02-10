@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	cfg        *config
+	cfg *config
 )
 
 // poetMain is the true entry point for poet. This function is required since

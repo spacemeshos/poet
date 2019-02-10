@@ -5,9 +5,9 @@
 package main
 
 import (
-"bytes"
-"fmt"
-"strings"
+	"bytes"
+	"fmt"
+	"strings"
 )
 
 // semanticAlphabet
@@ -70,4 +70,3 @@ func normalizeVerString(str string) string {
 	}
 	return result.String()
 }
-

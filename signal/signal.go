@@ -10,7 +10,7 @@ import (
 	"os/signal"
 )
 
-type Signal struct  {
+type Signal struct {
 	// interruptChannel is used to receive SIGINT (Ctrl+C) signals.
 	interruptChannel chan os.Signal
 
