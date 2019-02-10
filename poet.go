@@ -40,6 +40,9 @@ func poetMain() error {
 }
 
 func main() {
+	// Disable go default unbounded memory profiler
+	runtime.MemProfileRate = 0
+
 	// Use all processor cores.
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
@@ -50,7 +53,7 @@ func main() {
 		// because it was already printed.
 		if e, ok := err.(*flags.Error); ok && e.Type == flags.ErrHelp {
 		} else {
-			fmt.Fprintln(os.Stderr, err)
+			_ : fmt.Fprintln(os.Stderr, err)
 		}
 		os.Exit(1)
 	}
