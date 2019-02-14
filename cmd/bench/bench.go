@@ -1,46 +1,36 @@
-package bench
+package main
 
 import (
 	"crypto/rand"
-	"flag"
 	"fmt"
 	"github.com/spacemeshos/poet-ref/internal"
 	"github.com/spacemeshos/poet-ref/shared"
+	"runtime"
+
 	"log"
 	"os"
 	"path"
-	"runtime"
 	"runtime/pprof"
 	"time"
 )
 
-var (
-	n   uint // protocol n param
-	cpu bool // cpu profiling
-)
-
-func init() {
-
+func main() {
 	runtime.MemProfileRate = 0
 	println("Memory profiling disabled.")
 
-	flag.BoolVar(&cpu, "cpu", false, "profile cpu use")
-	flag.UintVar(&n, "n", 10, "Table size = 2^n")
-	flag.Parse()
+	cfg, err := loadConfig()
+	if err != nil {
+		os.Exit(1)
+	}
 
-}
-
-func Bench() {
-
-	if cpu { // enable memory profiling
-
+	// Enable memory profiling
+	if cfg.CPU {
 		dir, err := os.Getwd()
 		if err != nil {
 			log.Fatal("cant get current dir", err)
 		}
 
-		profFilePath := path.Join(dir, "./cpu.prof")
-
+		profFilePath := path.Join(dir, "./CPU.prof")
 		fmt.Printf("CPU profile: %s\n", profFilePath)
 
 		f, err := os.Create(profFilePath)
@@ -53,18 +43,16 @@ func Bench() {
 		defer pprof.StopCPUProfile()
 
 		println("Cpu profiling enabled and started...")
-
 	}
 
 	x := make([]byte, 20)
-
-	_, err := rand.Read(x)
+	_, err = rand.Read(x)
 	if err != nil {
 		panic("no entropy")
 	}
 
-	p, err := internal.NewProver(x, n, shared.NewHashFunc(x))
-	// defer p.DeleteStore()
+	p, err := internal.NewProver(x, cfg.N, shared.NewHashFunc(x))
+	defer p.DeleteStore()
 	if err != nil {
 		panic("can't create prover")
 	}
@@ -86,7 +74,7 @@ func Bench() {
 		panic("Failed to create nip")
 	}
 
-	v, err := internal.NewVerifier(x, n, shared.NewHashFunc(x))
+	v, err := internal.NewVerifier(x, cfg.N, shared.NewHashFunc(x))
 	if err != nil {
 		panic("Failed to create verifier")
 	}
@@ -102,5 +90,4 @@ func Bench() {
 	}
 
 	fmt.Printf("Proof verified in %s (%f)\n", e, e.Seconds())
-
 }
