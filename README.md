@@ -15,7 +15,7 @@ $ go build
 
 ## Run the tests
 ```
-go test ./...
+$ go test ./...
 ```
 
 # POET Server Specifications
