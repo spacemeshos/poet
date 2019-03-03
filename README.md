@@ -1,6 +1,6 @@
 # poet-ref
 
-A reference POET implementation for testing of the Spacemesh open source POET Server.
+A reference poet implementation for testing of the Spacemesh open source POET server
 
 ## Build
 
