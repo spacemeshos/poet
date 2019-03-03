@@ -1,13 +1,16 @@
 # poet-ref
 
-A refernce poet implementatkon for testing of the Spacemesh open source POET server
+A reference POET implementation for testing of the Spacemesh open source POET Server.
 
 ## Build
 
+Since the project uses Go 1.11's Modules it's best to place the code **outside** your `$GOPATH`. Read [this](https://github.com/golang/go/wiki/Modules#how-to-install-and-activate-module-support) for alternatives.
+
+
 ```
-go get -u github.com/kardianos/govendor
-govendor sync
-go build
+$ git clone https://github.com/spacemeshos/poet-ref.git
+$ cd poet-ref
+$ go build
 ```
 
 ## Run the tests
