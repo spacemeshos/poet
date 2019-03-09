@@ -8,6 +8,7 @@ import (
 	"github.com/spacemeshos/poet-ref/rpc/api"
 	"github.com/spacemeshos/poet-ref/rpccore"
 	apicore "github.com/spacemeshos/poet-ref/rpccore/api"
+	"github.com/spacemeshos/poet-ref/service"
 	"github.com/spacemeshos/poet-ref/shared"
 	"github.com/spacemeshos/poet-ref/signal"
 	"golang.org/x/net/context"
@@ -40,7 +41,12 @@ func startServer() error {
 		proxyRegstr = append(proxyRegstr, apicore.RegisterPoetCoreProverHandlerFromEndpoint)
 		proxyRegstr = append(proxyRegstr, apicore.RegisterPoetVerifierHandlerFromEndpoint)
 	} else {
-		rpcServer := rpc.NewRPCServer()
+		s, err := service.NewService(cfg.Service)
+		if err != nil {
+			return nil
+		}
+
+		rpcServer := rpc.NewRPCServer(s)
 		grpcServer = grpc.NewServer(options...)
 
 		api.RegisterPoetServer(grpcServer, rpcServer)
@@ -55,7 +61,7 @@ func startServer() error {
 	defer lis.Close()
 
 	go func() {
-		rpcsLog.Infof("RPC server listening on %s", lis.Addr())
+		rpcServerLog.Infof("RPC server listening on %s", lis.Addr())
 		grpcServer.Serve(lis)
 	}()
 
@@ -69,9 +75,9 @@ func startServer() error {
 	}
 
 	go func() {
-		rpcsLog.Infof("REST proxy start listening on %s", cfg.RESTListener.String())
+		rpcServerLog.Infof("REST proxy start listening on %s", cfg.RESTListener.String())
 		err := http.ListenAndServe(cfg.RESTListener.String(), mux)
-		rpcsLog.Errorf("REST proxy failed listening: %s\n", err)
+		rpcServerLog.Errorf("REST proxy failed listening: %s\n", err)
 	}()
 
 	// Wait for shutdown signal from either a graceful server stop or from
@@ -93,12 +99,12 @@ func loggerInterceptor() func(ctx context.Context, req interface{}, info *grpc.U
 		} else {
 			reqDispStr = reqStr
 		}
-		rpcsLog.Tracef("%v: %v %v\n", peer.Addr.String(), info.FullMethod, reqDispStr)
+		rpcServerLog.Tracef("%v: %v %v\n", peer.Addr.String(), info.FullMethod, reqDispStr)
 
 		resp, err := handler(ctx, req)
 
 		if err != nil {
-			rpcsLog.Tracef("%v: FAILURE %v %s", peer.Addr.String(), info.FullMethod, err)
+			rpcServerLog.Tracef("%v: FAILURE %v %s", peer.Addr.String(), info.FullMethod, err)
 		}
 		return resp, err
 	}

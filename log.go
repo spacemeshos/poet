@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"github.com/btcsuite/btclog"
 	"github.com/jrick/logrotate/rotator"
+	"github.com/spacemeshos/poet-ref/internal"
 	"github.com/spacemeshos/poet-ref/rpc"
 	"github.com/spacemeshos/poet-ref/rpccore"
+	"github.com/spacemeshos/poet-ref/service"
 	"github.com/spacemeshos/poet-ref/signal"
 	"os"
 	"path/filepath"
@@ -43,21 +45,27 @@ var (
 	// application shutdown.
 	logRotator *rotator.Rotator
 
-	poetLog = backendLog.Logger("POET")
-	rpcsLog = backendLog.Logger("RPCS")
+	poetLog      = backendLog.Logger("POET") // global
+	rpcServerLog = backendLog.Logger("RPCS")
+	serviceLog   = backendLog.Logger("SRVC")
+	proverLog    = backendLog.Logger("PROV")
 )
 
 // Initialize package-global logger variables.
 func init() {
-	rpc.UseLogger(rpcsLog)
-	rpccore.UseLogger(rpcsLog)
 	signal.UseLogger(poetLog)
+	rpc.UseLogger(rpcServerLog)
+	rpccore.UseLogger(rpcServerLog)
+	service.UseLogger(serviceLog)
+	internal.UseLogger(proverLog)
 }
 
 // subsystemLoggers maps each subsystem identifier to its associated logger.
 var subsystemLoggers = map[string]btclog.Logger{
 	"POET": poetLog,
-	"RPCS": rpcsLog,
+	"RPCS": rpcServerLog,
+	"SRVC": serviceLog,
+	"PROV": proverLog,
 }
 
 // initLogRotator initializes the logging rotater to write logs to logFile and

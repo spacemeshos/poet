@@ -2,7 +2,6 @@ package internal
 
 import (
 	"errors"
-	"fmt"
 	"github.com/spacemeshos/poet-ref/shared"
 	"math"
 	"os"
@@ -100,7 +99,7 @@ func (d *KVFileStore) Finalize() error {
 	// flush buffered ata to the underling writer
 	err := d.bw.Flush()
 
-	fmt.Printf("Finalizing store. Wrote %d leaves. Total bytes: %d\n", d.c, d.sz)
+	log.Tracef("Finalizing store. Wrote %d leaves. Total bytes: %d", d.c, d.sz)
 
 	return err
 }

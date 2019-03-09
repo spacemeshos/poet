@@ -8,26 +8,29 @@ import (
 	"fmt"
 	"github.com/btcsuite/btcutil"
 	"github.com/jessevdk/go-flags"
+	"github.com/spacemeshos/poet-ref/service"
 	"net"
 	"os"
 	"os/user"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 const (
-	defaultConfigFilename  = "poet.conf"
-	defaultDataDirname     = "data"
-	defaultLogLevel        = "debug"
-	defaultLogDirname      = "logs"
-	defaultLogFilename     = "poet.log"
-	defaultMaxLogFiles     = 3
-	defaultMaxLogFileSize  = 10
-	defaultRPCPort         = 50002
-	defaultRESTPort        = 8080
-	defaultCoreServiceMode = false
-	defaultN               = 3
-	defaultHashFunction    = "sha256"
+	defaultConfigFilename       = "poet.conf"
+	defaultDataDirname          = "data"
+	defaultLogLevel             = "debug"
+	defaultLogDirname           = "logs"
+	defaultLogFilename          = "poet.log"
+	defaultMaxLogFiles          = 3
+	defaultMaxLogFileSize       = 10
+	defaultRPCPort              = 50002
+	defaultRESTPort             = 8080
+	defaultN                    = 15
+	defaultHashFunction         = "sha256"
+	defaultInitialRoundDuration = 2 * time.Second
+	defaultExecuteEmpty         = true
 )
 
 var (
@@ -37,14 +40,9 @@ var (
 	defaultLogDir     = filepath.Join(defaultPoetDir, defaultLogDirname)
 )
 
-type serviceConfig struct {
-	N            int    `long:"n" description:"time parameter"`
-	HashFunction string `long:"hashfunction" description:"hash function"`
-}
-
 type coreServiceConfig struct {
-	N            int    `long:"n" description:"time parameter"`
-	HashFunction string `long:"hashfunction" description:"hash function"`
+	N            int    `long:"n" description:"PoET time parameter"`
+	HashFunction string `long:"hashfunction" description:"PoET hash function"`
 }
 
 // config defines the configuration options for poet.
@@ -70,7 +68,7 @@ type config struct {
 	CoreServiceMode bool `long:"core" description:"Enable poet in core service mode"`
 
 	CoreService *coreServiceConfig `group:"Core Service" namespace:"core"`
-	Service     *serviceConfig     `group:"Service"`
+	Service     *service.Config    `group:"Service"`
 }
 
 // loadConfig initializes and parses the config using a config file and command
@@ -92,10 +90,11 @@ func loadConfig() (*config, error) {
 		MaxLogFileSize:  defaultMaxLogFileSize,
 		RawRPCListener:  fmt.Sprintf("localhost:%d", defaultRPCPort),
 		RawRESTListener: fmt.Sprintf("localhost:%d", defaultRESTPort),
-		CoreServiceMode: defaultCoreServiceMode,
-		Service: &serviceConfig{
-			N:            defaultN,
-			HashFunction: defaultHashFunction,
+		Service: &service.Config{
+			N:                    defaultN,
+			HashFunction:         defaultHashFunction,
+			InitialRoundDuration: defaultInitialRoundDuration,
+			ExecuteEmpty:         defaultExecuteEmpty,
 		},
 		CoreService: &coreServiceConfig{
 			N:            defaultN,

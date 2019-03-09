@@ -58,7 +58,7 @@ func NewProver(x []byte, n uint, h HashFunc) (shared.IProver, error) {
 	}
 
 	fileName := fmt.Sprintf("./poet-%d.bin", binary.BigEndian.Uint64(d))
-	fmt.Printf("Dag store: %s\n", path.Join(dir, fileName))
+	log.Tracef("Dag store: %s", path.Join(dir, fileName))
 
 	store, err := NewKvFileStore(fileName, n)
 	if err != nil {
@@ -181,11 +181,13 @@ func (p *SMProver) ComputeDag() (phi shared.Label, err error) {
 	N := math.Pow(2, float64(p.n+1)) - 1
 	L := math.Pow(2, float64(p.n))
 
-	fmt.Printf("DAG(%d):\n", p.n)
-	fmt.Printf("> Nodes: %d\n", uint64(N))
-	fmt.Printf("> Leaves: %d\n", uint64(L))
-	fmt.Printf("> Commitment: %x\n", p.x)
-	fmt.Printf("> Commitment hash: %x\n", p.h.Hash(p.x))
+	var msg string
+	msg += fmt.Sprintf("DAG(%d):\n", p.n)
+	msg += fmt.Sprintf("> Nodes: %d\n", uint64(N))
+	msg += fmt.Sprintf("> Leaves: %d\n", uint64(L))
+	msg += fmt.Sprintf("> Commitment: %x\n", p.x)
+	msg += fmt.Sprintf("> Commitment hash: %x", p.h.Hash(p.x))
+	log.Trace(msg)
 
 	p.t = time.Now()
 
@@ -301,7 +303,7 @@ func (p *SMProver) computeLeafLabel(leafId Identifier) (shared.Label, error) {
 		i := bs.GetValue()
 		N := math.Pow(2, float64(p.n))
 		r := math.Min(100.0, 100*float64(i)/N)
-		fmt.Printf("Leaf %s %d %.2v%% %0.2f leaves/sec \n", leafId, i, r, freq)
+		log.Tracef("Leaf %s %d %.2v%% %0.2f leaves/sec", leafId, i, r, freq)
 		p.t = time.Now()
 
 		// PrintMemUsage()
