@@ -61,37 +61,38 @@ func TestNewService(t *testing.T) {
 	req.True(valid)
 }
 
-//func TestService_Info(t *testing.T) {
-//	req := require.New(t)
-//
-//	cfg := new(Config)
-//	cfg.N = 15
-//	cfg.HashFunction = "sha256"
-//	cfg.InitialRoundDuration = 1 * time.Second
-//	cfg.ExecuteEmpty = true
-//
-//	s, err := NewService(cfg)
-//	req.NoError(err)
-//
-//
-//	size := 64
-//	for i := 0; i < size; i++ {
-//		x := make([]byte, 32)
-//		_, err := rand.Read(x)
-//		req.NoError(err)
-//
-//		_, err = s.SubmitCommitment(x)
-//		req.NoError(err)
-//	}
-//
-//	t.Logf("Server info: %+v", s.Info())
-//
-//	<-time.After(2 * time.Second)
-//	t.Logf("Server info: %+v", s.Info())
-//
-//	<-time.After(1 * time.Second)
-//	t.Logf("Server info: %+v", s.Info())
-//
-//	roundInfo, _ := s.RoundInfo(1)
-//	t.Logf("Round info: %+v", roundInfo)
-//}
+func TestService_Info(t *testing.T) {
+	t.Skip()
+
+	req := require.New(t)
+
+	cfg := new(Config)
+	cfg.N = 15
+	cfg.HashFunction = "sha256"
+	cfg.InitialRoundDuration = 1 * time.Second
+	cfg.ExecuteEmpty = true
+
+	s, err := NewService(cfg)
+	req.NoError(err)
+
+	size := 64
+	for i := 0; i < size; i++ {
+		x := make([]byte, 32)
+		_, err := rand.Read(x)
+		req.NoError(err)
+
+		_, err = s.SubmitCommitment(x)
+		req.NoError(err)
+	}
+
+	t.Logf("Server info: %+v", s.Info())
+
+	<-time.After(2 * time.Second)
+	t.Logf("Server info: %+v", s.Info())
+
+	<-time.After(1 * time.Second)
+	t.Logf("Server info: %+v", s.Info())
+
+	roundInfo, _ := s.RoundInfo(1)
+	t.Logf("Round info: %+v", roundInfo)
+}
