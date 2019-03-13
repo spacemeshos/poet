@@ -181,7 +181,6 @@ func (r *rpcServer) GetRndChallenge(ctx context.Context, in *api.GetRndChallenge
 	return &api.GetRndChallengeResponse{C: nativeChallengeToWire(c.Data)}, nil
 }
 
-// TODO: find a better way to do this
 func wireLabelsToNative(in []*api.Labels) (native [shared.T]shared.Labels) {
 	for i, inLabels := range in {
 		var outLabels shared.Labels
@@ -193,30 +192,27 @@ func wireLabelsToNative(in []*api.Labels) (native [shared.T]shared.Labels) {
 	return native
 }
 
-// TODO: find a better way to do this
-func nativeLabelsToWire(native [shared.T]shared.Labels) (out []*api.Labels) {
+func nativeLabelsToWire(native [shared.T]shared.Labels) (wire []*api.Labels) {
 	for _, labels := range native {
 		var labelsMsg api.Labels
 		for _, label := range labels {
 			labelsMsg.Labels = append(labelsMsg.Labels, label)
 		}
-		out = append(out, &labelsMsg)
+		wire = append(wire, &labelsMsg)
 	}
-	return out
+	return wire
 }
 
-// TODO: find a better way to do this
-func wireChallengeToNative(in []string) (native [shared.T]shared.Identifier) {
-	for i, identifier := range in {
+func wireChallengeToNative(wire []string) (native [shared.T]shared.Identifier) {
+	for i, identifier := range wire {
 		native[i] = shared.Identifier(identifier)
 	}
 	return native
 }
 
-// TODO: find a better way to do this
-func nativeChallengeToWire(native [shared.T]shared.Identifier) (out []string) {
+func nativeChallengeToWire(native [shared.T]shared.Identifier) (wire []string) {
 	for _, identifier := range native {
-		out = append(out, string(identifier))
+		wire = append(wire, string(identifier))
 	}
-	return out
+	return wire
 }

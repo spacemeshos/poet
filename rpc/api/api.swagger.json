@@ -15,14 +15,14 @@
     "application/json"
   ],
   "paths": {
-    "/v1/serviceinfo": {
+    "/v1/info": {
       "get": {
-        "operationId": "GetServiceInfo",
+        "operationId": "GetInfo",
         "responses": {
           "200": {
-            "description": "",
+            "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/apiGetServiceInfoResponse"
+              "$ref": "#/definitions/apiGetInfoResponse"
             }
           }
         },
@@ -30,14 +30,197 @@
           "Poet"
         ]
       }
+    },
+    "/v1/mproof/{roundId}/{commitment}": {
+      "get": {
+        "operationId": "GetMembershipProof",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/apiGetMembershipProofResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "roundId",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "commitment",
+            "in": "path",
+            "required": true,
+            "type": "string",
+            "format": "byte"
+          }
+        ],
+        "tags": [
+          "Poet"
+        ]
+      }
+    },
+    "/v1/roundinfo/{roundId}": {
+      "get": {
+        "operationId": "GetRoundInfo",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/apiGetRoundInfoResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "roundId",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "tags": [
+          "Poet"
+        ]
+      }
+    },
+    "/v1/submit": {
+      "post": {
+        "operationId": "SubmitCommitment",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/apiSubmitCommitmentResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/apiSubmitCommitmentRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Poet"
+        ]
+      }
     }
   },
   "definitions": {
-    "apiGetServiceInfoResponse": {
+    "apiGetInfoResponse": {
       "type": "object",
       "properties": {
-        "info": {
-          "type": "string"
+        "openRoundId": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "executingRoundsIds": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "executedRoundsIds": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      }
+    },
+    "apiGetMembershipProofResponse": {
+      "type": "object",
+      "properties": {
+        "merkleProof": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
+          }
+        }
+      }
+    },
+    "apiGetRoundInfoResponse": {
+      "type": "object",
+      "properties": {
+        "opened": {
+          "type": "string",
+          "format": "int64"
+        },
+        "executeStart": {
+          "type": "string",
+          "format": "int64"
+        },
+        "executeEnd": {
+          "type": "string",
+          "format": "int64"
+        },
+        "numOfcommitments": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "merkleRoot": {
+          "type": "string",
+          "format": "byte"
+        },
+        "nip": {
+          "$ref": "#/definitions/apiProof"
+        }
+      }
+    },
+    "apiLabels": {
+      "type": "object",
+      "properties": {
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
+          }
+        }
+      }
+    },
+    "apiProof": {
+      "type": "object",
+      "properties": {
+        "phi": {
+          "type": "string",
+          "format": "byte"
+        },
+        "l": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/apiLabels"
+          }
+        }
+      }
+    },
+    "apiSubmitCommitmentRequest": {
+      "type": "object",
+      "properties": {
+        "commitment": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "apiSubmitCommitmentResponse": {
+      "type": "object",
+      "properties": {
+        "roundId": {
+          "type": "integer",
+          "format": "int32"
         }
       }
     }

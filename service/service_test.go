@@ -32,7 +32,7 @@ func TestNewService(t *testing.T) {
 		res, err := s.SubmitCommitment(x)
 		req.NoError(err)
 
-		lastRoundId = res.roundId
+		lastRoundId = res.RoundId
 		lastCommitment = x
 	}
 

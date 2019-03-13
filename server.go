@@ -41,12 +41,12 @@ func startServer() error {
 		proxyRegstr = append(proxyRegstr, apicore.RegisterPoetCoreProverHandlerFromEndpoint)
 		proxyRegstr = append(proxyRegstr, apicore.RegisterPoetVerifierHandlerFromEndpoint)
 	} else {
-		s, err := service.NewService(cfg.Service)
+		service, err := service.NewService(cfg.Service)
 		if err != nil {
 			return nil
 		}
 
-		rpcServer := rpc.NewRPCServer(s)
+		rpcServer := rpc.NewRPCServer(service)
 		grpcServer = grpc.NewServer(options...)
 
 		api.RegisterPoetServer(grpcServer, rpcServer)
@@ -99,12 +99,12 @@ func loggerInterceptor() func(ctx context.Context, req interface{}, info *grpc.U
 		} else {
 			reqDispStr = reqStr
 		}
-		rpcServerLog.Tracef("%v: %v %v\n", peer.Addr.String(), info.FullMethod, reqDispStr)
+		rpcServerLog.Debugf("%v: %v %v", peer.Addr.String(), info.FullMethod, reqDispStr)
 
 		resp, err := handler(ctx, req)
 
 		if err != nil {
-			rpcServerLog.Tracef("%v: FAILURE %v %s", peer.Addr.String(), info.FullMethod, err)
+			rpcServerLog.Debugf("%v: FAILURE %v %s", peer.Addr.String(), info.FullMethod, err)
 		}
 		return resp, err
 	}
