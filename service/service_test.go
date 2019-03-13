@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+// TODO(moshababo): add tests
+
 func TestNewService(t *testing.T) {
 	req := require.New(t)
 
@@ -19,7 +21,7 @@ func TestNewService(t *testing.T) {
 	s, err := NewService(cfg)
 	req.NoError(err)
 
-	var lastRoundId uint
+	var lastRoundId int
 	var lastCommitment []byte
 	size := 64
 	for i := 0; i < size; i++ {
@@ -34,15 +36,19 @@ func TestNewService(t *testing.T) {
 		lastCommitment = x
 	}
 
-	round, err := s.Round(lastRoundId)
+	info, err := s.RoundInfo(lastRoundId)
 	req.NoError(err)
-	req.Equal(size, len(round.commitments))
+	req.Equal(size, info.numOfCommitments)
+
+	round, err := s.round(lastRoundId)
+	req.NoError(err)
+	req.Equal(size, info.numOfCommitments)
 
 	<-round.closedChan
-	//t.Logf("round merkle tree root: %v", round.treeRoot)
+	//t.Logf("round merkle merkleTree root: %v", round.merkleRoot)
 
 	<-round.executedChan
-	//t.Logf("round merkle tree root phi: %v", round.phi)
+	//t.Logf("round merkle merkleTree root phi: %v", round.phi)
 
 	proof, err := s.MembershipProof(lastRoundId, lastCommitment)
 	req.NoError(err)
@@ -50,7 +56,43 @@ func TestNewService(t *testing.T) {
 
 	leafIndices := []uint64{uint64(size - 1)}
 	leaves := [][]byte{lastCommitment}
-	valid, err := merkle.ValidatePartialTree(leafIndices, leaves, proof, round.treeRoot, merkle.GetSha256Parent)
+	valid, err := merkle.ValidatePartialTree(leafIndices, leaves, proof, round.merkleRoot, merkle.GetSha256Parent)
 	req.NoError(err)
 	req.True(valid)
+}
+
+func TestService_Info(t *testing.T) {
+	t.Skip()
+
+	req := require.New(t)
+
+	cfg := new(Config)
+	cfg.N = 15
+	cfg.HashFunction = "sha256"
+	cfg.InitialRoundDuration = 1 * time.Second
+	cfg.ExecuteEmpty = true
+
+	s, err := NewService(cfg)
+	req.NoError(err)
+
+	size := 64
+	for i := 0; i < size; i++ {
+		x := make([]byte, 32)
+		_, err := rand.Read(x)
+		req.NoError(err)
+
+		_, err = s.SubmitCommitment(x)
+		req.NoError(err)
+	}
+
+	t.Logf("Server info: %+v", s.Info())
+
+	<-time.After(2 * time.Second)
+	t.Logf("Server info: %+v", s.Info())
+
+	<-time.After(1 * time.Second)
+	t.Logf("Server info: %+v", s.Info())
+
+	roundInfo, _ := s.RoundInfo(1)
+	t.Logf("Round info: %+v", roundInfo)
 }

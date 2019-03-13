@@ -1,7 +1,8 @@
 package service
 
 import (
-	"fmt"
+	"errors"
+	"github.com/spacemeshos/poet-ref/shared"
 	"time"
 )
 
@@ -14,23 +15,47 @@ type Config struct {
 }
 
 type Service struct {
-	cfg         *Config
-	rounds      map[uint]*round
-	activeRound *round
-	prevRound   *round
+	cfg             *Config
+	openRound       *round
+	prevRound       *round
+	rounds          map[int]*round
+	executingRounds map[int]*round
+	executedRounds  map[int]*round
 }
 
-type submitResponse struct {
-	roundId uint
+type InfoResponse struct {
+	openRoundId       int
+	executingRoundsId []int
+	executedRoundsId  []int
 }
+
+type RoundInfoResponse struct {
+	opened           time.Time
+	executeStart     time.Time
+	executeEnd       time.Time
+	numOfCommitments int
+	merkleRoot       []byte
+	nip              *shared.Proof
+}
+
+type SubmitCommitmentResponse struct {
+	roundId int
+}
+
+var (
+	ErrRoundNotFound = errors.New("round not found")
+)
 
 func NewService(cfg *Config) (*Service, error) {
+	time.Now()
 	s := new(Service)
 	s.cfg = cfg
-	s.rounds = make(map[uint]*round)
+	s.rounds = make(map[int]*round)
+	s.executingRounds = make(map[int]*round)
+	s.executedRounds = make(map[int]*round)
 
-	roundId := uint(0)
-	s.activeRound = s.newRound(roundId)
+	roundId := int(0)
+	s.openRound = s.newRound(roundId)
 	log.Infof("round %v opened", roundId)
 
 	go func() {
@@ -42,29 +67,35 @@ func NewService(cfg *Config) (*Service, error) {
 			case <-s.roundsTicker():
 			}
 
-			if len(s.activeRound.commitments) == 0 && !s.cfg.ExecuteEmpty {
+			if len(s.openRound.commitments) == 0 && !s.cfg.ExecuteEmpty {
 				continue
 			}
 
-			s.prevRound = s.activeRound
+			s.prevRound = s.openRound
 
 			roundId++
-			s.activeRound = s.newRound(roundId)
+			s.openRound = s.newRound(roundId)
 			log.Infof("round %v opened", roundId)
 
 			// Close previous round and execute it.
 			go func() {
+				// TODO(moshababo): apply safe concurrency
 				r := s.prevRound
+				s.executingRounds[r.id] = r
+
 				err := r.close()
 				if err != nil {
 					log.Error(err)
 				}
 				log.Infof("round %v closed, executing...", r.id)
-				phi, err := r.execute()
+				err = r.execute()
 				if err != nil {
 					log.Error(err)
 				}
-				log.Infof("round %v executed, phi=%v", r.id, phi)
+
+				delete(s.executingRounds, r.id)
+				s.executedRounds[r.id] = r
+				log.Infof("round %v executed, phi=%v", r.id, r.nip.Phi)
 			}()
 		}
 	}()
@@ -72,22 +103,67 @@ func NewService(cfg *Config) (*Service, error) {
 	return s, nil
 }
 
-func (s *Service) SubmitCommitment(c []byte) (*submitResponse, error) {
-	r := s.activeRound
+func (s *Service) Info() *InfoResponse {
+	res := new(InfoResponse)
+	res.openRoundId = s.openRound.id
+
+	ids := make([]int, 0, len(s.executingRounds))
+	for id := range s.executingRounds {
+		ids = append(ids, id)
+	}
+	res.executingRoundsId = ids
+
+	ids = make([]int, 0, len(s.executedRounds))
+	for id := range s.executedRounds {
+		ids = append(ids, id)
+	}
+	res.executedRoundsId = ids
+
+	return res
+}
+
+func (s *Service) RoundInfo(roundId int) (*RoundInfoResponse, error) {
+	r := s.rounds[roundId]
+	if r == nil {
+		return nil, ErrRoundNotFound
+	}
+
+	res := new(RoundInfoResponse)
+	res.opened = r.opened
+	res.executeStart = r.executeStart
+	res.executeEnd = r.executeEnd
+	res.numOfCommitments = len(r.commitments)
+	res.merkleRoot = r.merkleRoot
+	res.nip = r.nip
+
+	return res, nil
+}
+
+func (s *Service) round(roundId int) (*round, error) {
+	r := s.rounds[roundId]
+	if r == nil {
+		return nil, ErrRoundNotFound
+	}
+
+	return r, nil
+}
+
+func (s *Service) SubmitCommitment(c []byte) (*SubmitCommitmentResponse, error) {
+	r := s.openRound
 	err := r.submitCommitment(c)
 	if err != nil {
 		return nil, err
 	}
 
-	res := new(submitResponse)
+	res := new(SubmitCommitmentResponse)
 	res.roundId = r.id
 	return res, nil
 }
 
-func (s *Service) MembershipProof(roundId uint, c []byte) ([][]byte, error) {
-	r, err := s.Round(roundId)
-	if err != nil {
-		return nil, err
+func (s *Service) MembershipProof(roundId int, c []byte) ([][]byte, error) {
+	r := s.rounds[roundId]
+	if r == nil {
+		return nil, ErrRoundNotFound
 	}
 
 	proof, err := r.membershipProof(c)
@@ -98,16 +174,7 @@ func (s *Service) MembershipProof(roundId uint, c []byte) ([][]byte, error) {
 	return proof, nil
 }
 
-func (s *Service) Round(id uint) (*round, error) {
-	r := s.rounds[id]
-	if r == nil {
-		return nil, fmt.Errorf("round %v not found", id)
-	}
-
-	return r, nil
-}
-
-func (s *Service) newRound(id uint) *round {
+func (s *Service) newRound(id int) *round {
 	r := newRound(s.cfg, id)
 	s.rounds[id] = r
 	return r
