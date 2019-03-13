@@ -43,7 +43,7 @@ func startServer() error {
 	} else {
 		service, err := service.NewService(cfg.Service)
 		if err != nil {
-			return nil
+			return err
 		}
 
 		rpcServer := rpc.NewRPCServer(service)

@@ -207,7 +207,7 @@ func wireChallengeToNative(wire []string) (native [shared.T]shared.Identifier) {
 	for i, identifier := range wire {
 		native[i] = shared.Identifier(identifier)
 	}
-	return native
+	return
 }
 
 func nativeChallengeToWire(native [shared.T]shared.Identifier) (wire []string) {
