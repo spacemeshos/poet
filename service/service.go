@@ -24,22 +24,22 @@ type Service struct {
 }
 
 type InfoResponse struct {
-	openRoundId       int
-	executingRoundsId []int
-	executedRoundsId  []int
+	OpenRoundId        int32
+	ExecutingRoundsIds []int32
+	ExecutedRoundsIds  []int32
 }
 
 type RoundInfoResponse struct {
-	opened           time.Time
-	executeStart     time.Time
-	executeEnd       time.Time
-	numOfCommitments int
-	merkleRoot       []byte
-	nip              *shared.Proof
+	Opened           time.Time
+	ExecuteStart     time.Time
+	ExecuteEnd       time.Time
+	NumOfCommitments int
+	MerkleRoot       []byte
+	Nip              *shared.Proof
 }
 
 type SubmitCommitmentResponse struct {
-	roundId int
+	RoundId int
 }
 
 var (
@@ -105,19 +105,19 @@ func NewService(cfg *Config) (*Service, error) {
 
 func (s *Service) Info() *InfoResponse {
 	res := new(InfoResponse)
-	res.openRoundId = s.openRound.id
+	res.OpenRoundId = int32(s.openRound.id)
 
-	ids := make([]int, 0, len(s.executingRounds))
+	ids := make([]int32, 0, len(s.executingRounds))
 	for id := range s.executingRounds {
-		ids = append(ids, id)
+		ids = append(ids, int32(id))
 	}
-	res.executingRoundsId = ids
+	res.ExecutingRoundsIds = ids
 
-	ids = make([]int, 0, len(s.executedRounds))
+	ids = make([]int32, 0, len(s.executedRounds))
 	for id := range s.executedRounds {
-		ids = append(ids, id)
+		ids = append(ids, int32(id))
 	}
-	res.executedRoundsId = ids
+	res.ExecutedRoundsIds = ids
 
 	return res
 }
@@ -129,12 +129,12 @@ func (s *Service) RoundInfo(roundId int) (*RoundInfoResponse, error) {
 	}
 
 	res := new(RoundInfoResponse)
-	res.opened = r.opened
-	res.executeStart = r.executeStart
-	res.executeEnd = r.executeEnd
-	res.numOfCommitments = len(r.commitments)
-	res.merkleRoot = r.merkleRoot
-	res.nip = r.nip
+	res.Opened = r.opened
+	res.ExecuteStart = r.executeStart
+	res.ExecuteEnd = r.executeEnd
+	res.NumOfCommitments = len(r.commitments)
+	res.MerkleRoot = r.merkleRoot
+	res.Nip = r.nip
 
 	return res, nil
 }
@@ -156,7 +156,7 @@ func (s *Service) SubmitCommitment(c []byte) (*SubmitCommitmentResponse, error) 
 	}
 
 	res := new(SubmitCommitmentResponse)
-	res.roundId = r.id
+	res.RoundId = r.id
 	return res, nil
 }
 

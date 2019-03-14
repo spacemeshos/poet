@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/poet-ref/internal"
@@ -37,6 +38,7 @@ func newRound(cfg *Config, id int) *round {
 }
 
 func (r *round) submitCommitment(c []byte) error {
+	// TODO(moshababo): check for duplications?
 	r.commitments = append(r.commitments, c)
 
 	return nil
@@ -86,15 +88,19 @@ func (r *round) execute() error {
 
 func (r *round) membershipProof(c []byte) ([][]byte, error) {
 	// TODO(moshababo): change this temp inefficient implementation
-	var ci uint64
+	ci := -1
 	for i, commitment := range r.commitments {
 		if bytes.Equal(c, commitment) {
-			ci = uint64(i)
+			ci = i
 			break
 		}
 	}
 
-	t := merkle.NewProvingTree(merkle.GetSha256Parent, []uint64{ci})
+	if ci == -1 {
+		return nil, errors.New("commitment not found")
+	}
+
+	t := merkle.NewProvingTree(merkle.GetSha256Parent, []uint64{uint64(ci)})
 	for _, c := range r.commitments {
 		err := t.AddLeaf(c)
 		if err != nil {

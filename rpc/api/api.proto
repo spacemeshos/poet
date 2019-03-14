@@ -5,17 +5,74 @@ import "google/api/annotations.proto";
 package api;
 
 service Poet {
-    rpc GetServiceInfo (GetServiceInfoRequest) returns (GetServiceInfoResponse) {
+    rpc SubmitCommitment (SubmitCommitmentRequest) returns (SubmitCommitmentResponse) {
         option (google.api.http) = {
-            get: "/v1/serviceinfo"
+            post: "/v1/submit",
+            body: "*",
+        };
+    }
+    rpc GetMembershipProof (GetMembershipProofRequest) returns (GetMembershipProofResponse) {
+        option (google.api.http) = {
+            get: "/v1/mproof/{roundId}/{commitment}"
+        };
+    }
+
+    rpc GetRoundInfo (GetRoundInfoRequest) returns (GetRoundInfoResponse) {
+        option (google.api.http) = {
+            get: "/v1/roundinfo/{roundId}"
+        };
+    }
+    rpc GetInfo (GetInfoRequest) returns (GetInfoResponse) {
+        option (google.api.http) = {
+            get: "/v1/info"
         };
     }
 }
 
-
-message GetServiceInfoRequest {
+message SubmitCommitmentRequest {
+    bytes commitment = 1;
 }
 
-message GetServiceInfoResponse {
-    string info = 1 [json_name = "info"];
+message SubmitCommitmentResponse {
+    int32 roundId = 1;
+}
+
+message GetMembershipProofRequest {
+    int32 roundId = 1;
+    bytes commitment = 2;
+}
+
+message GetMembershipProofResponse {
+    repeated bytes merkleProof = 1;
+}
+
+message GetRoundInfoResponse {
+    int64 opened = 1;
+    int64 executeStart = 2;
+    int64 executeEnd = 3;
+    int32 numOfcommitments = 4;
+    bytes merkleRoot = 5;
+    Proof nip = 6;
+}
+
+message GetInfoRequest {
+}
+
+message GetInfoResponse {
+    int32 openRoundId = 1;
+    repeated int32 executingRoundsIds = 2;
+    repeated int32 executedRoundsIds = 3;
+}
+
+message GetRoundInfoRequest {
+    int32 roundId = 1;
+}
+
+message Proof {
+    bytes phi = 1;
+    repeated Labels l = 2;
+}
+
+message Labels {
+    repeated bytes labels = 1;
 }
