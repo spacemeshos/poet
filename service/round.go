@@ -17,10 +17,10 @@ type round struct {
 	executeStart time.Time
 	executeEnd   time.Time
 
-	commitments [][]byte
-	merkleTree  *merkle.Tree
-	merkleRoot  []byte
-	nip         *shared.Proof
+	commits    [][]byte
+	merkleTree *merkle.Tree
+	merkleRoot []byte
+	nip        *shared.Proof
 
 	closedChan   chan struct{}
 	executedChan chan struct{}
@@ -37,16 +37,16 @@ func newRound(cfg *Config, id int) *round {
 	return r
 }
 
-func (r *round) submitCommitment(c []byte) error {
+func (r *round) submit(data []byte) error {
 	// TODO(moshababo): check for duplications?
-	r.commitments = append(r.commitments, c)
+	r.commits = append(r.commits, data)
 
 	return nil
 }
 
 func (r *round) close() error {
 	r.merkleTree = merkle.NewTree(merkle.GetSha256Parent)
-	for _, c := range r.commitments {
+	for _, c := range r.commits {
 		err := r.merkleTree.AddLeaf(c)
 		if err != nil {
 			return err
@@ -55,8 +55,9 @@ func (r *round) close() error {
 
 	root, err := r.merkleTree.Root()
 	if err != nil {
-		return nil
+		return err
 	}
+
 	r.merkleRoot = root
 
 	close(r.closedChan)
@@ -89,19 +90,19 @@ func (r *round) execute() error {
 func (r *round) membershipProof(c []byte) ([][]byte, error) {
 	// TODO(moshababo): change this temp inefficient implementation
 	ci := -1
-	for i, commitment := range r.commitments {
-		if bytes.Equal(c, commitment) {
+	for i, commit := range r.commits {
+		if bytes.Equal(c, commit) {
 			ci = i
 			break
 		}
 	}
 
 	if ci == -1 {
-		return nil, errors.New("commitment not found")
+		return nil, errors.New("commit not found")
 	}
 
 	t := merkle.NewProvingTree(merkle.GetSha256Parent, []uint64{uint64(ci)})
-	for _, c := range r.commitments {
+	for _, c := range r.commits {
 		err := t.AddLeaf(c)
 		if err != nil {
 			return nil, err

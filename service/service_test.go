@@ -8,91 +8,77 @@ import (
 	"time"
 )
 
-// TODO(moshababo): add tests
-
 func TestNewService(t *testing.T) {
 	req := require.New(t)
 
 	cfg := new(Config)
-	cfg.N = 9
+	cfg.N = 17
 	cfg.HashFunction = "sha256"
 	cfg.InitialRoundDuration = 1 * time.Second
 
 	s, err := NewService(cfg)
 	req.NoError(err)
 
-	var lastRoundId int
-	var lastCommitment []byte
-	size := 64
-	for i := 0; i < size; i++ {
-		x := make([]byte, 32)
-		_, err := rand.Read(x)
-		req.NoError(err)
-
-		res, err := s.SubmitCommitment(x)
-		req.NoError(err)
-
-		lastRoundId = res.RoundId
-		lastCommitment = x
+	type commit struct {
+		data  []byte
+		round *round
 	}
 
-	info, err := s.RoundInfo(lastRoundId)
-	req.NoError(err)
-	req.Equal(size, info.numOfCommitments)
+	numOfCommits := 8
+	commits := make([]commit, numOfCommits)
+	info := s.Info()
 
-	round, err := s.round(lastRoundId)
-	req.NoError(err)
-	req.Equal(size, info.numOfCommitments)
-
-	<-round.closedChan
-	//t.Logf("round merkle merkleTree root: %v", round.merkleRoot)
-
-	<-round.executedChan
-	//t.Logf("round merkle merkleTree root phi: %v", round.phi)
-
-	proof, err := s.MembershipProof(lastRoundId, lastCommitment)
-	req.NoError(err)
-	//t.Logf("commitment %v proof: %v", lastCommitment, proof)
-
-	leafIndices := []uint64{uint64(size - 1)}
-	leaves := [][]byte{lastCommitment}
-	valid, err := merkle.ValidatePartialTree(leafIndices, leaves, proof, round.merkleRoot, merkle.GetSha256Parent)
-	req.NoError(err)
-	req.True(valid)
-}
-
-func TestService_Info(t *testing.T) {
-	t.Skip()
-
-	req := require.New(t)
-
-	cfg := new(Config)
-	cfg.N = 15
-	cfg.HashFunction = "sha256"
-	cfg.InitialRoundDuration = 1 * time.Second
-	cfg.ExecuteEmpty = true
-
-	s, err := NewService(cfg)
-	req.NoError(err)
-
-	size := 64
-	for i := 0; i < size; i++ {
-		x := make([]byte, 32)
-		_, err := rand.Read(x)
-		req.NoError(err)
-
-		_, err = s.SubmitCommitment(x)
+	// Generate random commits.
+	for i := 0; i < len(commits); i++ {
+		commits[i] = commit{data: make([]byte, 32)}
+		_, err := rand.Read(commits[i].data)
 		req.NoError(err)
 	}
 
-	t.Logf("Server info: %+v", s.Info())
+	// Submit commits.
+	for i := 0; i < len(commits); i++ {
+		round, err := s.Submit(commits[i].data)
+		req.NoError(err)
+		req.Equal(info.OpenRoundId, round.id)
+		commits[i].round = round
 
-	<-time.After(2 * time.Second)
-	t.Logf("Server info: %+v", s.Info())
+		// Verify that all submissions returned the same round instance.
+		if i > 0 {
+			req.Equal(commits[i].round, commits[i-1].round)
+		}
+	}
 
-	<-time.After(1 * time.Second)
-	t.Logf("Server info: %+v", s.Info())
+	// Verify round info.
+	roundInfo, err := s.RoundInfo(info.OpenRoundId)
+	req.NoError(err)
+	req.Equal(numOfCommits, roundInfo.NumOfCommits)
 
-	roundInfo, _ := s.RoundInfo(1)
-	t.Logf("Round info: %+v", roundInfo)
+	// Verify that found is still open.
+	req.Equal(info.OpenRoundId, s.Info().OpenRoundId)
+
+	// Wait for round closure.
+	select {
+	case <-commits[0].round.closedChan:
+	case err := <-s.errChan:
+		req.Fail(err.Error())
+	}
+
+	// Verify that round iteration proceeded.
+	prevInfo := info
+	info = s.Info()
+	req.Equal(prevInfo.OpenRoundId+1, info.OpenRoundId)
+	req.Contains(info.ExecutingRoundsIds, prevInfo.OpenRoundId)
+	req.NotContains(info.ExecutedRoundsIds, prevInfo.OpenRoundId)
+
+	// Verify the membership proof of each commit.
+	for i, commit := range commits {
+		proof, err := s.MembershipProof(commit.round.id, commit.data)
+		req.NoError(err)
+
+		leafIndices := []uint64{uint64(i)}
+		leaves := [][]byte{commit.data}
+		valid, err := merkle.ValidatePartialTree(leafIndices, leaves, proof, commit.round.merkleRoot, merkle.GetSha256Parent)
+		req.NoError(err)
+		req.True(valid)
+	}
 }

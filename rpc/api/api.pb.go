@@ -560,7 +560,7 @@ func NewPoetClient(cc *grpc.ClientConn) PoetClient {
 
 func (c *poetClient) SubmitCommitment(ctx context.Context, in *SubmitCommitmentRequest, opts ...grpc.CallOption) (*SubmitCommitmentResponse, error) {
 	out := new(SubmitCommitmentResponse)
-	err := c.cc.Invoke(ctx, "/api.Poet/SubmitCommitment", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/api.Poet/Submit", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -616,7 +616,7 @@ func _Poet_SubmitCommitment_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/api.Poet/SubmitCommitment",
+		FullMethod: "/api.Poet/Submit",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(PoetServer).SubmitCommitment(ctx, req.(*SubmitCommitmentRequest))
@@ -683,7 +683,7 @@ var _Poet_serviceDesc = grpc.ServiceDesc{
 	HandlerType: (*PoetServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "SubmitCommitment",
+			MethodName: "Submit",
 			Handler:    _Poet_SubmitCommitment_Handler,
 		},
 		{

@@ -11,7 +11,7 @@ type Config struct {
 	HashFunction         string        `long:"hashfunction" description:"PoET hash function"`
 	RoundsDuration       time.Duration `long:"duration" description:"duration of the opening time for each round. If not specified, rounds duration will be determined by its previous round end of PoET execution"`
 	InitialRoundDuration time.Duration `long:"initialduration" description:"duration of the opening time for the initial round. if rounds duration isn't specified, this param is necessary"`
-	ExecuteEmpty         bool          `long:"empty" description:"whether to execution empty rounds, without any submitted commitments"`
+	ExecuteEmpty         bool          `long:"empty" description:"whether to execution empty rounds, without any submitted commits"`
 }
 
 type Service struct {
@@ -21,25 +21,23 @@ type Service struct {
 	rounds          map[int]*round
 	executingRounds map[int]*round
 	executedRounds  map[int]*round
+
+	errChan chan error
 }
 
 type InfoResponse struct {
-	OpenRoundId        int32
-	ExecutingRoundsIds []int32
-	ExecutedRoundsIds  []int32
+	OpenRoundId        int
+	ExecutingRoundsIds []int
+	ExecutedRoundsIds  []int
 }
 
 type RoundInfoResponse struct {
-	Opened           time.Time
-	ExecuteStart     time.Time
-	ExecuteEnd       time.Time
-	NumOfCommitments int
-	MerkleRoot       []byte
-	Nip              *shared.Proof
-}
-
-type SubmitCommitmentResponse struct {
-	RoundId int
+	Opened       time.Time
+	ExecuteStart time.Time
+	ExecuteEnd   time.Time
+	NumOfCommits int
+	MerkleRoot   []byte
+	Nip          *shared.Proof
 }
 
 var (
@@ -47,14 +45,14 @@ var (
 )
 
 func NewService(cfg *Config) (*Service, error) {
-	time.Now()
 	s := new(Service)
 	s.cfg = cfg
 	s.rounds = make(map[int]*round)
 	s.executingRounds = make(map[int]*round)
 	s.executedRounds = make(map[int]*round)
+	s.errChan = make(chan error)
 
-	roundId := int(0)
+	roundId := 1
 	s.openRound = s.newRound(roundId)
 	log.Infof("round %v opened", roundId)
 
@@ -67,7 +65,7 @@ func NewService(cfg *Config) (*Service, error) {
 			case <-s.roundsTicker():
 			}
 
-			if len(s.openRound.commitments) == 0 && !s.cfg.ExecuteEmpty {
+			if len(s.openRound.commits) == 0 && !s.cfg.ExecuteEmpty {
 				continue
 			}
 
@@ -85,11 +83,13 @@ func NewService(cfg *Config) (*Service, error) {
 
 				err := r.close()
 				if err != nil {
+					s.errChan <- err
 					log.Error(err)
 				}
 				log.Infof("round %v closed, executing...", r.id)
 				err = r.execute()
 				if err != nil {
+					s.errChan <- err
 					log.Error(err)
 				}
 
@@ -103,61 +103,14 @@ func NewService(cfg *Config) (*Service, error) {
 	return s, nil
 }
 
-func (s *Service) Info() *InfoResponse {
-	res := new(InfoResponse)
-	res.OpenRoundId = int32(s.openRound.id)
-
-	ids := make([]int32, 0, len(s.executingRounds))
-	for id := range s.executingRounds {
-		ids = append(ids, int32(id))
-	}
-	res.ExecutingRoundsIds = ids
-
-	ids = make([]int32, 0, len(s.executedRounds))
-	for id := range s.executedRounds {
-		ids = append(ids, int32(id))
-	}
-	res.ExecutedRoundsIds = ids
-
-	return res
-}
-
-func (s *Service) RoundInfo(roundId int) (*RoundInfoResponse, error) {
-	r := s.rounds[roundId]
-	if r == nil {
-		return nil, ErrRoundNotFound
-	}
-
-	res := new(RoundInfoResponse)
-	res.Opened = r.opened
-	res.ExecuteStart = r.executeStart
-	res.ExecuteEnd = r.executeEnd
-	res.NumOfCommitments = len(r.commitments)
-	res.MerkleRoot = r.merkleRoot
-	res.Nip = r.nip
-
-	return res, nil
-}
-
-func (s *Service) round(roundId int) (*round, error) {
-	r := s.rounds[roundId]
-	if r == nil {
-		return nil, ErrRoundNotFound
-	}
-
-	return r, nil
-}
-
-func (s *Service) SubmitCommitment(c []byte) (*SubmitCommitmentResponse, error) {
+func (s *Service) Submit(data []byte) (*round, error) {
 	r := s.openRound
-	err := r.submitCommitment(c)
+	err := r.submit(data)
 	if err != nil {
 		return nil, err
 	}
 
-	res := new(SubmitCommitmentResponse)
-	res.RoundId = r.id
-	return res, nil
+	return r, nil
 }
 
 func (s *Service) MembershipProof(roundId int, c []byte) ([][]byte, error) {
@@ -172,6 +125,51 @@ func (s *Service) MembershipProof(roundId int, c []byte) ([][]byte, error) {
 	}
 
 	return proof, nil
+}
+
+func (s *Service) RoundInfo(roundId int) (*RoundInfoResponse, error) {
+	r := s.rounds[roundId]
+	if r == nil {
+		return nil, ErrRoundNotFound
+	}
+
+	res := new(RoundInfoResponse)
+	res.Opened = r.opened
+	res.ExecuteStart = r.executeStart
+	res.ExecuteEnd = r.executeEnd
+	res.NumOfCommits = len(r.commits)
+	res.MerkleRoot = r.merkleRoot
+	res.Nip = r.nip
+
+	return res, nil
+}
+
+func (s *Service) Info() *InfoResponse {
+	res := new(InfoResponse)
+	res.OpenRoundId = s.openRound.id
+
+	ids := make([]int, 0, len(s.executingRounds))
+	for id := range s.executingRounds {
+		ids = append(ids, id)
+	}
+	res.ExecutingRoundsIds = ids
+
+	ids = make([]int, 0, len(s.executedRounds))
+	for id := range s.executedRounds {
+		ids = append(ids, id)
+	}
+	res.ExecutedRoundsIds = ids
+
+	return res
+}
+
+func (s *Service) round(roundId int) (*round, error) {
+	r := s.rounds[roundId]
+	if r == nil {
+		return nil, ErrRoundNotFound
+	}
+
+	return r, nil
 }
 
 func (s *Service) newRound(id int) *round {

@@ -25,7 +25,7 @@ func NewRPCServer(service *service.Service) *rpcServer {
 }
 
 func (r *rpcServer) SubmitCommitment(ctx context.Context, in *api.SubmitCommitmentRequest) (*api.SubmitCommitmentResponse, error) {
-	res, err := r.s.SubmitCommitment(in.Commitment)
+	res, err := r.s.Submit(in.Commitment)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func (r *rpcServer) GetRoundInfo(ctx context.Context, in *api.GetRoundInfoReques
 	out.Opened = info.Opened.UnixNano() / int64(time.Millisecond)
 	out.ExecuteStart = info.ExecuteStart.UnixNano() / int64(time.Millisecond)
 	out.ExecuteEnd = info.ExecuteEnd.UnixNano() / int64(time.Millisecond)
-	out.NumOfcommitments = int32(info.NumOfCommitments)
+	out.NumOfcommitments = int32(info.NumOfCommits)
 	out.MerkleRoot = info.MerkleRoot
 	out.Nip = nip
 
