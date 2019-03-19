@@ -25,13 +25,13 @@ func NewRPCServer(service *service.Service) *rpcServer {
 }
 
 func (r *rpcServer) SubmitCommitment(ctx context.Context, in *api.SubmitCommitmentRequest) (*api.SubmitCommitmentResponse, error) {
-	res, err := r.s.SubmitCommitment(in.Commitment)
+	res, err := r.s.Submit(in.Commitment)
 	if err != nil {
 		return nil, err
 	}
 
 	out := new(api.SubmitCommitmentResponse)
-	out.RoundId = int32(res.RoundId)
+	out.RoundId = int32(res.Id)
 	return out, nil
 }
 
@@ -39,9 +39,20 @@ func (r *rpcServer) GetInfo(ctx context.Context, in *api.GetInfoRequest) (*api.G
 	info := r.s.Info()
 
 	out := new(api.GetInfoResponse)
-	out.OpenRoundId = info.OpenRoundId
-	out.ExecutingRoundsIds = info.ExecutingRoundsIds
-	out.ExecutedRoundsIds = info.ExecutedRoundsIds
+	out.OpenRoundId = int32(info.OpenRoundId)
+
+	ids := make([]int32, len(info.ExecutingRoundsIds))
+	for i, id := range info.ExecutingRoundsIds {
+		ids[i] = int32(id)
+	}
+	out.ExecutingRoundsIds = ids
+
+	ids = make([]int32, len(info.ExecutedRoundsIds))
+	for i, id := range info.ExecutedRoundsIds {
+		ids[i] = int32(id)
+	}
+	out.ExecutedRoundsIds = ids
+
 	return out, nil
 }
 
@@ -60,7 +71,7 @@ func (r *rpcServer) GetRoundInfo(ctx context.Context, in *api.GetRoundInfoReques
 	out.Opened = info.Opened.UnixNano() / int64(time.Millisecond)
 	out.ExecuteStart = info.ExecuteStart.UnixNano() / int64(time.Millisecond)
 	out.ExecuteEnd = info.ExecuteEnd.UnixNano() / int64(time.Millisecond)
-	out.NumOfcommitments = int32(info.NumOfCommitments)
+	out.NumOfcommitments = int32(info.NumOfCommits)
 	out.MerkleRoot = info.MerkleRoot
 	out.Nip = nip
 
