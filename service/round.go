@@ -12,7 +12,7 @@ import (
 
 type round struct {
 	cfg          *Config
-	id           int
+	Id           int
 	opened       time.Time
 	executeStart time.Time
 	executeEnd   time.Time
@@ -29,7 +29,7 @@ type round struct {
 func newRound(cfg *Config, id int) *round {
 	r := new(round)
 	r.cfg = cfg
-	r.id = id
+	r.Id = id
 	r.opened = time.Now()
 	r.closedChan = make(chan struct{})
 	r.executedChan = make(chan struct{})

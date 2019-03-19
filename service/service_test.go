@@ -39,7 +39,7 @@ func TestNewService(t *testing.T) {
 	for i := 0; i < len(commits); i++ {
 		round, err := s.Submit(commits[i].data)
 		req.NoError(err)
-		req.Equal(info.OpenRoundId, round.id)
+		req.Equal(info.OpenRoundId, round.Id)
 		commits[i].round = round
 
 		// Verify that all submissions returned the same round instance.
@@ -72,7 +72,7 @@ func TestNewService(t *testing.T) {
 
 	// Verify the membership proof of each commit.
 	for i, commit := range commits {
-		proof, err := s.MembershipProof(commit.round.id, commit.data)
+		proof, err := s.MembershipProof(commit.round.Id, commit.data)
 		req.NoError(err)
 
 		leafIndices := []uint64{uint64(i)}

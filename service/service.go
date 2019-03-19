@@ -79,23 +79,23 @@ func NewService(cfg *Config) (*Service, error) {
 			go func() {
 				// TODO(moshababo): apply safe concurrency
 				r := s.prevRound
-				s.executingRounds[r.id] = r
+				s.executingRounds[r.Id] = r
 
 				err := r.close()
 				if err != nil {
 					s.errChan <- err
 					log.Error(err)
 				}
-				log.Infof("round %v closed, executing...", r.id)
+				log.Infof("round %v closed, executing...", r.Id)
 				err = r.execute()
 				if err != nil {
 					s.errChan <- err
 					log.Error(err)
 				}
 
-				delete(s.executingRounds, r.id)
-				s.executedRounds[r.id] = r
-				log.Infof("round %v executed, phi=%v", r.id, r.nip.Phi)
+				delete(s.executingRounds, r.Id)
+				s.executedRounds[r.Id] = r
+				log.Infof("round %v executed, phi=%v", r.Id, r.nip.Phi)
 			}()
 		}
 	}()
@@ -146,7 +146,7 @@ func (s *Service) RoundInfo(roundId int) (*RoundInfoResponse, error) {
 
 func (s *Service) Info() *InfoResponse {
 	res := new(InfoResponse)
-	res.OpenRoundId = s.openRound.id
+	res.OpenRoundId = s.openRound.Id
 
 	ids := make([]int, 0, len(s.executingRounds))
 	for id := range s.executingRounds {

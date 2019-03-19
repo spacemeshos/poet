@@ -31,7 +31,7 @@ func (r *rpcServer) SubmitCommitment(ctx context.Context, in *api.SubmitCommitme
 	}
 
 	out := new(api.SubmitCommitmentResponse)
-	out.RoundId = int32(res.RoundId)
+	out.RoundId = int32(res.Id)
 	return out, nil
 }
 
@@ -39,9 +39,20 @@ func (r *rpcServer) GetInfo(ctx context.Context, in *api.GetInfoRequest) (*api.G
 	info := r.s.Info()
 
 	out := new(api.GetInfoResponse)
-	out.OpenRoundId = info.OpenRoundId
-	out.ExecutingRoundsIds = info.ExecutingRoundsIds
-	out.ExecutedRoundsIds = info.ExecutedRoundsIds
+	out.OpenRoundId = int32(info.OpenRoundId)
+
+	ids := make([]int32, len(info.ExecutingRoundsIds))
+	for i, id := range info.ExecutingRoundsIds {
+		ids[i] = int32(id)
+	}
+	out.ExecutingRoundsIds = ids
+
+	ids = make([]int32, len(info.ExecutedRoundsIds))
+	for i, id := range info.ExecutedRoundsIds {
+		ids[i] = int32(id)
+	}
+	out.ExecutedRoundsIds = ids
+
 	return out, nil
 }
 
