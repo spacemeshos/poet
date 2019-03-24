@@ -30,7 +30,7 @@ func TestHarness(t *testing.T) {
 				if !more {
 					return
 				}
-				t.Logf("poet server finished with error (stderr):\n%v", err)
+				assert.Fail("poet server finished with error (stderr)", err)
 			}
 		}
 	}()
