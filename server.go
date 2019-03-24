@@ -7,7 +7,7 @@ import (
 	"github.com/spacemeshos/poet-ref/rpc"
 	"github.com/spacemeshos/poet-ref/rpc/api"
 	"github.com/spacemeshos/poet-ref/rpccore"
-	apicore "github.com/spacemeshos/poet-ref/rpccore/api"
+	"github.com/spacemeshos/poet-ref/rpccore/apicore"
 	"github.com/spacemeshos/poet-ref/service"
 	"github.com/spacemeshos/poet-ref/shared"
 	"github.com/spacemeshos/poet-ref/signal"

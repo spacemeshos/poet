@@ -2,7 +2,7 @@ syntax = "proto3";
 
 import "google/api/annotations.proto";
 
-package api;
+package apicore;
 
 service PoetCoreProver {
     rpc Compute (ComputeRequest) returns (ComputeResponse) {

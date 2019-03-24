@@ -1,7 +1,7 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "api.proto",
+    "title": "apicore.proto",
     "version": "version not set"
   },
   "schemes": [
@@ -20,9 +20,9 @@
         "operationId": "Clean",
         "responses": {
           "200": {
-            "description": "",
+            "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/apiCleanResponse"
+              "$ref": "#/definitions/apicoreCleanResponse"
             }
           }
         },
@@ -36,9 +36,9 @@
         "operationId": "Compute",
         "responses": {
           "200": {
-            "description": "",
+            "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/apiComputeResponse"
+              "$ref": "#/definitions/apicoreComputeResponse"
             }
           }
         },
@@ -74,9 +74,9 @@
         "operationId": "GetProof",
         "responses": {
           "200": {
-            "description": "",
+            "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/apiGetProofResponse"
+              "$ref": "#/definitions/apicoreGetProofResponse"
             }
           }
         },
@@ -101,9 +101,9 @@
         "operationId": "Shutdown",
         "responses": {
           "200": {
-            "description": "",
+            "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/apiShutdownResponse"
+              "$ref": "#/definitions/apicoreShutdownResponse"
             }
           }
         },
@@ -117,9 +117,9 @@
         "operationId": "GetRndChallenge",
         "responses": {
           "200": {
-            "description": "",
+            "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/apiGetRndChallengeResponse"
+              "$ref": "#/definitions/apicoreGetRndChallengeResponse"
             }
           }
         },
@@ -155,9 +155,9 @@
         "operationId": "VerifyProof",
         "responses": {
           "200": {
-            "description": "",
+            "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/apiVerifyProofResponse"
+              "$ref": "#/definitions/apicoreVerifyProofResponse"
             }
           }
         },
@@ -209,9 +209,9 @@
         "operationId": "VerifyNIP",
         "responses": {
           "200": {
-            "description": "",
+            "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/apiVerifyNIPResponse"
+              "$ref": "#/definitions/apicoreVerifyNIPResponse"
             }
           }
         },
@@ -251,10 +251,10 @@
     }
   },
   "definitions": {
-    "apiCleanResponse": {
+    "apicoreCleanResponse": {
       "type": "object"
     },
-    "apiComputeResponse": {
+    "apicoreComputeResponse": {
       "type": "object",
       "properties": {
         "phi": {
@@ -263,23 +263,39 @@
         }
       }
     },
-    "apiGetNIPResponse": {
+    "apicoreDagParams": {
       "type": "object",
       "properties": {
-        "proof": {
-          "$ref": "#/definitions/apiProof"
+        "x": {
+          "type": "string",
+          "format": "byte"
+        },
+        "n": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "h": {
+          "type": "string"
         }
       }
     },
-    "apiGetProofResponse": {
+    "apicoreGetNIPResponse": {
       "type": "object",
       "properties": {
         "proof": {
-          "$ref": "#/definitions/apiProof"
+          "$ref": "#/definitions/apicoreProof"
         }
       }
     },
-    "apiGetRndChallengeResponse": {
+    "apicoreGetProofResponse": {
+      "type": "object",
+      "properties": {
+        "proof": {
+          "$ref": "#/definitions/apicoreProof"
+        }
+      }
+    },
+    "apicoreGetRndChallengeResponse": {
       "type": "object",
       "properties": {
         "c": {
@@ -290,7 +306,7 @@
         }
       }
     },
-    "apiLabels": {
+    "apicoreLabels": {
       "type": "object",
       "properties": {
         "labels": {
@@ -302,7 +318,7 @@
         }
       }
     },
-    "apiProof": {
+    "apicoreProof": {
       "type": "object",
       "properties": {
         "phi": {
@@ -312,15 +328,15 @@
         "l": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/apiLabels"
+            "$ref": "#/definitions/apicoreLabels"
           }
         }
       }
     },
-    "apiShutdownResponse": {
+    "apicoreShutdownResponse": {
       "type": "object"
     },
-    "apiVerifyNIPResponse": {
+    "apicoreVerifyNIPResponse": {
       "type": "object",
       "properties": {
         "verified": {
@@ -329,7 +345,7 @@
         }
       }
     },
-    "apiVerifyProofResponse": {
+    "apicoreVerifyProofResponse": {
       "type": "object",
       "properties": {
         "verified": {

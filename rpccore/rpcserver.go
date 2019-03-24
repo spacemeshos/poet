@@ -1,7 +1,7 @@
 package rpccore
 
 import (
-	"github.com/spacemeshos/poet-ref/rpccore/api"
+	"github.com/spacemeshos/poet-ref/rpccore/apicore"
 	"github.com/spacemeshos/poet-ref/shared"
 	"github.com/spacemeshos/poet-ref/signal"
 	"golang.org/x/net/context"
@@ -26,8 +26,8 @@ type rpcServer struct {
 
 // A compile time check to ensure that rpcServer fully implements the
 // PoetCoreProverServer and PoetVerifierServer gRPC services.
-var _ api.PoetCoreProverServer = (*rpcServer)(nil)
-var _ api.PoetVerifierServer = (*rpcServer)(nil)
+var _ apicore.PoetCoreProverServer = (*rpcServer)(nil)
+var _ apicore.PoetVerifierServer = (*rpcServer)(nil)
 
 // newRPCServer creates and returns a new instance of the rpcServer.
 func NewRPCServer(
@@ -49,7 +49,7 @@ func NewRPCServer(
 	}
 }
 
-func (r *rpcServer) Compute(ctx context.Context, in *api.ComputeRequest) (*api.ComputeResponse, error) {
+func (r *rpcServer) Compute(ctx context.Context, in *apicore.ComputeRequest) (*apicore.ComputeResponse, error) {
 	if r.prover != nil {
 		return nil, ErrProverExists
 	}
@@ -67,10 +67,10 @@ func (r *rpcServer) Compute(ctx context.Context, in *api.ComputeRequest) (*api.C
 
 	phi, err := r.prover.ComputeDag()
 
-	return &api.ComputeResponse{Phi: phi}, nil
+	return &apicore.ComputeResponse{Phi: phi}, nil
 }
 
-func (r *rpcServer) Clean(ctx context.Context, in *api.CleanRequest) (*api.CleanResponse, error) {
+func (r *rpcServer) Clean(ctx context.Context, in *apicore.CleanRequest) (*apicore.CleanResponse, error) {
 	if r.prover == nil {
 		return nil, ErrNoProverExists
 	}
@@ -78,10 +78,10 @@ func (r *rpcServer) Clean(ctx context.Context, in *api.CleanRequest) (*api.Clean
 	r.prover.DeleteStore()
 	r.prover = nil
 
-	return &api.CleanResponse{}, nil
+	return &apicore.CleanResponse{}, nil
 }
 
-func (r *rpcServer) GetNIP(ctx context.Context, in *api.GetNIPRequest) (*api.GetNIPResponse, error) {
+func (r *rpcServer) GetNIP(ctx context.Context, in *apicore.GetNIPRequest) (*apicore.GetNIPResponse, error) {
 	if r.prover == nil {
 		return nil, ErrNoProverExists
 	}
@@ -91,13 +91,13 @@ func (r *rpcServer) GetNIP(ctx context.Context, in *api.GetNIPRequest) (*api.Get
 		return nil, err
 	}
 
-	return &api.GetNIPResponse{Proof: &api.Proof{
+	return &apicore.GetNIPResponse{Proof: &apicore.Proof{
 		Phi: proof.Phi,
 		L:   nativeLabelsToWire(proof.L),
 	}}, nil
 }
 
-func (r *rpcServer) GetProof(ctx context.Context, in *api.GetProofRequest) (*api.GetProofResponse, error) {
+func (r *rpcServer) GetProof(ctx context.Context, in *apicore.GetProofRequest) (*apicore.GetProofResponse, error) {
 	if r.prover == nil {
 		return nil, ErrNoProverExists
 	}
@@ -107,18 +107,18 @@ func (r *rpcServer) GetProof(ctx context.Context, in *api.GetProofRequest) (*api
 		return nil, err
 	}
 
-	return &api.GetProofResponse{Proof: &api.Proof{
+	return &apicore.GetProofResponse{Proof: &apicore.Proof{
 		Phi: proof.Phi,
 		L:   nativeLabelsToWire(proof.L),
 	}}, nil
 }
 
-func (r *rpcServer) Shutdown(context.Context, *api.ShutdownRequest) (*api.ShutdownResponse, error) {
+func (r *rpcServer) Shutdown(context.Context, *apicore.ShutdownRequest) (*apicore.ShutdownResponse, error) {
 	r.s.RequestShutdown()
-	return &api.ShutdownResponse{}, nil
+	return &apicore.ShutdownResponse{}, nil
 }
 
-func (r *rpcServer) VerifyProof(ctx context.Context, in *api.VerifyProofRequest) (*api.VerifyProofResponse, error) {
+func (r *rpcServer) VerifyProof(ctx context.Context, in *apicore.VerifyProofRequest) (*apicore.VerifyProofResponse, error) {
 	hashFunc, ok := r.hashFuncMap[in.D.H]
 	if !ok {
 		return nil, ErrInvalidHashFunc
@@ -137,10 +137,10 @@ func (r *rpcServer) VerifyProof(ctx context.Context, in *api.VerifyProofRequest)
 		return nil, err
 	}
 
-	return &api.VerifyProofResponse{Verified: verified}, nil
+	return &apicore.VerifyProofResponse{Verified: verified}, nil
 }
 
-func (r *rpcServer) VerifyNIP(ctx context.Context, in *api.VerifyNIPRequest) (*api.VerifyNIPResponse, error) {
+func (r *rpcServer) VerifyNIP(ctx context.Context, in *apicore.VerifyNIPRequest) (*apicore.VerifyNIPResponse, error) {
 	hashFunc, ok := r.hashFuncMap[in.D.H]
 	if !ok {
 		return nil, ErrInvalidHashFunc
@@ -159,10 +159,10 @@ func (r *rpcServer) VerifyNIP(ctx context.Context, in *api.VerifyNIPRequest) (*a
 		return nil, err
 	}
 
-	return &api.VerifyNIPResponse{Verified: verified}, nil
+	return &apicore.VerifyNIPResponse{Verified: verified}, nil
 }
 
-func (r *rpcServer) GetRndChallenge(ctx context.Context, in *api.GetRndChallengeRequest) (*api.GetRndChallengeResponse, error) {
+func (r *rpcServer) GetRndChallenge(ctx context.Context, in *apicore.GetRndChallengeRequest) (*apicore.GetRndChallengeResponse, error) {
 	hashFunc, ok := r.hashFuncMap[in.D.H]
 	if !ok {
 		return nil, ErrInvalidHashFunc
@@ -178,10 +178,10 @@ func (r *rpcServer) GetRndChallenge(ctx context.Context, in *api.GetRndChallenge
 		return nil, err
 	}
 
-	return &api.GetRndChallengeResponse{C: nativeChallengeToWire(c.Data)}, nil
+	return &apicore.GetRndChallengeResponse{C: nativeChallengeToWire(c.Data)}, nil
 }
 
-func wireLabelsToNative(in []*api.Labels) (native [shared.T]shared.Labels) {
+func wireLabelsToNative(in []*apicore.Labels) (native [shared.T]shared.Labels) {
 	for i, inLabels := range in {
 		var outLabels shared.Labels
 		for _, inLabel := range inLabels.Labels {
@@ -192,9 +192,9 @@ func wireLabelsToNative(in []*api.Labels) (native [shared.T]shared.Labels) {
 	return native
 }
 
-func nativeLabelsToWire(native [shared.T]shared.Labels) (wire []*api.Labels) {
+func nativeLabelsToWire(native [shared.T]shared.Labels) (wire []*apicore.Labels) {
 	for _, labels := range native {
-		var labelsMsg api.Labels
+		var labelsMsg apicore.Labels
 		for _, label := range labels {
 			labelsMsg.Labels = append(labelsMsg.Labels, label)
 		}
