@@ -15,7 +15,7 @@ import (
 // creating rpc driven integration tests, or for any other usage.
 type Harness struct {
 	server *server
-	client api.PoetClient
+	api.PoetClient
 }
 
 // NewHarness creates and initializes a new instance of Harness.
@@ -44,8 +44,8 @@ func NewHarness() (*Harness, error) {
 	}
 
 	h := &Harness{
-		server: server,
-		client: api.NewPoetClient(conn),
+		server:     server,
+		PoetClient: api.NewPoetClient(conn),
 	}
 
 	return h, nil

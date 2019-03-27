@@ -37,6 +37,7 @@ func poetExecutablePath(baseDir string) (string, error) {
 	if runtime.GOOS == "windows" {
 		outputPath += ".exe"
 	}
+
 	cmd := exec.Command(
 		"go", "build", "-o", outputPath, "github.com/spacemeshos/poet-ref",
 	)

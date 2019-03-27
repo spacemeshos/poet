@@ -1,60 +1,108 @@
 package main
 
 import (
-	"crypto/rand"
-	"github.com/spacemeshos/poet-ref/internal"
-	"github.com/spacemeshos/poet-ref/shared"
-	"github.com/stretchr/testify/assert"
+	"context"
+	"github.com/spacemeshos/poet-ref/integration"
+	"github.com/spacemeshos/poet-ref/rpc/api"
+	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 )
 
-func TestProverAndVerifier(t *testing.T) {
-	x := make([]byte, 32)
-	n := uint(33)
+// harnessTestCase represents a test-case which utilizes an instance
+// of the Harness to exercise functionality.
+type harnessTestCase struct {
+	name string
+	test func(h *integration.Harness, assert *require.Assertions, ctx context.Context)
+}
 
-	_, err := rand.Read(x)
-	assert.NoError(t, err)
+var testCases = []*harnessTestCase{
+	{name: "info", test: testInfo},
+	{name: "membership proof", test: testMembershipProof},
+	{name: "proof", test: testProof},
+}
 
-	p, err := internal.NewProver(x, n, shared.NewHashFunc(x))
-	// defer p.DeleteStore()
-	assert.NoError(t, err, "Failed to create prover")
+func TestHarness(t *testing.T) {
+	assert := require.New(t)
 
-	t.Log("Computing dag...")
-	t1 := time.Now()
+	h, err := integration.NewHarness()
+	assert.NoError(err)
 
-	phi, err := p.ComputeDag()
-	assert.NoError(t, err, "Failed to compute dag")
+	go func() {
+		for {
+			select {
+			case err, more := <-h.ProcessErrors():
+				if !more {
+					return
+				}
+				assert.Fail("poet server finished with error", err)
+			}
+		}
+	}()
 
-	e := time.Since(t1)
-	t.Logf("Proof generated in %s (%f) \n", e, e.Seconds())
-	t.Logf("Dag root label: %s\n", internal.GetDisplayValue(phi))
+	defer func() {
+		err := h.TearDown()
+		assert.NoError(err, "failed to tear down harness")
+		t.Logf("harness teared down")
+	}()
 
-	proof, err := p.GetNonInteractiveProof()
-	assert.NoError(t, err, "Failed to create NIP")
+	assert.NoError(err)
+	assert.NotNil(h)
+	t.Logf("harness launched")
 
-	v, err := internal.NewVerifier(x, n, shared.NewHashFunc(x))
-	assert.NoError(t, err, "Failed to create verifier")
+	for _, testCase := range testCases {
+		success := t.Run(testCase.name, func(t1 *testing.T) {
+			ctx, _ := context.WithTimeout(context.Background(), time.Duration(5*time.Second))
+			testCase.test(h, assert, ctx)
+		})
 
-	a, err := v.VerifyNIP(proof)
-	assert.NoError(t, err, "Failed to verify NIP")
-	assert.True(t, a, "Failed to verify NIP")
+		if !success {
+			break
+		}
+	}
+}
 
-	c, err := v.CreteNipChallenge(proof.Phi)
-	assert.NoError(t, err, "Failed to create NIP challenge")
+func testInfo(h *integration.Harness, assert *require.Assertions, ctx context.Context) {
+	// TODO: implement
+	_, err := h.GetInfo(ctx, &api.GetInfoRequest{})
+	assert.NoError(err)
+}
 
-	res := v.Verify(c, proof)
-	assert.True(t, a, "Failed to verify NIP proof")
+func testMembershipProof(h *integration.Harness, assert *require.Assertions, ctx context.Context) {
+	com := []byte("this is a commitment")
+	submitReq := api.SubmitRequest{Challenge: com}
+	submitRes, err := h.Submit(ctx, &submitReq)
+	assert.NoError(err)
+	assert.NotNil(submitRes)
 
-	c1, err := v.CreteRndChallenge()
-	assert.NoError(t, err, "Failed to create rnd challenge")
+	mProofReq := api.GetMembershipProofRequest{RoundId: submitRes.RoundId, Commitment: com, Wait: false}
+	mProofRes, err := h.GetMembershipProof(ctx, &mProofReq)
+	assert.EqualError(err, "rpc error: code = Unknown desc = round is open")
+	assert.Nil(mProofRes)
 
-	proof1, err := p.GetProof(c1)
-	assert.NoError(t, err, "Failed to create interactive proof")
+	mProofReq = api.GetMembershipProofRequest{RoundId: submitRes.RoundId, Commitment: com, Wait: true}
+	mProofRes, err = h.GetMembershipProof(ctx, &mProofReq)
+	assert.NoError(err)
+	assert.NotNil(mProofRes)
+	// TODO(moshababo): assert the proof verification
+}
 
-	res = v.Verify(c1, proof1)
-	assert.True(t, res, "Failed to verify interactive proof")
+func testProof(h *integration.Harness, assert *require.Assertions, ctx context.Context) {
+	com := []byte("this is a commitment")
+	submitReq := api.SubmitRequest{Challenge: com}
+	submitRes, err := h.Submit(ctx, &submitReq)
+	assert.NoError(err)
+	assert.NotNil(submitRes)
 
-	e1 := time.Since(t1)
-	t.Logf("Proof verified in %s (%f)\n", e1-e, (e1 - e).Seconds())
+	proofReq := api.GetProofRequest{RoundId: submitRes.RoundId, Wait: false}
+	proofRes, err := h.GetProof(ctx, &proofReq)
+	assert.EqualError(err, "rpc error: code = Unknown desc = round is open")
+	assert.Nil(proofRes)
+
+	proofReq = api.GetProofRequest{RoundId: submitRes.RoundId, Wait: true}
+	proofRes, err = h.GetProof(ctx, &proofReq)
+	assert.NoError(err)
+	assert.NotNil(proofRes)
+	assert.NotNil(proofRes.Proof)
+	// TODO(moshababo): assert the proof verification
 }

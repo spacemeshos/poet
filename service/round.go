@@ -11,7 +11,8 @@ import (
 )
 
 type round struct {
-	cfg          *Config
+	cfg *Config
+
 	Id           int
 	opened       time.Time
 	executeStart time.Time
@@ -87,7 +88,17 @@ func (r *round) execute() error {
 	return nil
 }
 
-func (r *round) membershipProof(c []byte) ([][]byte, error) {
+func (r *round) membershipProof(c []byte, wait bool) ([][]byte, error) {
+	if wait {
+		<-r.closedChan
+	} else {
+		select {
+		case <-r.closedChan:
+		default:
+			return nil, errors.New("round is open")
+		}
+	}
+
 	// TODO(moshababo): change this temp inefficient implementation
 	ci := -1
 	for i, commit := range r.commits {
@@ -114,7 +125,7 @@ func (r *round) membershipProof(c []byte) ([][]byte, error) {
 		return nil, err
 	}
 	if !bytes.Equal(merkleRoot, r.merkleRoot) {
-		return nil, fmt.Errorf("incorrect merkleTree root: %v", merkleRoot)
+		return nil, fmt.Errorf("incorrect merkleTree root, expected: %x, found: %x", r.merkleRoot, merkleRoot)
 	}
 
 	proof, err := t.Proof()
@@ -123,4 +134,23 @@ func (r *round) membershipProof(c []byte) ([][]byte, error) {
 	}
 
 	return proof, nil
+}
+
+func (r *round) proof(wait bool) (*shared.Proof, error) {
+	if wait {
+		<-r.executedChan
+	} else {
+		select {
+		case <-r.executedChan:
+		default:
+			select {
+			case <-r.closedChan:
+				return nil, errors.New("round is executing")
+			default:
+				return nil, errors.New("round is open")
+			}
+		}
+	}
+
+	return r.nip, nil
 }

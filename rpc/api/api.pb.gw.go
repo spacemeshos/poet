@@ -9,13 +9,13 @@ It translates gRPC into RESTful JSON APIs.
 package api
 
 import (
+	"context"
 	"io"
 	"net/http"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/grpc-ecosystem/grpc-gateway/utilities"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/grpclog"
@@ -28,8 +28,8 @@ var _ status.Status
 var _ = runtime.String
 var _ = utilities.NewDoubleArray
 
-func request_Poet_SubmitCommitment_0(ctx context.Context, marshaler runtime.Marshaler, client PoetClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq SubmitCommitmentRequest
+func request_Poet_Submit_0(ctx context.Context, marshaler runtime.Marshaler, client PoetClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq SubmitRequest
 	var metadata runtime.ServerMetadata
 
 	newReader, berr := utilities.IOReaderFactory(req.Body)
@@ -40,10 +40,14 @@ func request_Poet_SubmitCommitment_0(ctx context.Context, marshaler runtime.Mars
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
-	msg, err := client.SubmitCommitment(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.Submit(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
+
+var (
+	filter_Poet_GetMembershipProof_0 = &utilities.DoubleArray{Encoding: map[string]int{"roundId": 0, "commitment": 1}, Base: []int{1, 1, 2, 0, 0}, Check: []int{0, 1, 1, 2, 3}}
+)
 
 func request_Poet_GetMembershipProof_0(ctx context.Context, marshaler runtime.Marshaler, client PoetClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq GetMembershipProofRequest
@@ -78,7 +82,46 @@ func request_Poet_GetMembershipProof_0(ctx context.Context, marshaler runtime.Ma
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "commitment", err)
 	}
 
+	if err := runtime.PopulateQueryParameters(&protoReq, req.URL.Query(), filter_Poet_GetMembershipProof_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
 	msg, err := client.GetMembershipProof(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+
+}
+
+var (
+	filter_Poet_GetProof_0 = &utilities.DoubleArray{Encoding: map[string]int{"roundId": 0}, Base: []int{1, 1, 0}, Check: []int{0, 1, 2}}
+)
+
+func request_Poet_GetProof_0(ctx context.Context, marshaler runtime.Marshaler, client PoetClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq GetProofRequest
+	var metadata runtime.ServerMetadata
+
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["roundId"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "roundId")
+	}
+
+	protoReq.RoundId, err = runtime.Int32(val)
+
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "roundId", err)
+	}
+
+	if err := runtime.PopulateQueryParameters(&protoReq, req.URL.Query(), filter_Poet_GetProof_0); err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	msg, err := client.GetProof(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
@@ -157,7 +200,7 @@ func RegisterPoetHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.
 // "PoetClient" to call the correct interceptors.
 func RegisterPoetHandlerClient(ctx context.Context, mux *runtime.ServeMux, client PoetClient) error {
 
-	mux.Handle("POST", pattern_Poet_SubmitCommitment_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_Poet_Submit_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
@@ -166,14 +209,14 @@ func RegisterPoetHandlerClient(ctx context.Context, mux *runtime.ServeMux, clien
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_Poet_SubmitCommitment_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_Poet_Submit_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_Poet_SubmitCommitment_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_Poet_Submit_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -194,6 +237,26 @@ func RegisterPoetHandlerClient(ctx context.Context, mux *runtime.ServeMux, clien
 		}
 
 		forward_Poet_GetMembershipProof_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
+	mux.Handle("GET", pattern_Poet_GetProof_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		rctx, err := runtime.AnnotateContext(ctx, mux, req)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_Poet_GetProof_0(rctx, inboundMarshaler, client, req, pathParams)
+		ctx = runtime.NewServerMetadataContext(ctx, md)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_Poet_GetProof_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -241,9 +304,11 @@ func RegisterPoetHandlerClient(ctx context.Context, mux *runtime.ServeMux, clien
 }
 
 var (
-	pattern_Poet_SubmitCommitment_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "submit"}, ""))
+	pattern_Poet_Submit_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "submit"}, ""))
 
 	pattern_Poet_GetMembershipProof_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 1, 0, 4, 1, 5, 3}, []string{"v1", "mproof", "roundId", "commitment"}, ""))
+
+	pattern_Poet_GetProof_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "proof", "roundId"}, ""))
 
 	pattern_Poet_GetRoundInfo_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "roundinfo", "roundId"}, ""))
 
@@ -251,9 +316,11 @@ var (
 )
 
 var (
-	forward_Poet_SubmitCommitment_0 = runtime.ForwardResponseMessage
+	forward_Poet_Submit_0 = runtime.ForwardResponseMessage
 
 	forward_Poet_GetMembershipProof_0 = runtime.ForwardResponseMessage
+
+	forward_Poet_GetProof_0 = runtime.ForwardResponseMessage
 
 	forward_Poet_GetRoundInfo_0 = runtime.ForwardResponseMessage
 
