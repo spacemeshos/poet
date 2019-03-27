@@ -24,14 +24,63 @@ func NewRPCServer(service *service.Service) *rpcServer {
 	}
 }
 
-func (r *rpcServer) SubmitCommitment(ctx context.Context, in *api.SubmitCommitmentRequest) (*api.SubmitCommitmentResponse, error) {
-	res, err := r.s.Submit(in.Commitment)
+func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.SubmitResponse, error) {
+	res, err := r.s.Submit(in.Challenge)
 	if err != nil {
 		return nil, err
 	}
 
-	out := new(api.SubmitCommitmentResponse)
+	out := new(api.SubmitResponse)
 	out.RoundId = int32(res.Id)
+	return out, nil
+}
+
+func (r *rpcServer) GetMembershipProof(ctx context.Context, in *api.GetMembershipProofRequest) (*api.GetMembershipProofResponse, error) {
+	proof, err := r.s.MembershipProof(int(in.RoundId), in.Commitment, in.Wait)
+	if err != nil {
+		return nil, err
+	}
+
+	out := new(api.GetMembershipProofResponse)
+	out.MerkleProof = proof
+	return out, nil
+}
+
+func (r *rpcServer) GetProof(ctx context.Context, in *api.GetProofRequest) (*api.GetProofResponse, error) {
+	p, err := r.s.Proof(int(in.RoundId), in.Wait)
+	if err != nil {
+		return nil, err
+	}
+
+	pOut := new(api.Proof)
+	pOut.Phi = make([]byte, len(p.Phi))
+	pOut.Phi = p.Phi
+	pOut.L = nativeLabelsToWire(p.L)
+
+	out := new(api.GetProofResponse)
+	out.Proof = pOut
+	return out, nil
+}
+
+func (r *rpcServer) GetRoundInfo(ctx context.Context, in *api.GetRoundInfoRequest) (*api.GetRoundInfoResponse, error) {
+	info, err := r.s.RoundInfo(int(in.RoundId))
+	if err != nil {
+		return nil, err
+	}
+
+	pOut := new(api.Proof)
+	pOut.Phi = make([]byte, len(info.Nip.Phi))
+	pOut.Phi = info.Nip.Phi
+	pOut.L = nativeLabelsToWire(info.Nip.L)
+
+	out := new(api.GetRoundInfoResponse)
+	out.Opened = info.Opened.UnixNano() / int64(time.Millisecond)
+	out.ExecuteStart = info.ExecuteStart.UnixNano() / int64(time.Millisecond)
+	out.ExecuteEnd = info.ExecuteEnd.UnixNano() / int64(time.Millisecond)
+	out.NumOfcommitments = int32(info.NumOfCommits)
+	out.MerkleRoot = info.MerkleRoot
+	out.Proof = pOut
+
 	return out, nil
 }
 
@@ -53,39 +102,6 @@ func (r *rpcServer) GetInfo(ctx context.Context, in *api.GetInfoRequest) (*api.G
 	}
 	out.ExecutedRoundsIds = ids
 
-	return out, nil
-}
-
-func (r *rpcServer) GetRoundInfo(ctx context.Context, in *api.GetRoundInfoRequest) (*api.GetRoundInfoResponse, error) {
-	info, err := r.s.RoundInfo(int(in.RoundId))
-	if err != nil {
-		return nil, err
-	}
-
-	nip := new(api.Proof)
-	nip.Phi = make([]byte, len(info.Nip.Phi))
-	nip.Phi = info.Nip.Phi
-	nip.L = nativeLabelsToWire(info.Nip.L)
-
-	out := new(api.GetRoundInfoResponse)
-	out.Opened = info.Opened.UnixNano() / int64(time.Millisecond)
-	out.ExecuteStart = info.ExecuteStart.UnixNano() / int64(time.Millisecond)
-	out.ExecuteEnd = info.ExecuteEnd.UnixNano() / int64(time.Millisecond)
-	out.NumOfcommitments = int32(info.NumOfCommits)
-	out.MerkleRoot = info.MerkleRoot
-	out.Nip = nip
-
-	return out, nil
-}
-
-func (r *rpcServer) GetMembershipProof(ctx context.Context, in *api.GetMembershipProofRequest) (*api.GetMembershipProofResponse, error) {
-	proof, err := r.s.MembershipProof(int(in.RoundId), in.Commitment)
-	if err != nil {
-		return nil, err
-	}
-
-	out := new(api.GetMembershipProofResponse)
-	out.MerkleProof = proof
 	return out, nil
 }
 

@@ -56,6 +56,45 @@
             "required": true,
             "type": "string",
             "format": "byte"
+          },
+          {
+            "name": "wait",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
+          }
+        ],
+        "tags": [
+          "Poet"
+        ]
+      }
+    },
+    "/v1/proof/{roundId}": {
+      "get": {
+        "operationId": "GetProof",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/apiGetProofResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "roundId",
+            "in": "path",
+            "required": true,
+            "type": "integer",
+            "format": "int32"
+          },
+          {
+            "name": "wait",
+            "in": "query",
+            "required": false,
+            "type": "boolean",
+            "format": "boolean"
           }
         ],
         "tags": [
@@ -90,12 +129,12 @@
     },
     "/v1/submit": {
       "post": {
-        "operationId": "SubmitCommitment",
+        "operationId": "Submit",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/apiSubmitCommitmentResponse"
+              "$ref": "#/definitions/apiSubmitResponse"
             }
           }
         },
@@ -105,7 +144,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/apiSubmitCommitmentRequest"
+              "$ref": "#/definitions/apiSubmitRequest"
             }
           }
         ],
@@ -151,6 +190,14 @@
         }
       }
     },
+    "apiGetProofResponse": {
+      "type": "object",
+      "properties": {
+        "proof": {
+          "$ref": "#/definitions/apiProof"
+        }
+      }
+    },
     "apiGetRoundInfoResponse": {
       "type": "object",
       "properties": {
@@ -174,7 +221,7 @@
           "type": "string",
           "format": "byte"
         },
-        "nip": {
+        "proof": {
           "$ref": "#/definitions/apiProof"
         }
       }
@@ -206,16 +253,16 @@
         }
       }
     },
-    "apiSubmitCommitmentRequest": {
+    "apiSubmitRequest": {
       "type": "object",
       "properties": {
-        "commitment": {
+        "challenge": {
           "type": "string",
           "format": "byte"
         }
       }
     },
-    "apiSubmitCommitmentResponse": {
+    "apiSubmitResponse": {
       "type": "object",
       "properties": {
         "roundId": {

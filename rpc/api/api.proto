@@ -5,15 +5,22 @@ import "google/api/annotations.proto";
 package api;
 
 service Poet {
-    rpc SubmitCommitment (SubmitCommitmentRequest) returns (SubmitCommitmentResponse) {
+    rpc Submit (SubmitRequest) returns (SubmitResponse) {
         option (google.api.http) = {
             post: "/v1/submit",
             body: "*",
         };
     }
+
     rpc GetMembershipProof (GetMembershipProofRequest) returns (GetMembershipProofResponse) {
         option (google.api.http) = {
             get: "/v1/mproof/{roundId}/{commitment}"
+        };
+    }
+
+    rpc GetProof (GetProofRequest) returns (GetProofResponse) {
+        option (google.api.http) = {
+            get: "/v1/proof/{roundId}"
         };
     }
 
@@ -22,6 +29,7 @@ service Poet {
             get: "/v1/roundinfo/{roundId}"
         };
     }
+
     rpc GetInfo (GetInfoRequest) returns (GetInfoResponse) {
         option (google.api.http) = {
             get: "/v1/info"
@@ -29,21 +37,34 @@ service Poet {
     }
 }
 
-message SubmitCommitmentRequest {
-    bytes commitment = 1;
+message SubmitRequest {
+    bytes challenge = 1;
 }
 
-message SubmitCommitmentResponse {
+message SubmitResponse {
     int32 roundId = 1;
 }
 
 message GetMembershipProofRequest {
     int32 roundId = 1;
     bytes commitment = 2;
+    bool wait = 3;
 }
 
 message GetMembershipProofResponse {
     repeated bytes merkleProof = 1;
+}
+
+message GetProofRequest {
+    int32 roundId = 1;
+    bool wait = 2;
+}
+
+message GetProofResponse {
+    Proof proof = 1;
+}
+
+message GetInfoRequest {
 }
 
 message GetRoundInfoResponse {
@@ -52,20 +73,17 @@ message GetRoundInfoResponse {
     int64 executeEnd = 3;
     int32 numOfcommitments = 4;
     bytes merkleRoot = 5;
-    Proof nip = 6;
+    Proof proof = 6;
 }
 
-message GetInfoRequest {
+message GetRoundInfoRequest {
+    int32 roundId = 1;
 }
 
 message GetInfoResponse {
     int32 openRoundId = 1;
     repeated int32 executingRoundsIds = 2;
     repeated int32 executedRoundsIds = 3;
-}
-
-message GetRoundInfoRequest {
-    int32 roundId = 1;
 }
 
 message Proof {
