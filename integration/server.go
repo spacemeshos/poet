@@ -152,5 +152,5 @@ func (s *server) stop() error {
 
 // cleanup cleans up the temporary files/directories created by the server process.
 func (s *server) cleanup() error {
-	return os.RemoveAll(s.cfg.baseDir)
+	return os.RemoveAll(s.cfg.dataDir)
 }
