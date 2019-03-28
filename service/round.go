@@ -82,6 +82,8 @@ func (r *round) execute() error {
 		return err
 	}
 
+	prover.DeleteStore()
+
 	r.executeEnd = time.Now()
 	r.nip = &nip
 	close(r.executedChan)
