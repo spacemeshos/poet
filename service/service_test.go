@@ -72,7 +72,7 @@ func TestNewService(t *testing.T) {
 
 	// Verify the membership proof of each commit.
 	for i, commit := range commits {
-		proof, err := s.MembershipProof(commit.round.Id, commit.data)
+		proof, err := s.MembershipProof(commit.round.Id, commit.data, false)
 		req.NoError(err)
 
 		leafIndices := []uint64{uint64(i)}

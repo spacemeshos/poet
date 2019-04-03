@@ -84,6 +84,7 @@ func testMembershipProof(h *integration.Harness, assert *require.Assertions, ctx
 	mProofRes, err = h.GetMembershipProof(ctx, &mProofReq)
 	assert.NoError(err)
 	assert.NotNil(mProofRes)
+
 	// TODO(moshababo): assert the proof verification
 }
 
@@ -104,5 +105,6 @@ func testProof(h *integration.Harness, assert *require.Assertions, ctx context.C
 	assert.NoError(err)
 	assert.NotNil(proofRes)
 	assert.NotNil(proofRes.Proof)
+
 	// TODO(moshababo): assert the proof verification
 }
