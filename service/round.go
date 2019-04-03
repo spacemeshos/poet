@@ -83,9 +83,10 @@ func (r *round) execute() error {
 	r.nip = &nip
 	close(r.executedChan)
 	return nil
+
 }
 
-func (r *round) membershipProof(c []byte, wait bool) ([][]byte, error) {
+func (r *round) membershipProof(c []byte, wait bool) (*shared.MembershipProof, error) {
 	if wait {
 		<-r.closedChan
 	} else {
@@ -97,20 +98,20 @@ func (r *round) membershipProof(c []byte, wait bool) ([][]byte, error) {
 	}
 
 	// TODO(moshababo): change this temp inefficient implementation
-	ci := -1
+	index := -1
 	for i, commit := range r.commits {
 		if bytes.Equal(c, commit) {
-			ci = i
+			index = i
 			break
 		}
 	}
 
-	if ci == -1 {
+	if index == -1 {
 		return nil, errors.New("commit not found")
 	}
 
 	var leavesToProve = make(map[uint64]bool)
-	leavesToProve[uint64(ci)] = true
+	leavesToProve[uint64(index)] = true
 
 	t := merkle.NewProvingTree(leavesToProve)
 	for _, c := range r.commits {
@@ -125,7 +126,14 @@ func (r *round) membershipProof(c []byte, wait bool) ([][]byte, error) {
 		return nil, fmt.Errorf("incorrect merkleTree root, expected: %x, found: %x", r.merkleRoot, merkleRoot)
 	}
 
-	return t.Proof(), nil
+	proof := t.Proof()
+
+	return &shared.MembershipProof{
+		Index: index,
+		Root:  r.merkleRoot,
+		Proof: proof,
+	}, nil
+
 }
 
 func (r *round) proof(wait bool) (*shared.Proof, error) {

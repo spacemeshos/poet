@@ -52,7 +52,7 @@ message GetMembershipProofRequest {
 }
 
 message GetMembershipProofResponse {
-    repeated bytes merkleProof = 1;
+    MembershipProof mproof = 1;
 }
 
 message GetProofRequest {
@@ -84,6 +84,12 @@ message GetInfoResponse {
     int32 openRoundId = 1;
     repeated int32 executingRoundsIds = 2;
     repeated int32 executedRoundsIds = 3;
+}
+
+message MembershipProof {
+    int32 index = 1;
+    bytes root = 2;
+    repeated bytes proof = 3;
 }
 
 message Proof {

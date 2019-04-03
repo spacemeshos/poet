@@ -27,6 +27,12 @@ type Challenge struct {
 	Data [T]Identifier // A list of T identifiers
 }
 
+func (c *Challenge) Print() {
+	for idx, data := range c.Data {
+		fmt.Printf("[%d]: %s\n", idx, data)
+	}
+}
+
 type Proof struct {
 	Phi Label     // dag root label value
 	L   [T]Labels // T lists of labels - one for every of the T challenges
@@ -60,8 +66,8 @@ type IProver interface {
 	DeleteStore()
 }
 
-func (c *Challenge) Print() {
-	for idx, data := range c.Data {
-		fmt.Printf("[%d]: %s\n", idx, data)
-	}
+type MembershipProof struct {
+	Index int
+	Root  []byte
+	Proof [][]byte
 }

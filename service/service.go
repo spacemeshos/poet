@@ -113,7 +113,7 @@ func (s *Service) Submit(data []byte) (*round, error) {
 	return r, nil
 }
 
-func (s *Service) MembershipProof(roundId int, c []byte, wait bool) ([][]byte, error) {
+func (s *Service) MembershipProof(roundId int, c []byte, wait bool) (*shared.MembershipProof, error) {
 	r := s.rounds[roundId]
 	if r == nil {
 		return nil, ErrRoundNotFound

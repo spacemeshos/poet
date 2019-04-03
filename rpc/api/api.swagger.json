@@ -181,12 +181,8 @@
     "apiGetMembershipProofResponse": {
       "type": "object",
       "properties": {
-        "merkleProof": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "format": "byte"
-          }
+        "mproof": {
+          "$ref": "#/definitions/apiMembershipProof"
         }
       }
     },
@@ -230,6 +226,26 @@
       "type": "object",
       "properties": {
         "labels": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
+          }
+        }
+      }
+    },
+    "apiMembershipProof": {
+      "type": "object",
+      "properties": {
+        "index": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "root": {
+          "type": "string",
+          "format": "byte"
+        },
+        "proof": {
           "type": "array",
           "items": {
             "type": "string",
