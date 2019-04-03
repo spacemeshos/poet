@@ -46,7 +46,7 @@ func (r *round) submit(data []byte) error {
 }
 
 func (r *round) close() error {
-	r.merkleTree = merkle.NewTree(merkle.GetSha256Parent)
+	r.merkleTree = merkle.NewTree()
 	for _, c := range r.commits {
 		err := r.merkleTree.AddLeaf(c)
 		if err != nil {
@@ -54,12 +54,7 @@ func (r *round) close() error {
 		}
 	}
 
-	root, err := r.merkleTree.Root()
-	if err != nil {
-		return err
-	}
-
-	r.merkleRoot = root
+	r.merkleRoot = r.merkleTree.Root()
 
 	close(r.closedChan)
 	return nil
@@ -114,7 +109,10 @@ func (r *round) membershipProof(c []byte, wait bool) ([][]byte, error) {
 		return nil, errors.New("commit not found")
 	}
 
-	t := merkle.NewProvingTree(merkle.GetSha256Parent, []uint64{uint64(ci)})
+	var m = make(map[uint64]bool)
+	m[uint64(ci)] = true
+
+	t := merkle.NewProvingTree(m)
 	for _, c := range r.commits {
 		err := t.AddLeaf(c)
 		if err != nil {
@@ -122,20 +120,12 @@ func (r *round) membershipProof(c []byte, wait bool) ([][]byte, error) {
 		}
 	}
 
-	merkleRoot, err := t.Root()
-	if err != nil {
-		return nil, err
-	}
-	if !bytes.Equal(merkleRoot, r.merkleRoot) {
+	merkleRoot := t.Root()
+	if !bytes.Equal(t.Root(), r.merkleRoot) {
 		return nil, fmt.Errorf("incorrect merkleTree root, expected: %x, found: %x", r.merkleRoot, merkleRoot)
 	}
 
-	proof, err := t.Proof()
-	if err != nil {
-		return nil, err
-	}
-
-	return proof, nil
+	return t.Proof(), nil
 }
 
 func (r *round) proof(wait bool) (*shared.Proof, error) {
