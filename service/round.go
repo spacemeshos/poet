@@ -109,10 +109,10 @@ func (r *round) membershipProof(c []byte, wait bool) ([][]byte, error) {
 		return nil, errors.New("commit not found")
 	}
 
-	var leavesToProves = make(map[uint64]bool)
-	leavesToProves[uint64(ci)] = true
+	var leavesToProve = make(map[uint64]bool)
+	leavesToProve[uint64(ci)] = true
 
-	t := merkle.NewProvingTree(leavesToProves)
+	t := merkle.NewProvingTree(leavesToProve)
 	for _, c := range r.commits {
 		err := t.AddLeaf(c)
 		if err != nil {
