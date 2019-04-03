@@ -36,13 +36,16 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 }
 
 func (r *rpcServer) GetMembershipProof(ctx context.Context, in *api.GetMembershipProofRequest) (*api.GetMembershipProofResponse, error) {
-	proof, err := r.s.MembershipProof(int(in.RoundId), in.Commitment, in.Wait)
+	mproof, err := r.s.MembershipProof(int(in.RoundId), in.Commitment, in.Wait)
 	if err != nil {
 		return nil, err
 	}
 
 	out := new(api.GetMembershipProofResponse)
-	out.MerkleProof = proof
+	out.Mproof = new(api.MembershipProof)
+	out.Mproof.Index = int32(mproof.Index)
+	out.Mproof.Root = mproof.Root
+	out.Mproof.Proof = mproof.Proof
 	return out, nil
 }
 

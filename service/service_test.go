@@ -72,12 +72,13 @@ func TestNewService(t *testing.T) {
 
 	// Verify the membership proof of each commit.
 	for i, commit := range commits {
-		proof, err := s.MembershipProof(commit.round.Id, commit.data, false)
+		mproof, err := s.MembershipProof(commit.round.Id, commit.data, false)
 		req.NoError(err)
+		req.Equal(i, mproof.Index)
 
 		leafIndices := []uint64{uint64(i)}
 		leaves := [][]byte{commit.data}
-		valid, err := merkle.ValidatePartialTree(leafIndices, leaves, proof, commit.round.merkleRoot, merkle.GetSha256Parent)
+		valid, err := merkle.ValidatePartialTree(leafIndices, leaves, mproof.Proof, commit.round.merkleRoot, merkle.GetSha256Parent)
 		req.NoError(err)
 		req.True(valid)
 	}

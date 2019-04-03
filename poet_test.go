@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/poet-ref/integration"
 	"github.com/spacemeshos/poet-ref/rpc/api"
 	"github.com/stretchr/testify/require"
@@ -84,8 +85,13 @@ func testMembershipProof(h *integration.Harness, assert *require.Assertions, ctx
 	mProofRes, err = h.GetMembershipProof(ctx, &mProofReq)
 	assert.NoError(err)
 	assert.NotNil(mProofRes)
+	assert.NotNil(mProofRes.Mproof)
 
-	// TODO(moshababo): assert the proof verification
+	leafIndices := []uint64{uint64(mProofRes.Mproof.Index)}
+	leaves := [][]byte{com}
+	valid, err := merkle.ValidatePartialTree(leafIndices, leaves, mProofRes.Mproof.Proof, mProofRes.Mproof.Root, merkle.GetSha256Parent)
+	assert.NoError(err)
+	assert.True(valid)
 }
 
 func testProof(h *integration.Harness, assert *require.Assertions, ctx context.Context) {
