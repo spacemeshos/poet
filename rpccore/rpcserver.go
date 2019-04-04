@@ -1,6 +1,7 @@
 package rpccore
 
 import (
+	"fmt"
 	"github.com/spacemeshos/poet-ref/rpccore/apicore"
 	"github.com/spacemeshos/poet-ref/shared"
 	"github.com/spacemeshos/poet-ref/signal"
@@ -129,9 +130,14 @@ func (r *rpcServer) VerifyProof(ctx context.Context, in *apicore.VerifyProofRequ
 		return nil, err
 	}
 
+	labels, err := wireLabelsToNative(in.P.L)
+	if err != nil {
+		return nil, err
+	}
+
 	verified := verifier.Verify(
 		shared.Challenge{Data: wireChallengeToNative(in.C)},
-		shared.Proof{Phi: in.P.Phi, L: wireLabelsToNative(in.P.L)},
+		shared.Proof{Phi: in.P.Phi, L: *labels},
 	)
 	if err != nil {
 		return nil, err
@@ -151,9 +157,14 @@ func (r *rpcServer) VerifyNIP(ctx context.Context, in *apicore.VerifyNIPRequest)
 		return nil, err
 	}
 
+	labels, err := wireLabelsToNative(in.P.L)
+	if err != nil {
+		return nil, err
+	}
+
 	verified, err := verifier.VerifyNIP(shared.Proof{
 		Phi: in.P.Phi,
-		L:   wireLabelsToNative(in.P.L),
+		L:   *labels,
 	})
 	if err != nil {
 		return nil, err
@@ -181,15 +192,21 @@ func (r *rpcServer) GetRndChallenge(ctx context.Context, in *apicore.GetRndChall
 	return &apicore.GetRndChallengeResponse{C: nativeChallengeToWire(c.Data)}, nil
 }
 
-func wireLabelsToNative(in []*apicore.Labels) (native [shared.T]shared.Labels) {
-	for i, inLabels := range in {
+func wireLabelsToNative(wire []*apicore.Labels) (native *[shared.T]shared.Labels, err error) {
+	if len(wire) != shared.T {
+		return nil, fmt.Errorf("invalid number of labels, expected: %v, found: %v", shared.T, len(wire))
+	}
+
+	native = new([shared.T]shared.Labels)
+	for i, inLabels := range wire {
 		var outLabels shared.Labels
 		for _, inLabel := range inLabels.Labels {
 			outLabels = append(outLabels, inLabel)
 		}
 		native[i] = outLabels
 	}
-	return native
+
+	return native, nil
 }
 
 func nativeLabelsToWire(native [shared.T]shared.Labels) (wire []*apicore.Labels) {

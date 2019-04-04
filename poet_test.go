@@ -4,7 +4,10 @@ import (
 	"context"
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/poet-ref/integration"
+	"github.com/spacemeshos/poet-ref/rpc"
 	"github.com/spacemeshos/poet-ref/rpc/api"
+	"github.com/spacemeshos/poet-ref/shared"
+	"github.com/spacemeshos/poet-ref/verifier"
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
@@ -70,25 +73,25 @@ func testInfo(h *integration.Harness, assert *require.Assertions, ctx context.Co
 }
 
 func testMembershipProof(h *integration.Harness, assert *require.Assertions, ctx context.Context) {
-	com := []byte("this is a commitment")
-	submitReq := api.SubmitRequest{Challenge: com}
+	ch := []byte("this is a challenge")
+	submitReq := api.SubmitRequest{Challenge: ch}
 	submitRes, err := h.Submit(ctx, &submitReq)
 	assert.NoError(err)
 	assert.NotNil(submitRes)
 
-	mProofReq := api.GetMembershipProofRequest{RoundId: submitRes.RoundId, Commitment: com, Wait: false}
+	mProofReq := api.GetMembershipProofRequest{RoundId: submitRes.RoundId, Challenge: ch, Wait: false}
 	mProofRes, err := h.GetMembershipProof(ctx, &mProofReq)
 	assert.EqualError(err, "rpc error: code = Unknown desc = round is open")
 	assert.Nil(mProofRes)
 
-	mProofReq = api.GetMembershipProofRequest{RoundId: submitRes.RoundId, Commitment: com, Wait: true}
+	mProofReq.Wait = true
 	mProofRes, err = h.GetMembershipProof(ctx, &mProofReq)
 	assert.NoError(err)
 	assert.NotNil(mProofRes)
 	assert.NotNil(mProofRes.Mproof)
 
 	leafIndices := []uint64{uint64(mProofRes.Mproof.Index)}
-	leaves := [][]byte{com}
+	leaves := [][]byte{ch}
 	valid, err := merkle.ValidatePartialTree(leafIndices, leaves, mProofRes.Mproof.Proof, mProofRes.Mproof.Root, merkle.GetSha256Parent)
 	assert.NoError(err)
 	assert.True(valid)
@@ -106,11 +109,22 @@ func testProof(h *integration.Harness, assert *require.Assertions, ctx context.C
 	assert.EqualError(err, "rpc error: code = Unknown desc = round is open")
 	assert.Nil(proofRes)
 
-	proofReq = api.GetProofRequest{RoundId: submitRes.RoundId, Wait: true}
+	proofReq.Wait = true
 	proofRes, err = h.GetProof(ctx, &proofReq)
 	assert.NoError(err)
 	assert.NotNil(proofRes)
 	assert.NotNil(proofRes.Proof)
 
-	// TODO(moshababo): assert the proof verification
+	v, err := verifier.New(proofRes.Commitment, uint(proofRes.N), shared.NewHashFunc(proofRes.Commitment))
+	assert.NoError(err)
+	assert.NotNil(v)
+	labels, err := rpc.WireLabelsToNative(proofRes.Proof.L)
+	assert.NoError(err)
+	assert.NotNil(labels)
+	res, err := v.VerifyNIP(shared.Proof{
+		Phi: proofRes.Proof.Phi,
+		L:   *labels,
+	})
+	assert.NoError(err)
+	assert.True(res)
 }

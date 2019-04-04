@@ -18,7 +18,7 @@ type round struct {
 	executeStart time.Time
 	executeEnd   time.Time
 
-	commits    [][]byte
+	challenges [][]byte
 	merkleTree *merkle.Tree
 	merkleRoot []byte
 	nip        *shared.Proof
@@ -38,16 +38,16 @@ func newRound(cfg *Config, id int) *round {
 	return r
 }
 
-func (r *round) submit(data []byte) error {
+func (r *round) submit(challenge []byte) error {
 	// TODO(moshababo): check for duplications?
-	r.commits = append(r.commits, data)
+	r.challenges = append(r.challenges, challenge)
 
 	return nil
 }
 
 func (r *round) close() error {
 	r.merkleTree = merkle.NewTree()
-	for _, c := range r.commits {
+	for _, c := range r.challenges {
 		err := r.merkleTree.AddLeaf(c)
 		if err != nil {
 			return err
@@ -86,7 +86,7 @@ func (r *round) execute() error {
 
 }
 
-func (r *round) membershipProof(c []byte, wait bool) (*shared.MembershipProof, error) {
+func (r *round) membershipProof(challenge []byte, wait bool) (*MembershipProof, error) {
 	if wait {
 		<-r.closedChan
 	} else {
@@ -99,22 +99,22 @@ func (r *round) membershipProof(c []byte, wait bool) (*shared.MembershipProof, e
 
 	// TODO(moshababo): change this temp inefficient implementation
 	index := -1
-	for i, commit := range r.commits {
-		if bytes.Equal(c, commit) {
+	for i, ch := range r.challenges {
+		if bytes.Equal(challenge, ch) {
 			index = i
 			break
 		}
 	}
 
 	if index == -1 {
-		return nil, errors.New("commit not found")
+		return nil, errors.New("challenge not found")
 	}
 
 	var leavesToProve = make(map[uint64]bool)
 	leavesToProve[uint64(index)] = true
 
 	t := merkle.NewProvingTree(leavesToProve)
-	for _, c := range r.commits {
+	for _, c := range r.challenges {
 		err := t.AddLeaf(c)
 		if err != nil {
 			return nil, err
@@ -128,7 +128,7 @@ func (r *round) membershipProof(c []byte, wait bool) (*shared.MembershipProof, e
 
 	proof := t.Proof()
 
-	return &shared.MembershipProof{
+	return &MembershipProof{
 		Index: index,
 		Root:  r.merkleRoot,
 		Proof: proof,
@@ -136,7 +136,7 @@ func (r *round) membershipProof(c []byte, wait bool) (*shared.MembershipProof, e
 
 }
 
-func (r *round) proof(wait bool) (*shared.Proof, error) {
+func (r *round) proof(wait bool) (*PoetProof, error) {
 	if wait {
 		<-r.executedChan
 	} else {
@@ -152,5 +152,9 @@ func (r *round) proof(wait bool) (*shared.Proof, error) {
 		}
 	}
 
-	return r.nip, nil
+	return &PoetProof{
+		N:          r.cfg.N,
+		Commitment: r.merkleRoot,
+		Proof:      r.nip,
+	}, nil
 }

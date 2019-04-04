@@ -65,9 +65,3 @@ type IProver interface {
 	GetHashFunction() HashFunc
 	DeleteStore()
 }
-
-type MembershipProof struct {
-	Index int
-	Root  []byte
-	Proof [][]byte
-}

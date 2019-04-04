@@ -11,7 +11,7 @@ type Config struct {
 	HashFunction         string        `long:"hashfunction" description:"PoET hash function"`
 	RoundsDuration       time.Duration `long:"duration" description:"duration of the opening time for each round. If not specified, rounds duration will be determined by its previous round end of PoET execution"`
 	InitialRoundDuration time.Duration `long:"initialduration" description:"duration of the opening time for the initial round. if rounds duration isn't specified, this param is necessary"`
-	ExecuteEmpty         bool          `long:"empty" description:"whether to execution empty rounds, without any submitted commits"`
+	ExecuteEmpty         bool          `long:"empty" description:"whether to execution empty rounds, without any submitted challenges"`
 }
 
 type Service struct {
@@ -32,12 +32,24 @@ type InfoResponse struct {
 }
 
 type RoundInfoResponse struct {
-	Opened       time.Time
-	ExecuteStart time.Time
-	ExecuteEnd   time.Time
-	NumOfCommits int
-	MerkleRoot   []byte
-	Nip          *shared.Proof
+	Opened          time.Time
+	ExecuteStart    time.Time
+	ExecuteEnd      time.Time
+	ChallengesCount int
+	MerkleRoot      []byte
+	Nip             *shared.Proof
+}
+
+type MembershipProof struct {
+	Index int
+	Root  []byte
+	Proof [][]byte
+}
+
+type PoetProof struct {
+	N          uint
+	Commitment []byte
+	Proof      *shared.Proof
 }
 
 var (
@@ -65,7 +77,7 @@ func NewService(cfg *Config) (*Service, error) {
 			case <-s.roundsTicker():
 			}
 
-			if len(s.openRound.commits) == 0 && !s.cfg.ExecuteEmpty {
+			if len(s.openRound.challenges) == 0 && !s.cfg.ExecuteEmpty {
 				continue
 			}
 
@@ -113,13 +125,13 @@ func (s *Service) Submit(data []byte) (*round, error) {
 	return r, nil
 }
 
-func (s *Service) MembershipProof(roundId int, c []byte, wait bool) (*shared.MembershipProof, error) {
+func (s *Service) MembershipProof(roundId int, challenge []byte, wait bool) (*MembershipProof, error) {
 	r := s.rounds[roundId]
 	if r == nil {
 		return nil, ErrRoundNotFound
 	}
 
-	proof, err := r.membershipProof(c, wait)
+	proof, err := r.membershipProof(challenge, wait)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +139,7 @@ func (s *Service) MembershipProof(roundId int, c []byte, wait bool) (*shared.Mem
 	return proof, nil
 }
 
-func (s *Service) Proof(roundId int, wait bool) (*shared.Proof, error) {
+func (s *Service) Proof(roundId int, wait bool) (*PoetProof, error) {
 	r := s.rounds[roundId]
 	if r == nil {
 		return nil, ErrRoundNotFound
@@ -151,7 +163,7 @@ func (s *Service) RoundInfo(roundId int) (*RoundInfoResponse, error) {
 	res.Opened = r.opened
 	res.ExecuteStart = r.executeStart
 	res.ExecuteEnd = r.executeEnd
-	res.NumOfCommits = len(r.commits)
+	res.ChallengesCount = len(r.challenges)
 	res.MerkleRoot = r.merkleRoot
 	res.Nip = r.nip
 

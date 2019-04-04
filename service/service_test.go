@@ -19,46 +19,46 @@ func TestNewService(t *testing.T) {
 	s, err := NewService(cfg)
 	req.NoError(err)
 
-	type commit struct {
+	type challenge struct {
 		data  []byte
 		round *round
 	}
 
-	numOfCommits := 8
-	commits := make([]commit, numOfCommits)
+	challengesCount := 8
+	challenges := make([]challenge, challengesCount)
 	info := s.Info()
 
-	// Generate random commits.
-	for i := 0; i < len(commits); i++ {
-		commits[i] = commit{data: make([]byte, 32)}
-		_, err := rand.Read(commits[i].data)
+	// Generate random challenges.
+	for i := 0; i < len(challenges); i++ {
+		challenges[i] = challenge{data: make([]byte, 32)}
+		_, err := rand.Read(challenges[i].data)
 		req.NoError(err)
 	}
 
-	// Submit commits.
-	for i := 0; i < len(commits); i++ {
-		round, err := s.Submit(commits[i].data)
+	// Submit challenges.
+	for i := 0; i < len(challenges); i++ {
+		round, err := s.Submit(challenges[i].data)
 		req.NoError(err)
 		req.Equal(info.OpenRoundId, round.Id)
-		commits[i].round = round
+		challenges[i].round = round
 
 		// Verify that all submissions returned the same round instance.
 		if i > 0 {
-			req.Equal(commits[i].round, commits[i-1].round)
+			req.Equal(challenges[i].round, challenges[i-1].round)
 		}
 	}
 
 	// Verify round info.
 	roundInfo, err := s.RoundInfo(info.OpenRoundId)
 	req.NoError(err)
-	req.Equal(numOfCommits, roundInfo.NumOfCommits)
+	req.Equal(challengesCount, roundInfo.ChallengesCount)
 
 	// Verify that found is still open.
 	req.Equal(info.OpenRoundId, s.Info().OpenRoundId)
 
 	// Wait for round closure.
 	select {
-	case <-commits[0].round.closedChan:
+	case <-challenges[0].round.closedChan:
 	case err := <-s.errChan:
 		req.Fail(err.Error())
 	}
@@ -70,15 +70,15 @@ func TestNewService(t *testing.T) {
 	req.Contains(info.ExecutingRoundsIds, prevInfo.OpenRoundId)
 	req.NotContains(info.ExecutedRoundsIds, prevInfo.OpenRoundId)
 
-	// Verify the membership proof of each commit.
-	for i, commit := range commits {
-		mproof, err := s.MembershipProof(commit.round.Id, commit.data, false)
+	// Verify the membership proof of each challenge.
+	for i, ch := range challenges {
+		mproof, err := s.MembershipProof(ch.round.Id, ch.data, false)
 		req.NoError(err)
 		req.Equal(i, mproof.Index)
 
 		leafIndices := []uint64{uint64(i)}
-		leaves := [][]byte{commit.data}
-		valid, err := merkle.ValidatePartialTree(leafIndices, leaves, mproof.Proof, commit.round.merkleRoot, merkle.GetSha256Parent)
+		leaves := [][]byte{ch.data}
+		valid, err := merkle.ValidatePartialTree(leafIndices, leaves, mproof.Proof, ch.round.merkleRoot, merkle.GetSha256Parent)
 		req.NoError(err)
 		req.True(valid)
 	}
