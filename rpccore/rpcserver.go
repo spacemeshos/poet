@@ -173,7 +173,7 @@ func (r *rpcServer) GetRndChallenge(ctx context.Context, in *apicore.GetRndChall
 		return nil, err
 	}
 
-	c, err := verifier.CreteRndChallenge()
+	c, err := verifier.CreateRndChallenge()
 	if err != nil {
 		return nil, err
 	}

@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	proxy "github.com/grpc-ecosystem/grpc-gateway/runtime"
-	"github.com/spacemeshos/poet-ref/internal"
+	"github.com/spacemeshos/poet-ref/prover"
 	"github.com/spacemeshos/poet-ref/rpc"
 	"github.com/spacemeshos/poet-ref/rpc/api"
 	"github.com/spacemeshos/poet-ref/rpccore"
@@ -11,6 +11,7 @@ import (
 	"github.com/spacemeshos/poet-ref/service"
 	"github.com/spacemeshos/poet-ref/shared"
 	"github.com/spacemeshos/poet-ref/signal"
+	"github.com/spacemeshos/poet-ref/verifier"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"
@@ -33,7 +34,7 @@ func startServer() error {
 	}
 
 	if cfg.CoreServiceMode {
-		rpcServer := rpccore.NewRPCServer(s, internal.NewProver, internal.NewVerifier, shared.NewHashFunc, shared.NewScryptHashFunc)
+		rpcServer := rpccore.NewRPCServer(s, prover.New, verifier.New, shared.NewHashFunc, shared.NewScryptHashFunc)
 		grpcServer = grpc.NewServer(options...)
 
 		apicore.RegisterPoetCoreProverServer(grpcServer, rpcServer)

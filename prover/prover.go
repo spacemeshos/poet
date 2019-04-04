@@ -1,4 +1,4 @@
-package internal
+package prover
 
 import (
 	"crypto/rand"
@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/golang/groupcache/lru"
+	"github.com/spacemeshos/poet-ref/internal"
 	"github.com/spacemeshos/poet-ref/shared"
 	"math"
 	"os"
@@ -17,13 +18,22 @@ import (
 
 const statsSampleSize = 100000
 
+type Challenge = shared.Challenge
+type Proof = shared.Proof
+type IProver = shared.IProver
+type IVerifier = shared.IBasicVerifier
+type Identifier = shared.Identifier
+type HashFunc = shared.HashFunc
+type Label = shared.Label
+type Labels = shared.Labels
+
 type SMProver struct {
 	x     []byte   // commitment
 	n     uint     // n param 9 <= n <= 63
 	h     HashFunc // Hx()
-	f     BinaryStringFactory
-	phi   shared.Label
-	store IKvStore
+	f     internal.BinaryStringFactory
+	phi   Label
+	store internal.IKvStore
 	cache *lru.Cache
 
 	sb strings.Builder
@@ -31,7 +41,7 @@ type SMProver struct {
 }
 
 // Create a new prover with commitment X and param 1 <= n <= 63
-func NewProver(x []byte, n uint, h HashFunc) (shared.IProver, error) {
+func New(x []byte, n uint, h HashFunc) (IProver, error) {
 
 	if n < 9 || n > 63 {
 		return nil, errors.New("n must be in (9, 63)")
@@ -41,7 +51,7 @@ func NewProver(x []byte, n uint, h HashFunc) (shared.IProver, error) {
 		x:     x,
 		n:     n,
 		h:     h,
-		f:     NewSMBinaryStringFactory(),
+		f:     internal.NewSMBinaryStringFactory(),
 		cache: lru.New(int(n)), // we only need n entries in the labels cache
 		sb:    strings.Builder{},
 	}
@@ -60,7 +70,7 @@ func NewProver(x []byte, n uint, h HashFunc) (shared.IProver, error) {
 	fileName := fmt.Sprintf("./poet-%d.bin", binary.BigEndian.Uint64(d))
 	log.Tracef("Dag store: %s", path.Join(dir, fileName))
 
-	store, err := NewKvFileStore(fileName, n)
+	store, err := internal.NewKvFileStore(fileName, n)
 	if err != nil {
 		return res, err
 	}
@@ -79,23 +89,23 @@ func (p *SMProver) DeleteStore() {
 	_ = p.store.Delete()
 }
 
-func (p *SMProver) GetLabel(id Identifier) (shared.Label, bool) {
+func (p *SMProver) GetLabel(id Identifier) (Label, bool) {
 
 	inStore, err := p.store.IsLabelInStore(id)
 	if err != nil {
 		println(err)
-		return shared.Label{}, false
+		return Label{}, false
 	}
 
 	if !inStore {
 		println("Warning: label for id %s not found in store", id)
-		return shared.Label{}, false
+		return Label{}, false
 	}
 
 	l, err := p.store.Read(id)
 	if err != nil {
 		println(err)
-		return shared.Label{}, false
+		return Label{}, false
 	}
 
 	return l, true
@@ -110,15 +120,15 @@ func (p *SMProver) GetProof(c Challenge) (Proof, error) {
 
 	proof := Proof{}
 	proof.Phi = p.phi
-	proof.L = [shared.T]shared.Labels{}
+	proof.L = [shared.T]Labels{}
 
 	// temp store use to ensure labels in proof are unique and not duplicated
-	var m = make(map[Identifier]shared.Label)
+	var m = make(map[Identifier]Label)
 
 	// Iterate over each identifier in the challenge and create the proof for it
 	for idx, id := range c.Data {
 
-		var labels shared.Labels
+		var labels Labels
 
 		bs, err := p.f.NewBinaryString(string(id))
 		if err != nil {
@@ -162,22 +172,21 @@ func (p *SMProver) GetProof(c Challenge) (Proof, error) {
 }
 
 // γ := (Hx(φ,1),...Hx(φ,t))
-func (p *SMProver) creteNipChallenge() (Challenge, error) {
+func (p *SMProver) CreateNipChallenge() (Challenge, error) {
 	// use shared common func
-	return creteNipChallenge(p.phi, p.h, p.n)
+	return internal.CreateNipChallenge(p.phi, p.h, p.n)
 }
 
-func (p *SMProver) GetNonInteractiveProof() (Proof, error) {
-	c, err := p.creteNipChallenge()
+func (p *SMProver) GetNonInteractiveProof() (shared.Proof, error) {
+	c, err := p.CreateNipChallenge()
 	if err != nil {
-		return Proof{}, err
+		return shared.Proof{}, err
 	}
 
 	return p.GetProof(c)
 }
 
 func (p *SMProver) ComputeDag() (phi shared.Label, err error) {
-
 	N := math.Pow(2, float64(p.n+1)) - 1
 	L := math.Pow(2, float64(p.n))
 
@@ -204,21 +213,23 @@ func (p *SMProver) ComputeDag() (phi shared.Label, err error) {
 		return shared.Label{}, err
 	}
 
+	log.Tracef("Finalizing store. Wrote %d leaves. Total bytes: %d",
+		p.store.Labels(), p.store.Bytes())
+
 	return rootLabel, nil
 }
 
 // Compute dag rooted at node with identifier rootId
-func (p *SMProver) computeDag(rootId Identifier) (shared.Label, error) {
-
+func (p *SMProver) computeDag(rootId shared.Identifier) (shared.Label, error) {
 	p.sb.Reset()
 	p.sb.WriteString(string(rootId))
 	p.sb.WriteString("0")
-	leftNodeId := Identifier(p.sb.String())
+	leftNodeId := shared.Identifier(p.sb.String())
 
 	p.sb.Reset()
 	p.sb.WriteString(string(rootId))
 	p.sb.WriteString("1")
-	rightNodId := Identifier(p.sb.String())
+	rightNodId := shared.Identifier(p.sb.String())
 
 	childrenHeight := uint(len(rootId)) + 1
 	var leftNodeLabel, rightNodeLabel shared.Label
@@ -264,8 +275,7 @@ func (p *SMProver) computeDag(rootId Identifier) (shared.Label, error) {
 
 // Given a leaf node with id leafId - return the value of its label
 // Pre-condition: all parent labels values have been computed and are available for the implementation
-func (p *SMProver) computeLeafLabel(leafId Identifier) (shared.Label, error) {
-
+func (p *SMProver) computeLeafLabel(leafId shared.Identifier) (shared.Label, error) {
 	bs, err := p.f.NewBinaryString(string(leafId))
 	if err != nil {
 		return shared.Label{}, err
@@ -333,7 +343,6 @@ func PrintMemUsage() {
 	fmt.Printf(" > Other = %v MiB\n\n", bToMb(m.OtherSys))
 
 	// runtime.GC()
-
 }
 
 func bToMb(b uint64) uint64 {
@@ -344,7 +353,7 @@ func bToGb(b uint64) float64 {
 	return float64(b) / 1024 / 1024 / 1024
 }
 
-func (p *SMProver) printDag(rootId Identifier) {
+func (p *SMProver) printDag(rootId shared.Identifier) {
 	if rootId == "" {
 		items := p.store.Size() / shared.WB
 		fmt.Printf("DAG: # of nodes: %d. n: %d\n", items, p.n)
@@ -363,10 +372,10 @@ func (p *SMProver) printDag(rootId Identifier) {
 	}
 
 	label := p.readLabel(rootId)
-	fmt.Printf("%s: %s\n", rootId, GetDisplayValue(label))
+	fmt.Printf("%s: %s\n", rootId, internal.GetDisplayValue(label))
 }
 
-func (p *SMProver) readLabel(id Identifier) shared.Label {
+func (p *SMProver) readLabel(id shared.Identifier) shared.Label {
 	l, err := p.store.Read(id)
 	if err != nil {
 		println(err)

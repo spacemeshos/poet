@@ -12,10 +12,8 @@ import (
 // helper method, writes to store and verify
 // that value was written by reading it
 func writeAndVerify(t *testing.T, s IKvStore, id Identifier, l shared.Label) {
-
 	s.Write(id, l)
 	s.Close()
-
 }
 
 func genRndLabel(t *testing.T) shared.Label {
@@ -68,7 +66,6 @@ func TestWrites(t *testing.T) {
 }
 
 func TestDAG(t *testing.T) {
-
 	const n = 2
 
 	s, err := NewKvFileStore(filepath.Join(os.TempDir(), "store.bin"), n)

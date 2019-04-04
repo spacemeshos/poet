@@ -1,8 +1,9 @@
-package internal
+package verifier
 
 import (
 	"bytes"
 	"errors"
+	"github.com/spacemeshos/poet-ref/internal"
 	"github.com/spacemeshos/poet-ref/shared"
 )
 
@@ -11,6 +12,7 @@ type Proof = shared.Proof
 type IVerifier = shared.IBasicVerifier
 type Identifier = shared.Identifier
 type HashFunc = shared.HashFunc
+type Label = shared.Label
 
 type SMVerifier struct {
 	x []byte   // commitment
@@ -24,8 +26,8 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 
 	// We use k,v memory storage to store label values for identifiers
 	// as they are unique in p
-	m := NewNodesMap()
-	f := NewSMBinaryStringFactory()
+	m := internal.NewNodesMap()
+	f := internal.NewSMBinaryStringFactory()
 
 	// println("Starting verification...")
 	// fmt.Printf("Challenges count: %d\n", len(c.Data))
@@ -163,7 +165,7 @@ func (s *SMVerifier) Verify(c Challenge, p Proof) bool {
 
 func (s *SMVerifier) VerifyNIP(p Proof) (bool, error) {
 	// use shared common func
-	c, err := creteNipChallenge(p.Phi, s.h, s.n)
+	c, err := internal.CreateNipChallenge(p.Phi, s.h, s.n)
 	if err != nil {
 		return false, err
 	}
@@ -172,16 +174,16 @@ func (s *SMVerifier) VerifyNIP(p Proof) (bool, error) {
 }
 
 // γ := (Hx(φ,1),...Hx(φ,t))
-func (s *SMVerifier) CreteNipChallenge(phi shared.Label) (Challenge, error) {
+func (s *SMVerifier) CreateNipChallenge(phi shared.Label) (Challenge, error) {
 	// use shared common func
-	return creteNipChallenge(phi, s.h, s.n)
+	return internal.CreateNipChallenge(phi, s.h, s.n)
 }
 
 // create a random challenge that can be used to challenge a prover
 // that created a proof for shared params (x,t,n,w)
-func (s *SMVerifier) CreteRndChallenge() (Challenge, error) {
+func (s *SMVerifier) CreateRndChallenge() (Challenge, error) {
 	var data [shared.T]Identifier
-	f := NewSMBinaryStringFactory()
+	f := internal.NewSMBinaryStringFactory()
 
 	for i := 0; i < shared.T; i++ {
 		b, err := f.NewRandomBinaryString(s.n)
@@ -196,7 +198,7 @@ func (s *SMVerifier) CreteRndChallenge() (Challenge, error) {
 }
 
 // Create a new verifier for commitment X and param n
-func NewVerifier(x []byte, n uint, h HashFunc) (IVerifier, error) {
+func New(x []byte, n uint, h HashFunc) (IVerifier, error) {
 
 	if n < 9 || n > 63 {
 		return nil, errors.New("n must be in range (9, 63)")

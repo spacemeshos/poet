@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"github.com/btcsuite/btclog"
 	"github.com/jrick/logrotate/rotator"
-	"github.com/spacemeshos/poet-ref/internal"
+	"github.com/spacemeshos/poet-ref/prover"
 	"github.com/spacemeshos/poet-ref/rpc"
 	"github.com/spacemeshos/poet-ref/rpccore"
 	"github.com/spacemeshos/poet-ref/service"
@@ -57,7 +57,7 @@ func init() {
 	rpc.UseLogger(rpcServerLog)
 	rpccore.UseLogger(rpcServerLog)
 	service.UseLogger(serviceLog)
-	internal.UseLogger(proverLog)
+	prover.UseLogger(proverLog)
 }
 
 // subsystemLoggers maps each subsystem identifier to its associated logger.

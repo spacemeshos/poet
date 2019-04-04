@@ -2,7 +2,7 @@
 // Copyright (c) 2015-2016 The Decred developers
 // Copyright (c) 2017-2019 The Spacemesh developers
 
-package internal
+package prover
 
 import (
 	"github.com/btcsuite/btclog"

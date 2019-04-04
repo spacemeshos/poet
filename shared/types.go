@@ -46,10 +46,10 @@ type IBasicVerifier interface {
 	VerifyNIP(p Proof) (bool, error)
 
 	// Create a NIP challenge based on Phi (root label value provided by a proof)
-	CreteNipChallenge(phi Label) (Challenge, error)
+	CreateNipChallenge(phi Label) (Challenge, error)
 
-	// create a random challenge, that consists of T random identifies (each n bits long)
-	CreteRndChallenge() (Challenge, error)
+	// Create a random challenge, that consists of T random identifies (each n bits long)
+	CreateRndChallenge() (Challenge, error)
 }
 
 type ProofCreatedFunc func(phi Label, err error)
