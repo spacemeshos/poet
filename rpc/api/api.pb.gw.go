@@ -46,7 +46,7 @@ func request_Poet_Submit_0(ctx context.Context, marshaler runtime.Marshaler, cli
 }
 
 var (
-	filter_Poet_GetMembershipProof_0 = &utilities.DoubleArray{Encoding: map[string]int{"roundId": 0, "commitment": 1}, Base: []int{1, 1, 2, 0, 0}, Check: []int{0, 1, 1, 2, 3}}
+	filter_Poet_GetMembershipProof_0 = &utilities.DoubleArray{Encoding: map[string]int{"roundId": 0, "challenge": 1}, Base: []int{1, 1, 2, 0, 0}, Check: []int{0, 1, 1, 2, 3}}
 )
 
 func request_Poet_GetMembershipProof_0(ctx context.Context, marshaler runtime.Marshaler, client PoetClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
@@ -71,15 +71,15 @@ func request_Poet_GetMembershipProof_0(ctx context.Context, marshaler runtime.Ma
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "roundId", err)
 	}
 
-	val, ok = pathParams["commitment"]
+	val, ok = pathParams["challenge"]
 	if !ok {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "commitment")
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "challenge")
 	}
 
-	protoReq.Commitment, err = runtime.Bytes(val)
+	protoReq.Challenge, err = runtime.Bytes(val)
 
 	if err != nil {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "commitment", err)
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "challenge", err)
 	}
 
 	if err := runtime.PopulateQueryParameters(&protoReq, req.URL.Query(), filter_Poet_GetMembershipProof_0); err != nil {
@@ -306,7 +306,7 @@ func RegisterPoetHandlerClient(ctx context.Context, mux *runtime.ServeMux, clien
 var (
 	pattern_Poet_Submit_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "submit"}, ""))
 
-	pattern_Poet_GetMembershipProof_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 1, 0, 4, 1, 5, 3}, []string{"v1", "mproof", "roundId", "commitment"}, ""))
+	pattern_Poet_GetMembershipProof_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2, 1, 0, 4, 1, 5, 3}, []string{"v1", "mproof", "roundId", "challenge"}, ""))
 
 	pattern_Poet_GetProof_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "proof", "roundId"}, ""))
 

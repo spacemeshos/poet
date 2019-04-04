@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"fmt"
 	"github.com/spacemeshos/poet-ref/rpc/api"
 	"github.com/spacemeshos/poet-ref/service"
 	"github.com/spacemeshos/poet-ref/shared"
@@ -36,7 +37,7 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 }
 
 func (r *rpcServer) GetMembershipProof(ctx context.Context, in *api.GetMembershipProofRequest) (*api.GetMembershipProofResponse, error) {
-	mproof, err := r.s.MembershipProof(int(in.RoundId), in.Commitment, in.Wait)
+	mproof, err := r.s.MembershipProof(int(in.RoundId), in.Challenge, in.Wait)
 	if err != nil {
 		return nil, err
 	}
@@ -55,13 +56,15 @@ func (r *rpcServer) GetProof(ctx context.Context, in *api.GetProofRequest) (*api
 		return nil, err
 	}
 
-	pOut := new(api.Proof)
-	pOut.Phi = make([]byte, len(p.Phi))
-	pOut.Phi = p.Phi
-	pOut.L = nativeLabelsToWire(p.L)
-
 	out := new(api.GetProofResponse)
-	out.Proof = pOut
+	out.N = int32(p.N)
+	out.Commitment = p.Commitment
+
+	out.Proof = new(api.PoetProof)
+	out.Proof.Phi = make([]byte, len(p.Proof.Phi))
+	out.Proof.Phi = p.Proof.Phi
+	out.Proof.L = NativeLabelsToWire(p.Proof.L)
+
 	return out, nil
 }
 
@@ -71,18 +74,17 @@ func (r *rpcServer) GetRoundInfo(ctx context.Context, in *api.GetRoundInfoReques
 		return nil, err
 	}
 
-	pOut := new(api.Proof)
-	pOut.Phi = make([]byte, len(info.Nip.Phi))
-	pOut.Phi = info.Nip.Phi
-	pOut.L = nativeLabelsToWire(info.Nip.L)
-
 	out := new(api.GetRoundInfoResponse)
 	out.Opened = info.Opened.UnixNano() / int64(time.Millisecond)
 	out.ExecuteStart = info.ExecuteStart.UnixNano() / int64(time.Millisecond)
 	out.ExecuteEnd = info.ExecuteEnd.UnixNano() / int64(time.Millisecond)
-	out.NumOfcommitments = int32(info.NumOfCommits)
+	out.ChallengesCount = int32(info.ChallengesCount)
 	out.MerkleRoot = info.MerkleRoot
-	out.Proof = pOut
+
+	out.Proof = new(api.PoetProof)
+	out.Proof.Phi = make([]byte, len(info.Nip.Phi))
+	out.Proof.Phi = info.Nip.Phi
+	out.Proof.L = NativeLabelsToWire(info.Nip.L)
 
 	return out, nil
 }
@@ -108,7 +110,7 @@ func (r *rpcServer) GetInfo(ctx context.Context, in *api.GetInfoRequest) (*api.G
 	return out, nil
 }
 
-func nativeLabelsToWire(native [shared.T]shared.Labels) (wire []*api.Labels) {
+func NativeLabelsToWire(native [shared.T]shared.Labels) (wire []*api.Labels) {
 	for _, labels := range native {
 		var labelsMsg api.Labels
 		for _, label := range labels {
@@ -117,4 +119,21 @@ func nativeLabelsToWire(native [shared.T]shared.Labels) (wire []*api.Labels) {
 		wire = append(wire, &labelsMsg)
 	}
 	return wire
+}
+
+func WireLabelsToNative(wire []*api.Labels) (native *[shared.T]shared.Labels, err error) {
+	if len(wire) != shared.T {
+		return nil, fmt.Errorf("invalid number of labels, expected: %v, found: %v", shared.T, len(wire))
+	}
+
+	native = new([shared.T]shared.Labels)
+	for i, inLabels := range wire {
+		var outLabels shared.Labels
+		for _, inLabel := range inLabels.Labels {
+			outLabels = append(outLabels, inLabel)
+		}
+		native[i] = outLabels
+	}
+
+	return native, nil
 }

@@ -31,7 +31,7 @@
         ]
       }
     },
-    "/v1/mproof/{roundId}/{commitment}": {
+    "/v1/mproof/{roundId}/{challenge}": {
       "get": {
         "operationId": "GetMembershipProof",
         "responses": {
@@ -51,7 +51,7 @@
             "format": "int32"
           },
           {
-            "name": "commitment",
+            "name": "challenge",
             "in": "path",
             "required": true,
             "type": "string",
@@ -189,8 +189,16 @@
     "apiGetProofResponse": {
       "type": "object",
       "properties": {
+        "n": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "commitment": {
+          "type": "string",
+          "format": "byte"
+        },
         "proof": {
-          "$ref": "#/definitions/apiProof"
+          "$ref": "#/definitions/apiPoetProof"
         }
       }
     },
@@ -209,7 +217,7 @@
           "type": "string",
           "format": "int64"
         },
-        "numOfcommitments": {
+        "challengesCount": {
           "type": "integer",
           "format": "int32"
         },
@@ -218,7 +226,7 @@
           "format": "byte"
         },
         "proof": {
-          "$ref": "#/definitions/apiProof"
+          "$ref": "#/definitions/apiPoetProof"
         }
       }
     },
@@ -254,7 +262,7 @@
         }
       }
     },
-    "apiProof": {
+    "apiPoetProof": {
       "type": "object",
       "properties": {
         "phi": {

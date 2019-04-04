@@ -14,7 +14,7 @@ service Poet {
 
     rpc GetMembershipProof (GetMembershipProofRequest) returns (GetMembershipProofResponse) {
         option (google.api.http) = {
-            get: "/v1/mproof/{roundId}/{commitment}"
+            get: "/v1/mproof/{roundId}/{challenge}"
         };
     }
 
@@ -47,7 +47,7 @@ message SubmitResponse {
 
 message GetMembershipProofRequest {
     int32 roundId = 1;
-    bytes commitment = 2;
+    bytes challenge = 2;
     bool wait = 3;
 }
 
@@ -61,7 +61,9 @@ message GetProofRequest {
 }
 
 message GetProofResponse {
-    Proof proof = 1;
+    int32 n = 1;
+    bytes commitment = 2;
+    PoetProof proof = 3;
 }
 
 message GetInfoRequest {
@@ -71,9 +73,9 @@ message GetRoundInfoResponse {
     int64 opened = 1;
     int64 executeStart = 2;
     int64 executeEnd = 3;
-    int32 numOfcommitments = 4;
+    int32 challengesCount = 4;
     bytes merkleRoot = 5;
-    Proof proof = 6;
+    PoetProof proof = 6;
 }
 
 message GetRoundInfoRequest {
@@ -92,7 +94,7 @@ message MembershipProof {
     repeated bytes proof = 3;
 }
 
-message Proof {
+message PoetProof {
     bytes phi = 1;
     repeated Labels l = 2;
 }
