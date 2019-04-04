@@ -7,7 +7,6 @@ import (
 )
 
 func TestNodesMap(t *testing.T) {
-
 	f := NewSMBinaryStringFactory()
 
 	const d = "0000010001011010010001100111000010010101101111111111101110000110"
@@ -35,5 +34,4 @@ func TestNodesMap(t *testing.T) {
 	assert.True(t, ok)
 
 	assert.EqualValues(t, label1, label2)
-
 }

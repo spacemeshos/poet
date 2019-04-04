@@ -1,4 +1,4 @@
-package internal
+package prover
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ func TestProverBasic(t *testing.T) {
 	x := []byte("this is a commitment")
 	const n = 9
 
-	p, err := NewProver(x, n, shared.NewScryptHashFunc(x))
+	p, err := New(x, n, shared.NewScryptHashFunc(x))
 	assert.NoError(t, err)
 
 	phi, err := p.ComputeDag()
@@ -36,7 +36,7 @@ func TestProverBasic(t *testing.T) {
 func BenchmarkProver(t *testing.B) {
 	x := []byte("this is a commitment")
 	const n = 15
-	p, err := NewProver(x, n, shared.NewScryptHashFunc(x))
+	p, err := New(x, n, shared.NewScryptHashFunc(x))
 	assert.NoError(t, err)
 	_, _ = p.ComputeDag()
 }

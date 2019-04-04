@@ -24,6 +24,9 @@ type IKvStore interface {
 	Finalize() error // finalize writing w/o closing the file
 	Close() error    // finalize and close
 
+	Labels() uint64 // num of labels written to store in this session
+	Bytes() uint64  // num of bytes written
+
 	//GetWriteChan() WriteChan
 }
 
@@ -56,7 +59,6 @@ func NewKvFileStore(fileName string, n uint) (IKvStore, error) {
 }
 
 func (d *KVFileStore) init() error {
-
 	f, err := os.OpenFile(d.fileName, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		return err
@@ -71,7 +73,6 @@ func (d *KVFileStore) init() error {
 }
 
 func (d *KVFileStore) Write(id Identifier, l shared.Label) {
-
 	// update stats
 	d.c += 1
 	d.sz += uint64(len(l))
@@ -95,13 +96,8 @@ func (d *KVFileStore) Reset() error {
 }
 
 func (d *KVFileStore) Finalize() error {
-
 	// flush buffered ata to the underling writer
-	err := d.bw.Flush()
-
-	log.Tracef("Finalizing store. Wrote %d leaves. Total bytes: %d", d.c, d.sz)
-
-	return err
+	return d.bw.Flush()
 }
 
 func (d *KVFileStore) Close() error {
@@ -217,4 +213,12 @@ func (d *KVFileStore) leftSiblingsSubtreeSize(id Identifier) (uint64, error) {
 	}
 
 	return res, nil
+}
+
+func (d *KVFileStore) Labels() uint64 {
+	return d.c
+}
+
+func (d *KVFileStore) Bytes() uint64 {
+	return d.sz
 }

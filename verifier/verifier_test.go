@@ -1,4 +1,4 @@
-package internal
+package verifier
 
 import (
 	"encoding/hex"
@@ -8,7 +8,6 @@ import (
 )
 
 func TestNipChallenge(t *testing.T) {
-
 	x := []byte("this is a commitment")
 
 	const n = 25
@@ -17,10 +16,10 @@ func TestNipChallenge(t *testing.T) {
 	var phi shared.Label
 	copy(phi[:], data)
 
-	v, err := NewVerifier(x, n, shared.NewScryptHashFunc(x))
+	v, err := New(x, n, shared.NewScryptHashFunc(x))
 	assert.NoError(t, err)
 
-	c, err := v.CreteNipChallenge(phi)
+	c, err := v.CreateNipChallenge(phi)
 	assert.NoError(t, err)
 
 	assert.Equal(t, shared.T, len(c.Data), "Expected t identifiers in challenge")
@@ -35,10 +34,10 @@ func TestRndChallenge(t *testing.T) {
 	x := []byte("this is a commitment")
 	const n = 29
 
-	v, err := NewVerifier(x, n, shared.NewScryptHashFunc(x))
+	v, err := New(x, n, shared.NewScryptHashFunc(x))
 	assert.NoError(t, err)
 
-	c, err := v.CreteRndChallenge()
+	c, err := v.CreateRndChallenge()
 	assert.NoError(t, err)
 	assert.Equal(t, shared.T, len(c.Data), "Expected t identifiers in challenge")
 

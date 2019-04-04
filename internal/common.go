@@ -8,6 +8,15 @@ import (
 	"math/big"
 )
 
+type Challenge = shared.Challenge
+type Proof = shared.Proof
+type IProver = shared.IProver
+type IVerifier = shared.IBasicVerifier
+type Identifier = shared.Identifier
+type HashFunc = shared.HashFunc
+type Label = shared.Label
+type Labels = shared.Labels
+
 func PrintProof(p Proof) {
 	println("Proof data...")
 	fmt.Printf(" Root label: %s\n", GetDisplayValue(p.Phi))
@@ -19,7 +28,7 @@ func PrintProof(p Proof) {
 	}
 }
 
-func GetDisplayValue(l shared.Label) string {
+func GetDisplayValue(l Label) string {
 	if len(l) < 8 {
 		return fmt.Sprintf("%x", l)
 	}
@@ -32,8 +41,7 @@ func GetDisplayValue(l shared.Label) string {
 // phi - root label
 // h - Hx()
 // n - proof param
-func creteNipChallenge(phi shared.Label, h HashFunc, n uint) (Challenge, error) {
-
+func CreateNipChallenge(phi Label, h HashFunc, n uint) (Challenge, error) {
 	var data [shared.T]Identifier
 	buf := new(bytes.Buffer)
 	f := NewSMBinaryStringFactory()

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/spacemeshos/merkle-tree"
-	"github.com/spacemeshos/poet-ref/internal"
+	prover "github.com/spacemeshos/poet-ref/prover"
 	"github.com/spacemeshos/poet-ref/shared"
 	"time"
 )
@@ -62,7 +62,7 @@ func (r *round) close() error {
 
 func (r *round) execute() error {
 	// TODO(moshababo): use the config hash function
-	prover, err := internal.NewProver(r.merkleRoot, r.cfg.N, shared.NewHashFunc(r.merkleRoot))
+	prover, err := prover.New(r.merkleRoot, r.cfg.N, shared.NewHashFunc(r.merkleRoot))
 	if err != nil {
 		return err
 	}
