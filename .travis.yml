@@ -10,7 +10,7 @@ services:
 # for some reason /usr/local is owned by a different user in travis, so we transfer ownership to the current user:
 before_install: sudo chown -R $(whoami) /usr/local
 
-install: make install
+install: make all
 
 jobs:
   include:
