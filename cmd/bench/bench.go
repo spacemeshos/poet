@@ -3,8 +3,10 @@ package main
 import (
 	"crypto/rand"
 	"fmt"
-	"github.com/spacemeshos/poet-ref/internal"
-	"github.com/spacemeshos/poet-ref/shared"
+	"github.com/spacemeshos/poet/internal"
+	"github.com/spacemeshos/poet/prover"
+	"github.com/spacemeshos/poet/shared"
+	"github.com/spacemeshos/poet/verifier"
 	"runtime"
 
 	"log"
@@ -51,7 +53,7 @@ func main() {
 		panic("no entropy")
 	}
 
-	p, err := internal.NewProver(x, cfg.N, shared.NewHashFunc(x))
+	p, err := prover.New(x, cfg.N, shared.NewHashFunc(x))
 	defer p.DeleteStore()
 	if err != nil {
 		panic("can't create prover")
@@ -74,7 +76,7 @@ func main() {
 		panic("Failed to create nip")
 	}
 
-	v, err := internal.NewVerifier(x, cfg.N, shared.NewHashFunc(x))
+	v, err := verifier.New(x, cfg.N, shared.NewHashFunc(x))
 	if err != nil {
 		panic("Failed to create verifier")
 	}

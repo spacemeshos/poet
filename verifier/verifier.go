@@ -3,8 +3,8 @@ package verifier
 import (
 	"bytes"
 	"errors"
-	"github.com/spacemeshos/poet-ref/internal"
-	"github.com/spacemeshos/poet-ref/shared"
+	"github.com/spacemeshos/poet/internal"
+	"github.com/spacemeshos/poet/shared"
 )
 
 type Challenge = shared.Challenge

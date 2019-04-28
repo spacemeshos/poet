@@ -1,6 +1,6 @@
 FROM golang:1.11.2-alpine3.8 AS build_base
 RUN apk add bash make git curl unzip rsync libc6-compat gcc musl-dev
-WORKDIR /go/src/github.com/spacemeshos/poet-ref
+WORKDIR /go/src/github.com/spacemeshos/poet
 
 # Force the go compiler to use modules
 ENV GO111MODULE=on
@@ -21,5 +21,5 @@ COPY . .
 RUN go build
 
 FROM alpine AS spacemesh
-COPY --from=server_builder /go/src/github.com/spacemeshos/poet-ref/poet-ref /bin/poet-ref
-ENTRYPOINT ["/bin/poet-ref"]
+COPY --from=server_builder /go/src/github.com/spacemeshos/poet/poet /bin/poet
+ENTRYPOINT ["/bin/poet"]

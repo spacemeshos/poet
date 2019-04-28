@@ -1,6 +1,6 @@
 package internal
 
-import "github.com/spacemeshos/poet-ref/shared"
+import "github.com/spacemeshos/poet/shared"
 
 // A (k,v) store of (BinaryString, shared.Label)
 

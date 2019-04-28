@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/spacemeshos/poet-ref/shared"
+	"github.com/spacemeshos/poet/shared"
 	"math/big"
 )
 

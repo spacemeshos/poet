@@ -33,13 +33,13 @@ func poetExecutablePath(baseDir string) (string, error) {
 	}
 
 	// Build poet and output an executable in a static temp path.
-	outputPath := filepath.Join(baseDir, "poet-ref")
+	outputPath := filepath.Join(baseDir, "poet")
 	if runtime.GOOS == "windows" {
 		outputPath += ".exe"
 	}
 
 	cmd := exec.Command(
-		"go", "build", "-o", outputPath, "github.com/spacemeshos/poet-ref",
+		"go", "build", "-o", outputPath, "github.com/spacemeshos/poet",
 	)
 
 	err := cmd.Run()

@@ -2,7 +2,7 @@ package verifier
 
 import (
 	"encoding/hex"
-	"github.com/spacemeshos/poet-ref/shared"
+	"github.com/spacemeshos/poet/shared"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )

@@ -2,7 +2,7 @@ package service
 
 import (
 	"errors"
-	"github.com/spacemeshos/poet-ref/shared"
+	"github.com/spacemeshos/poet/shared"
 	"time"
 )
 

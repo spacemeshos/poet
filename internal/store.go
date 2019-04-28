@@ -2,7 +2,7 @@ package internal
 
 import (
 	"errors"
-	"github.com/spacemeshos/poet-ref/shared"
+	"github.com/spacemeshos/poet/shared"
 	"math"
 	"os"
 )

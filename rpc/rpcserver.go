@@ -2,9 +2,9 @@ package rpc
 
 import (
 	"fmt"
-	"github.com/spacemeshos/poet-ref/rpc/api"
-	"github.com/spacemeshos/poet-ref/service"
-	"github.com/spacemeshos/poet-ref/shared"
+	"github.com/spacemeshos/poet/rpc/api"
+	"github.com/spacemeshos/poet/service"
+	"github.com/spacemeshos/poet/shared"
 	"golang.org/x/net/context"
 	"time"
 )

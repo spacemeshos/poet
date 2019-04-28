@@ -3,7 +3,7 @@ package integration
 import (
 	"context"
 	"fmt"
-	"github.com/spacemeshos/poet-ref/rpc/api"
+	"github.com/spacemeshos/poet/rpc/api"
 	"google.golang.org/grpc"
 	"os"
 	"path/filepath"

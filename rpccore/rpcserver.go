@@ -2,9 +2,9 @@ package rpccore
 
 import (
 	"fmt"
-	"github.com/spacemeshos/poet-ref/rpccore/apicore"
-	"github.com/spacemeshos/poet-ref/shared"
-	"github.com/spacemeshos/poet-ref/signal"
+	"github.com/spacemeshos/poet/rpccore/apicore"
+	"github.com/spacemeshos/poet/shared"
+	"github.com/spacemeshos/poet/signal"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
