@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/spacemeshos/merkle-tree"
-	prover "github.com/spacemeshos/poet-ref/prover"
-	"github.com/spacemeshos/poet-ref/shared"
+	prover "github.com/spacemeshos/poet/prover"
+	"github.com/spacemeshos/poet/shared"
 	"time"
 )
 

@@ -2,7 +2,7 @@ package internal
 
 import (
 	"crypto/rand"
-	"github.com/spacemeshos/poet-ref/shared"
+	"github.com/spacemeshos/poet/shared"
 	"github.com/stretchr/testify/assert"
 	"os"
 	"path/filepath"

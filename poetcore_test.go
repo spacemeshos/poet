@@ -3,16 +3,20 @@ package main
 import (
 	"crypto/rand"
 	"fmt"
-	"github.com/spacemeshos/poet-ref/internal"
-	"github.com/spacemeshos/poet-ref/prover"
-	"github.com/spacemeshos/poet-ref/shared"
-	"github.com/spacemeshos/poet-ref/verifier"
+	"github.com/spacemeshos/poet/internal"
+	"github.com/spacemeshos/poet/prover"
+	"github.com/spacemeshos/poet/shared"
+	"github.com/spacemeshos/poet/verifier"
 	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
 
 func TestProverAndVerifier(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
 	x := make([]byte, 32)
 	n := uint(33)
 

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"fmt"
-	"github.com/spacemeshos/poet-ref/shared"
+	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/sha256-simd"
 	"math"
 	"testing"

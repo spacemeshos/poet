@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"github.com/btcsuite/btcutil"
 	"github.com/jessevdk/go-flags"
-	"github.com/spacemeshos/poet-ref/service"
+	"github.com/spacemeshos/poet/service"
 	"net"
 	"os"
 	"os/user"

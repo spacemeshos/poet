@@ -1,4 +1,4 @@
-# poet-ref
+# poet
 
 A reference poet implementation for testing of the Spacemesh open source POET server
 
@@ -8,8 +8,8 @@ Since the project uses Go 1.11's Modules it's best to place the code **outside**
 
 
 ```
-$ git clone https://github.com/spacemeshos/poet-ref.git
-$ cd poet-ref
+$ git clone https://github.com/spacemeshos/poet.git
+$ cd poet
 $ go build
 ```
 
