@@ -1,4 +1,4 @@
-BINARY := poet-ref
+BINARY := poet
 DOCKER_IMAGE_REPO := poet
 
 ifdef TRAVIS_BRANCH
