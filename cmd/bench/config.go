@@ -29,7 +29,7 @@ func loadConfig() (*config, error) {
 	if _, err := flags.Parse(&cfg); err != nil {
 		if e, ok := err.(*flags.Error); ok && e.Type == flags.ErrHelp {
 		} else {
-		_ : fmt.Fprintln(os.Stderr, err)
+			_, _ = fmt.Fprintln(os.Stderr, err)
 		}
 		return nil, err
 	}

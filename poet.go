@@ -53,7 +53,7 @@ func main() {
 		// because it was already printed.
 		if e, ok := err.(*flags.Error); ok && e.Type == flags.ErrHelp {
 		} else {
-			_ : fmt.Fprintln(os.Stderr, err)
+			_, _ = fmt.Fprintln(os.Stderr, err)
 		}
 		os.Exit(1)
 	}
