@@ -6,18 +6,7 @@ import (
 	"github.com/spacemeshos/poet/shared"
 )
 
-type MerkleProof struct {
-	root         []byte
-	provenLeaves [][]byte
-	proofNodes   [][]byte
-}
-
-type NewChallenge interface {
-	MerkleHashFunc() merkle.HashFunc
-	LabelHashFunc() shared.LabelHashFunc
-}
-
-func GetProof(challenge NewChallenge, height uint) (MerkleProof, error) {
+func GetProof(challenge shared.NewChallenge, leafCount uint64, securityParam uint8) (shared.MerkleProof, error) {
 	treeCache := cache.NewWriter(
 		cache.Combine(
 			cache.SpecificLayersPolicy(map[uint]bool{0: true}),
@@ -25,26 +14,24 @@ func GetProof(challenge NewChallenge, height uint) (MerkleProof, error) {
 		cache.MakeSliceReadWriterFactory())
 	tree := merkle.NewTreeBuilder().WithHashFunc(challenge.MerkleHashFunc()).WithCacheWriter(treeCache).Build()
 
-	leafCount := uint64(1) << height
 	for leafID := uint64(0); leafID < leafCount; leafID++ {
 		err := tree.AddLeaf(shared.MakeLabel(challenge.LabelHashFunc(), leafID, tree.GetParkedNodes()))
 		if err != nil {
-			return MerkleProof{}, err
+			return shared.MerkleProof{}, err
 		}
 	}
 	root := tree.Root()
 
 	cacheReader, err := treeCache.GetReader()
 	if err != nil {
-		return MerkleProof{}, err
+		return shared.MerkleProof{}, err
 	}
-	securityParam := uint8(5)
 	provenLeafIndices := shared.FiatShamir(root, leafCount, securityParam)
 	_, provenLeaves, proofNodes, err := merkle.GenerateProof(provenLeafIndices, cacheReader)
 
-	return MerkleProof{
-		root:         root,
-		provenLeaves: provenLeaves,
-		proofNodes:   proofNodes,
+	return shared.MerkleProof{
+		Root:         root,
+		ProvenLeaves: provenLeaves,
+		ProofNodes:   proofNodes,
 	}, nil
 }

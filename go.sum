@@ -53,8 +53,8 @@ github.com/onsi/gomega v1.4.3/go.mod h1:ex+gbHU/CVuBBDIJjb2X0qEXbFg53c61hWP/1Cpa
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/rogpeppe/fastuuid v0.0.0-20150106093220-6724a57986af/go.mod h1:XWv6SoW27p1b0cqNHllgS5HIMJraePCO15w5zCzIWYg=
-github.com/spacemeshos/merkle-tree v0.0.0-20190429094541-207d876cec91 h1:0g8+mFy11gnqXtk3MLWHKgf1MxF/ePOOf+QhGbfq0qs=
-github.com/spacemeshos/merkle-tree v0.0.0-20190429094541-207d876cec91/go.mod h1:mPxjt4RONPxSUhxOq4bhSJyKVGQJ0VMSyRiE51dDLgE=
+github.com/spacemeshos/merkle-tree v0.0.0-20190501120028-ac28133f0b33 h1:8+PkS7R9Gp/N5j7iehEWEq8QIf0zx183H9h+vCf6Ubs=
+github.com/spacemeshos/merkle-tree v0.0.0-20190501120028-ac28133f0b33/go.mod h1:mPxjt4RONPxSUhxOq4bhSJyKVGQJ0VMSyRiE51dDLgE=
 github.com/spacemeshos/sha256-simd v0.0.0-20190111104731-8575aafc88c9 h1:Cc+np6ORem5wrvO+YHQ1sdu71ItiQVRiYB4ugazpgxM=
 github.com/spacemeshos/sha256-simd v0.0.0-20190111104731-8575aafc88c9/go.mod h1:Pz5LyRghtiEuSixOVGO0da5AxKBZa6+Yq8ZJfjTAPI0=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=

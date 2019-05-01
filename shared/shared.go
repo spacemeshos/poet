@@ -2,6 +2,7 @@ package shared
 
 import (
 	"encoding/binary"
+	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/sha256-simd"
 )
 
@@ -27,4 +28,15 @@ func MakeLabel(hash LabelHashFunc, labelID uint64, leftSiblings [][]byte) []byte
 	sum := hash(data)
 	//fmt.Printf("label %2d: %x | data: %x\n", labelID, sum, data)
 	return sum
+}
+
+type MerkleProof struct {
+	Root         []byte
+	ProvenLeaves [][]byte
+	ProofNodes   [][]byte
+}
+
+type NewChallenge interface {
+	MerkleHashFunc() merkle.HashFunc
+	LabelHashFunc() LabelHashFunc
 }

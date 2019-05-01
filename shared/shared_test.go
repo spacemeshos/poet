@@ -57,7 +57,6 @@ func TestMakeLabel(t *testing.T) {
 		return []byte("H(" + hex.EncodeToString(data) + ")")
 	}
 
-
 	decodeHexString := func(str string) []byte {
 		if str == "" {
 			return nil

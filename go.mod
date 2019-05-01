@@ -9,7 +9,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway v1.8.4
 	github.com/jessevdk/go-flags v1.4.0
 	github.com/jrick/logrotate v1.0.0
-	github.com/spacemeshos/merkle-tree v0.0.0-20190429094541-207d876cec91
+	github.com/spacemeshos/merkle-tree v0.0.0-20190501120028-ac28133f0b33
 	github.com/spacemeshos/sha256-simd v0.0.0-20190111104731-8575aafc88c9
 	github.com/stretchr/testify v1.3.0
 	golang.org/x/crypto v0.0.0-20181030102418-4d3f4d9ffa16

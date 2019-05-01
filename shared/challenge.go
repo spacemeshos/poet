@@ -23,4 +23,3 @@ func (c Sha256Challenge) LabelHashFunc() LabelHashFunc {
 		return result[:]
 	}
 }
-
