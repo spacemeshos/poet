@@ -26,7 +26,7 @@ func Validate(proof shared.MerkleProof, challenge shared.Challenge, leafCount ui
 	for id, label := range proof.ProvenLeaves {
 		expectedLabel := shared.MakeLabel(challenge.LabelHashFunc(), provenLeafIndices[id], parkingSnapshots[id])
 		if !bytes.Equal(expectedLabel, label) {
-			return fmt.Errorf("label at index %d incorrect", id)
+			return fmt.Errorf("label at index %d incorrect - expected: %x actual: %x", id, expectedLabel, label)
 		}
 	}
 

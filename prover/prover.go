@@ -6,11 +6,13 @@ import (
 	"github.com/spacemeshos/poet/shared"
 )
 
+const MerkleMinCacheLayer = 0 // Merkle nodes from this layer up will be cached in memory
+
 func GetProof(challenge shared.Challenge, leafCount uint64, securityParam uint8) (shared.MerkleProof, error) {
 	treeCache := cache.NewWriter(
 		cache.Combine(
 			cache.SpecificLayersPolicy(map[uint]bool{0: true}),
-			cache.MinHeightPolicy(11)),
+			cache.MinHeightPolicy(MerkleMinCacheLayer)),
 		cache.MakeSliceReadWriterFactory())
 	tree := merkle.NewTreeBuilder().WithHashFunc(challenge.MerkleHashFunc()).WithCacheWriter(treeCache).Build()
 
@@ -28,6 +30,9 @@ func GetProof(challenge shared.Challenge, leafCount uint64, securityParam uint8)
 	}
 	provenLeafIndices := shared.FiatShamir(root, leafCount, securityParam)
 	_, provenLeaves, proofNodes, err := merkle.GenerateProof(provenLeafIndices, cacheReader)
+	if err != nil {
+		return shared.MerkleProof{}, err
+	}
 
 	return shared.MerkleProof{
 		Root:         root,
