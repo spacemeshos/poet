@@ -6,7 +6,7 @@ import (
 	"github.com/spacemeshos/poet/shared"
 )
 
-func GetProof(challenge shared.NewChallenge, leafCount uint64, securityParam uint8) (shared.MerkleProof, error) {
+func GetProof(challenge shared.Challenge, leafCount uint64, securityParam uint8) (shared.MerkleProof, error) {
 	treeCache := cache.NewWriter(
 		cache.Combine(
 			cache.SpecificLayersPolicy(map[uint]bool{0: true}),

@@ -8,7 +8,7 @@ import (
 	"sort"
 )
 
-func Validate(proof shared.MerkleProof, challenge shared.NewChallenge, leafCount uint64, securityParam uint8) error {
+func Validate(proof shared.MerkleProof, challenge shared.Challenge, leafCount uint64, securityParam uint8) error {
 	if int(securityParam) != len(proof.ProvenLeaves) {
 		return fmt.Errorf("number of proven leaves (%d) must be equal to security param (%d)",
 			len(proof.ProvenLeaves), securityParam)

@@ -38,7 +38,7 @@ type MerkleProof struct {
 	ProofNodes   [][]byte
 }
 
-type NewChallenge interface {
+type Challenge interface {
 	MerkleHashFunc() merkle.HashFunc
 	LabelHashFunc() LabelHashFunc
 }
