@@ -124,9 +124,6 @@ message DagParams {
 
 message Proof {
     bytes phi = 1 [json_name = "phi"];
-    repeated Labels l = 2 [json_name = "l"];
-}
-
-message Labels {
-    repeated bytes labels = 1 [json_name = "labels"];
+    repeated bytes provenLeaves = 2 [json_name = "proven_leaves"];
+    repeated bytes proofNodes = 3 [json_name = "proof_nodes"];
 }

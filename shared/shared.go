@@ -6,6 +6,8 @@ import (
 	"github.com/spacemeshos/sha256-simd"
 )
 
+const T uint8 = 150 // security param
+
 func FiatShamir(challenge []byte, spaceSize uint64, indexCount uint8) map[uint64]bool {
 	if uint64(indexCount) > spaceSize {
 		indexCount = uint8(spaceSize)

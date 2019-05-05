@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/poet/integration"
-	"github.com/spacemeshos/poet/rpc"
 	"github.com/spacemeshos/poet/rpc/api"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/verifier"
@@ -115,16 +114,14 @@ func testProof(h *integration.Harness, assert *require.Assertions, ctx context.C
 	assert.NotNil(proofRes)
 	assert.NotNil(proofRes.Proof)
 
-	v, err := verifier.New(proofRes.Commitment, uint(proofRes.N), shared.NewHashFunc(proofRes.Commitment))
+	merkleProof := shared.MerkleProof{
+		Root:         proofRes.Proof.Phi,
+		ProvenLeaves: proofRes.Proof.ProvenLeaves,
+		ProofNodes:   proofRes.Proof.ProofNodes,
+	}
+	challenge := shared.Sha256Challenge(proofRes.Commitment)
+	leafCount := uint64(1) << uint32(proofRes.N)
+	securityParam := shared.T
+	err = verifier.Validate(merkleProof, challenge, leafCount, securityParam)
 	assert.NoError(err)
-	assert.NotNil(v)
-	labels, err := rpc.WireLabelsToNative(proofRes.Proof.L)
-	assert.NoError(err)
-	assert.NotNil(labels)
-	res, err := v.VerifyNIP(shared.Proof{
-		Phi: proofRes.Proof.Phi,
-		L:   *labels,
-	})
-	assert.NoError(err)
-	assert.True(res)
 }

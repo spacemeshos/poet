@@ -96,9 +96,6 @@ message MembershipProof {
 
 message PoetProof {
     bytes phi = 1;
-    repeated Labels l = 2;
-}
-
-message Labels {
-    repeated bytes labels = 1;
+    repeated bytes provenLeaves = 2;
+    repeated bytes proofNodes = 3;
 }
