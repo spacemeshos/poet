@@ -13,7 +13,6 @@ func TestNewService(t *testing.T) {
 
 	cfg := new(Config)
 	cfg.N = 17
-	cfg.HashFunction = "sha256"
 	cfg.InitialRoundDuration = 1 * time.Second
 
 	s, err := NewService(cfg)

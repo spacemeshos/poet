@@ -8,7 +8,6 @@ import (
 
 type Config struct {
 	N                    uint          `long:"n" description:"PoET time parameter"`
-	HashFunction         string        `long:"hashfunction" description:"PoET hash function"`
 	RoundsDuration       time.Duration `long:"duration" description:"duration of the opening time for each round. If not specified, rounds duration will be determined by its previous round end of PoET execution"`
 	InitialRoundDuration time.Duration `long:"initialduration" description:"duration of the opening time for the initial round. if rounds duration isn't specified, this param is necessary"`
 	ExecuteEmpty         bool          `long:"empty" description:"whether to execution empty rounds, without any submitted challenges"`

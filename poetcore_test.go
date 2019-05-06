@@ -7,39 +7,38 @@ import (
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/verifier"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 )
 
-func TestProverAndVerifier(t *testing.T) {
-	if testing.Short() {
-		t.Skip()
-	}
+func BenchmarkProverAndVerifierBig(b *testing.B) {
+	r := require.New(b)
 
 	x := make([]byte, 32)
 	n := uint(33)
 
 	_, err := rand.Read(x)
-	assert.NoError(t, err)
+	r.NoError(err)
 
 	challenge := shared.Sha256Challenge(x)
 	leafCount := uint64(1) << n
 	securityParam := shared.T
 
-	t.Log("Computing dag...")
+	b.Log("Computing dag...")
 	t1 := time.Now()
 	merkleProof, err := prover.GetProof(challenge, leafCount, securityParam)
-	assert.NoError(t, err, "Failed to generate proof")
+	r.NoError(err, "Failed to generate proof")
 
 	e := time.Since(t1)
-	t.Logf("Proof generated in %s (%f) \n", e, e.Seconds())
-	t.Logf("Dag root label: %x\n", merkleProof.Root)
+	b.Logf("Proof generated in %s (%f) \n", e, e.Seconds())
+	b.Logf("Dag root label: %x\n", merkleProof.Root)
 
 	err = verifier.Validate(merkleProof, challenge, leafCount, securityParam)
-	assert.NoError(t, err, "Failed to verify NIP")
+	r.NoError(err, "Failed to verify NIP")
 
 	e1 := time.Since(t1)
-	t.Logf("Proof verified in %s (%f)\n", e1-e, (e1 - e).Seconds())
+	b.Logf("Proof verified in %s (%f)\n", e1-e, (e1 - e).Seconds())
 }
 
 func TestBigNip(t *testing.T) {

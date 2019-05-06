@@ -12,15 +12,13 @@ import (
 )
 
 var (
-	ErrProverExists    = status.Error(codes.FailedPrecondition, "active prover instance already exists")
-	ErrNoProverExists  = status.Error(codes.FailedPrecondition, "no active prover instance exists")
-	ErrInvalidHashFunc = status.Error(codes.FailedPrecondition, "invalid hash function")
+	ErrNoProofExists = status.Error(codes.FailedPrecondition, "no computed proof exists")
 )
 
 // rpcServer is a gRPC, RPC front end to poet core
 type rpcServer struct {
-	s           *signal.Signal
-	proof       *shared.MerkleProof
+	s     *signal.Signal
+	proof *shared.MerkleProof
 }
 
 // A compile time check to ensure that rpcServer fully implements the
@@ -29,14 +27,13 @@ var _ apicore.PoetCoreProverServer = (*rpcServer)(nil)
 var _ apicore.PoetVerifierServer = (*rpcServer)(nil)
 
 // newRPCServer creates and returns a new instance of the rpcServer.
-func NewRPCServer(s *signal.Signal, ) *rpcServer {
+func NewRPCServer(s *signal.Signal) *rpcServer {
 	return &rpcServer{
-		s:           s,
+		s: s,
 	}
 }
 
 func (r *rpcServer) Compute(ctx context.Context, in *apicore.ComputeRequest) (*apicore.ComputeResponse, error) {
-	// TODO(noamnelke): use hash function based on in.D.H ?
 	challenge := shared.Sha256Challenge(in.D.X)
 	leafCount := uint64(1) << in.D.N
 	securityParam := shared.T
@@ -49,29 +46,12 @@ func (r *rpcServer) Compute(ctx context.Context, in *apicore.ComputeRequest) (*a
 	return &apicore.ComputeResponse{Phi: proof.Root}, nil
 }
 
-func (r *rpcServer) Clean(ctx context.Context, in *apicore.CleanRequest) (*apicore.CleanResponse, error) {
-	// TODO(noamnelke): remove this
-	return &apicore.CleanResponse{}, nil
-}
-
 func (r *rpcServer) GetNIP(ctx context.Context, in *apicore.GetNIPRequest) (*apicore.GetNIPResponse, error) {
 	if r.proof == nil {
-		return nil, ErrNoProverExists
+		return nil, ErrNoProofExists
 	}
 
 	return &apicore.GetNIPResponse{Proof: &apicore.Proof{
-		Phi:          r.proof.Root,
-		ProvenLeaves: r.proof.ProvenLeaves,
-		ProofNodes:   r.proof.ProofNodes,
-	}}, nil
-}
-
-func (r *rpcServer) GetProof(ctx context.Context, in *apicore.GetProofRequest) (*apicore.GetProofResponse, error) {
-	if r.proof == nil {
-		return nil, ErrNoProverExists
-	}
-
-	return &apicore.GetProofResponse{Proof: &apicore.Proof{
 		Phi:          r.proof.Root,
 		ProvenLeaves: r.proof.ProvenLeaves,
 		ProofNodes:   r.proof.ProofNodes,
@@ -83,20 +63,6 @@ func (r *rpcServer) Shutdown(context.Context, *apicore.ShutdownRequest) (*apicor
 	return &apicore.ShutdownResponse{}, nil
 }
 
-func (r *rpcServer) VerifyProof(ctx context.Context, in *apicore.VerifyProofRequest) (*apicore.VerifyProofResponse, error) {
-	// TODO(noamnelke): this is supposed to get challenge from in.C -- do we need this?
-	// TODO(noamnelke): use hash function based on in.D.H ?
-	proof := nativeProofFromWire(in.P)
-	challenge := shared.Sha256Challenge(in.D.X)
-	leafCount := uint64(1) << in.D.N
-	securityParam := shared.T
-	err := verifier.Validate(proof, challenge, leafCount, securityParam)
-	if err != nil {
-		return nil, err
-	}
-	return &apicore.VerifyProofResponse{Verified: true}, nil
-}
-
 func nativeProofFromWire(wireProof *apicore.Proof) shared.MerkleProof {
 	return shared.MerkleProof{
 		Root:         wireProof.Phi,
@@ -106,7 +72,6 @@ func nativeProofFromWire(wireProof *apicore.Proof) shared.MerkleProof {
 }
 
 func (r *rpcServer) VerifyNIP(ctx context.Context, in *apicore.VerifyNIPRequest) (*apicore.VerifyNIPResponse, error) {
-	// TODO(noamnelke): use hash function based on in.D.H ?
 	proof := nativeProofFromWire(in.P)
 	challenge := shared.Sha256Challenge(in.D.X)
 	leafCount := uint64(1) << in.D.N
@@ -116,9 +81,4 @@ func (r *rpcServer) VerifyNIP(ctx context.Context, in *apicore.VerifyNIPRequest)
 		return nil, err
 	}
 	return &apicore.VerifyNIPResponse{Verified: true}, nil
-}
-
-func (r *rpcServer) GetRndChallenge(ctx context.Context, in *apicore.GetRndChallengeRequest) (*apicore.GetRndChallengeResponse, error) {
-	// TODO(noamnelke): remove this
-	return nil, ErrNoProverExists
 }

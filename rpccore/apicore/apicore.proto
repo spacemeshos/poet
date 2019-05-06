@@ -17,18 +17,6 @@ service PoetCoreProver {
         };
     }
 
-    rpc GetProof (GetProofRequest) returns (GetProofResponse) {
-        option (google.api.http) = {
-            get: "/v1/prover/getnip"
-        };
-    }
-
-    rpc Clean (CleanRequest) returns (CleanResponse) {
-        option (google.api.http) = {
-            get: "/v1/prover/clean"
-        };
-    }
-
     rpc Shutdown (ShutdownRequest) returns (ShutdownResponse) {
         option (google.api.http) = {
             get: "/v1/prover/shutdown"
@@ -37,21 +25,9 @@ service PoetCoreProver {
 }
 
 service PoetVerifier {
-    rpc VerifyProof (VerifyProofRequest) returns (VerifyProofResponse) {
-        option (google.api.http) = {
-            get: "/v1/verifier/verify"
-        };
-    }
-
     rpc VerifyNIP (VerifyNIPRequest) returns (VerifyNIPResponse) {
         option (google.api.http) = {
             get: "/v1/verifier/verifynip"
-        };
-    }
-
-    rpc GetRndChallenge (GetRndChallengeRequest) returns (GetRndChallengeResponse) {
-        option (google.api.http) = {
-            get: "/v1/verifier/getrndchallenge"
         };
     }
 }
@@ -71,32 +47,10 @@ message GetNIPResponse {
     Proof proof = 1 [json_name = "proof"];
 }
 
-message GetProofRequest {
-    repeated string c = 1 [json_name = "c"];
-}
-
-message GetProofResponse {
-    Proof proof = 1 [json_name = "proof"];
-}
-
-message CleanRequest {
-}
-message CleanResponse {
-}
-
 message ShutdownRequest {
 }
+
 message ShutdownResponse {
-}
-
-message VerifyProofRequest {
-    DagParams d = 1 [json_name = "d"];
-    Proof p = 2 [json_name = "p"];
-    repeated string c = 3 [json_name = "c"];
-}
-
-message VerifyProofResponse {
-    bool verified = 1 [json_name = "verified"];
 }
 
 message VerifyNIPRequest {
@@ -108,18 +62,9 @@ message VerifyNIPResponse {
     bool verified = 1 [json_name = "verified"];
 }
 
-message GetRndChallengeRequest {
-    DagParams d = 1 [json_name = "d"];
-}
-
-message GetRndChallengeResponse {
-    repeated string c = 3 [json_name = "c"];
-}
-
 message DagParams {
     bytes x = 1 [json_name = "x"];
     uint32 n = 2 [json_name = "n"];
-    string h = 3 [json_name = "h"];
 }
 
 message Proof {

@@ -61,7 +61,6 @@ func (r *round) close() error {
 }
 
 func (r *round) execute() error {
-	// TODO(moshababo): use the config hash function
 	challenge := shared.Sha256Challenge(r.merkleRoot)
 	leafCount := uint64(1) << r.cfg.N // TODO(noamnelke): configure tick count instead of height
 	securityParam := shared.T

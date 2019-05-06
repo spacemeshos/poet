@@ -15,22 +15,6 @@
     "application/json"
   ],
   "paths": {
-    "/v1/prover/clean": {
-      "get": {
-        "operationId": "Clean",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/apicoreCleanResponse"
-            }
-          }
-        },
-        "tags": [
-          "PoetCoreProver"
-        ]
-      }
-    },
     "/v1/prover/compute": {
       "get": {
         "operationId": "Compute",
@@ -56,12 +40,6 @@
             "required": false,
             "type": "integer",
             "format": "int64"
-          },
-          {
-            "name": "d.h",
-            "in": "query",
-            "required": false,
-            "type": "string"
           }
         ],
         "tags": [
@@ -71,26 +49,15 @@
     },
     "/v1/prover/getnip": {
       "get": {
-        "operationId": "GetProof",
+        "operationId": "GetNIP",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/apicoreGetProofResponse"
+              "$ref": "#/definitions/apicoreGetNIPResponse"
             }
           }
         },
-        "parameters": [
-          {
-            "name": "c",
-            "in": "query",
-            "required": false,
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        ],
         "tags": [
           "PoetCoreProver"
         ]
@@ -109,98 +76,6 @@
         },
         "tags": [
           "PoetCoreProver"
-        ]
-      }
-    },
-    "/v1/verifier/getrndchallenge": {
-      "get": {
-        "operationId": "GetRndChallenge",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/apicoreGetRndChallengeResponse"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "d.x",
-            "in": "query",
-            "required": false,
-            "type": "string",
-            "format": "byte"
-          },
-          {
-            "name": "d.n",
-            "in": "query",
-            "required": false,
-            "type": "integer",
-            "format": "int64"
-          },
-          {
-            "name": "d.h",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          }
-        ],
-        "tags": [
-          "PoetVerifier"
-        ]
-      }
-    },
-    "/v1/verifier/verify": {
-      "get": {
-        "operationId": "VerifyProof",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/apicoreVerifyProofResponse"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "d.x",
-            "in": "query",
-            "required": false,
-            "type": "string",
-            "format": "byte"
-          },
-          {
-            "name": "d.n",
-            "in": "query",
-            "required": false,
-            "type": "integer",
-            "format": "int64"
-          },
-          {
-            "name": "d.h",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
-            "name": "p.phi",
-            "in": "query",
-            "required": false,
-            "type": "string",
-            "format": "byte"
-          },
-          {
-            "name": "c",
-            "in": "query",
-            "required": false,
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        ],
-        "tags": [
-          "PoetVerifier"
         ]
       }
     },
@@ -231,17 +106,31 @@
             "format": "int64"
           },
           {
-            "name": "d.h",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          },
-          {
             "name": "p.phi",
             "in": "query",
             "required": false,
             "type": "string",
             "format": "byte"
+          },
+          {
+            "name": "p.provenLeaves",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "byte"
+            }
+          },
+          {
+            "name": "p.proofNodes",
+            "in": "query",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "byte"
+            }
           }
         ],
         "tags": [
@@ -251,9 +140,6 @@
     }
   },
   "definitions": {
-    "apicoreCleanResponse": {
-      "type": "object"
-    },
     "apicoreComputeResponse": {
       "type": "object",
       "properties": {
@@ -273,9 +159,6 @@
         "n": {
           "type": "integer",
           "format": "int64"
-        },
-        "h": {
-          "type": "string"
         }
       }
     },
@@ -287,29 +170,21 @@
         }
       }
     },
-    "apicoreGetProofResponse": {
+    "apicoreProof": {
       "type": "object",
       "properties": {
-        "proof": {
-          "$ref": "#/definitions/apicoreProof"
-        }
-      }
-    },
-    "apicoreGetRndChallengeResponse": {
-      "type": "object",
-      "properties": {
-        "c": {
+        "phi": {
+          "type": "string",
+          "format": "byte"
+        },
+        "provenLeaves": {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "string",
+            "format": "byte"
           }
-        }
-      }
-    },
-    "apicoreLabels": {
-      "type": "object",
-      "properties": {
-        "labels": {
+        },
+        "proofNodes": {
           "type": "array",
           "items": {
             "type": "string",
@@ -318,34 +193,10 @@
         }
       }
     },
-    "apicoreProof": {
-      "type": "object",
-      "properties": {
-        "phi": {
-          "type": "string",
-          "format": "byte"
-        },
-        "l": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/apicoreLabels"
-          }
-        }
-      }
-    },
     "apicoreShutdownResponse": {
       "type": "object"
     },
     "apicoreVerifyNIPResponse": {
-      "type": "object",
-      "properties": {
-        "verified": {
-          "type": "boolean",
-          "format": "boolean"
-        }
-      }
-    },
-    "apicoreVerifyProofResponse": {
       "type": "object",
       "properties": {
         "verified": {

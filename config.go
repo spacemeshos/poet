@@ -28,7 +28,6 @@ const (
 	defaultRPCPort              = 50002
 	defaultRESTPort             = 8080
 	defaultN                    = 15
-	defaultHashFunction         = "sha256"
 	defaultInitialRoundDuration = 2 * time.Second
 	defaultExecuteEmpty         = true
 )
@@ -41,8 +40,7 @@ var (
 )
 
 type coreServiceConfig struct {
-	N            int    `long:"n" description:"PoET time parameter"`
-	HashFunction string `long:"hashfunction" description:"PoET hash function"`
+	N int `long:"n" description:"PoET time parameter"`
 }
 
 // config defines the configuration options for poet.
@@ -92,13 +90,11 @@ func loadConfig() (*config, error) {
 		RawRESTListener: fmt.Sprintf("localhost:%d", defaultRESTPort),
 		Service: &service.Config{
 			N:                    defaultN,
-			HashFunction:         defaultHashFunction,
 			InitialRoundDuration: defaultInitialRoundDuration,
 			ExecuteEmpty:         defaultExecuteEmpty,
 		},
 		CoreService: &coreServiceConfig{
-			N:            defaultN,
-			HashFunction: defaultHashFunction,
+			N: defaultN,
 		},
 	}
 
