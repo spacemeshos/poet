@@ -54,13 +54,13 @@ func (rw *DiskReadWriter) ReadNext() ([]byte, error) {
 	return ret, nil
 }
 
-func (rw *DiskReadWriter) Width() uint64 {
+func (rw *DiskReadWriter) Width() (uint64, error) {
 	info, err := rw.f.Stat()
 	if err != nil {
 		log.Error("failed to get stats for disk reader: %v", err)
-		return 0
+		return 0, err
 	}
-	return uint64(info.Size()) / merkle.NodeSize
+	return uint64(info.Size()) / merkle.NodeSize, nil
 }
 
 func (rw *DiskReadWriter) Append(p []byte) (n int, err error) {

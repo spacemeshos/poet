@@ -6,7 +6,7 @@ import (
 	"github.com/spacemeshos/poet/shared"
 )
 
-const MerkleMinCacheLayer = 0 // Merkle nodes from this layer up will be cached, in addition to the base layer
+const MerkleMinCacheLayer = 0  // Merkle nodes from this layer up will be cached, in addition to the base layer
 const MerkleMinMemoryLayer = 2 // Below this layer caching is done on-disk, from this layer up -- in-memory
 
 func GetProof(challenge shared.Challenge, leafCount uint64, securityParam uint8) (shared.MerkleProof, error) {
