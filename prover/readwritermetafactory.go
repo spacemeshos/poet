@@ -9,11 +9,14 @@ import (
 
 type ReadWriterMetaFactory struct {
 	minMemoryLayer uint
-	filesCreated   []string
+	filesCreated   map[string]bool
 }
 
 func NewReadWriterMetaFactory(minMemoryLayer uint) *ReadWriterMetaFactory {
-	return &ReadWriterMetaFactory{minMemoryLayer: minMemoryLayer}
+	return &ReadWriterMetaFactory{
+		minMemoryLayer: minMemoryLayer,
+		filesCreated:   make(map[string]bool),
+	}
 }
 
 func (mf *ReadWriterMetaFactory) GetFactory() cache.LayerFactory {
@@ -24,7 +27,7 @@ func (mf *ReadWriterMetaFactory) GetFactory() cache.LayerFactory {
 			if err != nil {
 				return nil, err
 			}
-			mf.filesCreated = append(mf.filesCreated, fileName)
+			mf.filesCreated[fileName] = true
 			return readWriter, nil
 		}
 		return &readwriters.SliceReadWriter{}, nil
@@ -32,12 +35,12 @@ func (mf *ReadWriterMetaFactory) GetFactory() cache.LayerFactory {
 }
 
 func (mf *ReadWriterMetaFactory) Cleanup() {
-	var failedRemovals []string
-	for _, filename := range mf.filesCreated {
+	failedRemovals := make(map[string]bool)
+	for filename := range mf.filesCreated {
 		err := os.Remove(filename)
 		if err != nil {
 			log.Error("could not remove temp file %v: %v", filename, err)
-			failedRemovals = append(failedRemovals, filename)
+			failedRemovals[filename] = true
 		}
 	}
 	mf.filesCreated = failedRemovals
