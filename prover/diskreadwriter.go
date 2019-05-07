@@ -9,21 +9,30 @@ import (
 
 const OwnerReadWrite = 0600
 
-func NewDiskReadWriter(filename string) *DiskReadWriter {
+func NewDiskReadWriter(filename string) (*DiskReadWriter, error) {
 	f, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, OwnerReadWrite)
 	if err != nil {
 		log.Error("failed to open file for disk read-writer: %v", err)
-		panic(err) // TODO(noamnelke): support returning an error
+		return nil, err
 	}
 	return &DiskReadWriter{
 		f: f,
 		b: bufio.NewReadWriter(bufio.NewReader(f), bufio.NewWriter(f)),
-	}
+	}, nil
 }
 
 type DiskReadWriter struct {
 	f *os.File
 	b *bufio.ReadWriter
+}
+
+func (rw *DiskReadWriter) Flush() error {
+	err := rw.b.Flush()
+	if err != nil {
+		log.Error("failed to flush disk writer: %v", err)
+		return err
+	}
+	return nil
 }
 
 func (rw *DiskReadWriter) Seek(index uint64) error {
@@ -46,11 +55,6 @@ func (rw *DiskReadWriter) ReadNext() ([]byte, error) {
 }
 
 func (rw *DiskReadWriter) Width() uint64 {
-	err := rw.b.Flush() // TODO(noamnelke): add flush method to interface and call when switching to read mode
-	if err != nil {
-		log.Error("failed to flush disk writer: %v", err)
-		return 0
-	}
 	info, err := rw.f.Stat()
 	if err != nil {
 		log.Error("failed to get stats for disk reader: %v", err)

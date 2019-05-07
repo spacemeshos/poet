@@ -16,14 +16,17 @@ func NewReadWriterMetaFactory(minMemoryLayer uint) *ReadWriterMetaFactory {
 }
 
 func (mf *ReadWriterMetaFactory) GetFactory() cache.LayerFactory {
-	return func(layerHeight uint) cache.LayerReadWriter {
+	return func(layerHeight uint) (cache.LayerReadWriter, error) {
 		if layerHeight < mf.minMemoryLayer {
 			fileName := makeFileName(layerHeight)
-			readWriter := NewDiskReadWriter(fileName)
+			readWriter, err := NewDiskReadWriter(fileName)
+			if err != nil {
+				return nil, err
+			}
 			mf.filesCreated = append(mf.filesCreated, fileName)
-			return readWriter
+			return readWriter, nil
 		}
-		return &cache.SliceReadWriter{}
+		return &cache.SliceReadWriter{}, nil
 	}
 }
 

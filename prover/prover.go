@@ -17,7 +17,10 @@ func GetProof(challenge shared.Challenge, leafCount uint64, securityParam uint8)
 			cache.SpecificLayersPolicy(map[uint]bool{0: true}),
 			cache.MinHeightPolicy(MerkleMinCacheLayer)),
 		metaFactory.GetFactory())
-	tree := merkle.NewTreeBuilder().WithHashFunc(challenge.MerkleHashFunc()).WithCacheWriter(treeCache).Build()
+	tree, err := merkle.NewTreeBuilder().WithHashFunc(challenge.MerkleHashFunc()).WithCacheWriter(treeCache).Build()
+	if err != nil {
+		return shared.MerkleProof{}, err
+	}
 
 	for leafID := uint64(0); leafID < leafCount; leafID++ {
 		err := tree.AddLeaf(shared.MakeLabel(challenge.LabelHashFunc(), leafID, tree.GetParkedNodes()))
