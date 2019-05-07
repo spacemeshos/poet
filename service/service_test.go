@@ -81,4 +81,11 @@ func TestNewService(t *testing.T) {
 		req.NoError(err)
 		req.True(valid)
 	}
+
+	// Wait for execution completion.
+	select {
+	case <-challenges[0].round.executedChan:
+	case err := <-s.errChan:
+		req.Fail(err.Error())
+	}
 }
