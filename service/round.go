@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/spacemeshos/merkle-tree"
+	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
 	"time"
@@ -65,12 +66,12 @@ func (r *round) close() error {
 }
 
 func (r *round) execute() error {
-	challenge := shared.Sha256Challenge(r.merkleRoot)
+	challenge := r.merkleRoot
 	leafCount := uint64(1) << r.cfg.N // TODO(noamnelke): configure tick count instead of height
 	securityParam := shared.T
 
 	r.executeStart = time.Now()
-	nip, err := prover.GetProof(challenge, leafCount, securityParam)
+	nip, err := prover.GetProof(hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafCount, securityParam)
 	if err != nil {
 		return err
 	}

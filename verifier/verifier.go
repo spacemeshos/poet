@@ -8,14 +8,16 @@ import (
 	"sort"
 )
 
-func Validate(proof shared.MerkleProof, challenge shared.Challenge, leafCount uint64, securityParam uint8) error {
+func Validate(proof shared.MerkleProof, labelHashFunc func(data []byte) []byte,
+	merkleHashFunc func(lChild, rChild []byte) []byte, leafCount uint64, securityParam uint8) error {
+
 	if int(securityParam) != len(proof.ProvenLeaves) {
 		return fmt.Errorf("number of proven leaves (%d) must be equal to security param (%d)",
 			len(proof.ProvenLeaves), securityParam)
 	}
 	provenLeafIndices := asSortedSlice(shared.FiatShamir(proof.Root, leafCount, securityParam))
 	valid, parkingSnapshots, err := merkle.ValidatePartialTreeWithParkingSnapshots(provenLeafIndices,
-		proof.ProvenLeaves, proof.ProofNodes, proof.Root, challenge.MerkleHashFunc())
+		proof.ProvenLeaves, proof.ProofNodes, proof.Root, merkleHashFunc)
 	if err != nil {
 		return fmt.Errorf("error while validating merkle proof: %v", err)
 	}
@@ -24,7 +26,7 @@ func Validate(proof shared.MerkleProof, challenge shared.Challenge, leafCount ui
 	}
 
 	for id, label := range proof.ProvenLeaves {
-		expectedLabel := shared.MakeLabel(challenge.LabelHashFunc(), provenLeafIndices[id], parkingSnapshots[id])
+		expectedLabel := shared.MakeLabel(labelHashFunc, provenLeafIndices[id], parkingSnapshots[id])
 		if !bytes.Equal(expectedLabel, label) {
 			return fmt.Errorf("label at index %d incorrect - expected: %x actual: %x", id, expectedLabel, label)
 		}

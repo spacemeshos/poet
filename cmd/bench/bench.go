@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/rand"
 	"fmt"
+	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/verifier"
@@ -46,19 +47,18 @@ func main() {
 		println("Cpu profiling enabled and started...")
 	}
 
-	x := make([]byte, 20)
-	_, err = rand.Read(x)
+	challenge := make([]byte, 20)
+	_, err = rand.Read(challenge)
 	if err != nil {
 		panic("no entropy")
 	}
 
-	challenge := shared.Sha256Challenge(x)
 	leafCount := uint64(1) << cfg.N
 	securityParam := shared.T
 
 	t1 := time.Now()
 	println("Computing dag...")
-	merkleProof, err := prover.GetProof(challenge, leafCount, securityParam)
+	merkleProof, err := prover.GetProof(hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafCount, securityParam)
 	if err != nil {
 		panic("failed to generate proof")
 	}
@@ -68,7 +68,7 @@ func main() {
 	fmt.Printf("Dag root label: %x\n", merkleProof.Root)
 
 	t1 = time.Now()
-	err = verifier.Validate(merkleProof, challenge, leafCount, securityParam)
+	err = verifier.Validate(merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafCount, securityParam)
 	if err != nil {
 		panic("Failed to verify nip")
 	}

@@ -2,7 +2,6 @@ package shared
 
 import (
 	"encoding/binary"
-	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/sha256-simd"
 )
 
@@ -21,7 +20,7 @@ func FiatShamir(challenge []byte, spaceSize uint64, indexCount uint8) map[uint64
 	return ret
 }
 
-func MakeLabel(hash LabelHashFunc, labelID uint64, leftSiblings [][]byte) []byte {
+func MakeLabel(hash func(data []byte) []byte, labelID uint64, leftSiblings [][]byte) []byte {
 	data := make([]byte, 8)
 	binary.BigEndian.PutUint64(data, labelID)
 	for _, sibling := range leftSiblings {
@@ -36,9 +35,4 @@ type MerkleProof struct {
 	Root         []byte
 	ProvenLeaves [][]byte
 	ProofNodes   [][]byte
-}
-
-type Challenge interface {
-	MerkleHashFunc() merkle.HashFunc
-	LabelHashFunc() LabelHashFunc
 }

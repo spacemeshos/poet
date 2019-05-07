@@ -1,6 +1,7 @@
 package rpccore
 
 import (
+	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/rpccore/apicore"
 	"github.com/spacemeshos/poet/shared"
@@ -34,10 +35,10 @@ func NewRPCServer(s *signal.Signal) *rpcServer {
 }
 
 func (r *rpcServer) Compute(ctx context.Context, in *apicore.ComputeRequest) (*apicore.ComputeResponse, error) {
-	challenge := shared.Sha256Challenge(in.D.X)
+	challenge := in.D.X
 	leafCount := uint64(1) << in.D.N
 	securityParam := shared.T
-	proof, err := prover.GetProof(challenge, leafCount, securityParam)
+	proof, err := prover.GetProof(hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafCount, securityParam)
 	if err != nil {
 		return nil, status.Error(codes.Unknown, err.Error())
 	}
@@ -73,10 +74,10 @@ func nativeProofFromWire(wireProof *apicore.Proof) shared.MerkleProof {
 
 func (r *rpcServer) VerifyNIP(ctx context.Context, in *apicore.VerifyNIPRequest) (*apicore.VerifyNIPResponse, error) {
 	proof := nativeProofFromWire(in.P)
-	challenge := shared.Sha256Challenge(in.D.X)
+	challenge := in.D.X
 	leafCount := uint64(1) << in.D.N
 	securityParam := shared.T
-	err := verifier.Validate(proof, challenge, leafCount, securityParam)
+	err := verifier.Validate(proof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafCount, securityParam)
 	if err != nil {
 		return nil, err
 	}

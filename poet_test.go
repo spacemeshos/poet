@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"github.com/spacemeshos/merkle-tree"
+	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/integration"
 	"github.com/spacemeshos/poet/rpc/api"
 	"github.com/spacemeshos/poet/shared"
@@ -119,9 +120,9 @@ func testProof(h *integration.Harness, assert *require.Assertions, ctx context.C
 		ProvenLeaves: proofRes.Proof.ProvenLeaves,
 		ProofNodes:   proofRes.Proof.ProofNodes,
 	}
-	challenge := shared.Sha256Challenge(proofRes.Commitment)
+	challenge := proofRes.Commitment
 	leafCount := uint64(1) << uint32(proofRes.N)
 	securityParam := shared.T
-	err = verifier.Validate(merkleProof, challenge, leafCount, securityParam)
+	err = verifier.Validate(merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafCount, securityParam)
 	assert.NoError(err)
 }
