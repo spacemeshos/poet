@@ -46,7 +46,11 @@ func (r *round) submit(challenge []byte) error {
 }
 
 func (r *round) close() error {
-	r.merkleTree = merkle.NewTree()
+	var err error
+	r.merkleTree, err = merkle.NewTree()
+	if err != nil {
+		return fmt.Errorf("could not initialize merkle tree: %v", err)
+	}
 	for _, c := range r.challenges {
 		err := r.merkleTree.AddLeaf(c)
 		if err != nil {
@@ -105,7 +109,10 @@ func (r *round) membershipProof(challenge []byte, wait bool) (*MembershipProof, 
 	var leavesToProve = make(map[uint64]bool)
 	leavesToProve[uint64(index)] = true
 
-	t := merkle.NewProvingTree(leavesToProve)
+	t, err := merkle.NewProvingTree(leavesToProve)
+	if err != nil {
+		return nil, fmt.Errorf("could not initialize merkle tree: %v", err)
+	}
 	for _, c := range r.challenges {
 		err := t.AddLeaf(c)
 		if err != nil {
