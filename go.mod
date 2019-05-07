@@ -8,7 +8,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway v1.8.4
 	github.com/jessevdk/go-flags v1.4.0
 	github.com/jrick/logrotate v1.0.0
-	github.com/spacemeshos/merkle-tree v0.0.0-20190507130022-536cff75610e
+	github.com/spacemeshos/merkle-tree v0.0.0-20190507150432-5a11a4c3082d
 	github.com/spacemeshos/sha256-simd v0.0.0-20190111104731-8575aafc88c9
 	github.com/stretchr/testify v1.3.0
 	golang.org/x/crypto v0.0.0-20181030102418-4d3f4d9ffa16 // indirect

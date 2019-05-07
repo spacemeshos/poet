@@ -3,6 +3,7 @@ package prover
 import (
 	"fmt"
 	"github.com/spacemeshos/merkle-tree/cache"
+	"github.com/spacemeshos/merkle-tree/cache/readwriters"
 	"os"
 )
 
@@ -19,14 +20,14 @@ func (mf *ReadWriterMetaFactory) GetFactory() cache.LayerFactory {
 	return func(layerHeight uint) (cache.LayerReadWriter, error) {
 		if layerHeight < mf.minMemoryLayer {
 			fileName := makeFileName(layerHeight)
-			readWriter, err := NewDiskReadWriter(fileName)
+			readWriter, err := readwriters.NewFileReadWriter(fileName)
 			if err != nil {
 				return nil, err
 			}
 			mf.filesCreated = append(mf.filesCreated, fileName)
 			return readWriter, nil
 		}
-		return &cache.SliceReadWriter{}, nil
+		return &readwriters.SliceReadWriter{}, nil
 	}
 }
 
