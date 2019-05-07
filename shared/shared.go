@@ -7,6 +7,7 @@ import (
 
 const T uint8 = 150 // security param
 
+// FiatShamir generates a set of indices to include in a non-interactive proof.
 func FiatShamir(challenge []byte, spaceSize uint64, indexCount uint8) map[uint64]bool {
 	if uint64(indexCount) > spaceSize {
 		indexCount = uint8(spaceSize)
@@ -20,6 +21,8 @@ func FiatShamir(challenge []byte, spaceSize uint64, indexCount uint8) map[uint64
 	return ret
 }
 
+// MakeLabel generates a PoET DAG label by concatenating a representation of the labelID with the list of left siblings
+// and then hashing the result using the provided hash function.
 func MakeLabel(hash func(data []byte) []byte, labelID uint64, leftSiblings [][]byte) []byte {
 	data := make([]byte, 8)
 	binary.BigEndian.PutUint64(data, labelID)

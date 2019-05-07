@@ -9,6 +9,8 @@ import (
 const MerkleMinCacheLayer = 0  // Merkle nodes from this layer up will be cached, in addition to the base layer
 const MerkleMinMemoryLayer = 2 // Below this layer caching is done on-disk, from this layer up -- in-memory
 
+// GetProof computes the PoET DAG, uses Fiat-Shamir to derive a challenge from the Merkle root and generates a Merkle
+// proof using the challenge and the DAG.
 func GetProof(labelHashFunc func(data []byte) []byte, merkleHashFunc func(lChild, rChild []byte) []byte,
 	leafCount uint64, securityParam uint8) (shared.MerkleProof, error) {
 
