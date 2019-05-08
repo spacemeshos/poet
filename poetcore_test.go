@@ -41,45 +41,9 @@ func BenchmarkProverAndVerifierBig(b *testing.B) {
 	b.Logf("Proof verified in %s (%f)\n", e1-e, (e1 - e).Seconds())
 }
 
-func TestBigNip(t *testing.T) {
-	challenge := make([]byte, 32)
-	_, err := rand.Read(challenge)
-	assert.NoError(t, err)
-
-	const n = 10
-
-	leafCount := uint64(1) << n
-	securityParam := shared.T
-
-	merkleProof, err := prover.GetProof(hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafCount, securityParam)
-	assert.NoError(t, err)
-	fmt.Printf("Dag root label: %x\n", merkleProof.Root)
-
-	err = verifier.Validate(merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafCount, securityParam)
-	assert.NoError(t, err, "failed to verify proof")
-}
-
 func TestNip(t *testing.T) {
 	challenge := []byte("Spacemesh launched its mainnet")
-	const n = 11 // 33.6mb storage
-
-	leafCount := uint64(1) << n
-	securityParam := shared.T
-
-	merkleProof, err := prover.GetProof(hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafCount, securityParam)
-	assert.NoError(t, err)
-	fmt.Printf("Dag root label: %x\n", merkleProof.Root)
-
-	err = verifier.Validate(merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafCount, securityParam)
-	assert.NoError(t, err, "failed to verify proof")
-}
-
-func TestRndChallengeProof(t *testing.T) {
-	challenge := make([]byte, 32)
-	_, err := rand.Read(challenge)
-	assert.NoError(t, err)
-
-	const n = 9
+	const n = 15
 
 	leafCount := uint64(1) << n
 	securityParam := shared.T
