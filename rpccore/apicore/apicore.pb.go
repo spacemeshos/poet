@@ -35,7 +35,7 @@ func (m *ComputeRequest) Reset()         { *m = ComputeRequest{} }
 func (m *ComputeRequest) String() string { return proto.CompactTextString(m) }
 func (*ComputeRequest) ProtoMessage()    {}
 func (*ComputeRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_apicore_c4b63ebe3d1a8e1f, []int{0}
+	return fileDescriptor_apicore_a9b93ffafa709c25, []int{0}
 }
 func (m *ComputeRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ComputeRequest.Unmarshal(m, b)
@@ -73,7 +73,7 @@ func (m *ComputeResponse) Reset()         { *m = ComputeResponse{} }
 func (m *ComputeResponse) String() string { return proto.CompactTextString(m) }
 func (*ComputeResponse) ProtoMessage()    {}
 func (*ComputeResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_apicore_c4b63ebe3d1a8e1f, []int{1}
+	return fileDescriptor_apicore_a9b93ffafa709c25, []int{1}
 }
 func (m *ComputeResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ComputeResponse.Unmarshal(m, b)
@@ -110,7 +110,7 @@ func (m *GetNIPRequest) Reset()         { *m = GetNIPRequest{} }
 func (m *GetNIPRequest) String() string { return proto.CompactTextString(m) }
 func (*GetNIPRequest) ProtoMessage()    {}
 func (*GetNIPRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_apicore_c4b63ebe3d1a8e1f, []int{2}
+	return fileDescriptor_apicore_a9b93ffafa709c25, []int{2}
 }
 func (m *GetNIPRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetNIPRequest.Unmarshal(m, b)
@@ -141,7 +141,7 @@ func (m *GetNIPResponse) Reset()         { *m = GetNIPResponse{} }
 func (m *GetNIPResponse) String() string { return proto.CompactTextString(m) }
 func (*GetNIPResponse) ProtoMessage()    {}
 func (*GetNIPResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_apicore_c4b63ebe3d1a8e1f, []int{3}
+	return fileDescriptor_apicore_a9b93ffafa709c25, []int{3}
 }
 func (m *GetNIPResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetNIPResponse.Unmarshal(m, b)
@@ -168,142 +168,6 @@ func (m *GetNIPResponse) GetProof() *Proof {
 	return nil
 }
 
-type GetProofRequest struct {
-	C                    []string `protobuf:"bytes,1,rep,name=c,proto3" json:"c,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *GetProofRequest) Reset()         { *m = GetProofRequest{} }
-func (m *GetProofRequest) String() string { return proto.CompactTextString(m) }
-func (*GetProofRequest) ProtoMessage()    {}
-func (*GetProofRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_apicore_c4b63ebe3d1a8e1f, []int{4}
-}
-func (m *GetProofRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_GetProofRequest.Unmarshal(m, b)
-}
-func (m *GetProofRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_GetProofRequest.Marshal(b, m, deterministic)
-}
-func (dst *GetProofRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetProofRequest.Merge(dst, src)
-}
-func (m *GetProofRequest) XXX_Size() int {
-	return xxx_messageInfo_GetProofRequest.Size(m)
-}
-func (m *GetProofRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_GetProofRequest.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_GetProofRequest proto.InternalMessageInfo
-
-func (m *GetProofRequest) GetC() []string {
-	if m != nil {
-		return m.C
-	}
-	return nil
-}
-
-type GetProofResponse struct {
-	Proof                *Proof   `protobuf:"bytes,1,opt,name=proof,proto3" json:"proof,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *GetProofResponse) Reset()         { *m = GetProofResponse{} }
-func (m *GetProofResponse) String() string { return proto.CompactTextString(m) }
-func (*GetProofResponse) ProtoMessage()    {}
-func (*GetProofResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_apicore_c4b63ebe3d1a8e1f, []int{5}
-}
-func (m *GetProofResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_GetProofResponse.Unmarshal(m, b)
-}
-func (m *GetProofResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_GetProofResponse.Marshal(b, m, deterministic)
-}
-func (dst *GetProofResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetProofResponse.Merge(dst, src)
-}
-func (m *GetProofResponse) XXX_Size() int {
-	return xxx_messageInfo_GetProofResponse.Size(m)
-}
-func (m *GetProofResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_GetProofResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_GetProofResponse proto.InternalMessageInfo
-
-func (m *GetProofResponse) GetProof() *Proof {
-	if m != nil {
-		return m.Proof
-	}
-	return nil
-}
-
-type CleanRequest struct {
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *CleanRequest) Reset()         { *m = CleanRequest{} }
-func (m *CleanRequest) String() string { return proto.CompactTextString(m) }
-func (*CleanRequest) ProtoMessage()    {}
-func (*CleanRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_apicore_c4b63ebe3d1a8e1f, []int{6}
-}
-func (m *CleanRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_CleanRequest.Unmarshal(m, b)
-}
-func (m *CleanRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_CleanRequest.Marshal(b, m, deterministic)
-}
-func (dst *CleanRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CleanRequest.Merge(dst, src)
-}
-func (m *CleanRequest) XXX_Size() int {
-	return xxx_messageInfo_CleanRequest.Size(m)
-}
-func (m *CleanRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_CleanRequest.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_CleanRequest proto.InternalMessageInfo
-
-type CleanResponse struct {
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *CleanResponse) Reset()         { *m = CleanResponse{} }
-func (m *CleanResponse) String() string { return proto.CompactTextString(m) }
-func (*CleanResponse) ProtoMessage()    {}
-func (*CleanResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_apicore_c4b63ebe3d1a8e1f, []int{7}
-}
-func (m *CleanResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_CleanResponse.Unmarshal(m, b)
-}
-func (m *CleanResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_CleanResponse.Marshal(b, m, deterministic)
-}
-func (dst *CleanResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CleanResponse.Merge(dst, src)
-}
-func (m *CleanResponse) XXX_Size() int {
-	return xxx_messageInfo_CleanResponse.Size(m)
-}
-func (m *CleanResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_CleanResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_CleanResponse proto.InternalMessageInfo
-
 type ShutdownRequest struct {
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -314,7 +178,7 @@ func (m *ShutdownRequest) Reset()         { *m = ShutdownRequest{} }
 func (m *ShutdownRequest) String() string { return proto.CompactTextString(m) }
 func (*ShutdownRequest) ProtoMessage()    {}
 func (*ShutdownRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_apicore_c4b63ebe3d1a8e1f, []int{8}
+	return fileDescriptor_apicore_a9b93ffafa709c25, []int{4}
 }
 func (m *ShutdownRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ShutdownRequest.Unmarshal(m, b)
@@ -344,7 +208,7 @@ func (m *ShutdownResponse) Reset()         { *m = ShutdownResponse{} }
 func (m *ShutdownResponse) String() string { return proto.CompactTextString(m) }
 func (*ShutdownResponse) ProtoMessage()    {}
 func (*ShutdownResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_apicore_c4b63ebe3d1a8e1f, []int{9}
+	return fileDescriptor_apicore_a9b93ffafa709c25, []int{5}
 }
 func (m *ShutdownResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_ShutdownResponse.Unmarshal(m, b)
@@ -364,98 +228,6 @@ func (m *ShutdownResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ShutdownResponse proto.InternalMessageInfo
 
-type VerifyProofRequest struct {
-	D                    *DagParams `protobuf:"bytes,1,opt,name=d,proto3" json:"d,omitempty"`
-	P                    *Proof     `protobuf:"bytes,2,opt,name=p,proto3" json:"p,omitempty"`
-	C                    []string   `protobuf:"bytes,3,rep,name=c,proto3" json:"c,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
-	XXX_unrecognized     []byte     `json:"-"`
-	XXX_sizecache        int32      `json:"-"`
-}
-
-func (m *VerifyProofRequest) Reset()         { *m = VerifyProofRequest{} }
-func (m *VerifyProofRequest) String() string { return proto.CompactTextString(m) }
-func (*VerifyProofRequest) ProtoMessage()    {}
-func (*VerifyProofRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_apicore_c4b63ebe3d1a8e1f, []int{10}
-}
-func (m *VerifyProofRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_VerifyProofRequest.Unmarshal(m, b)
-}
-func (m *VerifyProofRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_VerifyProofRequest.Marshal(b, m, deterministic)
-}
-func (dst *VerifyProofRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_VerifyProofRequest.Merge(dst, src)
-}
-func (m *VerifyProofRequest) XXX_Size() int {
-	return xxx_messageInfo_VerifyProofRequest.Size(m)
-}
-func (m *VerifyProofRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_VerifyProofRequest.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_VerifyProofRequest proto.InternalMessageInfo
-
-func (m *VerifyProofRequest) GetD() *DagParams {
-	if m != nil {
-		return m.D
-	}
-	return nil
-}
-
-func (m *VerifyProofRequest) GetP() *Proof {
-	if m != nil {
-		return m.P
-	}
-	return nil
-}
-
-func (m *VerifyProofRequest) GetC() []string {
-	if m != nil {
-		return m.C
-	}
-	return nil
-}
-
-type VerifyProofResponse struct {
-	Verified             bool     `protobuf:"varint,1,opt,name=verified,proto3" json:"verified,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *VerifyProofResponse) Reset()         { *m = VerifyProofResponse{} }
-func (m *VerifyProofResponse) String() string { return proto.CompactTextString(m) }
-func (*VerifyProofResponse) ProtoMessage()    {}
-func (*VerifyProofResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_apicore_c4b63ebe3d1a8e1f, []int{11}
-}
-func (m *VerifyProofResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_VerifyProofResponse.Unmarshal(m, b)
-}
-func (m *VerifyProofResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_VerifyProofResponse.Marshal(b, m, deterministic)
-}
-func (dst *VerifyProofResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_VerifyProofResponse.Merge(dst, src)
-}
-func (m *VerifyProofResponse) XXX_Size() int {
-	return xxx_messageInfo_VerifyProofResponse.Size(m)
-}
-func (m *VerifyProofResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_VerifyProofResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_VerifyProofResponse proto.InternalMessageInfo
-
-func (m *VerifyProofResponse) GetVerified() bool {
-	if m != nil {
-		return m.Verified
-	}
-	return false
-}
-
 type VerifyNIPRequest struct {
 	D                    *DagParams `protobuf:"bytes,1,opt,name=d,proto3" json:"d,omitempty"`
 	P                    *Proof     `protobuf:"bytes,2,opt,name=p,proto3" json:"p,omitempty"`
@@ -468,7 +240,7 @@ func (m *VerifyNIPRequest) Reset()         { *m = VerifyNIPRequest{} }
 func (m *VerifyNIPRequest) String() string { return proto.CompactTextString(m) }
 func (*VerifyNIPRequest) ProtoMessage()    {}
 func (*VerifyNIPRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_apicore_c4b63ebe3d1a8e1f, []int{12}
+	return fileDescriptor_apicore_a9b93ffafa709c25, []int{6}
 }
 func (m *VerifyNIPRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_VerifyNIPRequest.Unmarshal(m, b)
@@ -513,7 +285,7 @@ func (m *VerifyNIPResponse) Reset()         { *m = VerifyNIPResponse{} }
 func (m *VerifyNIPResponse) String() string { return proto.CompactTextString(m) }
 func (*VerifyNIPResponse) ProtoMessage()    {}
 func (*VerifyNIPResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_apicore_c4b63ebe3d1a8e1f, []int{13}
+	return fileDescriptor_apicore_a9b93ffafa709c25, []int{7}
 }
 func (m *VerifyNIPResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_VerifyNIPResponse.Unmarshal(m, b)
@@ -540,86 +312,9 @@ func (m *VerifyNIPResponse) GetVerified() bool {
 	return false
 }
 
-type GetRndChallengeRequest struct {
-	D                    *DagParams `protobuf:"bytes,1,opt,name=d,proto3" json:"d,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
-	XXX_unrecognized     []byte     `json:"-"`
-	XXX_sizecache        int32      `json:"-"`
-}
-
-func (m *GetRndChallengeRequest) Reset()         { *m = GetRndChallengeRequest{} }
-func (m *GetRndChallengeRequest) String() string { return proto.CompactTextString(m) }
-func (*GetRndChallengeRequest) ProtoMessage()    {}
-func (*GetRndChallengeRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_apicore_c4b63ebe3d1a8e1f, []int{14}
-}
-func (m *GetRndChallengeRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_GetRndChallengeRequest.Unmarshal(m, b)
-}
-func (m *GetRndChallengeRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_GetRndChallengeRequest.Marshal(b, m, deterministic)
-}
-func (dst *GetRndChallengeRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetRndChallengeRequest.Merge(dst, src)
-}
-func (m *GetRndChallengeRequest) XXX_Size() int {
-	return xxx_messageInfo_GetRndChallengeRequest.Size(m)
-}
-func (m *GetRndChallengeRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_GetRndChallengeRequest.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_GetRndChallengeRequest proto.InternalMessageInfo
-
-func (m *GetRndChallengeRequest) GetD() *DagParams {
-	if m != nil {
-		return m.D
-	}
-	return nil
-}
-
-type GetRndChallengeResponse struct {
-	C                    []string `protobuf:"bytes,3,rep,name=c,proto3" json:"c,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *GetRndChallengeResponse) Reset()         { *m = GetRndChallengeResponse{} }
-func (m *GetRndChallengeResponse) String() string { return proto.CompactTextString(m) }
-func (*GetRndChallengeResponse) ProtoMessage()    {}
-func (*GetRndChallengeResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_apicore_c4b63ebe3d1a8e1f, []int{15}
-}
-func (m *GetRndChallengeResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_GetRndChallengeResponse.Unmarshal(m, b)
-}
-func (m *GetRndChallengeResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_GetRndChallengeResponse.Marshal(b, m, deterministic)
-}
-func (dst *GetRndChallengeResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetRndChallengeResponse.Merge(dst, src)
-}
-func (m *GetRndChallengeResponse) XXX_Size() int {
-	return xxx_messageInfo_GetRndChallengeResponse.Size(m)
-}
-func (m *GetRndChallengeResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_GetRndChallengeResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_GetRndChallengeResponse proto.InternalMessageInfo
-
-func (m *GetRndChallengeResponse) GetC() []string {
-	if m != nil {
-		return m.C
-	}
-	return nil
-}
-
 type DagParams struct {
 	X                    []byte   `protobuf:"bytes,1,opt,name=x,proto3" json:"x,omitempty"`
 	N                    uint32   `protobuf:"varint,2,opt,name=n,proto3" json:"n,omitempty"`
-	H                    string   `protobuf:"bytes,3,opt,name=h,proto3" json:"h,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -629,7 +324,7 @@ func (m *DagParams) Reset()         { *m = DagParams{} }
 func (m *DagParams) String() string { return proto.CompactTextString(m) }
 func (*DagParams) ProtoMessage()    {}
 func (*DagParams) Descriptor() ([]byte, []int) {
-	return fileDescriptor_apicore_c4b63ebe3d1a8e1f, []int{16}
+	return fileDescriptor_apicore_a9b93ffafa709c25, []int{8}
 }
 func (m *DagParams) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_DagParams.Unmarshal(m, b)
@@ -663,26 +358,20 @@ func (m *DagParams) GetN() uint32 {
 	return 0
 }
 
-func (m *DagParams) GetH() string {
-	if m != nil {
-		return m.H
-	}
-	return ""
-}
-
 type Proof struct {
-	Phi                  []byte    `protobuf:"bytes,1,opt,name=phi,proto3" json:"phi,omitempty"`
-	L                    []*Labels `protobuf:"bytes,2,rep,name=l,proto3" json:"l,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
-	XXX_unrecognized     []byte    `json:"-"`
-	XXX_sizecache        int32     `json:"-"`
+	Phi                  []byte   `protobuf:"bytes,1,opt,name=phi,proto3" json:"phi,omitempty"`
+	ProvenLeaves         [][]byte `protobuf:"bytes,2,rep,name=provenLeaves,json=proven_leaves,proto3" json:"provenLeaves,omitempty"`
+	ProofNodes           [][]byte `protobuf:"bytes,3,rep,name=proofNodes,json=proof_nodes,proto3" json:"proofNodes,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *Proof) Reset()         { *m = Proof{} }
 func (m *Proof) String() string { return proto.CompactTextString(m) }
 func (*Proof) ProtoMessage()    {}
 func (*Proof) Descriptor() ([]byte, []int) {
-	return fileDescriptor_apicore_c4b63ebe3d1a8e1f, []int{17}
+	return fileDescriptor_apicore_a9b93ffafa709c25, []int{9}
 }
 func (m *Proof) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_Proof.Unmarshal(m, b)
@@ -709,47 +398,16 @@ func (m *Proof) GetPhi() []byte {
 	return nil
 }
 
-func (m *Proof) GetL() []*Labels {
+func (m *Proof) GetProvenLeaves() [][]byte {
 	if m != nil {
-		return m.L
+		return m.ProvenLeaves
 	}
 	return nil
 }
 
-type Labels struct {
-	Labels               [][]byte `protobuf:"bytes,1,rep,name=labels,proto3" json:"labels,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *Labels) Reset()         { *m = Labels{} }
-func (m *Labels) String() string { return proto.CompactTextString(m) }
-func (*Labels) ProtoMessage()    {}
-func (*Labels) Descriptor() ([]byte, []int) {
-	return fileDescriptor_apicore_c4b63ebe3d1a8e1f, []int{18}
-}
-func (m *Labels) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_Labels.Unmarshal(m, b)
-}
-func (m *Labels) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_Labels.Marshal(b, m, deterministic)
-}
-func (dst *Labels) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Labels.Merge(dst, src)
-}
-func (m *Labels) XXX_Size() int {
-	return xxx_messageInfo_Labels.Size(m)
-}
-func (m *Labels) XXX_DiscardUnknown() {
-	xxx_messageInfo_Labels.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_Labels proto.InternalMessageInfo
-
-func (m *Labels) GetLabels() [][]byte {
+func (m *Proof) GetProofNodes() [][]byte {
 	if m != nil {
-		return m.Labels
+		return m.ProofNodes
 	}
 	return nil
 }
@@ -759,21 +417,12 @@ func init() {
 	proto.RegisterType((*ComputeResponse)(nil), "apicore.ComputeResponse")
 	proto.RegisterType((*GetNIPRequest)(nil), "apicore.GetNIPRequest")
 	proto.RegisterType((*GetNIPResponse)(nil), "apicore.GetNIPResponse")
-	proto.RegisterType((*GetProofRequest)(nil), "apicore.GetProofRequest")
-	proto.RegisterType((*GetProofResponse)(nil), "apicore.GetProofResponse")
-	proto.RegisterType((*CleanRequest)(nil), "apicore.CleanRequest")
-	proto.RegisterType((*CleanResponse)(nil), "apicore.CleanResponse")
 	proto.RegisterType((*ShutdownRequest)(nil), "apicore.ShutdownRequest")
 	proto.RegisterType((*ShutdownResponse)(nil), "apicore.ShutdownResponse")
-	proto.RegisterType((*VerifyProofRequest)(nil), "apicore.VerifyProofRequest")
-	proto.RegisterType((*VerifyProofResponse)(nil), "apicore.VerifyProofResponse")
 	proto.RegisterType((*VerifyNIPRequest)(nil), "apicore.VerifyNIPRequest")
 	proto.RegisterType((*VerifyNIPResponse)(nil), "apicore.VerifyNIPResponse")
-	proto.RegisterType((*GetRndChallengeRequest)(nil), "apicore.GetRndChallengeRequest")
-	proto.RegisterType((*GetRndChallengeResponse)(nil), "apicore.GetRndChallengeResponse")
 	proto.RegisterType((*DagParams)(nil), "apicore.DagParams")
 	proto.RegisterType((*Proof)(nil), "apicore.Proof")
-	proto.RegisterType((*Labels)(nil), "apicore.Labels")
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -790,8 +439,6 @@ const _ = grpc.SupportPackageIsVersion4
 type PoetCoreProverClient interface {
 	Compute(ctx context.Context, in *ComputeRequest, opts ...grpc.CallOption) (*ComputeResponse, error)
 	GetNIP(ctx context.Context, in *GetNIPRequest, opts ...grpc.CallOption) (*GetNIPResponse, error)
-	GetProof(ctx context.Context, in *GetProofRequest, opts ...grpc.CallOption) (*GetProofResponse, error)
-	Clean(ctx context.Context, in *CleanRequest, opts ...grpc.CallOption) (*CleanResponse, error)
 	Shutdown(ctx context.Context, in *ShutdownRequest, opts ...grpc.CallOption) (*ShutdownResponse, error)
 }
 
@@ -821,24 +468,6 @@ func (c *poetCoreProverClient) GetNIP(ctx context.Context, in *GetNIPRequest, op
 	return out, nil
 }
 
-func (c *poetCoreProverClient) GetProof(ctx context.Context, in *GetProofRequest, opts ...grpc.CallOption) (*GetProofResponse, error) {
-	out := new(GetProofResponse)
-	err := c.cc.Invoke(ctx, "/apicore.PoetCoreProver/GetProof", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *poetCoreProverClient) Clean(ctx context.Context, in *CleanRequest, opts ...grpc.CallOption) (*CleanResponse, error) {
-	out := new(CleanResponse)
-	err := c.cc.Invoke(ctx, "/apicore.PoetCoreProver/Clean", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *poetCoreProverClient) Shutdown(ctx context.Context, in *ShutdownRequest, opts ...grpc.CallOption) (*ShutdownResponse, error) {
 	out := new(ShutdownResponse)
 	err := c.cc.Invoke(ctx, "/apicore.PoetCoreProver/Shutdown", in, out, opts...)
@@ -852,8 +481,6 @@ func (c *poetCoreProverClient) Shutdown(ctx context.Context, in *ShutdownRequest
 type PoetCoreProverServer interface {
 	Compute(context.Context, *ComputeRequest) (*ComputeResponse, error)
 	GetNIP(context.Context, *GetNIPRequest) (*GetNIPResponse, error)
-	GetProof(context.Context, *GetProofRequest) (*GetProofResponse, error)
-	Clean(context.Context, *CleanRequest) (*CleanResponse, error)
 	Shutdown(context.Context, *ShutdownRequest) (*ShutdownResponse, error)
 }
 
@@ -897,42 +524,6 @@ func _PoetCoreProver_GetNIP_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
-func _PoetCoreProver_GetProof_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetProofRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(PoetCoreProverServer).GetProof(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/apicore.PoetCoreProver/GetProof",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PoetCoreProverServer).GetProof(ctx, req.(*GetProofRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _PoetCoreProver_Clean_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(CleanRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(PoetCoreProverServer).Clean(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/apicore.PoetCoreProver/Clean",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PoetCoreProverServer).Clean(ctx, req.(*CleanRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _PoetCoreProver_Shutdown_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ShutdownRequest)
 	if err := dec(in); err != nil {
@@ -964,14 +555,6 @@ var _PoetCoreProver_serviceDesc = grpc.ServiceDesc{
 			Handler:    _PoetCoreProver_GetNIP_Handler,
 		},
 		{
-			MethodName: "GetProof",
-			Handler:    _PoetCoreProver_GetProof_Handler,
-		},
-		{
-			MethodName: "Clean",
-			Handler:    _PoetCoreProver_Clean_Handler,
-		},
-		{
 			MethodName: "Shutdown",
 			Handler:    _PoetCoreProver_Shutdown_Handler,
 		},
@@ -984,9 +567,7 @@ var _PoetCoreProver_serviceDesc = grpc.ServiceDesc{
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type PoetVerifierClient interface {
-	VerifyProof(ctx context.Context, in *VerifyProofRequest, opts ...grpc.CallOption) (*VerifyProofResponse, error)
 	VerifyNIP(ctx context.Context, in *VerifyNIPRequest, opts ...grpc.CallOption) (*VerifyNIPResponse, error)
-	GetRndChallenge(ctx context.Context, in *GetRndChallengeRequest, opts ...grpc.CallOption) (*GetRndChallengeResponse, error)
 }
 
 type poetVerifierClient struct {
@@ -995,15 +576,6 @@ type poetVerifierClient struct {
 
 func NewPoetVerifierClient(cc *grpc.ClientConn) PoetVerifierClient {
 	return &poetVerifierClient{cc}
-}
-
-func (c *poetVerifierClient) VerifyProof(ctx context.Context, in *VerifyProofRequest, opts ...grpc.CallOption) (*VerifyProofResponse, error) {
-	out := new(VerifyProofResponse)
-	err := c.cc.Invoke(ctx, "/apicore.PoetVerifier/VerifyProof", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *poetVerifierClient) VerifyNIP(ctx context.Context, in *VerifyNIPRequest, opts ...grpc.CallOption) (*VerifyNIPResponse, error) {
@@ -1015,42 +587,13 @@ func (c *poetVerifierClient) VerifyNIP(ctx context.Context, in *VerifyNIPRequest
 	return out, nil
 }
 
-func (c *poetVerifierClient) GetRndChallenge(ctx context.Context, in *GetRndChallengeRequest, opts ...grpc.CallOption) (*GetRndChallengeResponse, error) {
-	out := new(GetRndChallengeResponse)
-	err := c.cc.Invoke(ctx, "/apicore.PoetVerifier/GetRndChallenge", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // PoetVerifierServer is the server API for PoetVerifier service.
 type PoetVerifierServer interface {
-	VerifyProof(context.Context, *VerifyProofRequest) (*VerifyProofResponse, error)
 	VerifyNIP(context.Context, *VerifyNIPRequest) (*VerifyNIPResponse, error)
-	GetRndChallenge(context.Context, *GetRndChallengeRequest) (*GetRndChallengeResponse, error)
 }
 
 func RegisterPoetVerifierServer(s *grpc.Server, srv PoetVerifierServer) {
 	s.RegisterService(&_PoetVerifier_serviceDesc, srv)
-}
-
-func _PoetVerifier_VerifyProof_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(VerifyProofRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(PoetVerifierServer).VerifyProof(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/apicore.PoetVerifier/VerifyProof",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PoetVerifierServer).VerifyProof(ctx, req.(*VerifyProofRequest))
-	}
-	return interceptor(ctx, in, info, handler)
 }
 
 func _PoetVerifier_VerifyNIP_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -1071,88 +614,51 @@ func _PoetVerifier_VerifyNIP_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
-func _PoetVerifier_GetRndChallenge_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetRndChallengeRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(PoetVerifierServer).GetRndChallenge(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/apicore.PoetVerifier/GetRndChallenge",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PoetVerifierServer).GetRndChallenge(ctx, req.(*GetRndChallengeRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 var _PoetVerifier_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "apicore.PoetVerifier",
 	HandlerType: (*PoetVerifierServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "VerifyProof",
-			Handler:    _PoetVerifier_VerifyProof_Handler,
-		},
-		{
 			MethodName: "VerifyNIP",
 			Handler:    _PoetVerifier_VerifyNIP_Handler,
-		},
-		{
-			MethodName: "GetRndChallenge",
-			Handler:    _PoetVerifier_GetRndChallenge_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "apicore.proto",
 }
 
-func init() { proto.RegisterFile("apicore.proto", fileDescriptor_apicore_c4b63ebe3d1a8e1f) }
+func init() { proto.RegisterFile("apicore.proto", fileDescriptor_apicore_a9b93ffafa709c25) }
 
-var fileDescriptor_apicore_c4b63ebe3d1a8e1f = []byte{
-	// 653 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x55, 0xdd, 0x4e, 0xd4, 0x40,
-	0x14, 0xce, 0xec, 0x86, 0x65, 0x39, 0xec, 0x1f, 0x07, 0x59, 0x4a, 0x59, 0xa1, 0xa9, 0x24, 0x72,
-	0x45, 0xc3, 0x1a, 0x0d, 0xf1, 0x76, 0x4d, 0x88, 0x89, 0x31, 0x4d, 0x35, 0xc4, 0x18, 0x6f, 0xba,
-	0xbb, 0x43, 0xb7, 0x49, 0xe9, 0xd4, 0x76, 0x40, 0xf0, 0xd2, 0x57, 0xf0, 0xb5, 0xbc, 0x33, 0xbe,
-	0x81, 0x0f, 0x62, 0x3a, 0x9d, 0x76, 0xa7, 0xdb, 0x1a, 0x24, 0xde, 0xcd, 0xf9, 0xfb, 0xbe, 0x73,
-	0x66, 0xce, 0xd7, 0x42, 0xd7, 0x8d, 0xfc, 0x19, 0x8b, 0xe9, 0x49, 0x14, 0x33, 0xce, 0x70, 0x5d,
-	0x9a, 0xfa, 0xc8, 0x63, 0xcc, 0x0b, 0xa8, 0xe5, 0x46, 0xbe, 0xe5, 0x86, 0x21, 0xe3, 0x2e, 0xf7,
-	0x59, 0x98, 0x64, 0x69, 0xe6, 0x18, 0x7a, 0x13, 0x76, 0x15, 0x5d, 0x73, 0xea, 0xd0, 0xcf, 0xd7,
-	0x34, 0xe1, 0x68, 0x00, 0x99, 0x6b, 0xc4, 0x20, 0xc7, 0x9b, 0x63, 0x3c, 0xc9, 0x31, 0x5f, 0xb9,
-	0x9e, 0xed, 0xc6, 0xee, 0x55, 0xe2, 0x90, 0xb9, 0xf9, 0x04, 0xfa, 0x45, 0x4d, 0x12, 0xb1, 0x30,
-	0xa1, 0x38, 0x80, 0x66, 0xb4, 0xf0, 0x45, 0x59, 0xc7, 0x49, 0x8f, 0x66, 0x1f, 0xba, 0xe7, 0x94,
-	0xbf, 0x7d, 0x6d, 0x4b, 0x5c, 0xf3, 0x05, 0xf4, 0x72, 0x87, 0x2c, 0x3a, 0x82, 0xb5, 0x28, 0x66,
-	0xec, 0x52, 0xb2, 0xf5, 0x0a, 0x36, 0x3b, 0xf5, 0x3a, 0x59, 0xd0, 0x3c, 0x84, 0xfe, 0x39, 0xe5,
-	0x99, 0x4b, 0xb6, 0xd8, 0x01, 0x32, 0xd3, 0x88, 0xd1, 0x3c, 0xde, 0x70, 0xc8, 0xcc, 0x3c, 0x83,
-	0xc1, 0x32, 0xe1, 0x41, 0xd0, 0x3d, 0xe8, 0x4c, 0x02, 0xea, 0x86, 0x79, 0x8b, 0x7d, 0xe8, 0x4a,
-	0x3b, 0x83, 0x31, 0xb7, 0xa0, 0xff, 0x6e, 0x71, 0xcd, 0xe7, 0xec, 0x4b, 0x91, 0x83, 0x30, 0x58,
-	0xba, 0x64, 0xda, 0x14, 0xf0, 0x82, 0xc6, 0xfe, 0xe5, 0x5d, 0xa9, 0xcb, 0x7b, 0x2f, 0x12, 0x47,
-	0x40, 0x22, 0xad, 0x51, 0xdb, 0x21, 0x89, 0xb2, 0x29, 0x9b, 0xf9, 0x94, 0xa7, 0xb0, 0x5d, 0xe2,
-	0x90, 0x83, 0xea, 0xd0, 0xbe, 0x49, 0xdd, 0x3e, 0xcd, 0xb8, 0xda, 0x4e, 0x61, 0x9b, 0x0e, 0x0c,
-	0xb2, 0x92, 0xe5, 0x2b, 0xfc, 0x6f, 0x53, 0xa6, 0x05, 0x5b, 0x0a, 0xe6, 0x3f, 0x34, 0xf1, 0x12,
-	0x86, 0xe7, 0x94, 0x3b, 0xe1, 0x7c, 0xb2, 0x70, 0x83, 0x80, 0x86, 0xde, 0x03, 0x16, 0xed, 0x29,
-	0xec, 0x56, 0x6a, 0x25, 0x65, 0xf9, 0x72, 0x9e, 0xc3, 0x46, 0x51, 0x98, 0x86, 0x6e, 0xe5, 0x26,
-	0x92, 0xdb, 0xd4, 0x0a, 0xc5, 0x38, 0x5d, 0x87, 0x84, 0xa9, 0xb5, 0xd0, 0x9a, 0x06, 0x49, 0xcb,
-	0x16, 0xe6, 0x19, 0xac, 0x89, 0xc1, 0xaa, 0xeb, 0x8b, 0x8f, 0x81, 0x04, 0x5a, 0xc3, 0x68, 0x1e,
-	0x6f, 0x8e, 0xfb, 0x45, 0x73, 0x6f, 0xdc, 0x29, 0x0d, 0x12, 0x87, 0x04, 0xa6, 0x01, 0xad, 0xcc,
-	0xc0, 0x21, 0xb4, 0x02, 0x71, 0x12, 0x0b, 0xd9, 0x71, 0xa4, 0x35, 0xfe, 0xd1, 0x84, 0x9e, 0xcd,
-	0x28, 0x9f, 0xb0, 0x98, 0xda, 0x31, 0xbb, 0xa1, 0x31, 0x7e, 0x80, 0x75, 0xa9, 0x1b, 0xdc, 0x2d,
-	0x30, 0xcb, 0xea, 0xd3, 0xb5, 0x6a, 0x40, 0x2e, 0x99, 0xfe, 0xed, 0xe7, 0xef, 0xef, 0x8d, 0x47,
-	0x88, 0xd6, 0xcd, 0xa9, 0x15, 0x09, 0x44, 0x6b, 0x26, 0xe1, 0xde, 0x43, 0x2b, 0xd3, 0x16, 0x0e,
-	0x8b, 0xfa, 0x92, 0xfa, 0xf4, 0xdd, 0x8a, 0x5f, 0xc2, 0xee, 0x09, 0xd8, 0x6d, 0xdc, 0x52, 0x60,
-	0x3d, 0xca, 0x43, 0x3f, 0xc2, 0x8f, 0xd0, 0xce, 0x85, 0x85, 0x9a, 0x5a, 0xaf, 0xae, 0xb9, 0xbe,
-	0x57, 0x13, 0xb9, 0x1f, 0xdb, 0x86, 0x35, 0x21, 0x35, 0xdc, 0x59, 0x0e, 0xac, 0x48, 0x51, 0x1f,
-	0xae, 0xba, 0x25, 0xa4, 0x26, 0x20, 0x11, 0x07, 0xea, 0x2d, 0x08, 0xa0, 0x4f, 0xd0, 0xce, 0x85,
-	0xa9, 0x74, 0xbb, 0x22, 0x5f, 0xa5, 0xdb, 0x8a, 0x8a, 0xf7, 0x05, 0xf4, 0x0e, 0x6e, 0x2b, 0xd0,
-	0x89, 0x4c, 0x1a, 0xff, 0x6a, 0x40, 0x27, 0x7d, 0xce, 0x8b, 0x6c, 0xaf, 0x63, 0xa4, 0xb0, 0xa9,
-	0xe8, 0x11, 0xf7, 0x0b, 0xdc, 0xea, 0x97, 0x40, 0x1f, 0xd5, 0x07, 0xeb, 0x78, 0xa5, 0x6e, 0xe2,
-	0xec, 0x70, 0x87, 0x53, 0xd8, 0x28, 0xf4, 0x86, 0x7b, 0x2b, 0x38, 0xca, 0xfb, 0xea, 0x75, 0x21,
-	0x49, 0x70, 0x20, 0x08, 0x34, 0x1c, 0xd6, 0x10, 0xa4, 0x6f, 0xf1, 0x55, 0x7c, 0x61, 0x55, 0x99,
-	0xe1, 0xa1, 0xfa, 0xa8, 0x35, 0xe2, 0xd5, 0x8d, 0xbf, 0x27, 0x48, 0xd6, 0x23, 0xc1, 0x7a, 0x80,
-	0xa3, 0x12, 0xab, 0x47, 0x79, 0x1c, 0xce, 0x67, 0x79, 0xf6, 0xb4, 0x25, 0x7e, 0x43, 0xcf, 0xfe,
-	0x04, 0x00, 0x00, 0xff, 0xff, 0x24, 0x10, 0x44, 0x55, 0xbe, 0x06, 0x00, 0x00,
+var fileDescriptor_apicore_a9b93ffafa709c25 = []byte{
+	// 472 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x93, 0xdf, 0x4a, 0x1b, 0x41,
+	0x14, 0xc6, 0x99, 0x04, 0x35, 0x1e, 0x37, 0xff, 0x8e, 0xad, 0xae, 0x5b, 0x69, 0xc3, 0x58, 0xa8,
+	0x57, 0x2e, 0x4d, 0xa1, 0x2f, 0x60, 0xa1, 0x14, 0x8a, 0x2c, 0xdb, 0x22, 0xbd, 0x28, 0x84, 0xd5,
+	0x1c, 0xe3, 0x82, 0xce, 0x99, 0xce, 0x4e, 0x52, 0xbd, 0xed, 0x2b, 0xf4, 0xbe, 0x2f, 0xd5, 0x57,
+	0xe8, 0x83, 0x94, 0x9d, 0x9d, 0x6c, 0xa2, 0x09, 0x78, 0xb7, 0xf3, 0x9d, 0x39, 0xbf, 0x6f, 0xe6,
+	0x7c, 0xb3, 0xd0, 0xce, 0x74, 0x7e, 0xc9, 0x86, 0x4e, 0xb4, 0x61, 0xcb, 0xb8, 0xe5, 0x97, 0xd1,
+	0xe1, 0x84, 0x79, 0x72, 0x43, 0x71, 0xa6, 0xf3, 0x38, 0x53, 0x8a, 0x6d, 0x66, 0x73, 0x56, 0x45,
+	0xb5, 0x4d, 0x0e, 0xa1, 0x73, 0xca, 0xb7, 0x7a, 0x6a, 0x29, 0xa5, 0x1f, 0x53, 0x2a, 0x2c, 0x0e,
+	0x40, 0x8c, 0x43, 0x31, 0x10, 0xc7, 0x3b, 0x43, 0x3c, 0x99, 0x33, 0x3f, 0x64, 0x93, 0x24, 0x33,
+	0xd9, 0x6d, 0x91, 0x8a, 0xb1, 0x3c, 0x82, 0x6e, 0xdd, 0x53, 0x68, 0x56, 0x05, 0x61, 0x0f, 0x9a,
+	0xfa, 0x3a, 0x77, 0x6d, 0x41, 0x5a, 0x7e, 0xca, 0x2e, 0xb4, 0x3f, 0x92, 0x3d, 0xfb, 0x94, 0x78,
+	0xae, 0x7c, 0x0f, 0x9d, 0xb9, 0xe0, 0x9b, 0x5e, 0xc3, 0x86, 0x36, 0xcc, 0x57, 0xde, 0xad, 0x53,
+	0xbb, 0x25, 0xa5, 0x9a, 0x56, 0x45, 0xd9, 0x87, 0xee, 0x97, 0xeb, 0xa9, 0x1d, 0xf3, 0x4f, 0x35,
+	0x47, 0x21, 0xf4, 0x16, 0x52, 0x05, 0x93, 0x29, 0xf4, 0xce, 0xc9, 0xe4, 0x57, 0xf7, 0x0b, 0xcb,
+	0xa7, 0xaf, 0x82, 0x87, 0x20, 0x74, 0xd8, 0x58, 0x6b, 0x2f, 0xb4, 0x8c, 0xa1, 0xbf, 0xc4, 0xf4,
+	0xa7, 0x8e, 0xa0, 0x35, 0x2b, 0xc5, 0x9c, 0x2a, 0x76, 0x2b, 0xad, 0xd7, 0xf2, 0x0d, 0x6c, 0xd7,
+	0x78, 0x0c, 0x40, 0xdc, 0xf9, 0x89, 0x88, 0xbb, 0x72, 0xa5, 0x9c, 0x53, 0x3b, 0x15, 0x4a, 0x8e,
+	0x60, 0xc3, 0xb9, 0xac, 0x0e, 0x0e, 0x8f, 0x20, 0xd0, 0x86, 0x67, 0xa4, 0x3e, 0x53, 0x36, 0xa3,
+	0x22, 0x6c, 0x0c, 0x9a, 0xc7, 0x41, 0xda, 0xae, 0xb4, 0xd1, 0x8d, 0x13, 0xf1, 0x15, 0x80, 0x9b,
+	0xce, 0x19, 0x8f, 0xa9, 0x08, 0x9b, 0x6e, 0xcb, 0x8e, 0x53, 0x46, 0xaa, 0x94, 0x86, 0x7f, 0x1a,
+	0xd0, 0x49, 0x98, 0xec, 0x29, 0x1b, 0x4a, 0xca, 0x56, 0x83, 0xdf, 0x60, 0xcb, 0xc7, 0x86, 0xfb,
+	0xf5, 0x5d, 0x1f, 0x86, 0x1f, 0x85, 0xab, 0x05, 0x3f, 0xdf, 0xe8, 0xd7, 0xdf, 0x7f, 0xbf, 0x1b,
+	0xcf, 0x10, 0xe3, 0xd9, 0xdb, 0xd8, 0x1d, 0xc6, 0xc4, 0x97, 0x1e, 0xf7, 0x15, 0x36, 0xab, 0x68,
+	0x71, 0xaf, 0xee, 0x7f, 0x10, 0x7e, 0xb4, 0xbf, 0xa2, 0x7b, 0xec, 0x81, 0xc3, 0xee, 0x62, 0x7f,
+	0x09, 0x3b, 0x21, 0xab, 0x72, 0x8d, 0xdf, 0xa1, 0x35, 0x4f, 0x19, 0x17, 0xe7, 0x7a, 0xf4, 0x16,
+	0xa2, 0x83, 0x35, 0x15, 0xcf, 0x7e, 0xe1, 0xd8, 0xcf, 0x71, 0x77, 0x89, 0x5d, 0xf8, 0x4d, 0x43,
+	0x03, 0x41, 0x39, 0x9f, 0xf3, 0x2a, 0x3a, 0x83, 0x17, 0xb0, 0x5d, 0x67, 0x8d, 0x0b, 0xe8, 0xe3,
+	0x37, 0x15, 0x45, 0xeb, 0x4a, 0xde, 0xf0, 0xa5, 0x33, 0x0c, 0x71, 0xaf, 0x34, 0xf4, 0x8f, 0xc2,
+	0x54, 0x1f, 0xf7, 0x2a, 0xd7, 0x17, 0x9b, 0xee, 0x9f, 0x7b, 0xf7, 0x3f, 0x00, 0x00, 0xff, 0xff,
+	0xde, 0xe8, 0xa8, 0x5a, 0xab, 0x03, 0x00, 0x00,
 }

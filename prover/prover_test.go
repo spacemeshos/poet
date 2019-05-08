@@ -1,42 +1,18 @@
 package prover
 
 import (
-	"bytes"
 	"fmt"
-	"github.com/spacemeshos/poet/shared"
-	"github.com/stretchr/testify/assert"
+	"github.com/spacemeshos/poet/hash"
+	"github.com/stretchr/testify/require"
 	"testing"
 )
 
-func TestProverBasic(t *testing.T) {
-	x := []byte("this is a commitment")
-	const n = 9
+func TestGetProof(t *testing.T) {
+	r := require.New(t)
 
-	p, err := New(x, n, shared.NewScryptHashFunc(x))
-	assert.NoError(t, err)
-
-	phi, err := p.ComputeDag()
-
-	fmt.Printf("Root label: %x\n", phi)
-	assert.NoError(t, err)
-
-	// test root label computation from parents
-	leftLabel, ok := p.GetLabel("0")
-	assert.True(t, ok)
-	rightLabel, ok := p.GetLabel("1")
-	assert.True(t, ok)
-
-	data := append([]byte(""), leftLabel[:]...)
-	data = append(data, rightLabel[:]...)
-
-	l := p.GetHashFunction().Hash(data)
-	assert.True(t, bytes.Equal(phi[:], l[:]))
-}
-
-func BenchmarkProver(t *testing.B) {
-	x := []byte("this is a commitment")
-	const n = 15
-	p, err := New(x, n, shared.NewScryptHashFunc(x))
-	assert.NoError(t, err)
-	_, _ = p.ComputeDag()
+	challenge := []byte("challenge this")
+	merkleProof, err := GetProof(hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), 16, 5)
+	r.NoError(err)
+	fmt.Printf("root: %x\n", merkleProof.Root)
+	fmt.Printf("proof: %x\n", merkleProof.ProvenLeaves)
 }

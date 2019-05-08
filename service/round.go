@@ -5,7 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/spacemeshos/merkle-tree"
-	prover "github.com/spacemeshos/poet/prover"
+	"github.com/spacemeshos/poet/hash"
+	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
 	"time"
 )
@@ -21,7 +22,7 @@ type round struct {
 	challenges [][]byte
 	merkleTree *merkle.Tree
 	merkleRoot []byte
-	nip        *shared.Proof
+	nip        *shared.MerkleProof
 
 	closedChan   chan struct{}
 	executedChan chan struct{}
@@ -46,7 +47,11 @@ func (r *round) submit(challenge []byte) error {
 }
 
 func (r *round) close() error {
-	r.merkleTree = merkle.NewTree()
+	var err error
+	r.merkleTree, err = merkle.NewTree()
+	if err != nil {
+		return fmt.Errorf("could not initialize merkle tree: %v", err)
+	}
 	for _, c := range r.challenges {
 		err := r.merkleTree.AddLeaf(c)
 		if err != nil {
@@ -61,23 +66,15 @@ func (r *round) close() error {
 }
 
 func (r *round) execute() error {
-	// TODO(moshababo): use the config hash function
-	prover, err := prover.New(r.merkleRoot, r.cfg.N, shared.NewHashFunc(r.merkleRoot))
-	if err != nil {
-		return err
-	}
+	challenge := r.merkleRoot
+	leafCount := uint64(1) << r.cfg.N // TODO(noamnelke): configure tick count instead of height
+	securityParam := shared.T
 
 	r.executeStart = time.Now()
-	_, err = prover.ComputeDag()
+	nip, err := prover.GetProof(hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafCount, securityParam)
 	if err != nil {
 		return err
 	}
-	nip, err := prover.GetNonInteractiveProof()
-	if err != nil {
-		return err
-	}
-
-	prover.DeleteStore()
 
 	r.executeEnd = time.Now()
 	r.nip = &nip
@@ -113,7 +110,10 @@ func (r *round) membershipProof(challenge []byte, wait bool) (*MembershipProof, 
 	var leavesToProve = make(map[uint64]bool)
 	leavesToProve[uint64(index)] = true
 
-	t := merkle.NewProvingTree(leavesToProve)
+	t, err := merkle.NewProvingTree(leavesToProve)
+	if err != nil {
+		return nil, fmt.Errorf("could not initialize merkle tree: %v", err)
+	}
 	for _, c := range r.challenges {
 		err := t.AddLeaf(c)
 		if err != nil {

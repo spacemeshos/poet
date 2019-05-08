@@ -1,10 +1,8 @@
 package rpc
 
 import (
-	"fmt"
 	"github.com/spacemeshos/poet/rpc/api"
 	"github.com/spacemeshos/poet/service"
-	"github.com/spacemeshos/poet/shared"
 	"golang.org/x/net/context"
 	"time"
 )
@@ -61,9 +59,10 @@ func (r *rpcServer) GetProof(ctx context.Context, in *api.GetProofRequest) (*api
 	out.Commitment = p.Commitment
 
 	out.Proof = new(api.PoetProof)
-	out.Proof.Phi = make([]byte, len(p.Proof.Phi))
-	out.Proof.Phi = p.Proof.Phi
-	out.Proof.L = NativeLabelsToWire(p.Proof.L)
+	out.Proof.Phi = make([]byte, len(p.Proof.Root))
+	out.Proof.Phi = p.Proof.Root
+	out.Proof.ProvenLeaves = p.Proof.ProvenLeaves
+	out.Proof.ProofNodes = p.Proof.ProofNodes
 
 	return out, nil
 }
@@ -82,9 +81,9 @@ func (r *rpcServer) GetRoundInfo(ctx context.Context, in *api.GetRoundInfoReques
 	out.MerkleRoot = info.MerkleRoot
 
 	out.Proof = new(api.PoetProof)
-	out.Proof.Phi = make([]byte, len(info.Nip.Phi))
-	out.Proof.Phi = info.Nip.Phi
-	out.Proof.L = NativeLabelsToWire(info.Nip.L)
+	out.Proof.Phi = info.Nip.Root
+	out.Proof.ProvenLeaves = info.Nip.ProvenLeaves
+	out.Proof.ProofNodes = info.Nip.ProofNodes
 
 	return out, nil
 }
@@ -108,32 +107,4 @@ func (r *rpcServer) GetInfo(ctx context.Context, in *api.GetInfoRequest) (*api.G
 	out.ExecutedRoundsIds = ids
 
 	return out, nil
-}
-
-func NativeLabelsToWire(native [shared.T]shared.Labels) (wire []*api.Labels) {
-	for _, labels := range native {
-		var labelsMsg api.Labels
-		for _, label := range labels {
-			labelsMsg.Labels = append(labelsMsg.Labels, label)
-		}
-		wire = append(wire, &labelsMsg)
-	}
-	return wire
-}
-
-func WireLabelsToNative(wire []*api.Labels) (native *[shared.T]shared.Labels, err error) {
-	if len(wire) != shared.T {
-		return nil, fmt.Errorf("invalid number of labels, expected: %v, found: %v", shared.T, len(wire))
-	}
-
-	native = new([shared.T]shared.Labels)
-	for i, inLabels := range wire {
-		var outLabels shared.Labels
-		for _, inLabel := range inLabels.Labels {
-			outLabels = append(outLabels, inLabel)
-		}
-		native[i] = outLabels
-	}
-
-	return native, nil
 }

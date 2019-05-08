@@ -3,7 +3,7 @@ package main
 import (
 	"crypto/rand"
 	"fmt"
-	"github.com/spacemeshos/poet/internal"
+	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/verifier"
@@ -47,49 +47,32 @@ func main() {
 		println("Cpu profiling enabled and started...")
 	}
 
-	x := make([]byte, 20)
-	_, err = rand.Read(x)
+	challenge := make([]byte, 20)
+	_, err = rand.Read(challenge)
 	if err != nil {
 		panic("no entropy")
 	}
 
-	p, err := prover.New(x, cfg.N, shared.NewHashFunc(x))
-	defer p.DeleteStore()
-	if err != nil {
-		panic("can't create prover")
-	}
+	leafCount := uint64(1) << cfg.N
+	securityParam := shared.T
 
-	println("Computing dag...")
 	t1 := time.Now()
-
-	phi, err := p.ComputeDag()
+	println("Computing dag...")
+	merkleProof, err := prover.GetProof(hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafCount, securityParam)
 	if err != nil {
-		panic("Can't compute dag")
+		panic("failed to generate proof")
 	}
 
 	e := time.Since(t1)
 	fmt.Printf("Proof generated in %s (%f)\n", e, e.Seconds())
-	fmt.Printf("Dag root label: %s\n", internal.GetDisplayValue(phi))
-
-	proof, err := p.GetNonInteractiveProof()
-	if err != nil {
-		panic("Failed to create nip")
-	}
-
-	v, err := verifier.New(x, cfg.N, shared.NewHashFunc(x))
-	if err != nil {
-		panic("Failed to create verifier")
-	}
+	fmt.Printf("Dag root label: %x\n", merkleProof.Root)
 
 	t1 = time.Now()
-	verified, err := v.VerifyNIP(proof)
+	err = verifier.Validate(merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafCount, securityParam)
 	if err != nil {
 		panic("Failed to verify nip")
 	}
-	e = time.Since(t1)
-	if !verified {
-		panic("Failed to verify proof")
-	}
 
+	e = time.Since(t1)
 	fmt.Printf("Proof verified in %s (%f)\n", e, e.Seconds())
 }

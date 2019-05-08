@@ -8,7 +8,6 @@ import (
 
 type Config struct {
 	N                    uint          `long:"n" description:"PoET time parameter"`
-	HashFunction         string        `long:"hashfunction" description:"PoET hash function"`
 	RoundsDuration       time.Duration `long:"duration" description:"duration of the opening time for each round. If not specified, rounds duration will be determined by its previous round end of PoET execution"`
 	InitialRoundDuration time.Duration `long:"initialduration" description:"duration of the opening time for the initial round. if rounds duration isn't specified, this param is necessary"`
 	ExecuteEmpty         bool          `long:"empty" description:"whether to execution empty rounds, without any submitted challenges"`
@@ -37,7 +36,7 @@ type RoundInfoResponse struct {
 	ExecuteEnd      time.Time
 	ChallengesCount int
 	MerkleRoot      []byte
-	Nip             *shared.Proof
+	Nip             *shared.MerkleProof
 }
 
 type MembershipProof struct {
@@ -49,7 +48,7 @@ type MembershipProof struct {
 type PoetProof struct {
 	N          uint
 	Commitment []byte
-	Proof      *shared.Proof
+	Proof      *shared.MerkleProof
 }
 
 var (
@@ -107,7 +106,7 @@ func NewService(cfg *Config) (*Service, error) {
 
 				delete(s.executingRounds, r.Id)
 				s.executedRounds[r.Id] = r
-				log.Infof("round %v executed, phi=%v", r.Id, r.nip.Phi)
+				log.Infof("round %v executed, phi=%v", r.Id, r.nip.Root)
 			}()
 		}
 	}()

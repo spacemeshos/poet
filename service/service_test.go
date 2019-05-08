@@ -13,7 +13,6 @@ func TestNewService(t *testing.T) {
 
 	cfg := new(Config)
 	cfg.N = 17
-	cfg.HashFunction = "sha256"
 	cfg.InitialRoundDuration = 1 * time.Second
 
 	s, err := NewService(cfg)
@@ -81,5 +80,12 @@ func TestNewService(t *testing.T) {
 		valid, err := merkle.ValidatePartialTree(leafIndices, leaves, mproof.Proof, ch.round.merkleRoot, merkle.GetSha256Parent)
 		req.NoError(err)
 		req.True(valid)
+	}
+
+	// Wait for execution completion.
+	select {
+	case <-challenges[0].round.executedChan:
+	case err := <-s.errChan:
+		req.Fail(err.Error())
 	}
 }
