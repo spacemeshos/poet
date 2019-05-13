@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/spacemeshos/sha256-simd"
-	"math"
 	"testing"
 	"time"
 )
@@ -13,7 +12,7 @@ func BenchmarkSha256(t *testing.B) {
 	buff := bytes.Buffer{}
 	buff.Write([]byte("Seed data goes here"))
 	out := [32]byte{}
-	n := uint64(math.Pow(10, 8))
+	n := (uint64(1) << 20) * 101
 
 	fmt.Printf("Computing %d serial sha-256s...\n", n)
 
@@ -26,6 +25,6 @@ func BenchmarkSha256(t *testing.B) {
 	}
 
 	e := time.Since(t1)
-	r := n / (uint64(e.Seconds()))
+	r := uint64(float64(n) / e.Seconds())
 	fmt.Printf("Final hash: %x. Running time: %s secs. Hash-rate: %d hashes-per-sec\n", buff.Bytes(), e, r)
 }
