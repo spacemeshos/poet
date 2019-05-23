@@ -30,6 +30,7 @@ const (
 	defaultN                    = 15
 	defaultInitialRoundDuration = 2 * time.Second
 	defaultExecuteEmpty         = true
+	defaultNodeAddress          = "localhost:9091"
 )
 
 var (
@@ -67,6 +68,8 @@ type config struct {
 
 	CoreService *coreServiceConfig `group:"Core Service" namespace:"core"`
 	Service     *service.Config    `group:"Service"`
+
+	NodeAddress string `short:"n" long:"nodeaddr" description:"The address:port of a Spacemesh node's gRPC server"`
 }
 
 // loadConfig initializes and parses the config using a config file and command
@@ -96,6 +99,7 @@ func loadConfig() (*config, error) {
 		CoreService: &coreServiceConfig{
 			N: defaultN,
 		},
+		NodeAddress: defaultNodeAddress,
 	}
 
 	// Pre-parse the command line options to pick up an alternative config

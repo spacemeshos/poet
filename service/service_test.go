@@ -1,12 +1,23 @@
 package service
 
 import (
+	"bytes"
 	"crypto/rand"
+	xdr "github.com/nullstyle/go-xdr/xdr3"
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
 )
+
+type MockBroadcaster struct {
+	receivedMessages chan []byte
+}
+
+func (b *MockBroadcaster) BroadcastProof(msg []byte) error {
+	b.receivedMessages <- msg
+	return nil
+}
 
 func TestNewService(t *testing.T) {
 	req := require.New(t)
@@ -15,7 +26,8 @@ func TestNewService(t *testing.T) {
 	cfg.N = 17
 	cfg.InitialRoundDuration = 1 * time.Second
 
-	s, err := NewService(cfg)
+	proofBroadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
+	s, err := NewService(cfg, proofBroadcaster)
 	req.NoError(err)
 
 	type challenge struct {
@@ -87,5 +99,15 @@ func TestNewService(t *testing.T) {
 	case <-challenges[0].round.executedChan:
 	case err := <-s.errChan:
 		req.Fail(err.Error())
+	}
+
+	// Wait for proof message broadcast
+	select {
+	case msg := <-proofBroadcaster.receivedMessages:
+		poetProof := PoetProofMessage{}
+		_, err := xdr.Unmarshal(bytes.NewReader(msg), &poetProof)
+		req.NoError(err)
+	case <-time.After(100 * time.Millisecond):
+		req.Fail("proof message wasn't sent")
 	}
 }

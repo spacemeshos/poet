@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	proxy "github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/spacemeshos/poet/broadcaster"
 	"github.com/spacemeshos/poet/rpc"
 	"github.com/spacemeshos/poet/rpc/api"
 	"github.com/spacemeshos/poet/rpccore"
@@ -39,12 +40,16 @@ func startServer() error {
 		proxyRegstr = append(proxyRegstr, apicore.RegisterPoetCoreProverHandlerFromEndpoint)
 		proxyRegstr = append(proxyRegstr, apicore.RegisterPoetVerifierHandlerFromEndpoint)
 	} else {
-		service, err := service.NewService(cfg.Service)
+		proofBroadcaster, err := broadcaster.New(cfg.NodeAddress)
+		if err != nil {
+			return err
+		}
+		svc, err := service.NewService(cfg.Service, proofBroadcaster)
 		if err != nil {
 			return err
 		}
 
-		rpcServer := rpc.NewRPCServer(service)
+		rpcServer := rpc.NewRPCServer(svc)
 		grpcServer = grpc.NewServer(options...)
 
 		api.RegisterPoetServer(grpcServer, rpcServer)

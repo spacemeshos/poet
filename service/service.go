@@ -1,7 +1,10 @@
 package service
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
+	xdr "github.com/nullstyle/go-xdr/xdr3"
 	"github.com/spacemeshos/poet/shared"
 	"time"
 )
@@ -15,6 +18,7 @@ type Config struct {
 
 type Service struct {
 	cfg             *Config
+	broadcaster     Broadcaster
 	openRound       *round
 	prevRound       *round
 	rounds          map[int]*round
@@ -55,13 +59,31 @@ var (
 	ErrRoundNotFound = errors.New("round not found")
 )
 
-func NewService(cfg *Config) (*Service, error) {
+type Broadcaster interface {
+	BroadcastProof(msg []byte) error
+}
+
+type GossipPoetProof struct {
+	shared.MerkleProof
+	Members   [][]byte
+	LeafCount uint64
+}
+
+type PoetProofMessage struct {
+	GossipPoetProof
+	PoetId    []byte
+	RoundId   uint64
+	Signature []byte
+}
+
+func NewService(cfg *Config, broadcaster Broadcaster) (*Service, error) {
 	s := new(Service)
 	s.cfg = cfg
 	s.rounds = make(map[int]*round)
 	s.executingRounds = make(map[int]*round)
 	s.executedRounds = make(map[int]*round)
 	s.errChan = make(chan error)
+	s.broadcaster = broadcaster
 
 	roundId := 1
 	s.openRound = s.newRound(roundId)
@@ -104,6 +126,12 @@ func NewService(cfg *Config) (*Service, error) {
 					log.Error(err)
 				}
 
+				if msg, err := serializeProofMsg(r); err != nil {
+					log.Error(err)
+				} else if err := broadcaster.BroadcastProof(msg); err != nil {
+					log.Error("failed to broadcast poet message for round %v: %v", r.Id, err)
+				}
+
 				delete(s.executingRounds, r.Id)
 				s.executedRounds[r.Id] = r
 				log.Infof("round %v executed, phi=%v", r.Id, r.nip.Root)
@@ -112,6 +140,29 @@ func NewService(cfg *Config) (*Service, error) {
 	}()
 
 	return s, nil
+}
+
+func serializeProofMsg(r *round) ([]byte, error) {
+	poetProof, err := r.proof(false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get poet proof for round %d: %v", r.Id, err)
+	}
+	proofMessage := PoetProofMessage{
+		GossipPoetProof: GossipPoetProof{
+			MerkleProof: *r.nip,
+			Members:     r.challenges,
+			LeafCount:   uint64(1) << poetProof.N,
+		},
+		PoetId:    nil,
+		RoundId:   uint64(r.Id),
+		Signature: nil,
+	}
+	var dataBuf bytes.Buffer
+	_, err = xdr.Marshal(&dataBuf, proofMessage)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal proof message for round %d: %v", r.Id, err)
+	}
+	return dataBuf.Bytes(), nil
 }
 
 func (s *Service) Submit(data []byte) (*round, error) {
