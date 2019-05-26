@@ -126,11 +126,7 @@ func NewService(cfg *Config, broadcaster Broadcaster) (*Service, error) {
 					log.Error(err)
 				}
 
-				if msg, err := serializeProofMsg(r); err != nil {
-					log.Error(err)
-				} else if err := broadcaster.BroadcastProof(msg); err != nil {
-					log.Error("failed to broadcast poet message for round %v: %v", r.Id, err)
-				}
+				go broadcastProof(r, broadcaster)
 
 				delete(s.executingRounds, r.Id)
 				s.executedRounds[r.Id] = r
@@ -140,6 +136,14 @@ func NewService(cfg *Config, broadcaster Broadcaster) (*Service, error) {
 	}()
 
 	return s, nil
+}
+
+func broadcastProof(r *round, broadcaster Broadcaster) {
+	if msg, err := serializeProofMsg(r); err != nil {
+		log.Error(err)
+	} else if err := broadcaster.BroadcastProof(msg); err != nil {
+		log.Error("failed to broadcast poet message for round %v: %v", r.Id, err)
+	}
 }
 
 func serializeProofMsg(r *round) ([]byte, error) {
