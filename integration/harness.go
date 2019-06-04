@@ -19,8 +19,9 @@ type Harness struct {
 }
 
 // NewHarness creates and initializes a new instance of Harness.
-func NewHarness() (*Harness, error) {
-	cfg, err := newConfig()
+// nodeAddress (string) is the address of a Spacemesh node gRPC server. Use "NO_BROADCAST" to skip broadcasting proofs.
+func NewHarness(nodeAddress string) (*Harness, error) {
+	cfg, err := newConfig(nodeAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +80,7 @@ func connectClient(target string) (*grpc.ClientConn, error) {
 
 	conn, err := grpc.DialContext(ctx, target, opts...)
 	if err != nil {
-		return nil, fmt.Errorf("unable to connect to RPC server: %v", err)
+		return nil, fmt.Errorf("unable to connect to RPC server at %s: %v", target, err)
 	}
 
 	return conn, nil

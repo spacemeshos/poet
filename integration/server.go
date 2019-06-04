@@ -13,15 +13,16 @@ import (
 // serverConfig contains all the args and data required to launch a poet server
 // instance  and connect to it via rpc client.
 type serverConfig struct {
-	logLevel  string
-	rpcListen string
-	baseDir   string
-	dataDir   string
-	exe       string
+	logLevel    string
+	rpcListen   string
+	baseDir     string
+	dataDir     string
+	nodeAddress string
+	exe         string
 }
 
 // newConfig returns a newConfig with all default values.
-func newConfig() (*serverConfig, error) {
+func newConfig(nodeAddress string) (*serverConfig, error) {
 	baseDir, err := baseDir()
 	if err != nil {
 		return nil, err
@@ -33,11 +34,12 @@ func newConfig() (*serverConfig, error) {
 	}
 
 	cfg := &serverConfig{
-		baseDir:   baseDir,
-		logLevel:  "debug",
-		rpcListen: "127.0.0.1:18550",
-		exe:       poetPath,
-		dataDir:   filepath.Join(baseDir, "datadir"),
+		logLevel:    "debug",
+		rpcListen:   "127.0.0.1:18550",
+		baseDir:     baseDir,
+		dataDir:     filepath.Join(baseDir, "datadir"),
+		nodeAddress: nodeAddress,
+		exe:         poetPath,
 	}
 
 	return cfg, nil
@@ -49,6 +51,7 @@ func (cfg *serverConfig) genArgs() []string {
 
 	args = append(args, fmt.Sprintf("--datadir=%v", cfg.dataDir))
 	args = append(args, fmt.Sprintf("--rpclisten=%v", cfg.rpcListen))
+	args = append(args, fmt.Sprintf("--nodeaddr=%v", cfg.nodeAddress))
 
 	return args
 }

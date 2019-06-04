@@ -29,7 +29,7 @@ var testCases = []*harnessTestCase{
 func TestHarness(t *testing.T) {
 	assert := require.New(t)
 
-	h, err := integration.NewHarness()
+	h, err := integration.NewHarness("NO_BROADCAST")
 	assert.NoError(err)
 
 	go func() {

@@ -8,7 +8,7 @@ import (
 func TestHarness(t *testing.T) {
 	assert := require.New(t)
 
-	h, err := NewHarness()
+	h, err := NewHarness("NO_BROADCAST")
 	defer func() {
 		err := h.TearDown()
 		assert.NoError(err)

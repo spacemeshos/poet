@@ -15,6 +15,9 @@ type Broadcaster struct {
 }
 
 func (b *Broadcaster) BroadcastProof(msg []byte) error {
+	if b.grpcClient == nil {
+		return nil
+	}
 	pbMsg := &pb.BinaryMessage{Data: msg}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -29,6 +32,11 @@ func (b *Broadcaster) BroadcastProof(msg []byte) error {
 }
 
 func New(target string) (*Broadcaster, error) {
+	if target=="NO_BROADCAST" {
+		fmt.Println("broadcast disabled")
+		return &Broadcaster{}, nil
+	}
+
 	conn, err := newClientConn(target)
 	if err != nil {
 		return nil, err
