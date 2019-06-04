@@ -45,9 +45,6 @@ func startServer() error {
 			return err
 		}
 
-		rpcServer := rpc.NewRPCServer(svc)
-		grpcServer = grpc.NewServer(options...)
-
 		go func() {
 			proofBroadcaster, err := broadcaster.New(cfg.NodeAddress)
 			if err != nil {
@@ -56,6 +53,9 @@ func startServer() error {
 			}
 			svc.Start(proofBroadcaster)
 		}()
+
+		rpcServer := rpc.NewRPCServer(svc)
+		grpcServer = grpc.NewServer(options...)
 
 		api.RegisterPoetServer(grpcServer, rpcServer)
 		proxyRegstr = append(proxyRegstr, api.RegisterPoetHandlerFromEndpoint)

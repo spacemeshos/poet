@@ -68,9 +68,11 @@ type GossipPoetProof struct {
 	LeafCount uint64
 }
 
+const PoetIdLength = 32
+
 type PoetProofMessage struct {
 	GossipPoetProof
-	PoetId    []byte
+	PoetId    [PoetIdLength]byte
 	RoundId   uint64
 	Signature []byte
 }
@@ -154,7 +156,7 @@ func serializeProofMsg(r *round) ([]byte, error) {
 			Members:     r.challenges,
 			LeafCount:   uint64(1) << poetProof.N,
 		},
-		PoetId:    nil,
+		PoetId:    [32]byte{},
 		RoundId:   uint64(r.Id),
 		Signature: nil,
 	}
