@@ -26,9 +26,11 @@ func TestNewService(t *testing.T) {
 	cfg.N = 17
 	cfg.InitialRoundDuration = 1 * time.Second
 
-	proofBroadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
-	s, err := NewService(cfg, proofBroadcaster)
+	s, err := NewService(cfg)
 	req.NoError(err)
+
+	proofBroadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
+	s.Start(proofBroadcaster)
 
 	type challenge struct {
 		data  []byte

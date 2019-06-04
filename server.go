@@ -40,17 +40,22 @@ func startServer() error {
 		proxyRegstr = append(proxyRegstr, apicore.RegisterPoetCoreProverHandlerFromEndpoint)
 		proxyRegstr = append(proxyRegstr, apicore.RegisterPoetVerifierHandlerFromEndpoint)
 	} else {
-		proofBroadcaster, err := broadcaster.New(cfg.NodeAddress)
-		if err != nil {
-			return err
-		}
-		svc, err := service.NewService(cfg.Service, proofBroadcaster)
+		svc, err := service.NewService(cfg.Service)
 		if err != nil {
 			return err
 		}
 
 		rpcServer := rpc.NewRPCServer(svc)
 		grpcServer = grpc.NewServer(options...)
+
+		go func() {
+			proofBroadcaster, err := broadcaster.New(cfg.NodeAddress)
+			if err != nil {
+				s.RequestShutdown()
+				return
+			}
+			svc.Start(proofBroadcaster)
+		}()
 
 		api.RegisterPoetServer(grpcServer, rpcServer)
 		proxyRegstr = append(proxyRegstr, api.RegisterPoetHandlerFromEndpoint)

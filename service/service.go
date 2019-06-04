@@ -18,7 +18,6 @@ type Config struct {
 
 type Service struct {
 	cfg             *Config
-	broadcaster     Broadcaster
 	openRound       *round
 	prevRound       *round
 	rounds          map[int]*round
@@ -76,19 +75,20 @@ type PoetProofMessage struct {
 	Signature []byte
 }
 
-func NewService(cfg *Config, broadcaster Broadcaster) (*Service, error) {
+func NewService(cfg *Config) (*Service, error) {
 	s := new(Service)
 	s.cfg = cfg
 	s.rounds = make(map[int]*round)
 	s.executingRounds = make(map[int]*round)
 	s.executedRounds = make(map[int]*round)
 	s.errChan = make(chan error)
-	s.broadcaster = broadcaster
+	s.openRound = s.newRound(1)
+	log.Infof("round %v opened", 1)
 
-	roundId := 1
-	s.openRound = s.newRound(roundId)
-	log.Infof("round %v opened", roundId)
+	return s, nil
+}
 
+func (s *Service) Start(broadcaster Broadcaster) {
 	go func() {
 		for {
 			// Proceed either on previous round end of execution
@@ -104,9 +104,8 @@ func NewService(cfg *Config, broadcaster Broadcaster) (*Service, error) {
 
 			s.prevRound = s.openRound
 
-			roundId++
-			s.openRound = s.newRound(roundId)
-			log.Infof("round %v opened", roundId)
+			s.openRound = s.newRound(s.openRound.Id + 1)
+			log.Infof("round %v opened", s.openRound.Id)
 
 			// Close previous round and execute it.
 			go func() {
@@ -134,8 +133,6 @@ func NewService(cfg *Config, broadcaster Broadcaster) (*Service, error) {
 			}()
 		}
 	}()
-
-	return s, nil
 }
 
 func broadcastProof(r *round, broadcaster Broadcaster) {
