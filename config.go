@@ -28,7 +28,7 @@ const (
 	defaultRPCPort              = 50002
 	defaultRESTPort             = 8080
 	defaultN                    = 15
-	defaultInitialRoundDuration = 2 * time.Second
+	defaultInitialRoundDuration = 35 * time.Second
 	defaultExecuteEmpty         = true
 	defaultNodeAddress          = "localhost:9091"
 )
