@@ -48,6 +48,7 @@ func startServer() error {
 		go func() {
 			proofBroadcaster, err := broadcaster.New(cfg.NodeAddress)
 			if err != nil {
+				rpcServerLog.Errorf("could not connect to node: %v", err)
 				s.RequestShutdown()
 				return
 			}
