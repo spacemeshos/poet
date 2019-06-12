@@ -50,7 +50,7 @@ func New(target string) (*Broadcaster, error) {
 // newClientConn returns a new gRPC client
 // connection to the specified target.
 func newClientConn(target string) (*grpc.ClientConn, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Minute)
 	opts := []grpc.DialOption{
 		grpc.WithInsecure(),
 		grpc.WithBlock(),
