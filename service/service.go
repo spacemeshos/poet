@@ -6,6 +6,7 @@ import (
 	"fmt"
 	xdr "github.com/nullstyle/go-xdr/xdr3"
 	"github.com/spacemeshos/poet/shared"
+	"sync"
 	"time"
 )
 
@@ -25,6 +26,7 @@ type Service struct {
 	executedRounds  map[int]*round
 
 	errChan chan error
+	mu      sync.Mutex
 }
 
 type InfoResponse struct {
@@ -111,9 +113,8 @@ func (s *Service) Start(broadcaster Broadcaster) {
 
 			// Close previous round and execute it.
 			go func() {
-				// TODO(moshababo): apply safe concurrency
 				r := s.prevRound
-				s.executingRounds[r.Id] = r
+				s.setRoundExecuting(r)
 
 				err := r.close()
 				if err != nil {
@@ -129,8 +130,7 @@ func (s *Service) Start(broadcaster Broadcaster) {
 
 				go broadcastProof(r, broadcaster)
 
-				delete(s.executingRounds, r.Id)
-				s.executedRounds[r.Id] = r
+				s.setRoundExecuted(r)
 				log.Infof("round %v executed, phi=%v", r.Id, r.nip.Root)
 			}()
 		}
@@ -166,6 +166,21 @@ func serializeProofMsg(r *round) ([]byte, error) {
 		return nil, fmt.Errorf("failed to marshal proof message for round %d: %v", r.Id, err)
 	}
 	return dataBuf.Bytes(), nil
+}
+
+func (s *Service) setRoundExecuted(r *round) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	delete(s.executingRounds, r.Id)
+	s.executedRounds[r.Id] = r
+}
+
+func (s *Service) setRoundExecuting(r *round) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.executingRounds[r.Id] = r
 }
 
 func (s *Service) Submit(data []byte) (*round, error) {
