@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/jessevdk/go-flags"
+	"github.com/spacemeshos/go-spacemesh/log"
 	"os"
 	"runtime"
 )
@@ -23,14 +24,11 @@ func poetMain() error {
 	}
 	cfg = loadedConfig
 	defer func() {
-		if logRotator != nil {
-			poetLog.Info("Shutdown complete")
-			logRotator.Close()
-		}
+		log.Info("Shutdown complete")
 	}()
 
 	// Show version at startup.
-	poetLog.Infof("Version: %s, logging=%s", version(), cfg.LogLevel)
+	log.Info("Version: %s", version())
 
 	if err := startServer(); err != nil {
 		return err

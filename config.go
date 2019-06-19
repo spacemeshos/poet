@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/btcsuite/btcutil"
 	"github.com/jessevdk/go-flags"
+	"github.com/spacemeshos/go-spacemesh/log"
 	"github.com/spacemeshos/poet/service"
 	"net"
 	"os"
@@ -20,7 +21,6 @@ import (
 const (
 	defaultConfigFilename       = "poet.conf"
 	defaultDataDirname          = "data"
-	defaultLogLevel             = "debug"
 	defaultLogDirname           = "logs"
 	defaultLogFilename          = "poet.log"
 	defaultMaxLogFiles          = 3
@@ -60,7 +60,6 @@ type config struct {
 	RPCListener     net.Addr
 	RESTListener    net.Addr
 
-	LogLevel   string `short:"l" long:"loglevel" description:"Logging level for all subsystems {trace, debug, info, warn, error, critical}"`
 	CPUProfile string `long:"cpuprofile" description:"Write CPU profile to the specified file"`
 	Profile    string `long:"profile" description:"Enable HTTP profiling on given port -- NOTE port must be between 1024 and 65535"`
 
@@ -85,7 +84,6 @@ func loadConfig() (*config, error) {
 		PoetDir:         defaultPoetDir,
 		ConfigFile:      defaultConfigFile,
 		DataDir:         defaultDataDir,
-		LogLevel:        defaultLogLevel,
 		LogDir:          defaultLogDir,
 		MaxLogFiles:     defaultMaxLogFiles,
 		MaxLogFileSize:  defaultMaxLogFileSize,
@@ -188,21 +186,6 @@ func loadConfig() (*config, error) {
 		return nil, err
 	}
 
-	// Initialize logging at the default logging level.
-	initLogRotator(
-		filepath.Join(cfg.LogDir, defaultLogFilename),
-		cfg.MaxLogFileSize, cfg.MaxLogFiles,
-	)
-
-	if !validLogLevel(cfg.LogLevel) {
-		fmt.Fprintln(os.Stderr, usageMessage)
-		err := fmt.Errorf("the specified log level (%v) is invalid", cfg.LogLevel)
-		return nil, err
-	}
-
-	// Change the logging level for all subsystems.
-	setLogLevels(cfg.LogLevel)
-
 	// Resolve the RPC listener
 	addr, err := net.ResolveTCPAddr("tcp", cfg.RawRPCListener)
 	if err != nil {
@@ -221,7 +204,7 @@ func loadConfig() (*config, error) {
 	// done.  This prevents the warning on help messages and invalid
 	// options.  Note this should go directly before the return.
 	if configFileError != nil {
-		poetLog.Warnf("%v", configFileError)
+		log.Warning("%v", configFileError)
 	}
 
 	return &cfg, nil
@@ -253,23 +236,3 @@ func cleanAndExpandPath(path string) string {
 	return filepath.Clean(os.ExpandEnv(path))
 }
 
-// validLogLevel returns whether or not logLevel is a valid debug log level.
-func validLogLevel(logLevel string) bool {
-	switch logLevel {
-	case "trace":
-		fallthrough
-	case "debug":
-		fallthrough
-	case "info":
-		fallthrough
-	case "warn":
-		fallthrough
-	case "error":
-		fallthrough
-	case "critical":
-		fallthrough
-	case "off":
-		return true
-	}
-	return false
-}

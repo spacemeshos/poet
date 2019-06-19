@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	proxy "github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/spacemeshos/go-spacemesh/log"
 	"github.com/spacemeshos/poet/broadcaster"
 	"github.com/spacemeshos/poet/rpc"
 	"github.com/spacemeshos/poet/rpc/api"
@@ -48,7 +49,7 @@ func startServer() error {
 		go func() {
 			proofBroadcaster, err := broadcaster.New(cfg.NodeAddress)
 			if err != nil {
-				rpcServerLog.Errorf("could not connect to node: %v", err)
+				log.Error("could not connect to node: %v", err)
 				s.RequestShutdown()
 				return
 			}
@@ -70,7 +71,7 @@ func startServer() error {
 	defer lis.Close()
 
 	go func() {
-		rpcServerLog.Infof("RPC server listening on %s", lis.Addr())
+		log.Info("RPC server listening on %s", lis.Addr())
 		grpcServer.Serve(lis)
 	}()
 
@@ -84,9 +85,9 @@ func startServer() error {
 	}
 
 	go func() {
-		rpcServerLog.Infof("REST proxy start listening on %s", cfg.RESTListener.String())
+		log.Info("REST proxy start listening on %s", cfg.RESTListener.String())
 		err := http.ListenAndServe(cfg.RESTListener.String(), mux)
-		rpcServerLog.Errorf("REST proxy failed listening: %s\n", err)
+		log.Error("REST proxy failed listening: %s\n", err)
 	}()
 
 	// Wait for shutdown signal from either a graceful server stop or from
@@ -108,12 +109,12 @@ func loggerInterceptor() func(ctx context.Context, req interface{}, info *grpc.U
 		} else {
 			reqDispStr = reqStr
 		}
-		rpcServerLog.Debugf("%v: %v %v", peer.Addr.String(), info.FullMethod, reqDispStr)
+		log.Debug("%v: %v %v", peer.Addr.String(), info.FullMethod, reqDispStr)
 
 		resp, err := handler(ctx, req)
 
 		if err != nil {
-			rpcServerLog.Debugf("%v: FAILURE %v %s", peer.Addr.String(), info.FullMethod, err)
+			log.Debug("%v: FAILURE %v %s", peer.Addr.String(), info.FullMethod, err)
 		}
 		return resp, err
 	}

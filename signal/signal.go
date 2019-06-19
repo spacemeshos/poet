@@ -6,6 +6,7 @@
 package signal
 
 import (
+	"github.com/spacemeshos/go-spacemesh/log"
 	"os"
 	"os/signal"
 )
@@ -50,11 +51,11 @@ func (s *Signal) mainInterruptHandler() {
 	shutdown := func() {
 		// Ignore more than one shutdown signal.
 		if isShutdown {
-			log.Infof("Already shutting down...")
+			log.Info("Already shutting down...")
 			return
 		}
 		isShutdown = true
-		log.Infof("Shutting down...")
+		log.Info("Shutting down...")
 
 		// Signal the main interrupt handler to exit, and stop accept
 		// post-facto requests.
@@ -64,15 +65,15 @@ func (s *Signal) mainInterruptHandler() {
 	for {
 		select {
 		case <-s.interruptChannel:
-			log.Infof("Received SIGINT (Ctrl+C).")
+			log.Info("Received SIGINT (Ctrl+C).")
 			shutdown()
 
 		case <-s.shutdownRequestChannel:
-			log.Infof("Received shutdown request.")
+			log.Info("Received shutdown request.")
 			shutdown()
 
 		case <-s.quit:
-			log.Infof("Gracefully shutting down...")
+			log.Info("Gracefully shutting down...")
 			close(s.shutdownChannel)
 			return
 		}

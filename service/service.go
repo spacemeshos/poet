@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	xdr "github.com/nullstyle/go-xdr/xdr3"
+	"github.com/spacemeshos/go-spacemesh/log"
 	"github.com/spacemeshos/poet/shared"
 	"sync"
 	"time"
@@ -87,7 +88,7 @@ func NewService(cfg *Config) (*Service, error) {
 	s.executedRounds = make(map[int]*round)
 	s.errChan = make(chan error)
 	s.openRound = s.newRound(1)
-	log.Infof("round %v opened", 1)
+	log.Info("round %v opened", 1)
 
 	return s, nil
 }
@@ -109,7 +110,7 @@ func (s *Service) Start(broadcaster Broadcaster) {
 			s.prevRound = s.openRound
 
 			s.openRound = s.newRound(s.openRound.Id + 1)
-			log.Infof("round %v opened", s.openRound.Id)
+			log.Info("round %v opened", s.openRound.Id)
 
 			// Close previous round and execute it.
 			go func() {
@@ -119,19 +120,19 @@ func (s *Service) Start(broadcaster Broadcaster) {
 				err := r.close()
 				if err != nil {
 					s.errChan <- err
-					log.Error(err)
+					log.Error(err.Error())
 				}
-				log.Infof("round %v closed, executing...", r.Id)
+				log.Info("round %v closed, executing...", r.Id)
 				err = r.execute()
 				if err != nil {
 					s.errChan <- err
-					log.Error(err)
+					log.Error(err.Error())
 				}
 
 				go broadcastProof(r, broadcaster)
 
 				s.setRoundExecuted(r)
-				log.Infof("round %v executed, phi=%v", r.Id, r.nip.Root)
+				log.Info("round %v executed, phi=%v", r.Id, r.nip.Root)
 			}()
 		}
 	}()
@@ -139,7 +140,7 @@ func (s *Service) Start(broadcaster Broadcaster) {
 
 func broadcastProof(r *round, broadcaster Broadcaster) {
 	if msg, err := serializeProofMsg(r); err != nil {
-		log.Error(err)
+		log.Error(err.Error())
 	} else if err := broadcaster.BroadcastProof(msg); err != nil {
 		log.Error("failed to broadcast poet message for round %v: %v", r.Id, err)
 	}
