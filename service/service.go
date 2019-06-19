@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"github.com/spacemeshos/poet/shared"
+	"sync"
 	"time"
 )
 
@@ -22,6 +23,7 @@ type Service struct {
 	executedRounds  map[int]*round
 
 	errChan chan error
+	mu      sync.Mutex
 }
 
 type InfoResponse struct {
@@ -88,9 +90,8 @@ func NewService(cfg *Config) (*Service, error) {
 
 			// Close previous round and execute it.
 			go func() {
-				// TODO(moshababo): apply safe concurrency
 				r := s.prevRound
-				s.executingRounds[r.Id] = r
+				s.setRoundExecuting(r)
 
 				err := r.close()
 				if err != nil {
@@ -104,14 +105,28 @@ func NewService(cfg *Config) (*Service, error) {
 					log.Error(err)
 				}
 
-				delete(s.executingRounds, r.Id)
-				s.executedRounds[r.Id] = r
+				s.setRoundExecuted(r)
 				log.Infof("round %v executed, phi=%v", r.Id, r.nip.Root)
 			}()
 		}
 	}()
 
 	return s, nil
+}
+
+func (s *Service) setRoundExecuted(r *round) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	delete(s.executingRounds, r.Id)
+	s.executedRounds[r.Id] = r
+}
+
+func (s *Service) setRoundExecuting(r *round) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.executingRounds[r.Id] = r
 }
 
 func (s *Service) Submit(data []byte) (*round, error) {
