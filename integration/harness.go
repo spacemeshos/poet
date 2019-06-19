@@ -20,12 +20,7 @@ type Harness struct {
 
 // NewHarness creates and initializes a new instance of Harness.
 // nodeAddress (string) is the address of a Spacemesh node gRPC server. Use "NO_BROADCAST" to skip broadcasting proofs.
-func NewHarness(nodeAddress string) (*Harness, error) {
-	cfg, err := newConfig(nodeAddress)
-	if err != nil {
-		return nil, err
-	}
-
+func NewHarness(cfg *serverConfig) (*Harness, error) {
 	server, err := newServer(cfg)
 	if err != nil {
 		return nil, err
