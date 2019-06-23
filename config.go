@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/btcsuite/btcutil"
 	"github.com/jessevdk/go-flags"
+	"github.com/spacemeshos/go-spacemesh/log"
 	"github.com/spacemeshos/poet/service"
 	"net"
 	"os"
@@ -20,7 +21,6 @@ import (
 const (
 	defaultConfigFilename       = "poet.conf"
 	defaultDataDirname          = "data"
-	defaultLogLevel             = "debug"
 	defaultLogDirname           = "logs"
 	defaultLogFilename          = "poet.log"
 	defaultMaxLogFiles          = 3
@@ -28,8 +28,9 @@ const (
 	defaultRPCPort              = 50002
 	defaultRESTPort             = 8080
 	defaultN                    = 15
-	defaultInitialRoundDuration = 2 * time.Second
+	defaultInitialRoundDuration = 35 * time.Second
 	defaultExecuteEmpty         = true
+	defaultNodeAddress          = "localhost:9091"
 )
 
 var (
@@ -59,7 +60,6 @@ type config struct {
 	RPCListener     net.Addr
 	RESTListener    net.Addr
 
-	LogLevel   string `short:"l" long:"loglevel" description:"Logging level for all subsystems {trace, debug, info, warn, error, critical}"`
 	CPUProfile string `long:"cpuprofile" description:"Write CPU profile to the specified file"`
 	Profile    string `long:"profile" description:"Enable HTTP profiling on given port -- NOTE port must be between 1024 and 65535"`
 
@@ -67,6 +67,8 @@ type config struct {
 
 	CoreService *coreServiceConfig `group:"Core Service" namespace:"core"`
 	Service     *service.Config    `group:"Service"`
+
+	NodeAddress string `short:"n" long:"nodeaddr" description:"The address:port of a Spacemesh node's gRPC server"`
 }
 
 // loadConfig initializes and parses the config using a config file and command
@@ -82,7 +84,6 @@ func loadConfig() (*config, error) {
 		PoetDir:         defaultPoetDir,
 		ConfigFile:      defaultConfigFile,
 		DataDir:         defaultDataDir,
-		LogLevel:        defaultLogLevel,
 		LogDir:          defaultLogDir,
 		MaxLogFiles:     defaultMaxLogFiles,
 		MaxLogFileSize:  defaultMaxLogFileSize,
@@ -96,6 +97,7 @@ func loadConfig() (*config, error) {
 		CoreService: &coreServiceConfig{
 			N: defaultN,
 		},
+		NodeAddress: defaultNodeAddress,
 	}
 
 	// Pre-parse the command line options to pick up an alternative config
@@ -184,21 +186,6 @@ func loadConfig() (*config, error) {
 		return nil, err
 	}
 
-	// Initialize logging at the default logging level.
-	initLogRotator(
-		filepath.Join(cfg.LogDir, defaultLogFilename),
-		cfg.MaxLogFileSize, cfg.MaxLogFiles,
-	)
-
-	if !validLogLevel(cfg.LogLevel) {
-		fmt.Fprintln(os.Stderr, usageMessage)
-		err := fmt.Errorf("the specified log level (%v) is invalid", cfg.LogLevel)
-		return nil, err
-	}
-
-	// Change the logging level for all subsystems.
-	setLogLevels(cfg.LogLevel)
-
 	// Resolve the RPC listener
 	addr, err := net.ResolveTCPAddr("tcp", cfg.RawRPCListener)
 	if err != nil {
@@ -217,7 +204,7 @@ func loadConfig() (*config, error) {
 	// done.  This prevents the warning on help messages and invalid
 	// options.  Note this should go directly before the return.
 	if configFileError != nil {
-		poetLog.Warnf("%v", configFileError)
+		log.Warning("%v", configFileError)
 	}
 
 	return &cfg, nil
@@ -249,23 +236,3 @@ func cleanAndExpandPath(path string) string {
 	return filepath.Clean(os.ExpandEnv(path))
 }
 
-// validLogLevel returns whether or not logLevel is a valid debug log level.
-func validLogLevel(logLevel string) bool {
-	switch logLevel {
-	case "trace":
-		fallthrough
-	case "debug":
-		fallthrough
-	case "info":
-		fallthrough
-	case "warn":
-		fallthrough
-	case "error":
-		fallthrough
-	case "critical":
-		fallthrough
-	case "off":
-		return true
-	}
-	return false
-}

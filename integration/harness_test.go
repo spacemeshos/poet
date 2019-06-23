@@ -8,7 +8,10 @@ import (
 func TestHarness(t *testing.T) {
 	assert := require.New(t)
 
-	h, err := NewHarness()
+	cfg, err := DefaultConfig()
+	assert.NoError(err)
+	cfg.NodeAddress = "NO_BROADCAST"
+	h, err := NewHarness(cfg)
 	defer func() {
 		err := h.TearDown()
 		assert.NoError(err)

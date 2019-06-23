@@ -29,7 +29,11 @@ var testCases = []*harnessTestCase{
 func TestHarness(t *testing.T) {
 	assert := require.New(t)
 
-	h, err := integration.NewHarness()
+	cfg, err := integration.DefaultConfig()
+	assert.NoError(err)
+	cfg.NodeAddress = "NO_BROADCAST"
+	cfg.InitialRoundDuration = time.Duration(2 * time.Second).String()
+	h, err := integration.NewHarness(cfg)
 	assert.NoError(err)
 
 	go func() {

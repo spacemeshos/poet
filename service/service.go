@@ -1,7 +1,11 @@
 package service
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
+	xdr "github.com/nullstyle/go-xdr/xdr3"
+	"github.com/spacemeshos/go-spacemesh/log"
 	"github.com/spacemeshos/poet/shared"
 	"sync"
 	"time"
@@ -57,6 +61,25 @@ var (
 	ErrRoundNotFound = errors.New("round not found")
 )
 
+type Broadcaster interface {
+	BroadcastProof(msg []byte) error
+}
+
+type GossipPoetProof struct {
+	shared.MerkleProof
+	Members   [][]byte
+	LeafCount uint64
+}
+
+const PoetIdLength = 32
+
+type PoetProofMessage struct {
+	GossipPoetProof
+	PoetId    [PoetIdLength]byte
+	RoundId   uint64
+	Signature []byte
+}
+
 func NewService(cfg *Config) (*Service, error) {
 	s := new(Service)
 	s.cfg = cfg
@@ -64,11 +87,13 @@ func NewService(cfg *Config) (*Service, error) {
 	s.executingRounds = make(map[int]*round)
 	s.executedRounds = make(map[int]*round)
 	s.errChan = make(chan error)
+	s.openRound = s.newRound(1)
+	log.Info("round %v opened", 1)
 
-	roundId := 1
-	s.openRound = s.newRound(roundId)
-	log.Infof("round %v opened", roundId)
+	return s, nil
+}
 
+func (s *Service) Start(broadcaster Broadcaster) {
 	go func() {
 		for {
 			// Proceed either on previous round end of execution
@@ -84,9 +109,8 @@ func NewService(cfg *Config) (*Service, error) {
 
 			s.prevRound = s.openRound
 
-			roundId++
-			s.openRound = s.newRound(roundId)
-			log.Infof("round %v opened", roundId)
+			s.openRound = s.newRound(s.openRound.Id + 1)
+			log.Info("round %v opened", s.openRound.Id)
 
 			// Close previous round and execute it.
 			go func() {
@@ -96,22 +120,53 @@ func NewService(cfg *Config) (*Service, error) {
 				err := r.close()
 				if err != nil {
 					s.errChan <- err
-					log.Error(err)
+					log.Error(err.Error())
 				}
-				log.Infof("round %v closed, executing...", r.Id)
+				log.Info("round %v closed, executing...", r.Id)
 				err = r.execute()
 				if err != nil {
 					s.errChan <- err
-					log.Error(err)
+					log.Error(err.Error())
 				}
 
+				go broadcastProof(r, broadcaster)
+
 				s.setRoundExecuted(r)
-				log.Infof("round %v executed, phi=%v", r.Id, r.nip.Root)
+				log.Info("round %v executed, phi=%v", r.Id, r.nip.Root)
 			}()
 		}
 	}()
+}
 
-	return s, nil
+func broadcastProof(r *round, broadcaster Broadcaster) {
+	if msg, err := serializeProofMsg(r); err != nil {
+		log.Error(err.Error())
+	} else if err := broadcaster.BroadcastProof(msg); err != nil {
+		log.Error("failed to broadcast poet message for round %v: %v", r.Id, err)
+	}
+}
+
+func serializeProofMsg(r *round) ([]byte, error) {
+	poetProof, err := r.proof(false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get poet proof for round %d: %v", r.Id, err)
+	}
+	proofMessage := PoetProofMessage{
+		GossipPoetProof: GossipPoetProof{
+			MerkleProof: *r.nip,
+			Members:     r.challenges,
+			LeafCount:   uint64(1) << poetProof.N,
+		},
+		PoetId:    [32]byte{},
+		RoundId:   uint64(r.Id),
+		Signature: nil,
+	}
+	var dataBuf bytes.Buffer
+	_, err = xdr.Marshal(&dataBuf, proofMessage)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal proof message for round %d: %v", r.Id, err)
+	}
+	return dataBuf.Bytes(), nil
 }
 
 func (s *Service) setRoundExecuted(r *round) {

@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestSha256Challenge_LabelHashFunc(t *testing.T) {
+func TestGenLabelHashFunc(t *testing.T) {
 	r := require.New(t)
 
 	aChallenge, bChallenge := []byte("a"), []byte("b")
@@ -21,7 +21,7 @@ func TestSha256Challenge_LabelHashFunc(t *testing.T) {
 	r.NotEqual(GenLabelHashFunc(aChallenge)(data), GenLabelHashFunc(aChallenge)(other))
 }
 
-func TestSha256Challenge_MerkleHashFunc(t *testing.T) {
+func TestGenMerkleHashFunc(t *testing.T) {
 	r := require.New(t)
 
 	aChallenge, bChallenge := []byte("a"), []byte("b")
