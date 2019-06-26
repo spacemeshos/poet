@@ -8,6 +8,7 @@ import (
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
+	"sync"
 	"time"
 )
 
@@ -26,6 +27,8 @@ type round struct {
 
 	closedChan   chan struct{}
 	executedChan chan struct{}
+
+	mu sync.Mutex
 }
 
 func newRound(cfg *Config, id int) *round {
@@ -40,6 +43,9 @@ func newRound(cfg *Config, id int) *round {
 }
 
 func (r *round) submit(challenge []byte) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	// TODO(moshababo): check for duplications?
 	r.challenges = append(r.challenges, challenge)
 
