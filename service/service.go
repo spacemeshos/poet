@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	xdr "github.com/nullstyle/go-xdr/xdr3"
-	"github.com/spacemeshos/go-spacemesh/log"
 	"github.com/spacemeshos/poet/shared"
+	"github.com/spacemeshos/smutil/log"
 	"sync"
 	"time"
 )

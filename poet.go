@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/jessevdk/go-flags"
-	"github.com/spacemeshos/go-spacemesh/log"
+	"github.com/spacemeshos/smutil/log"
 	"os"
 	"runtime"
 )
@@ -23,6 +23,9 @@ func poetMain() error {
 		return err
 	}
 	cfg = loadedConfig
+
+	log.InitSpacemeshLoggingSystem(cfg.LogDir, "poet.log")
+
 	defer func() {
 		log.Info("Shutdown complete")
 	}()

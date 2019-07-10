@@ -2,9 +2,9 @@ package prover
 
 import (
 	"fmt"
-	"github.com/spacemeshos/go-spacemesh/log"
 	"github.com/spacemeshos/merkle-tree/cache"
 	"github.com/spacemeshos/merkle-tree/cache/readwriters"
+	"github.com/spacemeshos/smutil/log"
 	"os"
 )
 
