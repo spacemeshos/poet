@@ -132,7 +132,7 @@ func (s *Service) Start(broadcaster Broadcaster) {
 				go broadcastProof(r, broadcaster)
 
 				s.setRoundExecuted(r)
-				log.Info("round %v executed, phi=%v", r.Id, r.nip.Root)
+				log.Info("round %v executed, phi=%x", r.Id, r.nip.Root)
 			}()
 		}
 	}()
