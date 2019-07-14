@@ -47,6 +47,9 @@ func main() {
 	// Use all processor cores.
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
+	// Use JSON logs
+	log.JSONLog(true)
+
 	// Call the "real" main in a nested manner so the defers will properly
 	// be executed in the case of a graceful shutdown.
 	if err := poetMain(); err != nil {

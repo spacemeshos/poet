@@ -3,12 +3,13 @@ package broadcaster
 import (
 	"context"
 	"fmt"
+	"github.com/spacemeshos/go-spacemesh/log"
 	"github.com/spacemeshos/poet/broadcaster/pb"
 	"google.golang.org/grpc"
 	"time"
 )
 
-const timeout = 3 * time.Second
+const timeout = 30 * time.Second
 
 type Broadcaster struct {
 	grpcClient pb.SpacemeshServiceClient
@@ -21,13 +22,15 @@ func (b *Broadcaster) BroadcastProof(msg []byte) error {
 	pbMsg := &pb.BinaryMessage{Data: msg}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
+	start := time.Now()
 	response, err := b.grpcClient.BroadcastPoet(ctx, pbMsg)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to broadcast poet after %v: %v", time.Since(start), err)
 	}
 	if response.Value != "ok" {
-		return fmt.Errorf("node responded: %v", response.Value)
+		return fmt.Errorf("node responded after %v: %v", time.Since(start), response.Value)
 	}
+	log.Info("completed broadcast successfully after %v", time.Since(start))
 	return nil
 }
 
