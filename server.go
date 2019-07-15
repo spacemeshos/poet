@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	proxy "github.com/grpc-ecosystem/grpc-gateway/runtime"
-	"github.com/spacemeshos/go-spacemesh/log"
 	"github.com/spacemeshos/poet/broadcaster"
 	"github.com/spacemeshos/poet/rpc"
 	"github.com/spacemeshos/poet/rpc/api"
@@ -11,6 +10,7 @@ import (
 	"github.com/spacemeshos/poet/rpccore/apicore"
 	"github.com/spacemeshos/poet/service"
 	"github.com/spacemeshos/poet/signal"
+	"github.com/spacemeshos/smutil/log"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/peer"

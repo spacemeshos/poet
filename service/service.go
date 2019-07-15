@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	xdr "github.com/nullstyle/go-xdr/xdr3"
-	"github.com/spacemeshos/go-spacemesh/log"
 	"github.com/spacemeshos/poet/shared"
+	"github.com/spacemeshos/smutil/log"
 	"sync"
 	"time"
 )
@@ -132,7 +132,7 @@ func (s *Service) Start(broadcaster Broadcaster) {
 				go broadcastProof(r, broadcaster)
 
 				s.setRoundExecuted(r)
-				log.Info("round %v executed, phi=%v", r.Id, r.nip.Root)
+				log.Info("round %v executed, phi=%x", r.Id, r.nip.Root)
 			}()
 		}
 	}()

@@ -6,7 +6,7 @@
 package signal
 
 import (
-	"github.com/spacemeshos/go-spacemesh/log"
+	"github.com/spacemeshos/smutil/log"
 	"os"
 	"os/signal"
 )

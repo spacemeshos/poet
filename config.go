@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"github.com/btcsuite/btcutil"
 	"github.com/jessevdk/go-flags"
-	"github.com/spacemeshos/go-spacemesh/log"
 	"github.com/spacemeshos/poet/service"
+	"github.com/spacemeshos/smutil/log"
 	"net"
 	"os"
 	"os/user"
@@ -235,4 +235,3 @@ func cleanAndExpandPath(path string) string {
 	// but the variables can still be expanded via POSIX-style $VARIABLE.
 	return filepath.Clean(os.ExpandEnv(path))
 }
-
