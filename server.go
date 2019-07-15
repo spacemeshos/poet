@@ -60,7 +60,7 @@ func startServer() error {
 		grpcServer = grpc.NewServer(options...)
 
 		api.RegisterPoetServer(grpcServer, rpcServer)
-		proxyRegstr = append(proxyRegstr, api.RegisterPoetHandlerFromEndpoint)
+		//proxyRegstr = append(proxyRegstr, api.RegisterPoetHandlerFromEndpoint)
 	}
 
 	// Start the gRPC server listening for HTTP/2 connections.
