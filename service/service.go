@@ -22,27 +22,16 @@ type Service struct {
 	cfg             *Config
 	openRound       *round
 	prevRound       *round
-	rounds          map[int]*round
 	executingRounds map[int]*round
-	executedRounds  map[int]*round
 
 	errChan chan error
-	mu      sync.Mutex
+
+	sync.Mutex
 }
 
 type InfoResponse struct {
 	OpenRoundId        int
 	ExecutingRoundsIds []int
-	ExecutedRoundsIds  []int
-}
-
-type RoundInfoResponse struct {
-	Opened          time.Time
-	ExecuteStart    time.Time
-	ExecuteEnd      time.Time
-	ChallengesCount int
-	MerkleRoot      []byte
-	Nip             *shared.MerkleProof
 }
 
 type MembershipProof struct {
@@ -83,9 +72,7 @@ type PoetProofMessage struct {
 func NewService(cfg *Config) (*Service, error) {
 	s := new(Service)
 	s.cfg = cfg
-	s.rounds = make(map[int]*round)
 	s.executingRounds = make(map[int]*round)
-	s.executedRounds = make(map[int]*round)
 	s.errChan = make(chan error)
 	s.openRound = s.newRound(1)
 	log.Info("round %v opened", 1)
@@ -115,7 +102,10 @@ func (s *Service) Start(broadcaster Broadcaster) {
 			// Close previous round and execute it.
 			go func() {
 				r := s.prevRound
-				s.setRoundExecuting(r)
+
+				s.Lock()
+				s.executingRounds[r.Id] = r
+				s.Unlock()
 
 				err := r.close()
 				if err != nil {
@@ -131,11 +121,67 @@ func (s *Service) Start(broadcaster Broadcaster) {
 
 				go broadcastProof(r, broadcaster)
 
-				s.setRoundExecuted(r)
+				s.Lock()
+				delete(s.executingRounds, r.Id)
+				s.Unlock()
+
 				log.Info("round %v executed, phi=%x", r.Id, r.nip.Root)
 			}()
 		}
 	}()
+}
+
+func (s *Service) Submit(data []byte) (*round, error) {
+	r := s.openRound
+	err := r.submit(data)
+	if err != nil {
+		return nil, err
+	}
+
+	return r, nil
+}
+
+func (s *Service) Info() *InfoResponse {
+	res := new(InfoResponse)
+	res.OpenRoundId = s.openRound.Id
+
+	ids := make([]int, 0, len(s.executingRounds))
+	for id := range s.executingRounds {
+		ids = append(ids, id)
+	}
+	res.ExecutingRoundsIds = ids
+
+	return res
+}
+
+func (s *Service) newRound(id int) *round {
+	return newRound(s.cfg, id)
+}
+
+func (s *Service) prevRoundExecuted() <-chan struct{} {
+	if s.prevRound != nil {
+		return s.prevRound.executedChan
+	} else {
+		// If there's no previous round, then it's the initial round,
+		// So simulate the previous round end of execution with the
+		// initial round duration config.
+		executedChan := make(chan struct{})
+		go func() {
+			<-time.After(s.cfg.InitialRoundDuration)
+			close(executedChan)
+		}()
+		return executedChan
+	}
+}
+
+var dummyChan = make(chan time.Time)
+
+func (s *Service) roundsTicker() <-chan time.Time {
+	if s.cfg.RoundsDuration > 0 {
+		return time.After(s.cfg.RoundsDuration)
+	} else {
+		return dummyChan
+	}
 }
 
 func broadcastProof(r *round, broadcaster Broadcaster) {
@@ -167,134 +213,4 @@ func serializeProofMsg(r *round) ([]byte, error) {
 		return nil, fmt.Errorf("failed to marshal proof message for round %d: %v", r.Id, err)
 	}
 	return dataBuf.Bytes(), nil
-}
-
-func (s *Service) setRoundExecuted(r *round) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	delete(s.executingRounds, r.Id)
-	s.executedRounds[r.Id] = r
-}
-
-func (s *Service) setRoundExecuting(r *round) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.executingRounds[r.Id] = r
-}
-
-func (s *Service) Submit(data []byte) (*round, error) {
-	r := s.openRound
-	err := r.submit(data)
-	if err != nil {
-		return nil, err
-	}
-
-	return r, nil
-}
-
-func (s *Service) MembershipProof(roundId int, challenge []byte, wait bool) (*MembershipProof, error) {
-	r := s.rounds[roundId]
-	if r == nil {
-		return nil, ErrRoundNotFound
-	}
-
-	proof, err := r.membershipProof(challenge, wait)
-	if err != nil {
-		return nil, err
-	}
-
-	return proof, nil
-}
-
-func (s *Service) Proof(roundId int, wait bool) (*PoetProof, error) {
-	r := s.rounds[roundId]
-	if r == nil {
-		return nil, ErrRoundNotFound
-	}
-
-	proof, err := r.proof(wait)
-	if err != nil {
-		return nil, err
-	}
-
-	return proof, nil
-}
-
-func (s *Service) RoundInfo(roundId int) (*RoundInfoResponse, error) {
-	r := s.rounds[roundId]
-	if r == nil {
-		return nil, ErrRoundNotFound
-	}
-
-	res := new(RoundInfoResponse)
-	res.Opened = r.opened
-	res.ExecuteStart = r.executeStart
-	res.ExecuteEnd = r.executeEnd
-	res.ChallengesCount = len(r.challenges)
-	res.MerkleRoot = r.merkleRoot
-	res.Nip = r.nip
-
-	return res, nil
-}
-
-func (s *Service) Info() *InfoResponse {
-	res := new(InfoResponse)
-	res.OpenRoundId = s.openRound.Id
-
-	ids := make([]int, 0, len(s.executingRounds))
-	for id := range s.executingRounds {
-		ids = append(ids, id)
-	}
-	res.ExecutingRoundsIds = ids
-
-	ids = make([]int, 0, len(s.executedRounds))
-	for id := range s.executedRounds {
-		ids = append(ids, id)
-	}
-	res.ExecutedRoundsIds = ids
-
-	return res
-}
-
-func (s *Service) round(roundId int) (*round, error) {
-	r := s.rounds[roundId]
-	if r == nil {
-		return nil, ErrRoundNotFound
-	}
-
-	return r, nil
-}
-
-func (s *Service) newRound(id int) *round {
-	r := newRound(s.cfg, id)
-	s.rounds[id] = r
-	return r
-}
-
-func (s *Service) prevRoundExecuted() <-chan struct{} {
-	if s.prevRound != nil {
-		return s.prevRound.executedChan
-	} else {
-		// If there's no previous round, then it's the initial round,
-		// So simulate the previous round end of execution with the
-		// initial round duration config.
-		executedChan := make(chan struct{})
-		go func() {
-			<-time.After(s.cfg.InitialRoundDuration)
-			close(executedChan)
-		}()
-		return executedChan
-	}
-}
-
-var dummyChan = make(chan time.Time)
-
-func (s *Service) roundsTicker() <-chan time.Time {
-	if s.cfg.RoundsDuration > 0 {
-		return time.After(s.cfg.RoundsDuration)
-	} else {
-		return dummyChan
-	}
 }

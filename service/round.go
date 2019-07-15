@@ -1,7 +1,6 @@
 package service
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"github.com/spacemeshos/merkle-tree"
@@ -28,7 +27,7 @@ type round struct {
 	closedChan   chan struct{}
 	executedChan chan struct{}
 
-	mu sync.Mutex
+	sync.Mutex
 }
 
 func newRound(cfg *Config, id int) *round {
@@ -43,8 +42,8 @@ func newRound(cfg *Config, id int) *round {
 }
 
 func (r *round) submit(challenge []byte) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	r.Lock()
+	defer r.Unlock()
 
 	// TODO(moshababo): check for duplications?
 	r.challenges = append(r.challenges, challenge)
@@ -86,59 +85,6 @@ func (r *round) execute() error {
 	r.nip = &nip
 	close(r.executedChan)
 	return nil
-
-}
-
-func (r *round) membershipProof(challenge []byte, wait bool) (*MembershipProof, error) {
-	if wait {
-		<-r.closedChan
-	} else {
-		select {
-		case <-r.closedChan:
-		default:
-			return nil, errors.New("round is open")
-		}
-	}
-
-	// TODO(moshababo): change this temp inefficient implementation
-	index := -1
-	for i, ch := range r.challenges {
-		if bytes.Equal(challenge, ch) {
-			index = i
-			break
-		}
-	}
-
-	if index == -1 {
-		return nil, errors.New("challenge not found")
-	}
-
-	var leavesToProve = make(map[uint64]bool)
-	leavesToProve[uint64(index)] = true
-
-	t, err := merkle.NewProvingTree(leavesToProve)
-	if err != nil {
-		return nil, fmt.Errorf("could not initialize merkle tree: %v", err)
-	}
-	for _, c := range r.challenges {
-		err := t.AddLeaf(c)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	merkleRoot := t.Root()
-	if !bytes.Equal(t.Root(), r.merkleRoot) {
-		return nil, fmt.Errorf("incorrect merkleTree root, expected: %x, found: %x", r.merkleRoot, merkleRoot)
-	}
-
-	proof := t.Proof()
-
-	return &MembershipProof{
-		Index: index,
-		Root:  r.merkleRoot,
-		Proof: proof,
-	}, nil
 
 }
 
