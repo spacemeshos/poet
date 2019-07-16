@@ -12,24 +12,6 @@ service Poet {
         };
     }
 
-    rpc GetMembershipProof (GetMembershipProofRequest) returns (GetMembershipProofResponse) {
-        option (google.api.http) = {
-            get: "/v1/mproof/{roundId}/{challenge}"
-        };
-    }
-
-    rpc GetProof (GetProofRequest) returns (GetProofResponse) {
-        option (google.api.http) = {
-            get: "/v1/proof/{roundId}"
-        };
-    }
-
-    rpc GetRoundInfo (GetRoundInfoRequest) returns (GetRoundInfoResponse) {
-        option (google.api.http) = {
-            get: "/v1/roundinfo/{roundId}"
-        };
-    }
-
     rpc GetInfo (GetInfoRequest) returns (GetInfoResponse) {
         option (google.api.http) = {
             get: "/v1/info"
@@ -45,47 +27,12 @@ message SubmitResponse {
     int32 roundId = 1;
 }
 
-message GetMembershipProofRequest {
-    int32 roundId = 1;
-    bytes challenge = 2;
-    bool wait = 3;
-}
-
-message GetMembershipProofResponse {
-    MembershipProof mproof = 1;
-}
-
-message GetProofRequest {
-    int32 roundId = 1;
-    bool wait = 2;
-}
-
-message GetProofResponse {
-    int32 n = 1;
-    bytes commitment = 2;
-    PoetProof proof = 3;
-}
-
 message GetInfoRequest {
-}
-
-message GetRoundInfoResponse {
-    int64 opened = 1;
-    int64 executeStart = 2;
-    int64 executeEnd = 3;
-    int32 challengesCount = 4;
-    bytes merkleRoot = 5;
-    PoetProof proof = 6;
-}
-
-message GetRoundInfoRequest {
-    int32 roundId = 1;
 }
 
 message GetInfoResponse {
     int32 openRoundId = 1;
     repeated int32 executingRoundsIds = 2;
-    repeated int32 executedRoundsIds = 3;
 }
 
 message MembershipProof {

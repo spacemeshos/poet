@@ -3,8 +3,7 @@ package service
 import (
 	"bytes"
 	"crypto/rand"
-	xdr "github.com/nullstyle/go-xdr/xdr3"
-	"github.com/spacemeshos/merkle-tree"
+	"github.com/nullstyle/go-xdr/xdr3"
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
@@ -61,12 +60,7 @@ func TestNewService(t *testing.T) {
 		}
 	}
 
-	// Verify round info.
-	roundInfo, err := s.RoundInfo(info.OpenRoundId)
-	req.NoError(err)
-	req.Equal(challengesCount, roundInfo.ChallengesCount)
-
-	// Verify that found is still open.
+	// Verify that round is still open.
 	req.Equal(info.OpenRoundId, s.Info().OpenRoundId)
 
 	// Wait for round closure.
@@ -81,20 +75,6 @@ func TestNewService(t *testing.T) {
 	info = s.Info()
 	req.Equal(prevInfo.OpenRoundId+1, info.OpenRoundId)
 	req.Contains(info.ExecutingRoundsIds, prevInfo.OpenRoundId)
-	req.NotContains(info.ExecutedRoundsIds, prevInfo.OpenRoundId)
-
-	// Verify the membership proof of each challenge.
-	for i, ch := range challenges {
-		mproof, err := s.MembershipProof(ch.round.Id, ch.data, false)
-		req.NoError(err)
-		req.Equal(i, mproof.Index)
-
-		leafIndices := []uint64{uint64(i)}
-		leaves := [][]byte{ch.data}
-		valid, err := merkle.ValidatePartialTree(leafIndices, leaves, mproof.Proof, ch.round.merkleRoot, merkle.GetSha256Parent)
-		req.NoError(err)
-		req.True(valid)
-	}
 
 	// Wait for execution completion.
 	select {
@@ -103,7 +83,7 @@ func TestNewService(t *testing.T) {
 		req.Fail(err.Error())
 	}
 
-	// Wait for proof message broadcast
+	// Wait for proof message broadcast.
 	select {
 	case msg := <-proofBroadcaster.receivedMessages:
 		poetProof := PoetProofMessage{}
