@@ -21,7 +21,7 @@ type Config struct {
 
 type Service struct {
 	cfg             *Config
-	poetId          [PoetIdLength]byte
+	PoetServiceId   [PoetIdLength]byte
 	openRound       *round
 	prevRound       *round
 	executingRounds map[int]*round
@@ -74,7 +74,7 @@ type PoetProofMessage struct {
 func NewService(cfg *Config) (*Service, error) {
 	s := new(Service)
 	s.cfg = cfg
-	_, err := rand.Read(s.poetId[:])
+	_, err := rand.Read(s.PoetServiceId[:])
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +125,7 @@ func (s *Service) Start(broadcaster Broadcaster) {
 					log.Error(err.Error())
 				}
 
-				go broadcastProof(r, broadcaster)
+				go broadcastProof(s, r, broadcaster)
 
 				s.Lock()
 				delete(s.executingRounds, r.Id)
@@ -161,7 +161,7 @@ func (s *Service) Info() *InfoResponse {
 }
 
 func (s *Service) newRound(id int) *round {
-	return newRound(s.cfg, s.poetId, id)
+	return newRound(s.cfg, id)
 }
 
 func (s *Service) prevRoundExecuted() <-chan struct{} {
@@ -190,15 +190,15 @@ func (s *Service) roundsTicker() <-chan time.Time {
 	}
 }
 
-func broadcastProof(r *round, broadcaster Broadcaster) {
-	if msg, err := serializeProofMsg(r); err != nil {
+func broadcastProof(s *Service, r *round, broadcaster Broadcaster) {
+	if msg, err := serializeProofMsg(s, r); err != nil {
 		log.Error(err.Error())
 	} else if err := broadcaster.BroadcastProof(msg); err != nil {
 		log.Error("failed to broadcast poet message for round %v: %v", r.Id, err)
 	}
 }
 
-func serializeProofMsg(r *round) ([]byte, error) {
+func serializeProofMsg(s *Service, r *round) ([]byte, error) {
 	poetProof, err := r.proof(false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get poet proof for round %d: %v", r.Id, err)
@@ -209,7 +209,7 @@ func serializeProofMsg(r *round) ([]byte, error) {
 			Members:     r.challenges,
 			LeafCount:   uint64(1) << poetProof.N,
 		},
-		PoetId:    r.PoetId,
+		PoetId:    s.PoetServiceId,
 		RoundId:   uint64(r.Id),
 		Signature: nil,
 	}

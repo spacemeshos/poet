@@ -25,7 +25,6 @@ message SubmitRequest {
 
 message SubmitResponse {
     int32 roundId = 1;
-    bytes poetId = 2; // TODO: remove this once we have persistent PoET identities that the node knows in advance
 }
 
 message GetInfoRequest {
@@ -34,6 +33,7 @@ message GetInfoRequest {
 message GetInfoResponse {
     int32 openRoundId = 1;
     repeated int32 executingRoundsIds = 2;
+    bytes poetServiceId = 3;
 }
 
 message MembershipProof {

@@ -30,7 +30,6 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 
 	out := new(api.SubmitResponse)
 	out.RoundId = int32(round.Id)
-	out.PoetId = round.PoetId[:]
 	return out, nil
 }
 
@@ -45,6 +44,7 @@ func (r *rpcServer) GetInfo(ctx context.Context, in *api.GetInfoRequest) (*api.G
 		ids[i] = int32(id)
 	}
 	out.ExecutingRoundsIds = ids
+	out.PoetServiceId = r.s.PoetServiceId[:]
 
 	return out, nil
 }
