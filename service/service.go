@@ -21,7 +21,7 @@ type Config struct {
 
 type Service struct {
 	cfg             *Config
-	PoetServiceId   [PoetIdLength]byte
+	PoetServiceId   [PoetServiceIdLength]byte
 	openRound       *round
 	prevRound       *round
 	executingRounds map[int]*round
@@ -62,13 +62,13 @@ type GossipPoetProof struct {
 	LeafCount uint64
 }
 
-const PoetIdLength = 32
+const PoetServiceIdLength = 32
 
 type PoetProofMessage struct {
 	GossipPoetProof
-	PoetId    [PoetIdLength]byte
-	RoundId   uint64
-	Signature []byte
+	PoetServiceId [PoetServiceIdLength]byte
+	RoundId       uint64
+	Signature     []byte
 }
 
 func NewService(cfg *Config) (*Service, error) {
@@ -209,9 +209,9 @@ func serializeProofMsg(s *Service, r *round) ([]byte, error) {
 			Members:     r.challenges,
 			LeafCount:   uint64(1) << poetProof.N,
 		},
-		PoetId:    s.PoetServiceId,
-		RoundId:   uint64(r.Id),
-		Signature: nil,
+		PoetServiceId: s.PoetServiceId,
+		RoundId:       uint64(r.Id),
+		Signature:     nil,
 	}
 	var dataBuf bytes.Buffer
 	_, err = xdr.Marshal(&dataBuf, proofMessage)

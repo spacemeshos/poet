@@ -12,7 +12,7 @@ import (
 )
 
 type round struct {
-	cfg    *Config
+	cfg *Config
 
 	Id           int
 	opened       time.Time

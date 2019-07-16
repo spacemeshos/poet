@@ -35,11 +35,11 @@ func DefaultConfig() (*serverConfig, error) {
 	}
 
 	cfg := &serverConfig{
-		logLevel:    "debug",
-		rpcListen:   "127.0.0.1:18550",
-		baseDir:     baseDir,
-		dataDir:     filepath.Join(baseDir, "datadir"),
-		exe:         poetPath,
+		logLevel:  "debug",
+		rpcListen: "127.0.0.1:18550",
+		baseDir:   baseDir,
+		dataDir:   filepath.Join(baseDir, "datadir"),
+		exe:       poetPath,
 	}
 
 	return cfg, nil
