@@ -90,6 +90,10 @@
         "roundId": {
           "type": "integer",
           "format": "int32"
+        },
+        "poetId": {
+          "type": "string",
+          "format": "byte"
         }
       }
     }

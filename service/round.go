@@ -12,7 +12,8 @@ import (
 )
 
 type round struct {
-	cfg *Config
+	cfg    *Config
+	PoetId [PoetIdLength]byte
 
 	Id           int
 	opened       time.Time
@@ -30,9 +31,10 @@ type round struct {
 	sync.Mutex
 }
 
-func newRound(cfg *Config, id int) *round {
+func newRound(cfg *Config, poetId [PoetIdLength]byte, id int) *round {
 	r := new(round)
 	r.cfg = cfg
+	r.PoetId = poetId
 	r.Id = id
 	r.opened = time.Now()
 	r.closedChan = make(chan struct{})

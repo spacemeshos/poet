@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	xdr "github.com/nullstyle/go-xdr/xdr3"
@@ -20,6 +21,7 @@ type Config struct {
 
 type Service struct {
 	cfg             *Config
+	poetId          [PoetIdLength]byte
 	openRound       *round
 	prevRound       *round
 	executingRounds map[int]*round
@@ -72,6 +74,10 @@ type PoetProofMessage struct {
 func NewService(cfg *Config) (*Service, error) {
 	s := new(Service)
 	s.cfg = cfg
+	_, err := rand.Read(s.poetId[:])
+	if err != nil {
+		return nil, err
+	}
 	s.executingRounds = make(map[int]*round)
 	s.errChan = make(chan error)
 	s.openRound = s.newRound(1)
@@ -155,7 +161,7 @@ func (s *Service) Info() *InfoResponse {
 }
 
 func (s *Service) newRound(id int) *round {
-	return newRound(s.cfg, id)
+	return newRound(s.cfg, s.poetId, id)
 }
 
 func (s *Service) prevRoundExecuted() <-chan struct{} {
@@ -203,7 +209,7 @@ func serializeProofMsg(r *round) ([]byte, error) {
 			Members:     r.challenges,
 			LeafCount:   uint64(1) << poetProof.N,
 		},
-		PoetId:    [32]byte{},
+		PoetId:    r.PoetId,
 		RoundId:   uint64(r.Id),
 		Signature: nil,
 	}
