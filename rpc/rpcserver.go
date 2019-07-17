@@ -23,13 +23,13 @@ func NewRPCServer(service *service.Service) *rpcServer {
 }
 
 func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.SubmitResponse, error) {
-	res, err := r.s.Submit(in.Challenge)
+	round, err := r.s.Submit(in.Challenge)
 	if err != nil {
 		return nil, err
 	}
 
 	out := new(api.SubmitResponse)
-	out.RoundId = int32(res.Id)
+	out.RoundId = int32(round.Id)
 	return out, nil
 }
 
@@ -44,6 +44,7 @@ func (r *rpcServer) GetInfo(ctx context.Context, in *api.GetInfoRequest) (*api.G
 		ids[i] = int32(id)
 	}
 	out.ExecutingRoundsIds = ids
+	out.PoetServiceId = r.s.PoetServiceId[:]
 
 	return out, nil
 }

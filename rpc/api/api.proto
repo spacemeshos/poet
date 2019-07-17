@@ -33,6 +33,7 @@ message GetInfoRequest {
 message GetInfoResponse {
     int32 openRoundId = 1;
     repeated int32 executingRoundsIds = 2;
+    bytes poetServiceId = 3;
 }
 
 message MembershipProof {

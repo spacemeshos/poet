@@ -35,7 +35,7 @@ func (b *Broadcaster) BroadcastProof(msg []byte) error {
 }
 
 func New(target string) (*Broadcaster, error) {
-	if target=="NO_BROADCAST" {
+	if target == "NO_BROADCAST" {
 		fmt.Println("broadcast disabled")
 		return &Broadcaster{}, nil
 	}
@@ -53,7 +53,7 @@ func New(target string) (*Broadcaster, error) {
 // newClientConn returns a new gRPC client
 // connection to the specified target.
 func newClientConn(target string) (*grpc.ClientConn, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	opts := []grpc.DialOption{
 		grpc.WithInsecure(),
 		grpc.WithBlock(),

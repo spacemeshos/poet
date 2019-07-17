@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	xdr "github.com/nullstyle/go-xdr/xdr3"
@@ -20,6 +21,7 @@ type Config struct {
 
 type Service struct {
 	cfg             *Config
+	PoetServiceId   [PoetServiceIdLength]byte
 	openRound       *round
 	prevRound       *round
 	executingRounds map[int]*round
@@ -60,18 +62,22 @@ type GossipPoetProof struct {
 	LeafCount uint64
 }
 
-const PoetIdLength = 32
+const PoetServiceIdLength = 32
 
 type PoetProofMessage struct {
 	GossipPoetProof
-	PoetId    [PoetIdLength]byte
-	RoundId   uint64
-	Signature []byte
+	PoetServiceId [PoetServiceIdLength]byte
+	RoundId       uint64
+	Signature     []byte
 }
 
 func NewService(cfg *Config) (*Service, error) {
 	s := new(Service)
 	s.cfg = cfg
+	_, err := rand.Read(s.PoetServiceId[:])
+	if err != nil {
+		return nil, err
+	}
 	s.executingRounds = make(map[int]*round)
 	s.errChan = make(chan error)
 	s.openRound = s.newRound(1)
@@ -119,7 +125,7 @@ func (s *Service) Start(broadcaster Broadcaster) {
 					log.Error(err.Error())
 				}
 
-				go broadcastProof(r, broadcaster)
+				go broadcastProof(s, r, broadcaster)
 
 				s.Lock()
 				delete(s.executingRounds, r.Id)
@@ -184,15 +190,15 @@ func (s *Service) roundsTicker() <-chan time.Time {
 	}
 }
 
-func broadcastProof(r *round, broadcaster Broadcaster) {
-	if msg, err := serializeProofMsg(r); err != nil {
+func broadcastProof(s *Service, r *round, broadcaster Broadcaster) {
+	if msg, err := serializeProofMsg(s, r); err != nil {
 		log.Error(err.Error())
 	} else if err := broadcaster.BroadcastProof(msg); err != nil {
 		log.Error("failed to broadcast poet message for round %v: %v", r.Id, err)
 	}
 }
 
-func serializeProofMsg(r *round) ([]byte, error) {
+func serializeProofMsg(s *Service, r *round) ([]byte, error) {
 	poetProof, err := r.proof(false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get poet proof for round %d: %v", r.Id, err)
@@ -203,9 +209,9 @@ func serializeProofMsg(r *round) ([]byte, error) {
 			Members:     r.challenges,
 			LeafCount:   uint64(1) << poetProof.N,
 		},
-		PoetId:    [32]byte{},
-		RoundId:   uint64(r.Id),
-		Signature: nil,
+		PoetServiceId: s.PoetServiceId,
+		RoundId:       uint64(r.Id),
+		Signature:     nil,
 	}
 	var dataBuf bytes.Buffer
 	_, err = xdr.Marshal(&dataBuf, proofMessage)
