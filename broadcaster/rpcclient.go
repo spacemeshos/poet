@@ -3,7 +3,7 @@ package broadcaster
 import (
 	"context"
 	"fmt"
-	"github.com/spacemeshos/go-spacemesh/log"
+	"github.com/spacemeshos/smutil/log"
 	"github.com/spacemeshos/poet/broadcaster/pb"
 	"google.golang.org/grpc"
 	"time"
