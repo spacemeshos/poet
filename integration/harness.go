@@ -19,6 +19,7 @@ import (
 // creating rpc driven integration tests, or for any other usage.
 type Harness struct {
 	server *server
+	conn   *grpc.ClientConn
 	api.PoetClient
 }
 
@@ -52,6 +53,7 @@ func NewHarness(cfg *serverConfig) (*Harness, error) {
 
 	h := &Harness{
 		server:     server,
+		conn:       conn,
 		PoetClient: api.NewPoetClient(conn),
 	}
 
@@ -63,6 +65,10 @@ func NewHarness(cfg *serverConfig) (*Harness, error) {
 // directories are removed.
 func (h *Harness) TearDown() error {
 	if err := h.server.shutdown(); err != nil {
+		return err
+	}
+
+	if err := h.conn.Close(); err != nil {
 		return err
 	}
 
