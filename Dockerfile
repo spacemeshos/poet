@@ -1,4 +1,4 @@
-FROM golang:1.11.2-alpine3.8 AS build_base
+FROM golang:1.11.9-alpine3.8 AS build_base
 RUN apk add bash make git curl unzip rsync libc6-compat gcc musl-dev
 WORKDIR /go/src/github.com/spacemeshos/poet
 
