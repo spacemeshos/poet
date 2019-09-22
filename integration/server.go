@@ -10,20 +10,21 @@ import (
 	"sync"
 )
 
-// serverConfig contains all the args and data required to launch a poet server
+// ServerConfig contains all the args and data required to launch a poet server
 // instance  and connect to it via rpc client.
-type serverConfig struct {
+type ServerConfig struct {
 	logLevel             string
 	rpcListen            string
 	baseDir              string
 	dataDir              string
 	exe                  string
 	NodeAddress          string
+	N                    int
 	InitialRoundDuration string
 }
 
 // DefaultConfig returns a newConfig with all default values.
-func DefaultConfig() (*serverConfig, error) {
+func DefaultConfig() (*ServerConfig, error) {
 	baseDir, err := baseDir()
 	if err != nil {
 		return nil, err
@@ -34,23 +35,24 @@ func DefaultConfig() (*serverConfig, error) {
 		return nil, err
 	}
 
-	cfg := &serverConfig{
+	cfg := &ServerConfig{
 		logLevel:  "debug",
 		rpcListen: "127.0.0.1:18550",
 		baseDir:   baseDir,
-		dataDir:   filepath.Join(baseDir, "datadir"),
+		dataDir:   filepath.Join(baseDir, "data"),
 		exe:       poetPath,
 	}
 
 	return cfg, nil
 }
 
-// genArgs generates a slice of command line arguments from serverConfig instance.
-func (cfg *serverConfig) genArgs() []string {
+// genArgs generates a slice of command line arguments from ServerConfig instance.
+func (cfg *ServerConfig) genArgs() []string {
 	var args []string
 
 	args = append(args, fmt.Sprintf("--datadir=%v", cfg.dataDir))
 	args = append(args, fmt.Sprintf("--rpclisten=%v", cfg.rpcListen))
+	args = append(args, fmt.Sprintf("--n=%d", cfg.N))
 	if cfg.NodeAddress != "" {
 		args = append(args, fmt.Sprintf("--nodeaddr=%v", cfg.NodeAddress))
 	}
@@ -64,7 +66,7 @@ func (cfg *serverConfig) genArgs() []string {
 // server houses the necessary state required to configure, launch,
 // and manage poet server process.
 type server struct {
-	cfg *serverConfig
+	cfg *ServerConfig
 	cmd *exec.Cmd
 
 	// processExit is a channel that's closed once it's detected that the
@@ -78,7 +80,7 @@ type server struct {
 }
 
 // newNode creates a new poet server instance according to the passed cfg.
-func newServer(cfg *serverConfig) (*server, error) {
+func newServer(cfg *ServerConfig) (*server, error) {
 	return &server{
 		cfg:     cfg,
 		errChan: make(chan error),
@@ -126,13 +128,15 @@ func (s *server) start() error {
 
 // shutdown terminates the running poet server process, and cleans up
 // all files/directories created by it.
-func (s *server) shutdown() error {
+func (s *server) shutdown(cleanup bool) error {
 	if err := s.stop(); err != nil {
 		return err
 	}
 
-	if err := s.cleanup(); err != nil {
-		return err
+	if cleanup {
+		if err := s.cleanup(); err != nil {
+			return err
+		}
 	}
 
 	return nil

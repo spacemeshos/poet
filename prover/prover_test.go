@@ -5,15 +5,17 @@ import (
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/stretchr/testify/require"
+	"io/ioutil"
 	"testing"
 	"time"
 )
 
 func TestGetProof(t *testing.T) {
 	r := require.New(t)
+	tempdir, _ := ioutil.TempDir("", "poet-test")
 
 	challenge := []byte("challenge this")
-	merkleProof, err := GetProof(hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), 16, 5)
+	merkleProof, err := GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), 16, 5)
 	r.NoError(err)
 	fmt.Printf("root: %x\n", merkleProof.Root)
 	fmt.Printf("proof: %x\n", merkleProof.ProvenLeaves)
@@ -21,14 +23,15 @@ func TestGetProof(t *testing.T) {
 
 func BenchmarkGetProof(b *testing.B) {
 	r := require.New(b)
+	tempdir, _ := ioutil.TempDir("", "poet-test")
 
 	challenge := []byte("challenge this! challenge this! ")
-	leafCount := uint64(1) << 20
+	numLeaves := uint64(1) << 20
 	securityParam := shared.T
-	fmt.Printf("=> Generating proof for %d leaves with security param %d...\n", leafCount, securityParam)
+	fmt.Printf("=> Generating proof for %d leaves with security param %d...\n", numLeaves, securityParam)
 
 	t1 := time.Now()
-	_, err := GetProof(hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafCount, securityParam)
+	_, err := GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
 	e := time.Since(t1)
 
 	r.NoError(err)

@@ -24,15 +24,15 @@ message SubmitRequest {
 }
 
 message SubmitResponse {
-    int32 roundId = 1;
+    string roundId = 1;
 }
 
 message GetInfoRequest {
 }
 
 message GetInfoResponse {
-    int32 openRoundId = 1;
-    repeated int32 executingRoundsIds = 2;
+    string openRoundId = 1;
+    repeated string executingRoundsIds = 2;
     bytes poetServiceId = 3;
 }
 

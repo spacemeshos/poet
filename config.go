@@ -146,7 +146,7 @@ func loadConfig() (*config, error) {
 		return nil, err
 	}
 
-	// If the provided lnd directory is not the default, we'll modify the
+	// If the provided poet directory is not the default, we'll modify the
 	// path to all of the files and directories that will live within it.
 	if cfg.PoetDir != defaultPoetDir {
 		cfg.DataDir = filepath.Join(cfg.PoetDir, defaultDataDirname)
@@ -166,7 +166,7 @@ func loadConfig() (*config, error) {
 			}
 		}
 
-		str := "%s: Failed to create lnd directory: %v"
+		str := "%s: Failed to create poet directory: %v"
 		err := fmt.Errorf(str, funcName, err)
 		fmt.Fprintln(os.Stderr, err)
 		return nil, err

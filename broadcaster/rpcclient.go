@@ -3,8 +3,8 @@ package broadcaster
 import (
 	"context"
 	"fmt"
-	"github.com/spacemeshos/smutil/log"
 	"github.com/spacemeshos/poet/broadcaster/pb"
+	"github.com/spacemeshos/smutil/log"
 	"google.golang.org/grpc"
 	"time"
 )
@@ -36,7 +36,7 @@ func (b *Broadcaster) BroadcastProof(msg []byte) error {
 
 func New(target string) (*Broadcaster, error) {
 	if target == "NO_BROADCAST" {
-		fmt.Println("broadcast disabled")
+		log.Info("Broadcast is disabled")
 		return &Broadcaster{}, nil
 	}
 

@@ -63,14 +63,12 @@
       "type": "object",
       "properties": {
         "openRoundId": {
-          "type": "integer",
-          "format": "int32"
+          "type": "string"
         },
         "executingRoundsIds": {
           "type": "array",
           "items": {
-            "type": "integer",
-            "format": "int32"
+            "type": "string"
           }
         },
         "poetServiceId": {
@@ -92,8 +90,7 @@
       "type": "object",
       "properties": {
         "roundId": {
-          "type": "integer",
-          "format": "int32"
+          "type": "string"
         }
       }
     }

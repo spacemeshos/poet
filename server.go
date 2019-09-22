@@ -16,11 +16,12 @@ import (
 	"google.golang.org/grpc/peer"
 	"net"
 	"net/http"
+	"os"
 )
 
 // startServer starts the RPC server.
 func startServer() error {
-	s := signal.NewSignal()
+	sig := signal.NewSignal()
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -32,8 +33,14 @@ func startServer() error {
 		grpc.UnaryInterceptor(loggerInterceptor()),
 	}
 
+	if _, err := os.Stat(cfg.DataDir); os.IsNotExist(err) {
+		if err := os.Mkdir(cfg.DataDir, 0700); err != nil {
+			return err
+		}
+	}
+
 	if cfg.CoreServiceMode {
-		rpcServer := rpccore.NewRPCServer(s)
+		rpcServer := rpccore.NewRPCServer(sig, cfg.DataDir)
 		grpcServer = grpc.NewServer(options...)
 
 		apicore.RegisterPoetCoreProverServer(grpcServer, rpcServer)
@@ -41,7 +48,7 @@ func startServer() error {
 		proxyRegstr = append(proxyRegstr, apicore.RegisterPoetCoreProverHandlerFromEndpoint)
 		proxyRegstr = append(proxyRegstr, apicore.RegisterPoetVerifierHandlerFromEndpoint)
 	} else {
-		svc, err := service.NewService(cfg.Service)
+		svc, err := service.NewService(sig, cfg.Service, cfg.DataDir)
 		if err != nil {
 			return err
 		}
@@ -50,7 +57,7 @@ func startServer() error {
 			proofBroadcaster, err := broadcaster.New(cfg.NodeAddress)
 			if err != nil {
 				log.Error("could not connect to node: %v", err)
-				s.RequestShutdown()
+				sig.RequestShutdown()
 				return
 			}
 			svc.Start(proofBroadcaster)
@@ -92,7 +99,7 @@ func startServer() error {
 
 	// Wait for shutdown signal from either a graceful server stop or from
 	// the interrupt handler.
-	<-s.ShutdownChannel()
+	<-sig.ShutdownChannel()
 	return nil
 }
 
