@@ -71,7 +71,7 @@
             "type": "string"
           }
         },
-        "poetServiceId": {
+        "servicePubKey": {
           "type": "string",
           "format": "byte"
         }

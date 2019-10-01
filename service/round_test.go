@@ -124,7 +124,7 @@ func TestRound_State(t *testing.T) {
 	req.EqualError(err, "round wasn't open")
 
 	_, err = r.state()
-	req.EqualError(err, fmt.Sprintf("file is missing: %v", filepath.Join(tempdir, stateFileBaseName)))
+	req.EqualError(err, fmt.Sprintf("file is missing: %v", filepath.Join(tempdir, roundStateFileBaseName)))
 
 	challenges, err := genChallenges(32)
 	req.NoError(err)

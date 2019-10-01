@@ -16,7 +16,7 @@ type LevelDB struct {
 func NewLevelDbStore(path string, wo *opt.WriteOptions, ro *opt.ReadOptions) *LevelDB {
 	blocks, err := leveldb.OpenFile(path, nil)
 	if err != nil {
-		panic(fmt.Errorf("failed to open db file: %v", err))
+		panic(fmt.Errorf("failed to open db file (%v): %v", path, err))
 	}
 
 	return &LevelDB{blocks, wo, ro}

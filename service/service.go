@@ -2,13 +2,13 @@ package service
 
 import (
 	"bytes"
-	"crypto/rand"
 	"errors"
 	"fmt"
 	"github.com/nullstyle/go-xdr/xdr3"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/signal"
 	"github.com/spacemeshos/smutil/log"
+	"golang.org/x/crypto/ed25519"
 	"io/ioutil"
 	"path/filepath"
 	"strings"
@@ -24,19 +24,26 @@ type Config struct {
 	NoRecovery           bool          `long:"norecovery" description:"whether to disable a potential recovery procedure"`
 }
 
+const serviceStateFileBaseName = "state.bin"
+
+type serviceState struct {
+	NextRoundId int
+	PrivKey     []byte
+}
+
 type Service struct {
 	cfg             *Config
 	datadir         string
-	PoetServiceId   [PoetServiceIdLength]byte
 	openRound       *round
 	prevRound       *round
 	executingRounds map[string]*round
-	roundsIndex     int
+	nextRoundId     int
+
+	PubKey  ed25519.PublicKey
+	privKey ed25519.PrivateKey
 
 	errChan chan error
-
-	sig *signal.Signal
-
+	sig     *signal.Signal
 	sync.Mutex
 }
 
@@ -71,11 +78,9 @@ type GossipPoetProof struct {
 	NumLeaves uint64
 }
 
-const PoetServiceIdLength = 32
-
 type PoetProofMessage struct {
 	GossipPoetProof
-	PoetServiceId [PoetServiceIdLength]byte
+	ServicePubKey []byte
 	RoundId       string
 	Signature     []byte
 }
@@ -88,12 +93,54 @@ func NewService(sig *signal.Signal, cfg *Config, datadir string) (*Service, erro
 	s.errChan = make(chan error, 10)
 	s.sig = sig
 
-	_, err := rand.Read(s.PoetServiceId[:])
+	state, err := s.state()
 	if err != nil {
+		if !strings.Contains(err.Error(), "file is missing") {
+			return nil, err
+		}
+		state = s.initialState()
+	}
+
+	s.privKey = ed25519.NewKeyFromSeed(state.PrivKey[:32])
+	s.PubKey = state.PrivKey[32:]
+	s.nextRoundId = state.NextRoundId
+
+	log.Info("Service public key: %x", s.PubKey)
+
+	return s, nil
+}
+
+func (s *Service) initialState() *serviceState {
+	_, priv, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		panic(fmt.Errorf("failed to generate key: %v", err))
+	}
+
+	return &serviceState{
+		NextRoundId: 1,
+		PrivKey:     priv,
+	}
+}
+
+func (s *Service) saveState() error {
+	filename := filepath.Join(s.datadir, serviceStateFileBaseName)
+	v := &serviceState{
+		NextRoundId: s.nextRoundId,
+		PrivKey:     s.privKey,
+	}
+
+	return persist(filename, v)
+}
+
+func (s *Service) state() (*serviceState, error) {
+	filename := filepath.Join(s.datadir, roundStateFileBaseName)
+	v := &serviceState{}
+
+	if err := load(filename, v); err != nil {
 		return nil, err
 	}
 
-	return s, nil
+	return v, nil
 }
 
 func (s *Service) Start(broadcaster Broadcaster) {
@@ -104,7 +151,7 @@ func (s *Service) Start(broadcaster Broadcaster) {
 		return
 	}
 
-	s.openRound = s.newOpenRound()
+	s.openRound = s.newRound()
 	log.Info("Round %v opened", s.openRound.Id)
 
 	go func() {
@@ -125,17 +172,14 @@ func (s *Service) Start(broadcaster Broadcaster) {
 			}
 
 			s.prevRound = s.openRound
-			s.openRound = s.newOpenRound()
+			s.openRound = s.newRound()
 			log.Info("Round %v opened", s.openRound.Id)
 
 			// Close previous round and execute it.
 			go func() {
 				r := s.prevRound
 				if err := s.executeRound(r); err != nil {
-					err := fmt.Errorf("round %v execution error: %v", r.Id, err)
-					capitalizedMsg := strings.ToUpper(err.Error()[0:1]) + err.Error()[1:]
-					log.Error(capitalizedMsg)
-					s.errChan <- err
+					s.asyncError(fmt.Errorf("round %v execution error: %v", r.Id, err))
 					return
 				}
 
@@ -184,10 +228,7 @@ func (s *Service) Recover(broadcaster Broadcaster) error {
 			}
 
 			if err != nil {
-				err := fmt.Errorf("recovery: round %v execution failure: %v", r.Id, err)
-				capitalizedMsg := strings.ToUpper(err.Error()[0:1]) + err.Error()[1:]
-				log.Error(capitalizedMsg)
-				s.errChan <- err
+				s.asyncError(fmt.Errorf("recovery: round %v execution failure: %v", r.Id, err))
 				return
 			}
 
@@ -244,12 +285,16 @@ func (s *Service) Info() *InfoResponse {
 	return res
 }
 
-func (s *Service) newOpenRound() *round {
-	s.roundsIndex++
-	id := fmt.Sprintf("%x-%d", s.PoetServiceId[0:2], s.roundsIndex)
-	datadir := filepath.Join(s.datadir, id)
+func (s *Service) newRound() *round {
+	roundId := fmt.Sprintf("%d", s.nextRoundId)
+	s.nextRoundId++
+	if err := s.saveState(); err != nil {
+		panic(err)
+	}
 
-	r := newRound(s.sig, s.cfg, datadir, id)
+	datadir := filepath.Join(s.datadir, roundId)
+
+	r := newRound(s.sig, s.cfg, datadir, roundId)
 	if err := r.open(); err != nil {
 		panic(fmt.Errorf("failed to open round: %v", err))
 	}
@@ -283,6 +328,13 @@ func (s *Service) roundsTicker() <-chan time.Time {
 	}
 }
 
+func (s *Service) asyncError(err error) {
+	capitalized := strings.ToUpper(err.Error()[0:1]) + err.Error()[1:]
+	log.Error(capitalized)
+
+	s.errChan <- err
+}
+
 func broadcastProof(s *Service, r *round, broadcaster Broadcaster) {
 	if msg, err := serializeProofMsg(s, r); err != nil {
 		log.Error(err.Error())
@@ -303,7 +355,7 @@ func serializeProofMsg(s *Service, r *round) ([]byte, error) {
 			Members:     r.execution.Members,
 			NumLeaves:   uint64(1) << poetProof.N,
 		},
-		PoetServiceId: s.PoetServiceId,
+		ServicePubKey: s.PubKey,
 		RoundId:       r.Id,
 		Signature:     nil,
 	}

@@ -44,7 +44,7 @@ func (r *rpcServer) GetInfo(ctx context.Context, in *api.GetInfoRequest) (*api.G
 		ids[i] = id
 	}
 	out.ExecutingRoundsIds = ids
-	out.PoetServiceId = r.s.PoetServiceId[:]
+	out.ServicePubKey = r.s.PubKey
 
 	return out, nil
 }

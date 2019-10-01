@@ -1,10 +1,8 @@
 package service
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
-	"github.com/nullstyle/go-xdr/xdr3"
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/merkle-tree/cache"
 	"github.com/spacemeshos/poet/hash"
@@ -13,7 +11,6 @@ import (
 	"github.com/spacemeshos/poet/signal"
 	"github.com/spacemeshos/smutil/log"
 	"github.com/syndtr/goleveldb/leveldb/opt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -28,6 +25,18 @@ type executionState struct {
 	ParkedNodes   [][]byte
 	NextLeafId    uint64
 	NIP           *shared.MerkleProof
+}
+
+const roundStateFileBaseName = "state.bin"
+
+type roundState struct {
+	Opened           time.Time
+	ExecutionStarted time.Time
+	Execution        *executionState
+}
+
+func (r *roundState) isOpen() bool {
+	return !r.Opened.IsZero() && r.ExecutionStarted.IsZero()
 }
 
 type round struct {
@@ -88,7 +97,7 @@ func newRound(sig *signal.Signal, cfg *Config, datadir string, id string) *round
 
 func (r *round) open() error {
 	r.opened = time.Now()
-	if err := r.persist(); err != nil {
+	if err := r.saveState(); err != nil {
 		return err
 	}
 
@@ -129,7 +138,7 @@ func (r *round) isEmpty() bool {
 
 func (r *round) execute() error {
 	r.executionStarted = time.Now()
-	if err := r.persist(); err != nil {
+	if err := r.saveState(); err != nil {
 		return err
 	}
 
@@ -140,7 +149,7 @@ func (r *round) execute() error {
 	if err != nil {
 		return err
 	}
-	if err := r.persist(); err != nil {
+	if err := r.saveState(); err != nil {
 		return err
 	}
 
@@ -156,7 +165,7 @@ func (r *round) execute() error {
 	if err != nil {
 		return err
 	}
-	if err := r.persist(); err != nil {
+	if err := r.saveState(); err != nil {
 		return err
 	}
 
@@ -175,7 +184,7 @@ func (r *round) persistExecution(tree *merkle.Tree, treeCache *cache.Writer, nex
 
 	r.execution.NextLeafId = nextLeafId
 	r.execution.ParkedNodes = tree.GetParkedNodes()
-	if err := r.persist(); err != nil {
+	if err := r.saveState(); err != nil {
 		return err
 	}
 
@@ -184,7 +193,7 @@ func (r *round) persistExecution(tree *merkle.Tree, treeCache *cache.Writer, nex
 
 func (r *round) recoverExecution(state *executionState) error {
 	r.executionStarted = time.Now()
-	if err := r.persist(); err != nil {
+	if err := r.saveState(); err != nil {
 		return err
 	}
 
@@ -199,7 +208,7 @@ func (r *round) recoverExecution(state *executionState) error {
 		if err != nil {
 			return err
 		}
-		if err := r.persist(); err != nil {
+		if err := r.saveState(); err != nil {
 			return err
 		}
 	}
@@ -219,7 +228,7 @@ func (r *round) recoverExecution(state *executionState) error {
 	if err != nil {
 		return err
 	}
-	if err := r.persist(); err != nil {
+	if err := r.saveState(); err != nil {
 		return err
 	}
 
@@ -257,8 +266,10 @@ func (r *round) proof(wait bool) (*PoetProof, error) {
 }
 
 func (r *round) state() (*roundState, error) {
-	s, err := getState(r.datadir)
-	if err != nil {
+	filename := filepath.Join(r.datadir, roundStateFileBaseName)
+	s := &roundState{}
+
+	if err := load(filename, s); err != nil {
 		return nil, err
 	}
 
@@ -272,12 +283,15 @@ func (r *round) state() (*roundState, error) {
 	return s, nil
 }
 
-func (r *round) persist() error {
-	return saveState(r.datadir, &roundState{
+func (r *round) saveState() error {
+	filename := filepath.Join(r.datadir, roundStateFileBaseName)
+	v := &roundState{
 		Opened:           r.opened,
 		ExecutionStarted: r.executionStarted,
 		Execution:        r.execution,
-	})
+	}
+
+	return persist(filename, v)
 }
 
 func (r *round) calcMembersAndStatement() ([][]byte, []byte, error) {
@@ -315,52 +329,4 @@ func (r *round) teardown(cleanup bool) error {
 	}
 
 	return nil
-}
-
-const stateFileBaseName = "state.bin"
-
-type roundState struct {
-	Opened           time.Time
-	ExecutionStarted time.Time
-	Execution        *executionState
-}
-
-func (r *roundState) isOpen() bool {
-	return !r.Opened.IsZero() && r.ExecutionStarted.IsZero()
-}
-
-func saveState(datadir string, s *roundState) error {
-	var w bytes.Buffer
-	_, err := xdr.Marshal(&w, s)
-	if err != nil {
-		return fmt.Errorf("serialization failure: %v", err)
-	}
-
-	err = ioutil.WriteFile(filepath.Join(datadir, stateFileBaseName), w.Bytes(), shared.OwnerReadWrite)
-	if err != nil {
-		return fmt.Errorf("write to disk failure: %v", err)
-	}
-
-	return nil
-
-}
-
-func getState(datadir string) (*roundState, error) {
-	filename := filepath.Join(datadir, stateFileBaseName)
-	data, err := ioutil.ReadFile(filename)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("file is missing: %v", filename)
-		}
-
-		return nil, fmt.Errorf("failed to read file: %v", err)
-	}
-
-	s := &roundState{}
-	_, err = xdr.Unmarshal(bytes.NewReader(data), s)
-	if err != nil {
-		return nil, err
-	}
-
-	return s, nil
 }

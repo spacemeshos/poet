@@ -10,6 +10,7 @@ import (
 	"github.com/spacemeshos/poet/signal"
 	"github.com/stretchr/testify/require"
 	"io/ioutil"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -237,6 +238,9 @@ func TestNewService(t *testing.T) {
 	// Verify that round iteration proceeded.
 	prevInfo := info
 	info = s.Info()
+	prevIndex, err := strconv.Atoi(prevInfo.OpenRoundId)
+	req.NoError(err)
+	req.Equal(prevIndex+1, info.OpenRoundId)
 	req.Contains(info.ExecutingRoundsIds, prevInfo.OpenRoundId)
 
 	// Wait for end of execution.
