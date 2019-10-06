@@ -31,7 +31,6 @@ func TestHarness(t *testing.T) {
 
 	cfg, err := integration.DefaultConfig()
 	assert.NoError(err)
-	cfg.NodeAddress = "NO_BROADCAST"
 	cfg.N = 18
 	cfg.InitialRoundDuration = time.Duration(2 * time.Second).String()
 
@@ -46,6 +45,19 @@ func TestHarness(t *testing.T) {
 	assert.NoError(err)
 	assert.NotNil(h)
 	t.Logf("harness launched")
+
+	ctx := context.Background()
+	_, err = h.Submit(ctx, &api.SubmitRequest{Challenge: []byte("this is a commitment")})
+	assert.EqualError(err, "rpc error: code = Unknown desc = service not started")
+
+	_, err = h.Start(ctx, &api.StartRequest{NodeAddress: "666"})
+	assert.EqualError(err, "rpc error: code = Unknown desc = failed to start service: failed not connect to gateway node (addr: 666): failed to connect to rpc server: context deadline exceeded")
+
+	_, err = h.Start(ctx, &api.StartRequest{NodeAddress: "NO_BROADCAST"})
+	assert.NoError(err)
+
+	_, err = h.Start(ctx, &api.StartRequest{NodeAddress: "NO_BROADCAST"})
+	assert.EqualError(err, "rpc error: code = Unknown desc = failed to start service: already opened")
 
 	for _, testCase := range testCases {
 		success := t.Run(testCase.name, func(t1 *testing.T) {

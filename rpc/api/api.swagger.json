@@ -31,6 +31,32 @@
         ]
       }
     },
+    "/v1/start": {
+      "post": {
+        "operationId": "Start",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/apiStartResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/apiStartRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Poet"
+        ]
+      }
+    },
     "/v1/submit": {
       "post": {
         "operationId": "Submit",
@@ -76,6 +102,17 @@
           "format": "byte"
         }
       }
+    },
+    "apiStartRequest": {
+      "type": "object",
+      "properties": {
+        "nodeAddress": {
+          "type": "string"
+        }
+      }
+    },
+    "apiStartResponse": {
+      "type": "object"
     },
     "apiSubmitRequest": {
       "type": "object",
