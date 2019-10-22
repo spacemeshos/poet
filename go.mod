@@ -16,5 +16,5 @@ require (
 	golang.org/x/net v0.0.0-20190404232315-eb5bcb51f2a3
 	golang.org/x/sync v0.0.0-20181108010431-42b317875d0f // indirect
 	google.golang.org/genproto v0.0.0-20181221175505-bd9b4fb69e2f
-	google.golang.org/grpc v1.19.0
+	google.golang.org/grpc v1.21.2
 )
