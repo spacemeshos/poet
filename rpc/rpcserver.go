@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"fmt"
 	"github.com/spacemeshos/poet/rpc/api"
 	"github.com/spacemeshos/poet/service"
 	"golang.org/x/net/context"
@@ -20,6 +21,13 @@ func NewRPCServer(service *service.Service) *rpcServer {
 	return &rpcServer{
 		s: service,
 	}
+}
+
+func (r *rpcServer) Start(ctx context.Context, in *api.StartRequest) (*api.StartResponse, error) {
+	if err := r.s.Start(in.NodeAddress); err != nil {
+		return nil, fmt.Errorf("failed to start service: %v", err)
+	}
+	return &api.StartResponse{}, nil
 }
 
 func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.SubmitResponse, error) {

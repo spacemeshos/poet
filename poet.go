@@ -34,6 +34,7 @@ func poetMain() error {
 	log.Info("Version: %s, N: %d, dir: %v, datadir: %v", version(), cfg.Service.N, cfg.PoetDir, cfg.DataDir)
 
 	if err := startServer(); err != nil {
+		log.Error("failed to start server: %v", err)
 		return err
 	}
 
