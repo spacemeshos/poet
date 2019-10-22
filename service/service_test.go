@@ -48,9 +48,9 @@ func TestService_Recovery(t *testing.T) {
 	tempdir, _ := ioutil.TempDir("", "poet-test")
 
 	// Create a new service instance.
-	s, err := NewService(sig, cfg, tempdir)
+	s, err := NewService(sig, cfg, tempdir, "")
 	req.NoError(err)
-	s.Start(broadcaster)
+	s.start(broadcaster)
 
 	// Track the service rounds.
 	numRounds := 3
@@ -127,10 +127,11 @@ func TestService_Recovery(t *testing.T) {
 
 	// Create a new service instance.
 	sig = signal.NewSignal()
-	s, err = NewService(sig, cfg, tempdir)
+	s, err = NewService(sig, cfg, tempdir, "")
 	req.NoError(err)
 
-	s.Start(broadcaster)
+	err = s.start(broadcaster)
+	req.NoError(err)
 	time.Sleep(500 * time.Millisecond)
 
 	// Service instance should have 2 rounds to recover (0, 1), in addition to the new open round (2)
@@ -195,11 +196,12 @@ func TestNewService(t *testing.T) {
 	cfg.N = 17
 	cfg.InitialRoundDuration = 1 * time.Second
 
-	s, err := NewService(signal.NewSignal(), cfg, tempdir)
+	s, err := NewService(signal.NewSignal(), cfg, tempdir, "")
 	req.NoError(err)
 
 	proofBroadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
-	s.Start(proofBroadcaster)
+	err = s.start(proofBroadcaster)
+	req.NoError(err)
 
 	challengesCount := 8
 	challenges := make([]challenge, challengesCount)
@@ -240,7 +242,7 @@ func TestNewService(t *testing.T) {
 	info = s.Info()
 	prevIndex, err := strconv.Atoi(prevInfo.OpenRoundId)
 	req.NoError(err)
-	req.Equal(prevIndex+1, info.OpenRoundId)
+	req.Equal(fmt.Sprintf("%d", prevIndex+1), info.OpenRoundId)
 	req.Contains(info.ExecutingRoundsIds, prevInfo.OpenRoundId)
 
 	// Wait for end of execution.

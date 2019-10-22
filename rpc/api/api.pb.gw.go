@@ -28,6 +28,23 @@ var _ status.Status
 var _ = runtime.String
 var _ = utilities.NewDoubleArray
 
+func request_Poet_Start_0(ctx context.Context, marshaler runtime.Marshaler, client PoetClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq StartRequest
+	var metadata runtime.ServerMetadata
+
+	newReader, berr := utilities.IOReaderFactory(req.Body)
+	if berr != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", berr)
+	}
+	if err := marshaler.NewDecoder(newReader()).Decode(&protoReq); err != nil && err != io.EOF {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	msg, err := client.Start(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+
+}
+
 func request_Poet_Submit_0(ctx context.Context, marshaler runtime.Marshaler, client PoetClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq SubmitRequest
 	var metadata runtime.ServerMetadata
@@ -92,6 +109,26 @@ func RegisterPoetHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.
 // "PoetClient" to call the correct interceptors.
 func RegisterPoetHandlerClient(ctx context.Context, mux *runtime.ServeMux, client PoetClient) error {
 
+	mux.Handle("POST", pattern_Poet_Start_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		rctx, err := runtime.AnnotateContext(ctx, mux, req)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_Poet_Start_0(rctx, inboundMarshaler, client, req, pathParams)
+		ctx = runtime.NewServerMetadataContext(ctx, md)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_Poet_Start_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
 	mux.Handle("POST", pattern_Poet_Submit_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
@@ -136,12 +173,16 @@ func RegisterPoetHandlerClient(ctx context.Context, mux *runtime.ServeMux, clien
 }
 
 var (
+	pattern_Poet_Start_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "start"}, ""))
+
 	pattern_Poet_Submit_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "submit"}, ""))
 
 	pattern_Poet_GetInfo_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "info"}, ""))
 )
 
 var (
+	forward_Poet_Start_0 = runtime.ForwardResponseMessage
+
 	forward_Poet_Submit_0 = runtime.ForwardResponseMessage
 
 	forward_Poet_GetInfo_0 = runtime.ForwardResponseMessage
