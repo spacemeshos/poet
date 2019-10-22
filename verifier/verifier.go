@@ -12,13 +12,13 @@ import (
 // leaves matches the security param, validates the Merkle proof itself and verifies the labels are derived from the
 // left cousins in the Merkle tree.
 func Validate(proof shared.MerkleProof, labelHashFunc func(data []byte) []byte,
-	merkleHashFunc func(lChild, rChild []byte) []byte, leafCount uint64, securityParam uint8) error {
+	merkleHashFunc func(lChild, rChild []byte) []byte, numLeaves uint64, securityParam uint8) error {
 
 	if int(securityParam) != len(proof.ProvenLeaves) {
 		return fmt.Errorf("number of proven leaves (%d) must be equal to security param (%d)",
 			len(proof.ProvenLeaves), securityParam)
 	}
-	provenLeafIndices := asSortedSlice(shared.FiatShamir(proof.Root, leafCount, securityParam))
+	provenLeafIndices := asSortedSlice(shared.FiatShamir(proof.Root, numLeaves, securityParam))
 	valid, parkingSnapshots, err := merkle.ValidatePartialTreeWithParkingSnapshots(provenLeafIndices,
 		proof.ProvenLeaves, proof.ProofNodes, proof.Root, merkleHashFunc)
 	if err != nil {

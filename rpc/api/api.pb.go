@@ -3,14 +3,13 @@
 
 package api
 
-import proto "github.com/golang/protobuf/proto"
-import fmt "fmt"
-import math "math"
-import _ "google.golang.org/genproto/googleapis/api/annotations"
-
 import (
-	context "golang.org/x/net/context"
+	context "context"
+	fmt "fmt"
+	proto "github.com/golang/protobuf/proto"
+	_ "google.golang.org/genproto/googleapis/api/annotations"
 	grpc "google.golang.org/grpc"
+	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -22,7 +21,77 @@ var _ = math.Inf
 // is compatible with the proto package it is being compiled against.
 // A compilation error at this line likely means your copy of the
 // proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
+const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
+
+type StartRequest struct {
+	NodeAddress          string   `protobuf:"bytes,1,opt,name=nodeAddress,proto3" json:"nodeAddress,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *StartRequest) Reset()         { *m = StartRequest{} }
+func (m *StartRequest) String() string { return proto.CompactTextString(m) }
+func (*StartRequest) ProtoMessage()    {}
+func (*StartRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_00212fb1f9d3bf1c, []int{0}
+}
+
+func (m *StartRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_StartRequest.Unmarshal(m, b)
+}
+func (m *StartRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_StartRequest.Marshal(b, m, deterministic)
+}
+func (m *StartRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_StartRequest.Merge(m, src)
+}
+func (m *StartRequest) XXX_Size() int {
+	return xxx_messageInfo_StartRequest.Size(m)
+}
+func (m *StartRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_StartRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_StartRequest proto.InternalMessageInfo
+
+func (m *StartRequest) GetNodeAddress() string {
+	if m != nil {
+		return m.NodeAddress
+	}
+	return ""
+}
+
+type StartResponse struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *StartResponse) Reset()         { *m = StartResponse{} }
+func (m *StartResponse) String() string { return proto.CompactTextString(m) }
+func (*StartResponse) ProtoMessage()    {}
+func (*StartResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_00212fb1f9d3bf1c, []int{1}
+}
+
+func (m *StartResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_StartResponse.Unmarshal(m, b)
+}
+func (m *StartResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_StartResponse.Marshal(b, m, deterministic)
+}
+func (m *StartResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_StartResponse.Merge(m, src)
+}
+func (m *StartResponse) XXX_Size() int {
+	return xxx_messageInfo_StartResponse.Size(m)
+}
+func (m *StartResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_StartResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_StartResponse proto.InternalMessageInfo
 
 type SubmitRequest struct {
 	Challenge            []byte   `protobuf:"bytes,1,opt,name=challenge,proto3" json:"challenge,omitempty"`
@@ -35,16 +104,17 @@ func (m *SubmitRequest) Reset()         { *m = SubmitRequest{} }
 func (m *SubmitRequest) String() string { return proto.CompactTextString(m) }
 func (*SubmitRequest) ProtoMessage()    {}
 func (*SubmitRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_06505b42d7f97c90, []int{0}
+	return fileDescriptor_00212fb1f9d3bf1c, []int{2}
 }
+
 func (m *SubmitRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SubmitRequest.Unmarshal(m, b)
 }
 func (m *SubmitRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SubmitRequest.Marshal(b, m, deterministic)
 }
-func (dst *SubmitRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SubmitRequest.Merge(dst, src)
+func (m *SubmitRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SubmitRequest.Merge(m, src)
 }
 func (m *SubmitRequest) XXX_Size() int {
 	return xxx_messageInfo_SubmitRequest.Size(m)
@@ -63,7 +133,7 @@ func (m *SubmitRequest) GetChallenge() []byte {
 }
 
 type SubmitResponse struct {
-	RoundId              int32    `protobuf:"varint,1,opt,name=roundId,proto3" json:"roundId,omitempty"`
+	RoundId              string   `protobuf:"bytes,1,opt,name=roundId,proto3" json:"roundId,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -73,16 +143,17 @@ func (m *SubmitResponse) Reset()         { *m = SubmitResponse{} }
 func (m *SubmitResponse) String() string { return proto.CompactTextString(m) }
 func (*SubmitResponse) ProtoMessage()    {}
 func (*SubmitResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_06505b42d7f97c90, []int{1}
+	return fileDescriptor_00212fb1f9d3bf1c, []int{3}
 }
+
 func (m *SubmitResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_SubmitResponse.Unmarshal(m, b)
 }
 func (m *SubmitResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_SubmitResponse.Marshal(b, m, deterministic)
 }
-func (dst *SubmitResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_SubmitResponse.Merge(dst, src)
+func (m *SubmitResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SubmitResponse.Merge(m, src)
 }
 func (m *SubmitResponse) XXX_Size() int {
 	return xxx_messageInfo_SubmitResponse.Size(m)
@@ -93,11 +164,11 @@ func (m *SubmitResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_SubmitResponse proto.InternalMessageInfo
 
-func (m *SubmitResponse) GetRoundId() int32 {
+func (m *SubmitResponse) GetRoundId() string {
 	if m != nil {
 		return m.RoundId
 	}
-	return 0
+	return ""
 }
 
 type GetInfoRequest struct {
@@ -110,16 +181,17 @@ func (m *GetInfoRequest) Reset()         { *m = GetInfoRequest{} }
 func (m *GetInfoRequest) String() string { return proto.CompactTextString(m) }
 func (*GetInfoRequest) ProtoMessage()    {}
 func (*GetInfoRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_06505b42d7f97c90, []int{2}
+	return fileDescriptor_00212fb1f9d3bf1c, []int{4}
 }
+
 func (m *GetInfoRequest) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetInfoRequest.Unmarshal(m, b)
 }
 func (m *GetInfoRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GetInfoRequest.Marshal(b, m, deterministic)
 }
-func (dst *GetInfoRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetInfoRequest.Merge(dst, src)
+func (m *GetInfoRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetInfoRequest.Merge(m, src)
 }
 func (m *GetInfoRequest) XXX_Size() int {
 	return xxx_messageInfo_GetInfoRequest.Size(m)
@@ -131,9 +203,9 @@ func (m *GetInfoRequest) XXX_DiscardUnknown() {
 var xxx_messageInfo_GetInfoRequest proto.InternalMessageInfo
 
 type GetInfoResponse struct {
-	OpenRoundId          int32    `protobuf:"varint,1,opt,name=openRoundId,proto3" json:"openRoundId,omitempty"`
-	ExecutingRoundsIds   []int32  `protobuf:"varint,2,rep,packed,name=executingRoundsIds,proto3" json:"executingRoundsIds,omitempty"`
-	PoetServiceId        []byte   `protobuf:"bytes,3,opt,name=poetServiceId,proto3" json:"poetServiceId,omitempty"`
+	OpenRoundId          string   `protobuf:"bytes,1,opt,name=openRoundId,proto3" json:"openRoundId,omitempty"`
+	ExecutingRoundsIds   []string `protobuf:"bytes,2,rep,name=executingRoundsIds,proto3" json:"executingRoundsIds,omitempty"`
+	ServicePubKey        []byte   `protobuf:"bytes,3,opt,name=servicePubKey,proto3" json:"servicePubKey,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -143,16 +215,17 @@ func (m *GetInfoResponse) Reset()         { *m = GetInfoResponse{} }
 func (m *GetInfoResponse) String() string { return proto.CompactTextString(m) }
 func (*GetInfoResponse) ProtoMessage()    {}
 func (*GetInfoResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_06505b42d7f97c90, []int{3}
+	return fileDescriptor_00212fb1f9d3bf1c, []int{5}
 }
+
 func (m *GetInfoResponse) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_GetInfoResponse.Unmarshal(m, b)
 }
 func (m *GetInfoResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_GetInfoResponse.Marshal(b, m, deterministic)
 }
-func (dst *GetInfoResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetInfoResponse.Merge(dst, src)
+func (m *GetInfoResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetInfoResponse.Merge(m, src)
 }
 func (m *GetInfoResponse) XXX_Size() int {
 	return xxx_messageInfo_GetInfoResponse.Size(m)
@@ -163,23 +236,23 @@ func (m *GetInfoResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_GetInfoResponse proto.InternalMessageInfo
 
-func (m *GetInfoResponse) GetOpenRoundId() int32 {
+func (m *GetInfoResponse) GetOpenRoundId() string {
 	if m != nil {
 		return m.OpenRoundId
 	}
-	return 0
+	return ""
 }
 
-func (m *GetInfoResponse) GetExecutingRoundsIds() []int32 {
+func (m *GetInfoResponse) GetExecutingRoundsIds() []string {
 	if m != nil {
 		return m.ExecutingRoundsIds
 	}
 	return nil
 }
 
-func (m *GetInfoResponse) GetPoetServiceId() []byte {
+func (m *GetInfoResponse) GetServicePubKey() []byte {
 	if m != nil {
-		return m.PoetServiceId
+		return m.ServicePubKey
 	}
 	return nil
 }
@@ -197,16 +270,17 @@ func (m *MembershipProof) Reset()         { *m = MembershipProof{} }
 func (m *MembershipProof) String() string { return proto.CompactTextString(m) }
 func (*MembershipProof) ProtoMessage()    {}
 func (*MembershipProof) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_06505b42d7f97c90, []int{4}
+	return fileDescriptor_00212fb1f9d3bf1c, []int{6}
 }
+
 func (m *MembershipProof) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_MembershipProof.Unmarshal(m, b)
 }
 func (m *MembershipProof) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_MembershipProof.Marshal(b, m, deterministic)
 }
-func (dst *MembershipProof) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_MembershipProof.Merge(dst, src)
+func (m *MembershipProof) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MembershipProof.Merge(m, src)
 }
 func (m *MembershipProof) XXX_Size() int {
 	return xxx_messageInfo_MembershipProof.Size(m)
@@ -251,16 +325,17 @@ func (m *PoetProof) Reset()         { *m = PoetProof{} }
 func (m *PoetProof) String() string { return proto.CompactTextString(m) }
 func (*PoetProof) ProtoMessage()    {}
 func (*PoetProof) Descriptor() ([]byte, []int) {
-	return fileDescriptor_api_06505b42d7f97c90, []int{5}
+	return fileDescriptor_00212fb1f9d3bf1c, []int{7}
 }
+
 func (m *PoetProof) XXX_Unmarshal(b []byte) error {
 	return xxx_messageInfo_PoetProof.Unmarshal(m, b)
 }
 func (m *PoetProof) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	return xxx_messageInfo_PoetProof.Marshal(b, m, deterministic)
 }
-func (dst *PoetProof) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PoetProof.Merge(dst, src)
+func (m *PoetProof) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PoetProof.Merge(m, src)
 }
 func (m *PoetProof) XXX_Size() int {
 	return xxx_messageInfo_PoetProof.Size(m)
@@ -293,12 +368,48 @@ func (m *PoetProof) GetProofNodes() [][]byte {
 }
 
 func init() {
+	proto.RegisterType((*StartRequest)(nil), "api.StartRequest")
+	proto.RegisterType((*StartResponse)(nil), "api.StartResponse")
 	proto.RegisterType((*SubmitRequest)(nil), "api.SubmitRequest")
 	proto.RegisterType((*SubmitResponse)(nil), "api.SubmitResponse")
 	proto.RegisterType((*GetInfoRequest)(nil), "api.GetInfoRequest")
 	proto.RegisterType((*GetInfoResponse)(nil), "api.GetInfoResponse")
 	proto.RegisterType((*MembershipProof)(nil), "api.MembershipProof")
 	proto.RegisterType((*PoetProof)(nil), "api.PoetProof")
+}
+
+func init() { proto.RegisterFile("api.proto", fileDescriptor_00212fb1f9d3bf1c) }
+
+var fileDescriptor_00212fb1f9d3bf1c = []byte{
+	// 441 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x92, 0xcd, 0x6e, 0xd3, 0x40,
+	0x10, 0x80, 0xe5, 0xb8, 0x69, 0xf1, 0xd4, 0xf9, 0x61, 0x08, 0x92, 0x15, 0x55, 0xc8, 0x5a, 0x71,
+	0x88, 0x2a, 0x91, 0xf0, 0x73, 0xe3, 0x86, 0x84, 0x80, 0x88, 0x1f, 0x05, 0xf7, 0x09, 0x9c, 0x78,
+	0x92, 0xac, 0x94, 0xee, 0x2c, 0xde, 0x75, 0x54, 0xae, 0xdc, 0x38, 0xf3, 0x68, 0xdc, 0x39, 0xf1,
+	0x20, 0xc8, 0xeb, 0x6d, 0xb1, 0xa5, 0xde, 0x76, 0xbe, 0x99, 0xf9, 0xd6, 0xeb, 0x19, 0x88, 0x72,
+	0x2d, 0xe7, 0xba, 0x64, 0xcb, 0x18, 0xe6, 0x5a, 0x4e, 0x2f, 0x76, 0xcc, 0xbb, 0x03, 0x2d, 0x72,
+	0x2d, 0x17, 0xb9, 0x52, 0x6c, 0x73, 0x2b, 0x59, 0x99, 0xa6, 0x44, 0x3c, 0x87, 0xf8, 0xca, 0xe6,
+	0xa5, 0xcd, 0xe8, 0x5b, 0x45, 0xc6, 0x62, 0x0a, 0xe7, 0x8a, 0x0b, 0x7a, 0x53, 0x14, 0x25, 0x19,
+	0x93, 0x04, 0x69, 0x30, 0x8b, 0xb2, 0x36, 0x12, 0x23, 0x18, 0xf8, 0x0e, 0xa3, 0x59, 0x19, 0x12,
+	0xcf, 0x60, 0x70, 0x55, 0xad, 0xaf, 0xe5, 0x9d, 0xe3, 0x02, 0xa2, 0xcd, 0x3e, 0x3f, 0x1c, 0x48,
+	0xed, 0xc8, 0x19, 0xe2, 0xec, 0x3f, 0x10, 0x97, 0x30, 0xbc, 0x2d, 0x6f, 0x04, 0x98, 0xc0, 0x59,
+	0xc9, 0x95, 0x2a, 0x96, 0x85, 0xbf, 0xef, 0x36, 0x14, 0x63, 0x18, 0xbe, 0x27, 0xbb, 0x54, 0x5b,
+	0xf6, 0x6e, 0xf1, 0x33, 0x80, 0xd1, 0x1d, 0xf2, 0xfd, 0x29, 0x9c, 0xb3, 0x26, 0x95, 0x75, 0x1c,
+	0x6d, 0x84, 0x73, 0x40, 0xba, 0xa1, 0x4d, 0x65, 0xa5, 0xda, 0x39, 0x66, 0x96, 0x85, 0x49, 0x7a,
+	0x69, 0x38, 0x8b, 0xb2, 0x7b, 0x32, 0xf8, 0x14, 0x06, 0x86, 0xca, 0xa3, 0xdc, 0xd0, 0xaa, 0x5a,
+	0x7f, 0xa4, 0xef, 0x49, 0xe8, 0x5e, 0xd1, 0x85, 0xe2, 0x2b, 0x8c, 0x3e, 0xd3, 0xf5, 0x9a, 0x4a,
+	0xb3, 0x97, 0x7a, 0x55, 0x32, 0x6f, 0x71, 0x02, 0x7d, 0xa9, 0x0a, 0xba, 0x71, 0x1f, 0xd1, 0xcf,
+	0x9a, 0x00, 0x11, 0x4e, 0x4a, 0x66, 0x9b, 0xf4, 0x9c, 0xc5, 0x9d, 0xeb, 0x4a, 0x5d, 0xb7, 0x24,
+	0x61, 0x1a, 0xce, 0xe2, 0xac, 0x09, 0x44, 0x0e, 0xd1, 0x8a, 0xc9, 0x36, 0xb2, 0x31, 0x84, 0x7a,
+	0x2f, 0xfd, 0x1f, 0xac, 0x8f, 0x28, 0x20, 0xd6, 0x25, 0x1f, 0x49, 0x7d, 0xa2, 0xfc, 0x48, 0xcd,
+	0x0b, 0xe2, 0xac, 0xc3, 0xf0, 0x09, 0x80, 0x73, 0x7d, 0xe1, 0x82, 0x8c, 0xb7, 0xb7, 0xc8, 0xcb,
+	0x3f, 0x01, 0x9c, 0xd4, 0x77, 0xe0, 0x5b, 0xe8, 0xbb, 0x41, 0xe2, 0xc3, 0x79, 0xbd, 0x32, 0xed,
+	0x35, 0x98, 0x62, 0x1b, 0xf9, 0x39, 0x4f, 0x7e, 0xfc, 0xfe, 0xfb, 0xab, 0x37, 0x14, 0xd1, 0xe2,
+	0xf8, 0x62, 0x61, 0xea, 0xd4, 0xeb, 0xe0, 0x12, 0x3f, 0xc0, 0x69, 0x33, 0x4e, 0xf4, 0x3d, 0xed,
+	0x55, 0x98, 0x3e, 0xea, 0x30, 0x2f, 0x7a, 0xec, 0x44, 0x23, 0x01, 0x4e, 0xe4, 0x72, 0xb5, 0xe9,
+	0x1d, 0x9c, 0xf9, 0xc9, 0x62, 0xd3, 0xd6, 0x1d, 0xfd, 0x74, 0xd2, 0x85, 0x5e, 0x36, 0x76, 0x32,
+	0xc0, 0x07, 0xb5, 0x4c, 0xaa, 0x2d, 0xaf, 0x4f, 0xdd, 0x66, 0xbf, 0xfa, 0x17, 0x00, 0x00, 0xff,
+	0xff, 0x5c, 0x5c, 0x74, 0xba, 0x09, 0x03, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -313,6 +424,7 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type PoetClient interface {
+	Start(ctx context.Context, in *StartRequest, opts ...grpc.CallOption) (*StartResponse, error)
 	Submit(ctx context.Context, in *SubmitRequest, opts ...grpc.CallOption) (*SubmitResponse, error)
 	GetInfo(ctx context.Context, in *GetInfoRequest, opts ...grpc.CallOption) (*GetInfoResponse, error)
 }
@@ -323,6 +435,15 @@ type poetClient struct {
 
 func NewPoetClient(cc *grpc.ClientConn) PoetClient {
 	return &poetClient{cc}
+}
+
+func (c *poetClient) Start(ctx context.Context, in *StartRequest, opts ...grpc.CallOption) (*StartResponse, error) {
+	out := new(StartResponse)
+	err := c.cc.Invoke(ctx, "/api.Poet/Start", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *poetClient) Submit(ctx context.Context, in *SubmitRequest, opts ...grpc.CallOption) (*SubmitResponse, error) {
@@ -345,12 +466,31 @@ func (c *poetClient) GetInfo(ctx context.Context, in *GetInfoRequest, opts ...gr
 
 // PoetServer is the server API for Poet service.
 type PoetServer interface {
+	Start(context.Context, *StartRequest) (*StartResponse, error)
 	Submit(context.Context, *SubmitRequest) (*SubmitResponse, error)
 	GetInfo(context.Context, *GetInfoRequest) (*GetInfoResponse, error)
 }
 
 func RegisterPoetServer(s *grpc.Server, srv PoetServer) {
 	s.RegisterService(&_Poet_serviceDesc, srv)
+}
+
+func _Poet_Start_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(StartRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PoetServer).Start(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/api.Poet/Start",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PoetServer).Start(ctx, req.(*StartRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _Poet_Submit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -394,6 +534,10 @@ var _Poet_serviceDesc = grpc.ServiceDesc{
 	HandlerType: (*PoetServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
+			MethodName: "Start",
+			Handler:    _Poet_Start_Handler,
+		},
+		{
 			MethodName: "Submit",
 			Handler:    _Poet_Submit_Handler,
 		},
@@ -404,35 +548,4 @@ var _Poet_serviceDesc = grpc.ServiceDesc{
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "api.proto",
-}
-
-func init() { proto.RegisterFile("api.proto", fileDescriptor_api_06505b42d7f97c90) }
-
-var fileDescriptor_api_06505b42d7f97c90 = []byte{
-	// 387 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x92, 0xd1, 0x6e, 0xd3, 0x30,
-	0x14, 0x86, 0x95, 0x66, 0xdd, 0xe8, 0x21, 0x5b, 0xab, 0xc3, 0x90, 0xa2, 0x6a, 0x42, 0x91, 0xc5,
-	0x45, 0x35, 0x89, 0x46, 0xc0, 0x1d, 0x0f, 0x00, 0x44, 0x02, 0x34, 0xb2, 0x27, 0x70, 0x9b, 0xd3,
-	0xd4, 0x52, 0xe7, 0x63, 0x62, 0x27, 0xda, 0x35, 0x77, 0x5c, 0x73, 0xc3, 0x7b, 0xf1, 0x0a, 0x3c,
-	0x08, 0x8a, 0x9d, 0x41, 0x23, 0xed, 0xce, 0xe7, 0xf3, 0x39, 0x5f, 0x62, 0xff, 0x86, 0x99, 0x34,
-	0x6a, 0x6d, 0x1a, 0x76, 0x8c, 0xb1, 0x34, 0x6a, 0x79, 0x55, 0x33, 0xd7, 0x07, 0xca, 0xa5, 0x51,
-	0xb9, 0xd4, 0x9a, 0x9d, 0x74, 0x8a, 0xb5, 0x0d, 0x2d, 0xe2, 0x15, 0x9c, 0xdf, 0xb6, 0x9b, 0x3b,
-	0xe5, 0x4a, 0xfa, 0xd6, 0x92, 0x75, 0x78, 0x05, 0xb3, 0xed, 0x5e, 0x1e, 0x0e, 0xa4, 0x6b, 0x4a,
-	0xa3, 0x2c, 0x5a, 0x25, 0xe5, 0x7f, 0x20, 0xae, 0xe1, 0xe2, 0xa1, 0xdd, 0x1a, 0xd6, 0x96, 0x30,
-	0x85, 0xb3, 0x86, 0x5b, 0x5d, 0x15, 0x95, 0xef, 0x9e, 0x96, 0x0f, 0xa5, 0x58, 0xc0, 0xc5, 0x07,
-	0x72, 0x85, 0xde, 0xf1, 0xe0, 0x16, 0x3f, 0x22, 0x98, 0xff, 0x43, 0xc3, 0x7c, 0x06, 0x4f, 0xd9,
-	0x90, 0x2e, 0x47, 0x8e, 0x63, 0x84, 0x6b, 0x40, 0xba, 0xa7, 0x6d, 0xeb, 0x94, 0xae, 0x3d, 0xb3,
-	0x45, 0x65, 0xd3, 0x49, 0x16, 0xaf, 0xa6, 0xe5, 0x23, 0x3b, 0xf8, 0x12, 0xce, 0x0d, 0x93, 0xbb,
-	0xa5, 0xa6, 0x53, 0x5b, 0x2a, 0xaa, 0x34, 0xf6, 0xa7, 0x18, 0x43, 0xf1, 0x15, 0xe6, 0x9f, 0xe9,
-	0x6e, 0x43, 0x8d, 0xdd, 0x2b, 0x73, 0xd3, 0x30, 0xef, 0xf0, 0x12, 0xa6, 0x4a, 0x57, 0x74, 0x3f,
-	0xfc, 0x44, 0x28, 0x10, 0xe1, 0xa4, 0x61, 0x76, 0xe9, 0xc4, 0x5b, 0xfc, 0xba, 0xef, 0x34, 0xfd,
-	0x48, 0x1a, 0x67, 0xf1, 0x2a, 0x29, 0x43, 0x21, 0x24, 0xcc, 0x6e, 0x98, 0x5c, 0x90, 0x2d, 0x20,
-	0x36, 0x7b, 0x35, 0xdc, 0x60, 0xbf, 0x44, 0x01, 0x89, 0x69, 0xb8, 0x23, 0xfd, 0x89, 0x64, 0x47,
-	0xe1, 0x04, 0x49, 0x39, 0x62, 0xf8, 0x02, 0xc0, 0xbb, 0xbe, 0x70, 0x45, 0x76, 0xb0, 0x1f, 0x91,
-	0x37, 0xbf, 0x22, 0x38, 0xe9, 0xbf, 0x81, 0x1f, 0xe1, 0x34, 0x04, 0x81, 0xb8, 0xee, 0x03, 0x1f,
-	0x85, 0xb8, 0x7c, 0x36, 0x62, 0xe1, 0xa6, 0xc5, 0xf3, 0xef, 0xbf, 0xff, 0xfc, 0x9c, 0xcc, 0x05,
-	0xe4, 0xdd, 0xeb, 0xdc, 0xfa, 0xbd, 0x77, 0xd1, 0x35, 0xbe, 0x87, 0xb3, 0x21, 0x13, 0x0c, 0x63,
-	0xe3, 0xd0, 0x96, 0x97, 0x63, 0x38, 0xc8, 0x16, 0x5e, 0x06, 0xf8, 0xa4, 0x97, 0x29, 0xbd, 0xe3,
-	0xcd, 0xa9, 0x7f, 0x50, 0x6f, 0xff, 0x06, 0x00, 0x00, 0xff, 0xff, 0x47, 0x78, 0xb4, 0xb1, 0x80,
-	0x02, 0x00, 0x00,
 }

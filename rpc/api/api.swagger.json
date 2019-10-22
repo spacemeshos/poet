@@ -31,6 +31,32 @@
         ]
       }
     },
+    "/v1/start": {
+      "post": {
+        "operationId": "Start",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/apiStartResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/apiStartRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Poet"
+        ]
+      }
+    },
     "/v1/submit": {
       "post": {
         "operationId": "Submit",
@@ -63,21 +89,30 @@
       "type": "object",
       "properties": {
         "openRoundId": {
-          "type": "integer",
-          "format": "int32"
+          "type": "string"
         },
         "executingRoundsIds": {
           "type": "array",
           "items": {
-            "type": "integer",
-            "format": "int32"
+            "type": "string"
           }
         },
-        "poetServiceId": {
+        "servicePubKey": {
           "type": "string",
           "format": "byte"
         }
       }
+    },
+    "apiStartRequest": {
+      "type": "object",
+      "properties": {
+        "nodeAddress": {
+          "type": "string"
+        }
+      }
+    },
+    "apiStartResponse": {
+      "type": "object"
     },
     "apiSubmitRequest": {
       "type": "object",
@@ -92,8 +127,7 @@
       "type": "object",
       "properties": {
         "roundId": {
-          "type": "integer",
-          "format": "int32"
+          "type": "string"
         }
       }
     }

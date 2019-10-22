@@ -3,9 +3,15 @@ package shared
 import (
 	"encoding/binary"
 	"github.com/spacemeshos/sha256-simd"
+	"os"
 )
 
-const T uint8 = 150 // security param
+const (
+	T uint8 = 150 // security param
+
+	// OwnerReadWrite is a standard owner read / write file permission.
+	OwnerReadWrite = os.FileMode(0600)
+)
 
 // FiatShamir generates a set of indices to include in a non-interactive proof.
 func FiatShamir(challenge []byte, spaceSize uint64, indexCount uint8) map[uint64]bool {

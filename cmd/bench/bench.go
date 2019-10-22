@@ -7,6 +7,7 @@ import (
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/verifier"
+	"io/ioutil"
 	"runtime"
 
 	"log"
@@ -53,12 +54,13 @@ func main() {
 		panic("no entropy")
 	}
 
-	leafCount := uint64(1) << cfg.N
+	numLeaves := uint64(1) << cfg.N
 	securityParam := shared.T
 
 	t1 := time.Now()
 	println("Computing dag...")
-	merkleProof, err := prover.GetProof(hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafCount, securityParam)
+	tempdir, _ := ioutil.TempDir("", "poet-test")
+	merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
 	if err != nil {
 		panic("failed to generate proof")
 	}
@@ -68,7 +70,7 @@ func main() {
 	fmt.Printf("Dag root label: %x\n", merkleProof.Root)
 
 	t1 = time.Now()
-	err = verifier.Validate(merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafCount, securityParam)
+	err = verifier.Validate(*merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
 	if err != nil {
 		panic("Failed to verify nip")
 	}

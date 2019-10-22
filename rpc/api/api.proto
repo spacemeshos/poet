@@ -5,6 +5,13 @@ import "google/api/annotations.proto";
 package api;
 
 service Poet {
+    rpc Start (StartRequest) returns (StartResponse) {
+        option (google.api.http) = {
+            post: "/v1/start",
+            body: "*",
+        };
+    }
+
     rpc Submit (SubmitRequest) returns (SubmitResponse) {
         option (google.api.http) = {
             post: "/v1/submit",
@@ -19,21 +26,28 @@ service Poet {
     }
 }
 
+message StartRequest {
+    string nodeAddress = 1;
+}
+
+message StartResponse {
+}
+
 message SubmitRequest {
     bytes challenge = 1;
 }
 
 message SubmitResponse {
-    int32 roundId = 1;
+    string roundId = 1;
 }
 
 message GetInfoRequest {
 }
 
 message GetInfoResponse {
-    int32 openRoundId = 1;
-    repeated int32 executingRoundsIds = 2;
-    bytes poetServiceId = 3;
+    string openRoundId = 1;
+    repeated string executingRoundsIds = 2;
+    bytes servicePubKey = 3;
 }
 
 message MembershipProof {

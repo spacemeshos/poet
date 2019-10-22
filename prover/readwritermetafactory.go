@@ -6,6 +6,7 @@ import (
 	"github.com/spacemeshos/merkle-tree/cache/readwriters"
 	"github.com/spacemeshos/smutil/log"
 	"os"
+	"path/filepath"
 )
 
 // ReadWriterMetaFactory generates Merkle LayerFactory functions. The functions it creates generate file read-writers
@@ -14,13 +15,15 @@ import (
 // The MetaFactory tracks the files it creates and removes them when Cleanup() is called.
 type ReadWriterMetaFactory struct {
 	minMemoryLayer uint
+	datadir        string
 	filesCreated   map[string]bool
 }
 
 // NewReadWriterMetaFactory returns a new ReadWriterMetaFactory.
-func NewReadWriterMetaFactory(minMemoryLayer uint) *ReadWriterMetaFactory {
+func NewReadWriterMetaFactory(minMemoryLayer uint, datadir string) *ReadWriterMetaFactory {
 	return &ReadWriterMetaFactory{
 		minMemoryLayer: minMemoryLayer,
+		datadir:        datadir,
 		filesCreated:   make(map[string]bool),
 	}
 }
@@ -29,11 +32,16 @@ func NewReadWriterMetaFactory(minMemoryLayer uint) *ReadWriterMetaFactory {
 func (mf *ReadWriterMetaFactory) GetFactory() cache.LayerFactory {
 	return func(layerHeight uint) (cache.LayerReadWriter, error) {
 		if layerHeight < mf.minMemoryLayer {
-			fileName := makeFileName(layerHeight)
+			fileName, err := mf.makeFileName(layerHeight)
+			if err != nil {
+				return nil, err
+			}
+
 			readWriter, err := readwriters.NewFileReadWriter(fileName)
 			if err != nil {
 				return nil, err
 			}
+
 			mf.filesCreated[fileName] = true
 			return readWriter, nil
 		}
@@ -54,6 +62,6 @@ func (mf *ReadWriterMetaFactory) Cleanup() {
 	mf.filesCreated = failedRemovals
 }
 
-func makeFileName(layer uint) string {
-	return fmt.Sprintf("poet_layercache_%d.bin", layer)
+func (mf *ReadWriterMetaFactory) makeFileName(layer uint) (string, error) {
+	return filepath.Join(mf.datadir, fmt.Sprintf("layercache_%d.bin", layer)), nil
 }

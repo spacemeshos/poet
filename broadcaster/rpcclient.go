@@ -3,8 +3,8 @@ package broadcaster
 import (
 	"context"
 	"fmt"
-	"github.com/spacemeshos/smutil/log"
 	"github.com/spacemeshos/poet/broadcaster/pb"
+	"github.com/spacemeshos/smutil/log"
 	"google.golang.org/grpc"
 	"time"
 )
@@ -36,7 +36,7 @@ func (b *Broadcaster) BroadcastProof(msg []byte) error {
 
 func New(target string) (*Broadcaster, error) {
 	if target == "NO_BROADCAST" {
-		fmt.Println("broadcast disabled")
+		log.Info("Broadcast is disabled")
 		return &Broadcaster{}, nil
 	}
 
@@ -53,7 +53,7 @@ func New(target string) (*Broadcaster, error) {
 // newClientConn returns a new gRPC client
 // connection to the specified target.
 func newClientConn(target string) (*grpc.ClientConn, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	opts := []grpc.DialOption{
 		grpc.WithInsecure(),
 		grpc.WithBlock(),

@@ -18,8 +18,9 @@ var (
 
 // rpcServer is a gRPC, RPC front end to poet core
 type rpcServer struct {
-	s     *signal.Signal
-	proof *shared.MerkleProof
+	sig     *signal.Signal
+	datadir string
+	proof   *shared.MerkleProof
 }
 
 // A compile time check to ensure that rpcServer fully implements the
@@ -28,23 +29,24 @@ var _ apicore.PoetCoreProverServer = (*rpcServer)(nil)
 var _ apicore.PoetVerifierServer = (*rpcServer)(nil)
 
 // newRPCServer creates and returns a new instance of the rpcServer.
-func NewRPCServer(s *signal.Signal) *rpcServer {
+func NewRPCServer(sig *signal.Signal, datadir string) *rpcServer {
 	return &rpcServer{
-		s: s,
+		sig:     sig,
+		datadir: datadir,
 	}
 }
 
 func (r *rpcServer) Compute(ctx context.Context, in *apicore.ComputeRequest) (*apicore.ComputeResponse, error) {
 	challenge := in.D.X
-	leafCount := uint64(1) << in.D.N
+	numLeaves := uint64(1) << in.D.N
 	securityParam := shared.T
-	proof, err := prover.GetProof(hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafCount, securityParam)
+	proof, err := prover.GenerateProofWithoutPersistency(r.datadir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
 	if err != nil {
 		return nil, status.Error(codes.Unknown, err.Error())
 	}
-	r.proof = &proof
+	r.proof = proof
 
-	return &apicore.ComputeResponse{Phi: proof.Root}, nil
+	return &apicore.ComputeResponse{}, nil
 }
 
 func (r *rpcServer) GetNIP(ctx context.Context, in *apicore.GetNIPRequest) (*apicore.GetNIPResponse, error) {
@@ -60,7 +62,7 @@ func (r *rpcServer) GetNIP(ctx context.Context, in *apicore.GetNIPRequest) (*api
 }
 
 func (r *rpcServer) Shutdown(context.Context, *apicore.ShutdownRequest) (*apicore.ShutdownResponse, error) {
-	r.s.RequestShutdown()
+	r.sig.RequestShutdown()
 	return &apicore.ShutdownResponse{}, nil
 }
 
@@ -75,9 +77,9 @@ func nativeProofFromWire(wireProof *apicore.Proof) shared.MerkleProof {
 func (r *rpcServer) VerifyNIP(ctx context.Context, in *apicore.VerifyNIPRequest) (*apicore.VerifyNIPResponse, error) {
 	proof := nativeProofFromWire(in.P)
 	challenge := in.D.X
-	leafCount := uint64(1) << in.D.N
+	numLeaves := uint64(1) << in.D.N
 	securityParam := shared.T
-	err := verifier.Validate(proof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafCount, securityParam)
+	err := verifier.Validate(proof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
 	if err != nil {
 		return nil, err
 	}

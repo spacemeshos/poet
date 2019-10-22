@@ -2,13 +2,19 @@ package service
 
 import (
 	"bytes"
-	"crypto/rand"
 	"errors"
 	"fmt"
-	xdr "github.com/nullstyle/go-xdr/xdr3"
+	"github.com/nullstyle/go-xdr/xdr3"
+	"github.com/spacemeshos/poet/broadcaster"
 	"github.com/spacemeshos/poet/shared"
+	"github.com/spacemeshos/poet/signal"
 	"github.com/spacemeshos/smutil/log"
+	"golang.org/x/crypto/ed25519"
+	"io/ioutil"
+	"path/filepath"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -17,23 +23,36 @@ type Config struct {
 	RoundsDuration       time.Duration `long:"duration" description:"duration of the opening time for each round. If not specified, rounds duration will be determined by its previous round end of PoET execution"`
 	InitialRoundDuration time.Duration `long:"initialduration" description:"duration of the opening time for the initial round. if rounds duration isn't specified, this param is necessary"`
 	ExecuteEmpty         bool          `long:"empty" description:"whether to execution empty rounds, without any submitted challenges"`
+	NoRecovery           bool          `long:"norecovery" description:"whether to disable a potential recovery procedure"`
+}
+
+const serviceStateFileBaseName = "state.bin"
+
+type serviceState struct {
+	NextRoundId int
+	PrivKey     []byte
 }
 
 type Service struct {
 	cfg             *Config
-	PoetServiceId   [PoetServiceIdLength]byte
+	datadir         string
 	openRound       *round
 	prevRound       *round
-	executingRounds map[int]*round
+	executingRounds map[string]*round
+	nextRoundId     int
+
+	started int32
+	PubKey  ed25519.PublicKey
+	privKey ed25519.PrivateKey
 
 	errChan chan error
-
+	sig     *signal.Signal
 	sync.Mutex
 }
 
 type InfoResponse struct {
-	OpenRoundId        int
-	ExecutingRoundsIds []int
+	OpenRoundId        string
+	ExecutingRoundsIds []string
 }
 
 type MembershipProof struct {
@@ -43,9 +62,9 @@ type MembershipProof struct {
 }
 
 type PoetProof struct {
-	N          uint
-	Commitment []byte
-	Proof      *shared.MerkleProof
+	N         uint
+	Statement []byte
+	Proof     *shared.MerkleProof
 }
 
 var (
@@ -59,85 +78,224 @@ type Broadcaster interface {
 type GossipPoetProof struct {
 	shared.MerkleProof
 	Members   [][]byte
-	LeafCount uint64
+	NumLeaves uint64
 }
-
-const PoetServiceIdLength = 32
 
 type PoetProofMessage struct {
 	GossipPoetProof
-	PoetServiceId [PoetServiceIdLength]byte
-	RoundId       uint64
+	ServicePubKey []byte
+	RoundId       string
 	Signature     []byte
 }
 
-func NewService(cfg *Config) (*Service, error) {
+func NewService(sig *signal.Signal, cfg *Config, datadir string, nodeAddress string) (*Service, error) {
 	s := new(Service)
 	s.cfg = cfg
-	_, err := rand.Read(s.PoetServiceId[:])
+	s.datadir = datadir
+	s.executingRounds = make(map[string]*round)
+	s.errChan = make(chan error, 10)
+	s.sig = sig
+
+	state, err := s.state()
 	if err != nil {
-		return nil, err
+		if !strings.Contains(err.Error(), "file is missing") {
+			return nil, err
+		}
+		state = s.initialState()
 	}
-	s.executingRounds = make(map[int]*round)
-	s.errChan = make(chan error)
-	s.openRound = s.newRound(1)
-	log.Info("round %v opened", 1)
+
+	s.privKey = ed25519.NewKeyFromSeed(state.PrivKey[:32])
+	s.PubKey = state.PrivKey[32:]
+	s.nextRoundId = state.NextRoundId
+
+	log.Info("Service public key: %x", s.PubKey)
+
+	if nodeAddress != "" {
+		if err := s.Start(nodeAddress); err != nil {
+			return nil, fmt.Errorf("failed to start service: %v", err)
+		}
+	} else {
+		log.Info("Service not starting, waiting for start request")
+	}
 
 	return s, nil
 }
 
-func (s *Service) Start(broadcaster Broadcaster) {
+func (s *Service) initialState() *serviceState {
+	_, priv, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		panic(fmt.Errorf("failed to generate key: %v", err))
+	}
+
+	return &serviceState{
+		NextRoundId: 1,
+		PrivKey:     priv,
+	}
+}
+
+func (s *Service) saveState() error {
+	filename := filepath.Join(s.datadir, serviceStateFileBaseName)
+	v := &serviceState{
+		NextRoundId: s.nextRoundId,
+		PrivKey:     s.privKey,
+	}
+
+	return persist(filename, v)
+}
+
+func (s *Service) state() (*serviceState, error) {
+	filename := filepath.Join(s.datadir, roundStateFileBaseName)
+	v := &serviceState{}
+
+	if err := load(filename, v); err != nil {
+		return nil, err
+	}
+
+	return v, nil
+}
+
+func (s *Service) Start(nodeAddress string) error {
+	b, err := broadcaster.New(nodeAddress)
+	if err != nil {
+		return fmt.Errorf("failed not connect to gateway node (addr: %v): %v", nodeAddress, err)
+	}
+
+	if err := s.start(b); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Service) start(broadcaster Broadcaster) error {
+	if !atomic.CompareAndSwapInt32(&s.started, 0, 1) {
+		return errors.New("already opened")
+	}
+
+	if s.cfg.NoRecovery {
+		log.Info("Recovery is disabled")
+	} else if err := s.Recover(broadcaster); err != nil {
+		return fmt.Errorf("failed to recover: %v", err)
+	}
+
+	s.openRound = s.newRound()
+	log.Info("Round %v opened", s.openRound.Id)
+
 	go func() {
 		for {
 			// Proceed either on previous round end of execution
 			// or on the rounds ticker.
 			select {
-			case <-s.prevRoundExecuted():
+			case <-s.prevRoundExecutionEnd():
 			case <-s.roundsTicker():
+			case <-s.sig.ShutdownRequestedChan:
+				log.Info("Shutdown requested, service shutting down")
+				s.openRound = nil
+				return
 			}
 
-			if len(s.openRound.challenges) == 0 && !s.cfg.ExecuteEmpty {
+			if s.openRound.isEmpty() && !s.cfg.ExecuteEmpty {
 				continue
 			}
 
 			s.prevRound = s.openRound
-
-			s.openRound = s.newRound(s.openRound.Id + 1)
-			log.Info("round %v opened", s.openRound.Id)
+			s.openRound = s.newRound()
+			log.Info("Round %v opened", s.openRound.Id)
 
 			// Close previous round and execute it.
 			go func() {
 				r := s.prevRound
-
-				s.Lock()
-				s.executingRounds[r.Id] = r
-				s.Unlock()
-
-				err := r.close()
-				if err != nil {
-					s.errChan <- err
-					log.Error(err.Error())
-				}
-				log.Info("round %v closed, executing...", r.Id)
-				err = r.execute()
-				if err != nil {
-					s.errChan <- err
-					log.Error(err.Error())
+				if err := s.executeRound(r); err != nil {
+					s.asyncError(fmt.Errorf("round %v execution error: %v", r.Id, err))
+					return
 				}
 
 				go broadcastProof(s, r, broadcaster)
-
-				s.Lock()
-				delete(s.executingRounds, r.Id)
-				s.Unlock()
-
-				log.Info("round %v executed, phi=%x", r.Id, r.nip.Root)
 			}()
 		}
 	}()
+
+	return nil
+}
+
+func (s *Service) Recover(broadcaster Broadcaster) error {
+	entries, err := ioutil.ReadDir(s.datadir)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		datadir := filepath.Join(s.datadir, entry.Name())
+		r := newRound(s.sig, s.cfg, datadir, entry.Name())
+
+		state, err := r.state()
+		if err != nil {
+			return fmt.Errorf("invalid round state: %v", err)
+		}
+
+		go func() {
+			s.Lock()
+			s.executingRounds[r.Id] = r
+			s.Unlock()
+			defer func() {
+				s.Lock()
+				delete(s.executingRounds, r.Id)
+				s.Unlock()
+			}()
+
+			var err error
+			if state.isOpen() {
+				log.Info("Recovery: found round %v in open state. executing...", r.Id)
+				err = r.execute()
+			} else {
+				log.Info("Recovery: found round %v in executing state. recovering execution...", r.Id)
+				err = r.recoverExecution(state.Execution)
+			}
+
+			if err != nil {
+				s.asyncError(fmt.Errorf("recovery: round %v execution failure: %v", r.Id, err))
+				return
+			}
+
+			log.Info("Recovery: round %v execution ended, phi=%x", r.Id, r.execution.NIP.Root)
+			broadcastProof(s, r, broadcaster)
+		}()
+	}
+
+	return nil
+}
+
+func (s *Service) executeRound(r *round) error {
+	s.Lock()
+	s.executingRounds[r.Id] = r
+	s.Unlock()
+
+	defer func() {
+		s.Lock()
+		delete(s.executingRounds, r.Id)
+		s.Unlock()
+	}()
+
+	log.Info("Round %v executing...", r.Id)
+
+	if err := r.execute(); err != nil {
+		return err
+	}
+
+	log.Info("Round %v execution ended, phi=%x", r.Id, r.execution.NIP.Root)
+
+	return nil
 }
 
 func (s *Service) Submit(data []byte) (*round, error) {
+	if atomic.LoadInt32(&s.started) != 1 {
+		return nil, errors.New("service not started")
+	}
+
 	r := s.openRound
 	err := r.submit(data)
 	if err != nil {
@@ -151,7 +309,7 @@ func (s *Service) Info() *InfoResponse {
 	res := new(InfoResponse)
 	res.OpenRoundId = s.openRound.Id
 
-	ids := make([]int, 0, len(s.executingRounds))
+	ids := make([]string, 0, len(s.executingRounds))
 	for id := range s.executingRounds {
 		ids = append(ids, id)
 	}
@@ -160,23 +318,36 @@ func (s *Service) Info() *InfoResponse {
 	return res
 }
 
-func (s *Service) newRound(id int) *round {
-	return newRound(s.cfg, id)
+func (s *Service) newRound() *round {
+	roundId := fmt.Sprintf("%d", s.nextRoundId)
+	s.nextRoundId++
+	if err := s.saveState(); err != nil {
+		panic(err)
+	}
+
+	datadir := filepath.Join(s.datadir, roundId)
+
+	r := newRound(s.sig, s.cfg, datadir, roundId)
+	if err := r.open(); err != nil {
+		panic(fmt.Errorf("failed to open round: %v", err))
+	}
+
+	return r
 }
 
-func (s *Service) prevRoundExecuted() <-chan struct{} {
+func (s *Service) prevRoundExecutionEnd() <-chan struct{} {
 	if s.prevRound != nil {
-		return s.prevRound.executedChan
+		return s.prevRound.executionEndedChan
 	} else {
 		// If there's no previous round, then it's the initial round,
 		// So simulate the previous round end of execution with the
 		// initial round duration config.
-		executedChan := make(chan struct{})
+		executionEndChan := make(chan struct{})
 		go func() {
 			<-time.After(s.cfg.InitialRoundDuration)
-			close(executedChan)
+			close(executionEndChan)
 		}()
-		return executedChan
+		return executionEndChan
 	}
 }
 
@@ -190,6 +361,13 @@ func (s *Service) roundsTicker() <-chan time.Time {
 	}
 }
 
+func (s *Service) asyncError(err error) {
+	capitalized := strings.ToUpper(err.Error()[0:1]) + err.Error()[1:]
+	log.Error(capitalized)
+
+	s.errChan <- err
+}
+
 func broadcastProof(s *Service, r *round, broadcaster Broadcaster) {
 	if msg, err := serializeProofMsg(s, r); err != nil {
 		log.Error(err.Error())
@@ -201,22 +379,23 @@ func broadcastProof(s *Service, r *round, broadcaster Broadcaster) {
 func serializeProofMsg(s *Service, r *round) ([]byte, error) {
 	poetProof, err := r.proof(false)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get poet proof for round %d: %v", r.Id, err)
+		return nil, fmt.Errorf("failed to get poet proof for round %v: %v", r.Id, err)
 	}
+
 	proofMessage := PoetProofMessage{
 		GossipPoetProof: GossipPoetProof{
-			MerkleProof: *r.nip,
-			Members:     r.challenges,
-			LeafCount:   uint64(1) << poetProof.N,
+			MerkleProof: *r.execution.NIP,
+			Members:     r.execution.Members,
+			NumLeaves:   uint64(1) << poetProof.N,
 		},
-		PoetServiceId: s.PoetServiceId,
-		RoundId:       uint64(r.Id),
+		ServicePubKey: s.PubKey,
+		RoundId:       r.Id,
 		Signature:     nil,
 	}
 	var dataBuf bytes.Buffer
 	_, err = xdr.Marshal(&dataBuf, proofMessage)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal proof message for round %d: %v", r.Id, err)
+		return nil, fmt.Errorf("failed to marshal proof message for round %v: %v", r.Id, err)
 	}
 	return dataBuf.Bytes(), nil
 }

@@ -9,12 +9,14 @@ import (
 	"github.com/spacemeshos/poet/verifier"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"io/ioutil"
 	"testing"
 	"time"
 )
 
 func BenchmarkProverAndVerifierBig(b *testing.B) {
 	r := require.New(b)
+	tempdir, _ := ioutil.TempDir("", "poet-test")
 
 	challenge := make([]byte, 32)
 	n := uint(33)
@@ -22,19 +24,19 @@ func BenchmarkProverAndVerifierBig(b *testing.B) {
 	_, err := rand.Read(challenge)
 	r.NoError(err)
 
-	leafCount := uint64(1) << n
+	numLeaves := uint64(1) << n
 	securityParam := shared.T
 
 	b.Log("Computing dag...")
 	t1 := time.Now()
-	merkleProof, err := prover.GetProof(hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafCount, securityParam)
+	merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
 	r.NoError(err, "Failed to generate proof")
 
 	e := time.Since(t1)
 	b.Logf("Proof generated in %s (%f) \n", e, e.Seconds())
 	b.Logf("Dag root label: %x\n", merkleProof.Root)
 
-	err = verifier.Validate(merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafCount, securityParam)
+	err = verifier.Validate(*merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
 	r.NoError(err, "Failed to verify NIP")
 
 	e1 := time.Since(t1)
@@ -42,21 +44,23 @@ func BenchmarkProverAndVerifierBig(b *testing.B) {
 }
 
 func TestNip(t *testing.T) {
+	tempdir, _ := ioutil.TempDir("", "poet-test")
 	challenge := []byte("Spacemesh launched its mainnet")
 	const n = 15
 
-	leafCount := uint64(1) << n
+	numLeaves := uint64(1) << n
 	securityParam := shared.T
 
-	merkleProof, err := prover.GetProof(hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafCount, securityParam)
+	merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
 	assert.NoError(t, err)
 	fmt.Printf("Dag root label: %x\n", merkleProof.Root)
 
-	err = verifier.Validate(merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafCount, securityParam)
+	err = verifier.Validate(*merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
 	assert.NoError(t, err, "failed to verify proof")
 }
 
 func BenchmarkProofEx(t *testing.B) {
+	tempdir, _ := ioutil.TempDir("", "poet-test")
 	for j := 0; j < 10; j++ {
 
 		// generate random commitment
@@ -66,14 +70,14 @@ func BenchmarkProofEx(t *testing.B) {
 
 		const n = 15
 
-		leafCount := uint64(1) << n
+		numLeaves := uint64(1) << n
 		securityParam := shared.T
 
-		merkleProof, err := prover.GetProof(hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafCount, securityParam)
+		merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
 		assert.NoError(t, err)
 		fmt.Printf("Dag root label: %x\n", merkleProof.Root)
 
-		err = verifier.Validate(merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafCount, securityParam)
+		err = verifier.Validate(*merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
 		assert.NoError(t, err, "failed to verify proof")
 	}
 }

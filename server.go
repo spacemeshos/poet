@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	proxy "github.com/grpc-ecosystem/grpc-gateway/runtime"
-	"github.com/spacemeshos/poet/broadcaster"
 	"github.com/spacemeshos/poet/rpc"
 	"github.com/spacemeshos/poet/rpc/api"
 	"github.com/spacemeshos/poet/rpccore"
@@ -16,11 +15,12 @@ import (
 	"google.golang.org/grpc/peer"
 	"net"
 	"net/http"
+	"os"
 )
 
 // startServer starts the RPC server.
 func startServer() error {
-	s := signal.NewSignal()
+	sig := signal.NewSignal()
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -32,8 +32,14 @@ func startServer() error {
 		grpc.UnaryInterceptor(loggerInterceptor()),
 	}
 
+	if _, err := os.Stat(cfg.DataDir); os.IsNotExist(err) {
+		if err := os.Mkdir(cfg.DataDir, 0700); err != nil {
+			return err
+		}
+	}
+
 	if cfg.CoreServiceMode {
-		rpcServer := rpccore.NewRPCServer(s)
+		rpcServer := rpccore.NewRPCServer(sig, cfg.DataDir)
 		grpcServer = grpc.NewServer(options...)
 
 		apicore.RegisterPoetCoreProverServer(grpcServer, rpcServer)
@@ -41,20 +47,10 @@ func startServer() error {
 		proxyRegstr = append(proxyRegstr, apicore.RegisterPoetCoreProverHandlerFromEndpoint)
 		proxyRegstr = append(proxyRegstr, apicore.RegisterPoetVerifierHandlerFromEndpoint)
 	} else {
-		svc, err := service.NewService(cfg.Service)
+		svc, err := service.NewService(sig, cfg.Service, cfg.DataDir, cfg.NodeAddress)
 		if err != nil {
 			return err
 		}
-
-		go func() {
-			proofBroadcaster, err := broadcaster.New(cfg.NodeAddress)
-			if err != nil {
-				log.Error("could not connect to node: %v", err)
-				s.RequestShutdown()
-				return
-			}
-			svc.Start(proofBroadcaster)
-		}()
 
 		rpcServer := rpc.NewRPCServer(svc)
 		grpcServer = grpc.NewServer(options...)
@@ -92,7 +88,7 @@ func startServer() error {
 
 	// Wait for shutdown signal from either a graceful server stop or from
 	// the interrupt handler.
-	<-s.ShutdownChannel()
+	<-sig.ShutdownChannel()
 	return nil
 }
 

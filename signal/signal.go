@@ -9,84 +9,137 @@ import (
 	"github.com/spacemeshos/smutil/log"
 	"os"
 	"os/signal"
+	"sync"
 )
 
 type Signal struct {
-	// interruptChannel is used to receive SIGINT (Ctrl+C) signals.
-	interruptChannel chan os.Signal
+	// interruptChan is used to receive SIGINT (Ctrl+C) signals.
+	interruptChan chan os.Signal
 
-	// shutdownRequestChannel is used to request the daemon to shutdown
+	// requestShutdownChan is used to request the daemon to shutdown
 	// gracefully, similar to when receiving SIGINT.
-	shutdownRequestChannel chan struct{}
+	requestShutdownChan chan struct{}
 
 	// quit is closed when instructing the main interrupt handler to exit.
 	quit chan struct{}
 
-	// shutdownChannel is closed once the main interrupt handler exits.
-	shutdownChannel chan struct{}
+	// shutdownChan is closed once the main interrupt handler exits.
+	shutdownChan chan struct{}
+
+	// ShutdownStarted is a flag which is used to indicate whether or not
+	// the shutdown signal has already been received and hence any future
+	// attempts to add a new interrupt handler should invoke them
+	// immediately.
+	ShutdownStarted bool
+
+	ShutdownRequested     bool
+	ShutdownRequestedChan chan struct{}
+
+	blocking       map[int]bool
+	blockingNextId int
+	blockingMtx    sync.Mutex
 }
 
 func NewSignal() *Signal {
 	s := new(Signal)
-	s.interruptChannel = make(chan os.Signal, 1)
-	s.shutdownRequestChannel = make(chan struct{})
+	s.interruptChan = make(chan os.Signal, 1)
 	s.quit = make(chan struct{})
-	s.shutdownChannel = make(chan struct{})
+	s.shutdownChan = make(chan struct{})
+	s.requestShutdownChan = make(chan struct{})
+	s.ShutdownRequestedChan = make(chan struct{})
+	s.blocking = make(map[int]bool)
 
-	signal.Notify(s.interruptChannel, os.Interrupt)
+	signal.Notify(s.interruptChan, os.Interrupt)
 	go s.mainInterruptHandler()
 
 	return s
 }
 
 func (s *Signal) mainInterruptHandler() {
-	// isShutdown is a flag which is used to indicate whether or not
-	// the shutdown signal has already been received and hence any future
-	// attempts to add a new interrupt handler should invoke them
-	// immediately.
-	var isShutdown bool
-
-	// shutdown invokes the registered interrupt handlers, then signals the
-	// shutdownChannel.
-	shutdown := func() {
-		// Ignore more than one shutdown signal.
-		if isShutdown {
-			log.Info("Already shutting down...")
-			return
-		}
-		isShutdown = true
-		log.Info("Shutting down...")
-
-		// Signal the main interrupt handler to exit, and stop accept
-		// post-facto requests.
-		close(s.quit)
-	}
-
 	for {
 		select {
-		case <-s.interruptChannel:
-			log.Info("Received SIGINT (Ctrl+C).")
-			shutdown()
+		case <-s.interruptChan:
+			log.Info("Received SIGINT (Ctrl+C)")
+			s.shutdown()
 
-		case <-s.shutdownRequestChannel:
-			log.Info("Received shutdown request.")
-			shutdown()
+		case <-s.requestShutdownChan:
+			log.Info("Received shutdown request")
+			s.shutdown()
 
 		case <-s.quit:
 			log.Info("Gracefully shutting down...")
-			close(s.shutdownChannel)
+			close(s.shutdownChan)
 			return
 		}
 	}
 }
 
+// shutdown invokes the registered interrupt handlers, then signals the
+// shutdownChan.
+func (s *Signal) shutdown() {
+	if !s.ShutdownRequested {
+		s.ShutdownRequested = true
+		close(s.ShutdownRequestedChan)
+	}
+
+	// Ignore more than one shutdown signal.
+	if s.ShutdownStarted {
+		log.Info("Already shutting down...")
+		return
+	}
+
+	if s.NumBlocking() > 0 {
+		log.Info("Shutdown: tasks are blocking")
+		return
+	}
+
+	s.ShutdownStarted = true
+
+	// Signal the main interrupt handler to exit, and stop accept
+	// post-facto requests.
+	close(s.quit)
+}
+
 // RequestShutdown initiates a graceful shutdown from the application.
 func (s *Signal) RequestShutdown() {
-	s.shutdownRequestChannel <- struct{}{}
+	s.requestShutdownChan <- struct{}{}
 }
 
 // ShutdownChannel returns the channel that will be closed once the main
 // interrupt handler has exited.
 func (s *Signal) ShutdownChannel() <-chan struct{} {
-	return s.shutdownChannel
+	return s.shutdownChan
+}
+
+func (s *Signal) BlockShutdown() func() {
+	s.blockingMtx.Lock()
+
+	s.blocking[s.blockingNextId] = true
+	next := s.blockingNextId
+	s.blockingNextId++
+
+	s.blockingMtx.Unlock()
+
+	return func() {
+		s.unblockShutdown(next)
+	}
+}
+
+func (s *Signal) unblockShutdown(id int) {
+	s.blockingMtx.Lock()
+	delete(s.blocking, id)
+	numBlocking := len(s.blocking)
+	s.blockingMtx.Unlock()
+
+	if numBlocking == 0 && s.ShutdownRequested {
+		s.shutdown()
+	}
+}
+
+func (s *Signal) NumBlocking() int {
+	s.blockingMtx.Lock()
+	numBlocking := len(s.blocking)
+	s.blockingMtx.Unlock()
+
+	return numBlocking
 }

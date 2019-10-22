@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"fmt"
 	"github.com/spacemeshos/poet/rpc/api"
 	"github.com/spacemeshos/poet/service"
 	"golang.org/x/net/context"
@@ -22,6 +23,13 @@ func NewRPCServer(service *service.Service) *rpcServer {
 	}
 }
 
+func (r *rpcServer) Start(ctx context.Context, in *api.StartRequest) (*api.StartResponse, error) {
+	if err := r.s.Start(in.NodeAddress); err != nil {
+		return nil, fmt.Errorf("failed to start service: %v", err)
+	}
+	return &api.StartResponse{}, nil
+}
+
 func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.SubmitResponse, error) {
 	round, err := r.s.Submit(in.Challenge)
 	if err != nil {
@@ -29,7 +37,7 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 	}
 
 	out := new(api.SubmitResponse)
-	out.RoundId = int32(round.Id)
+	out.RoundId = round.Id
 	return out, nil
 }
 
@@ -37,14 +45,14 @@ func (r *rpcServer) GetInfo(ctx context.Context, in *api.GetInfoRequest) (*api.G
 	info := r.s.Info()
 
 	out := new(api.GetInfoResponse)
-	out.OpenRoundId = int32(info.OpenRoundId)
+	out.OpenRoundId = info.OpenRoundId
 
-	ids := make([]int32, len(info.ExecutingRoundsIds))
+	ids := make([]string, len(info.ExecutingRoundsIds))
 	for i, id := range info.ExecutingRoundsIds {
-		ids[i] = int32(id)
+		ids[i] = id
 	}
 	out.ExecutingRoundsIds = ids
-	out.PoetServiceId = r.s.PoetServiceId[:]
+	out.ServicePubKey = r.s.PubKey
 
 	return out, nil
 }
