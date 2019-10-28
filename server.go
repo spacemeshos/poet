@@ -12,9 +12,11 @@ import (
 	"github.com/spacemeshos/smutil/log"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/peer"
 	"net"
 	"net/http"
+	"time"
 	"os"
 )
 
@@ -30,6 +32,16 @@ func startServer() error {
 	var proxyRegstr []func(context.Context, *proxy.ServeMux, string, []grpc.DialOption) error
 	options := []grpc.ServerOption{
 		grpc.UnaryInterceptor(loggerInterceptor()),
+		// XXX: this is done to prevent routers from cleaning up our connections (e.g aws load balances..)
+		// TODO: these parameters work for now but we might need to revisit or add them as configuration
+		// TODO: Configure maxconns, maxconcurrentcons ..
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			time.Minute * 120,
+			time.Minute * 180,
+			time.Minute * 10,
+			time.Minute,
+			time.Minute * 3,
+		}),
 	}
 
 	if _, err := os.Stat(cfg.DataDir); os.IsNotExist(err) {
