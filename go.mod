@@ -7,7 +7,7 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway v1.8.4
 	github.com/jessevdk/go-flags v1.4.0
 	github.com/nullstyle/go-xdr v0.0.0-20180726165426-f4c839f75077
-	github.com/spacemeshos/merkle-tree v0.0.0-20190906064112-506526aad109
+	github.com/spacemeshos/merkle-tree v0.0.0-20191028110812-1908c3126c82
 	github.com/spacemeshos/sha256-simd v0.0.0-20190111104731-8575aafc88c9
 	github.com/spacemeshos/smutil v0.0.0-20190604133034-b5189449f5c5
 	github.com/stretchr/testify v1.3.0
