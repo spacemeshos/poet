@@ -18,4 +18,5 @@ jobs:
     name: "Push to dockerHub"
     script:
       - make dockerpush
+      - go test ./...
     if: branch = develop AND type != pull_request
