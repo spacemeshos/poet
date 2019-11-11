@@ -52,7 +52,10 @@ func (cfg *ServerConfig) genArgs() []string {
 
 	args = append(args, fmt.Sprintf("--datadir=%v", cfg.dataDir))
 	args = append(args, fmt.Sprintf("--rpclisten=%v", cfg.rpcListen))
-	args = append(args, fmt.Sprintf("--n=%d", cfg.N))
+
+	if cfg.N != 0 {
+		args = append(args, fmt.Sprintf("--n=%d", cfg.N))
+	}
 	if cfg.NodeAddress != "" {
 		args = append(args, fmt.Sprintf("--nodeaddr=%v", cfg.NodeAddress))
 	}
