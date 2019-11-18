@@ -19,7 +19,7 @@ import (
 const (
 	MerkleMinCacheLayer        = 0 // Merkle nodes from this layer up will be cached, in addition to the base layer
 	MerkleMinMemoryLayer       = 2 // Below this layer caching is done on-disk, from this layer up -- in-memory
-	hardShutdownCheckpointRate = 1 << 17
+	hardShutdownCheckpointRate = 1 << 24
 )
 
 var (
