@@ -30,7 +30,7 @@ func (b *Broadcaster) BroadcastProof(msg []byte) error {
 	if response.Value != "ok" {
 		return fmt.Errorf("node responded after %v: %v", time.Since(start), response.Value)
 	}
-	log.Info("completed broadcast successfully after %v", time.Since(start))
+	log.Info("completed broadcast successfully after %v, proof size: %d", time.Since(start), len(msg))
 	return nil
 }
 
