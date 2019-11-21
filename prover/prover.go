@@ -202,6 +202,9 @@ func generateProof(
 			return nil, err
 		}
 	}
+
+	log.Info("Merkle tree construction finished, generating proof...")
+
 	root := tree.Root()
 
 	cacheReader, err := treeCache.GetReader()
