@@ -160,8 +160,6 @@ func (r *round) execute() error {
 		return err
 	}
 
-	log.Info("num of members: %v", len(r.execution.Members))
-
 	r.execution.NIP, err = prover.GenerateProof(
 		r.sig,
 		r.datadir,
