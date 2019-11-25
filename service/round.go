@@ -54,8 +54,8 @@ type round struct {
 	executionStartedChan chan struct{}
 	executionEndedChan   chan struct{}
 
-	sig *signal.Signal
-	sync.Mutex
+	sig       *signal.Signal
+	submitMtx sync.Mutex
 }
 
 func newRound(sig *signal.Signal, cfg *Config, datadir string, id string) *round {
@@ -115,7 +115,11 @@ func (r *round) submit(challenge []byte) error {
 		return errors.New("round is not open")
 	}
 
-	return r.challengesDb.Put(challenge, nil)
+	r.submitMtx.Lock()
+	err := r.challengesDb.Put(challenge, nil)
+	r.submitMtx.Unlock()
+
+	return err
 }
 
 func (r *round) numChallenges() int {
@@ -144,14 +148,19 @@ func (r *round) execute() error {
 
 	close(r.executionStartedChan)
 
+	r.submitMtx.Lock()
 	var err error
 	r.execution.Members, r.execution.Statement, err = r.calcMembersAndStatement()
 	if err != nil {
 		return err
 	}
+	r.submitMtx.Unlock()
+
 	if err := r.saveState(); err != nil {
 		return err
 	}
+
+	log.Info("num of members: %v", len(r.execution.Members))
 
 	r.execution.NIP, err = prover.GenerateProof(
 		r.sig,
