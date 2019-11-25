@@ -16,8 +16,8 @@ import (
 	"google.golang.org/grpc/peer"
 	"net"
 	"net/http"
-	"time"
 	"os"
+	"time"
 )
 
 // startServer starts the RPC server.
@@ -108,21 +108,26 @@ func startServer() error {
 func loggerInterceptor() func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		peer, _ := peer.FromContext(ctx)
-		maxDispLen := 50
-		reqStr := fmt.Sprintf("%v", req)
 
-		var reqDispStr string
-		if len(reqStr) > maxDispLen {
-			reqDispStr = reqStr[:maxDispLen] + "..."
+		if submitReq, ok := req.(*api.SubmitRequest); ok {
+			log.Info("%v | %x | %v", info.FullMethod, submitReq.Challenge, peer.Addr.String())
 		} else {
-			reqDispStr = reqStr
+			maxDispLen := 50
+			reqStr := fmt.Sprintf("%v", req)
+
+			var reqDispStr string
+			if len(reqStr) > maxDispLen {
+				reqDispStr = reqStr[:maxDispLen] + "..."
+			} else {
+				reqDispStr = reqStr
+			}
+			log.Info("%v | %v | %v", info.FullMethod, reqDispStr, peer.Addr.String())
 		}
-		log.Debug("%v: %v %v", peer.Addr.String(), info.FullMethod, reqDispStr)
 
 		resp, err := handler(ctx, req)
 
 		if err != nil {
-			log.Debug("%v: FAILURE %v %s", peer.Addr.String(), info.FullMethod, err)
+			log.Info("FAILURE %v | %v | %v", info.FullMethod, err, peer.Addr.String())
 		}
 		return resp, err
 	}

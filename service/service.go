@@ -72,7 +72,7 @@ var (
 )
 
 type Broadcaster interface {
-	BroadcastProof(msg []byte) error
+	BroadcastProof(msg []byte, roundId string, members [][]byte) error
 }
 
 type GossipPoetProof struct {
@@ -371,7 +371,7 @@ func (s *Service) asyncError(err error) {
 func broadcastProof(s *Service, r *round, broadcaster Broadcaster) {
 	if msg, err := serializeProofMsg(s, r); err != nil {
 		log.Error(err.Error())
-	} else if err := broadcaster.BroadcastProof(msg); err != nil {
+	} else if err := broadcaster.BroadcastProof(msg, r.Id, r.execution.Members); err != nil {
 		log.Error("failed to broadcast poet message for round %v: %v", r.Id, err)
 	}
 }

@@ -15,7 +15,7 @@ type Broadcaster struct {
 	grpcClient pb.SpacemeshServiceClient
 }
 
-func (b *Broadcaster) BroadcastProof(msg []byte) error {
+func (b *Broadcaster) BroadcastProof(msg []byte, roundId string, members [][]byte) error {
 	if b.grpcClient == nil {
 		return nil
 	}
@@ -30,7 +30,8 @@ func (b *Broadcaster) BroadcastProof(msg []byte) error {
 	if response.Value != "ok" {
 		return fmt.Errorf("node responded after %v: %v", time.Since(start), response.Value)
 	}
-	log.Info("completed broadcast successfully after %v, proof size: %d", time.Since(start), len(msg))
+
+	log.Info("Round %v completed broadcast successfully after %v, num of members: %d, proof size: %d", roundId, time.Since(start), len(members), len(msg))
 	return nil
 }
 
