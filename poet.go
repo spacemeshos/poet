@@ -31,8 +31,8 @@ func poetMain() error {
 	}
 	cfg = loadedConfig
 
+	log.JSONLog(cfg.JSONLog)
 	log.InitSpacemeshLoggingSystem(cfg.LogDir, "poet.log")
-	log.JSONLog(true)
 
 	defer func() {
 		log.Info("Shutdown complete")

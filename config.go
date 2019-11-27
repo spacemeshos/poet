@@ -52,6 +52,7 @@ type config struct {
 	ConfigFile      string `short:"c" long:"configfile" description:"Path to configuration file"`
 	DataDir         string `short:"b" long:"datadir" description:"The directory to store poet's data within"`
 	LogDir          string `long:"logdir" description:"Directory to log output."`
+	JSONLog         bool   `long:"jsonlog" description:"Whether to log in JSON format"`
 	MaxLogFiles     int    `long:"maxlogfiles" description:"Maximum logfiles to keep (0 for no rotation)"`
 	MaxLogFileSize  int    `long:"maxlogfilesize" description:"Maximum logfile size in MB"`
 	RawRPCListener  string `short:"r" long:"rpclisten" description:"The interface/port/socket to listen for RPC connections"`
