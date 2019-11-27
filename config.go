@@ -42,7 +42,7 @@ var (
 
 type coreServiceConfig struct {
 	N            int  `long:"n" description:"PoET time parameter"`
-	MemoryLayers uint `long:"memory" description:"Number of top tree layers to cache in RAM"`
+	MemoryLayers uint `long:"memory" description:"Number of top Merkle tree layers to cache in-memory"`
 }
 
 // config defines the configuration options for poet.
