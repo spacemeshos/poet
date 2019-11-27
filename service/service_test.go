@@ -19,7 +19,7 @@ type MockBroadcaster struct {
 	receivedMessages chan []byte
 }
 
-func (b *MockBroadcaster) BroadcastProof(msg []byte) error {
+func (b *MockBroadcaster) BroadcastProof(msg []byte, roundId string, members [][]byte) error {
 	b.receivedMessages <- msg
 	return nil
 }
