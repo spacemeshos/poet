@@ -60,7 +60,7 @@ type config struct {
 	RESTListener    net.Addr
 
 	CPUProfile string `long:"cpuprofile" description:"Write CPU profile to the specified file"`
-	Profile    string `long:"profile" description:"Enable HTTP profiling on given port -- NOTE port must be between 1024 and 65535"`
+	Profile    string `long:"profile" description:"Enable HTTP profiling on given port -- must be between 1024 and 65535"`
 
 	CoreServiceMode bool `long:"core" description:"Enable poet in core service mode"`
 
