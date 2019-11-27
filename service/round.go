@@ -160,6 +160,11 @@ func (r *round) execute() error {
 		return err
 	}
 
+	minMemoryLayer := int(r.cfg.N - r.cfg.MemoryLayers)
+	if minMemoryLayer < prover.LowestMerkleMinMemoryLayer {
+		minMemoryLayer = prover.LowestMerkleMinMemoryLayer
+	}
+
 	r.execution.NIP, err = prover.GenerateProof(
 		r.sig,
 		r.datadir,
@@ -167,6 +172,7 @@ func (r *round) execute() error {
 		hash.GenMerkleHashFunc(r.execution.Statement),
 		r.execution.NumLeaves,
 		r.execution.SecurityParam,
+		uint(minMemoryLayer),
 		r.persistExecution,
 	)
 	if err != nil {

@@ -15,7 +15,7 @@ func TestGetProof(t *testing.T) {
 	tempdir, _ := ioutil.TempDir("", "poet-test")
 
 	challenge := []byte("challenge this")
-	merkleProof, err := GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), 16, 5)
+	merkleProof, err := GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), 16, 5, LowestMerkleMinMemoryLayer)
 	r.NoError(err)
 	fmt.Printf("root: %x\n", merkleProof.Root)
 	fmt.Printf("proof: %x\n", merkleProof.ProvenLeaves)
@@ -31,7 +31,7 @@ func BenchmarkGetProof(b *testing.B) {
 	fmt.Printf("=> Generating proof for %d leaves with security param %d...\n", numLeaves, securityParam)
 
 	t1 := time.Now()
-	_, err := GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
+	_, err := GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam, LowestMerkleMinMemoryLayer)
 	e := time.Since(t1)
 
 	r.NoError(err)

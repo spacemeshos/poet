@@ -19,7 +19,8 @@ type ReadWriterMetaFactory struct {
 	filesCreated   map[string]bool
 }
 
-// NewReadWriterMetaFactory returns a new ReadWriterMetaFactory.
+// NewReadWriterMetaFactory returns a new ReadWriterMetaFactory. minMemoryLayer determines
+// the threshold in which lower layers caching is done on-disk, while from this layer up -- in-memory
 func NewReadWriterMetaFactory(minMemoryLayer uint, datadir string) *ReadWriterMetaFactory {
 	return &ReadWriterMetaFactory{
 		minMemoryLayer: minMemoryLayer,
@@ -31,6 +32,7 @@ func NewReadWriterMetaFactory(minMemoryLayer uint, datadir string) *ReadWriterMe
 // GetFactory creates a Merkle LayerFactory function.
 func (mf *ReadWriterMetaFactory) GetFactory() cache.LayerFactory {
 	return func(layerHeight uint) (cache.LayerReadWriter, error) {
+		log.Info("#### layerHight %v, minMemory %v", layerHeight, mf.minMemoryLayer)
 		if layerHeight < mf.minMemoryLayer {
 			fileName, err := mf.makeFileName(layerHeight)
 			if err != nil {
