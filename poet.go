@@ -4,8 +4,12 @@ import (
 	"fmt"
 	"github.com/jessevdk/go-flags"
 	"github.com/spacemeshos/smutil/log"
+	"net"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"runtime"
+	"runtime/pprof"
 )
 
 var (
@@ -16,6 +20,9 @@ var (
 // defers created in the top-level scope of a main method aren't executed if
 // os.Exit() is called.
 func poetMain() error {
+	// Use all processor cores.
+	runtime.GOMAXPROCS(runtime.NumCPU())
+
 	// Load configuration and parse command line. This function also
 	// initializes logging and configures it accordingly.
 	loadedConfig, err := loadConfig()
@@ -25,6 +32,7 @@ func poetMain() error {
 	cfg = loadedConfig
 
 	log.InitSpacemeshLoggingSystem(cfg.LogDir, "poet.log")
+	log.JSONLog(true)
 
 	defer func() {
 		log.Info("Shutdown complete")
@@ -32,6 +40,33 @@ func poetMain() error {
 
 	// Show version at startup.
 	log.Info("Version: %s, N: %d, dir: %v, datadir: %v", version(), cfg.Service.N, cfg.PoetDir, cfg.DataDir)
+
+	// Enable http profiling server if requested.
+	if cfg.Profile != "" {
+		log.Info("Starting HTTP profiling on port %v", cfg.Profile)
+		go func() {
+			listenAddr := net.JoinHostPort("", cfg.Profile)
+			profileRedirect := http.RedirectHandler("/debug/pprof",
+				http.StatusSeeOther)
+			http.Handle("/", profileRedirect)
+			fmt.Println(http.ListenAndServe(listenAddr, nil))
+		}()
+	} else {
+		// Disable go default unbounded memory profiler.
+		runtime.MemProfileRate = 0
+	}
+
+	if cfg.CPUProfile != "" {
+		f, err := os.Create(cfg.CPUProfile)
+		if err != nil {
+			log.Error("Could not create CPU profile: ", err)
+		}
+		defer f.Close()
+		if err := pprof.StartCPUProfile(f); err != nil {
+			log.Error("Could not start CPU profile: ", err)
+		}
+		defer pprof.StopCPUProfile()
+	}
 
 	if err := startServer(); err != nil {
 		log.Error("failed to start server: %v", err)
@@ -42,15 +77,6 @@ func poetMain() error {
 }
 
 func main() {
-	// Disable go default unbounded memory profiler
-	runtime.MemProfileRate = 0
-
-	// Use all processor cores.
-	runtime.GOMAXPROCS(runtime.NumCPU())
-
-	// Use JSON logs
-	log.JSONLog(true)
-
 	// Call the "real" main in a nested manner so the defers will properly
 	// be executed in the case of a graceful shutdown.
 	if err := poetMain(); err != nil {
