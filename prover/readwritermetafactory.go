@@ -32,7 +32,6 @@ func NewReadWriterMetaFactory(minMemoryLayer uint, datadir string) *ReadWriterMe
 // GetFactory creates a Merkle LayerFactory function.
 func (mf *ReadWriterMetaFactory) GetFactory() cache.LayerFactory {
 	return func(layerHeight uint) (cache.LayerReadWriter, error) {
-		log.Info("#### layerHight %v, minMemory %v", layerHeight, mf.minMemoryLayer)
 		if layerHeight < mf.minMemoryLayer {
 			fileName, err := mf.makeFileName(layerHeight)
 			if err != nil {
