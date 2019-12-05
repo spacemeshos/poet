@@ -42,7 +42,10 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 }
 
 func (r *rpcServer) GetInfo(ctx context.Context, in *api.GetInfoRequest) (*api.GetInfoResponse, error) {
-	info := r.s.Info()
+	info, err := r.s.Info()
+	if err != nil {
+		return nil, err
+	}
 
 	out := new(api.GetInfoResponse)
 	out.OpenRoundId = info.OpenRoundId
