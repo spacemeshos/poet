@@ -306,7 +306,11 @@ func (s *Service) Submit(data []byte) (*round, error) {
 	return r, nil
 }
 
-func (s *Service) Info() *InfoResponse {
+func (s *Service) Info() (*InfoResponse, error) {
+	if atomic.LoadInt32(&s.started) != 1 {
+		return nil, errors.New("service not started")
+	}
+
 	res := new(InfoResponse)
 	res.OpenRoundId = s.openRound.Id
 
@@ -316,7 +320,7 @@ func (s *Service) Info() *InfoResponse {
 	}
 	res.ExecutingRoundsIds = ids
 
-	return res
+	return res, nil
 }
 
 func (s *Service) newRound() *round {
