@@ -18,8 +18,9 @@ import (
 
 const (
 	MerkleMinCacheLayer        = 0 // Merkle nodes from this layer up will be cached, in addition to the base layer
-	MerkleMinMemoryLayer       = 2 // Below this layer caching is done on-disk, from this layer up -- in-memory
 	hardShutdownCheckpointRate = 1 << 24
+
+	LowestMerkleMinMemoryLayer = 1
 )
 
 var (
@@ -39,8 +40,9 @@ func GenerateProofWithoutPersistency(
 	merkleHashFunc func(lChild, rChild []byte) []byte,
 	numLeaves uint64,
 	securityParam uint8,
+	minMemoryLayer uint,
 ) (*shared.MerkleProof, error) {
-	return GenerateProof(sig, datadir, labelHashFunc, merkleHashFunc, numLeaves, securityParam, persist)
+	return GenerateProof(sig, datadir, labelHashFunc, merkleHashFunc, numLeaves, securityParam, minMemoryLayer, persist)
 }
 
 // GenerateProof computes the PoET DAG, uses Fiat-Shamir to derive a challenge from the Merkle root and generates a Merkle
@@ -52,9 +54,10 @@ func GenerateProof(
 	merkleHashFunc func(lChild, rChild []byte) []byte,
 	numLeaves uint64,
 	securityParam uint8,
+	minMemoryLayer uint,
 	persist persistFunc,
 ) (*shared.MerkleProof, error) {
-	tree, treeCache, err := makeProofTree(datadir, merkleHashFunc)
+	tree, treeCache, err := makeProofTree(datadir, merkleHashFunc, minMemoryLayer)
 	if err != nil {
 		return nil, err
 	}
@@ -81,8 +84,12 @@ func GenerateProofRecovery(
 	return generateProof(sig, labelHashFunc, tree, treeCache, numLeaves, nextLeafId, securityParam, persist)
 }
 
-func makeProofTree(datadir string, merkleHashFunc func(lChild, rChild []byte) []byte) (*merkle.Tree, *cache.Writer, error) {
-	metaFactory := NewReadWriterMetaFactory(MerkleMinMemoryLayer, datadir)
+func makeProofTree(
+	datadir string,
+	merkleHashFunc func(lChild, rChild []byte) []byte,
+	minMemoryLayer uint,
+) (*merkle.Tree, *cache.Writer, error) {
+	metaFactory := NewReadWriterMetaFactory(minMemoryLayer, datadir)
 
 	treeCache := cache.NewWriter(
 		cache.Combine(

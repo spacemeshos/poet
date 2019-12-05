@@ -30,6 +30,7 @@ const (
 	defaultN                    = 15
 	defaultInitialRoundDuration = 35 * time.Second
 	defaultExecuteEmpty         = true
+	defaultMemoryLayers         = 26 // Up to (1 << 26) * 2 - 1 Merkle tree cache nodes (32 bytes each) will be held in-memory
 )
 
 var (
@@ -40,7 +41,8 @@ var (
 )
 
 type coreServiceConfig struct {
-	N int `long:"n" description:"PoET time parameter"`
+	N            int  `long:"n" description:"PoET time parameter"`
+	MemoryLayers uint `long:"memory" description:"Number of top Merkle tree layers to cache in-memory"`
 }
 
 // config defines the configuration options for poet.
@@ -91,11 +93,13 @@ func loadConfig() (*config, error) {
 		RawRESTListener: fmt.Sprintf("localhost:%d", defaultRESTPort),
 		Service: &service.Config{
 			N:                    defaultN,
+			MemoryLayers:         defaultMemoryLayers,
 			InitialRoundDuration: defaultInitialRoundDuration,
 			ExecuteEmpty:         defaultExecuteEmpty,
 		},
 		CoreService: &coreServiceConfig{
-			N: defaultN,
+			N:            defaultN,
+			MemoryLayers: defaultMemoryLayers,
 		},
 	}
 

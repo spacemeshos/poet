@@ -60,7 +60,7 @@ func main() {
 	t1 := time.Now()
 	println("Computing dag...")
 	tempdir, _ := ioutil.TempDir("", "poet-test")
-	merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
+	merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam, prover.LowestMerkleMinMemoryLayer)
 	if err != nil {
 		panic("failed to generate proof")
 	}

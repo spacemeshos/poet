@@ -16,7 +16,7 @@ func TestValidate(t *testing.T) {
 	challenge := []byte("challenge")
 	numLeaves := uint64(16)
 	securityParam := uint8(4)
-	merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
+	merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam, prover.LowestMerkleMinMemoryLayer)
 	r.NoError(err)
 
 	err = Validate(*merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
@@ -56,7 +56,7 @@ func TestValidateWrongRoot(t *testing.T) {
 	challenge := []byte("challenge")
 	numLeaves := uint64(16)
 	securityParam := uint8(4)
-	merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
+	merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam, prover.LowestMerkleMinMemoryLayer)
 	r.NoError(err)
 
 	merkleProof.Root[0] = 0
@@ -76,7 +76,7 @@ func TestValidateFailLabelValidation(t *testing.T) {
 	challenge := []byte("challenge")
 	numLeaves := uint64(16)
 	securityParam := uint8(4)
-	merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
+	merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam, prover.LowestMerkleMinMemoryLayer)
 	r.NoError(err)
 
 	err = Validate(*merkleProof, BadLabelHashFunc, hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
