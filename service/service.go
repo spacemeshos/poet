@@ -173,20 +173,13 @@ func (s *Service) start(broadcaster Broadcaster) error {
 		return errors.New("already opened")
 	}
 
-	var openRound *round
 	if s.cfg.NoRecovery {
 		log.Info("Recovery is disabled")
-	} else {
-		var err error
-		openRound, err = s.Recover(broadcaster)
-		if err != nil {
-			return fmt.Errorf("failed to recover: %v", err)
-		}
+	} else if err := s.Recover(broadcaster); err != nil {
+		return fmt.Errorf("failed to recover: %v", err)
 	}
 
-	if openRound != nil {
-		s.openRound = openRound
-	} else {
+	if s.openRound == nil {
 		s.openRound = s.newRound()
 		log.Info("Round %v opened", s.openRound.Id)
 	}
@@ -225,13 +218,12 @@ func (s *Service) start(broadcaster Broadcaster) error {
 	return nil
 }
 
-func (s *Service) Recover(broadcaster Broadcaster) (*round, error) {
+func (s *Service) Recover(broadcaster Broadcaster) error {
 	entries, err := ioutil.ReadDir(s.datadir)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	var openRound *round
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -242,15 +234,15 @@ func (s *Service) Recover(broadcaster Broadcaster) (*round, error) {
 
 		state, err := r.state()
 		if err != nil {
-			return nil, fmt.Errorf("invalid round state: %v", err)
+			return fmt.Errorf("invalid round state: %v", err)
 		}
 
 		if state.isOpen() {
-			if openRound != nil {
-				return nil, fmt.Errorf("inconsistent state: multiple open rounds (%v, %v)", r.Id, openRound.Id)
+			if s.openRound != nil {
+				return fmt.Errorf("inconsistent state: multiple open rounds (%v, %v)", r.Id, s.openRound.Id)
 			}
 			log.Info("Recovery: found round %v in open state", r.Id)
-			openRound = r
+			s.openRound = r
 			continue
 		}
 
@@ -280,7 +272,7 @@ func (s *Service) Recover(broadcaster Broadcaster) (*round, error) {
 		}()
 	}
 
-	return openRound, nil
+	return nil
 }
 
 func (s *Service) executeRound(r *round) error {
