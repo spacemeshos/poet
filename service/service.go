@@ -256,6 +256,10 @@ func (s *Service) Recover(broadcaster Broadcaster) (*round, error) {
 
 		log.Info("Recovery: found round %v in executing state. recovering execution...", r.Id)
 
+		// Keep the last executing round as prevRound for potentially determine
+		// the closure of the current open round (see openRoundClosure()).
+		s.prevRound = r
+
 		go func() {
 			s.Lock()
 			s.executingRounds[r.Id] = r
@@ -350,38 +354,36 @@ func (s *Service) newRound() *round {
 }
 
 // openRoundClosure returns a channel used to notify the closure of the current open round.
-// It proceeds with one of the following options:
-// 1) If the open round was recovered, wait the remaining time from when it was originally opened until the rounds
-//    duration config. if rounds duration already passed or was not specified, closure will be notified immediately.
-// 2) If rounds duration was specified, use it to notify the closure.
-// 3) If it's not the initial round, use the previous round end of execution to notify the closure.
-// 4) Use the initial duration config to notify the closure.
 func (s *Service) openRoundClosure() <-chan struct{} {
 	c := make(chan struct{})
 
-	if s.openRound.stateCache != nil {
-		elapsed := time.Since(s.openRound.stateCache.Opened)
-		go func() {
-			<-time.After(s.cfg.RoundsDuration - elapsed)
-			close(c)
-		}()
-		return c
-	}
-
+	// If rounds duration was specified, use it to notify the closure.
+	// If the open round was recovered, include the time period from when it was originally opened.
 	if s.cfg.RoundsDuration > 0 {
+		var offset time.Duration
+		if s.openRound.stateCache != nil {
+			offset = time.Since(s.openRound.stateCache.Opened)
+		}
 		go func() {
-			<-time.After(s.cfg.RoundsDuration)
+			<-time.After(s.cfg.RoundsDuration - offset)
 			close(c)
 		}()
 		return c
 	}
 
+	// If it's not the initial round, use the previous round end of execution to notify the closure.
 	if s.prevRound != nil {
 		return s.prevRound.executionEndedChan
 	}
 
+	// Use the initial duration config to notify the closure.
+	// If the open round was recovered, include the time period from when it was originally opened.
+	var offset time.Duration
+	if s.openRound.stateCache != nil {
+		offset = time.Since(s.openRound.stateCache.Opened)
+	}
 	go func() {
-		<-time.After(s.cfg.InitialRoundDuration)
+		<-time.After(s.cfg.InitialRoundDuration - offset)
 		close(c)
 	}()
 	return c
