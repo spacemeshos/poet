@@ -205,7 +205,8 @@ func TestNewService(t *testing.T) {
 
 	challengesCount := 8
 	challenges := make([]challenge, challengesCount)
-	info := s.Info()
+	info, err := s.Info()
+	req.NoError(err)
 
 	// Generate random challenges.
 	for i := 0; i < len(challenges); i++ {
@@ -228,7 +229,9 @@ func TestNewService(t *testing.T) {
 	}
 
 	// Verify that round is still open.
-	req.Equal(info.OpenRoundId, s.Info().OpenRoundId)
+	info, err = s.Info()
+	req.NoError(err)
+	req.Equal(info.OpenRoundId, info.OpenRoundId)
 
 	// Wait for round to start execution.
 	select {
@@ -239,7 +242,8 @@ func TestNewService(t *testing.T) {
 
 	// Verify that round iteration proceeded.
 	prevInfo := info
-	info = s.Info()
+	info, err = s.Info()
+	req.NoError(err)
 	prevIndex, err := strconv.Atoi(prevInfo.OpenRoundId)
 	req.NoError(err)
 	req.Equal(fmt.Sprintf("%d", prevIndex+1), info.OpenRoundId)

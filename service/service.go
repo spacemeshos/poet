@@ -173,22 +173,28 @@ func (s *Service) start(broadcaster Broadcaster) error {
 		return errors.New("already opened")
 	}
 
+	var openRound *round
 	if s.cfg.NoRecovery {
 		log.Info("Recovery is disabled")
-	} else if err := s.Recover(broadcaster); err != nil {
-		return fmt.Errorf("failed to recover: %v", err)
+	} else {
+		var err error
+		openRound, err = s.Recover(broadcaster)
+		if err != nil {
+			return fmt.Errorf("failed to recover: %v", err)
+		}
 	}
 
-	s.openRound = s.newRound()
-	log.Info("Round %v opened", s.openRound.Id)
+	if openRound != nil {
+		s.openRound = openRound
+	} else {
+		s.openRound = s.newRound()
+		log.Info("Round %v opened", s.openRound.Id)
+	}
 
 	go func() {
 		for {
-			// Proceed either on previous round end of execution
-			// or on the rounds ticker.
 			select {
-			case <-s.prevRoundExecutionEnd():
-			case <-s.roundsTicker():
+			case <-s.openRoundClosure():
 			case <-s.sig.ShutdownRequestedChan:
 				log.Info("Shutdown requested, service shutting down")
 				s.openRound = nil
@@ -219,12 +225,13 @@ func (s *Service) start(broadcaster Broadcaster) error {
 	return nil
 }
 
-func (s *Service) Recover(broadcaster Broadcaster) error {
+func (s *Service) Recover(broadcaster Broadcaster) (*round, error) {
 	entries, err := ioutil.ReadDir(s.datadir)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
+	var openRound *round
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -235,8 +242,19 @@ func (s *Service) Recover(broadcaster Broadcaster) error {
 
 		state, err := r.state()
 		if err != nil {
-			return fmt.Errorf("invalid round state: %v", err)
+			return nil, fmt.Errorf("invalid round state: %v", err)
 		}
+
+		if state.isOpen() {
+			if openRound != nil {
+				return nil, fmt.Errorf("inconsistent state: multiple open rounds (%v, %v)", r.Id, openRound.Id)
+			}
+			log.Info("Recovery: found round %v in open state", r.Id)
+			openRound = r
+			continue
+		}
+
+		log.Info("Recovery: found round %v in executing state. recovering execution...", r.Id)
 
 		go func() {
 			s.Lock()
@@ -248,16 +266,7 @@ func (s *Service) Recover(broadcaster Broadcaster) error {
 				s.Unlock()
 			}()
 
-			var err error
-			if state.isOpen() {
-				log.Info("Recovery: found round %v in open state. executing...", r.Id)
-				err = r.execute()
-			} else {
-				log.Info("Recovery: found round %v in executing state. recovering execution...", r.Id)
-				err = r.recoverExecution(state.Execution)
-			}
-
-			if err != nil {
+			if err = r.recoverExecution(state.Execution); err != nil {
 				s.asyncError(fmt.Errorf("recovery: round %v execution failure: %v", r.Id, err))
 				return
 			}
@@ -267,7 +276,7 @@ func (s *Service) Recover(broadcaster Broadcaster) error {
 		}()
 	}
 
-	return nil
+	return openRound, nil
 }
 
 func (s *Service) executeRound(r *round) error {
@@ -340,30 +349,42 @@ func (s *Service) newRound() *round {
 	return r
 }
 
-func (s *Service) prevRoundExecutionEnd() <-chan struct{} {
+// openRoundClosure returns a channel used to notify the closure of the current open round.
+// It proceeds with one of the following options:
+// 1) If the open round was recovered, wait the remaining time from when it was originally opened until the rounds
+//    duration config. if rounds duration already passed or was not specified, closure will be notified immediately.
+// 2) If rounds duration was specified, use it to notify the closure.
+// 3) If it's not the initial round, use the previous round end of execution to notify the closure.
+// 4) Use the initial duration config to notify the closure.
+func (s *Service) openRoundClosure() <-chan struct{} {
+	c := make(chan struct{})
+
+	if s.openRound.stateCache != nil {
+		elapsed := time.Since(s.openRound.stateCache.Opened)
+		go func() {
+			<-time.After(s.cfg.RoundsDuration - elapsed)
+			close(c)
+		}()
+		return c
+	}
+
+	if s.cfg.RoundsDuration > 0 {
+		go func() {
+			<-time.After(s.cfg.RoundsDuration)
+			close(c)
+		}()
+		return c
+	}
+
 	if s.prevRound != nil {
 		return s.prevRound.executionEndedChan
-	} else {
-		// If there's no previous round, then it's the initial round,
-		// So simulate the previous round end of execution with the
-		// initial round duration config.
-		executionEndChan := make(chan struct{})
-		go func() {
-			<-time.After(s.cfg.InitialRoundDuration)
-			close(executionEndChan)
-		}()
-		return executionEndChan
 	}
-}
 
-var dummyChan = make(chan time.Time)
-
-func (s *Service) roundsTicker() <-chan time.Time {
-	if s.cfg.RoundsDuration > 0 {
-		return time.After(s.cfg.RoundsDuration)
-	} else {
-		return dummyChan
-	}
+	go func() {
+		<-time.After(s.cfg.InitialRoundDuration)
+		close(c)
+	}()
+	return c
 }
 
 func (s *Service) asyncError(err error) {

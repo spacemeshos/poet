@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	recoveryExecDecreaseThreshold = 0.95
+	recoveryExecDecreaseThreshold = 0.85
 )
 
 // TestRound_Recovery test round recovery functionality.
@@ -123,6 +123,7 @@ func TestRound_State(t *testing.T) {
 	_, err := r.proof(false)
 	req.EqualError(err, "round wasn't open")
 
+	req.Nil(r.stateCache)
 	_, err = r.state()
 	req.EqualError(err, fmt.Sprintf("file is missing: %v", filepath.Join(tempdir, roundStateFileBaseName)))
 
@@ -145,9 +146,12 @@ func TestRound_State(t *testing.T) {
 	req.Equal(len(challenges), r.numChallenges())
 	req.False(r.isEmpty())
 
+	req.Nil(r.stateCache)
 	state, err := r.state()
 	req.NoError(err)
 	req.NotNil(state)
+	req.Equal(state, r.stateCache)
+
 	req.True(state.isOpen())
 	req.True(!state.Opened.IsZero())
 	req.True(state.ExecutionStarted.IsZero())
