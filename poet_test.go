@@ -104,7 +104,7 @@ func TestHarness_CrashRecovery(t *testing.T) {
 	req.NoError(err)
 	cfg.NodeAddress = "NO_BROADCAST"
 	cfg.N = 18
-	cfg.InitialRoundDuration = time.Duration(1 * time.Second).String()
+	cfg.InitialRoundDuration = time.Duration(3 * time.Second).String()
 	cfg.Reset = true
 
 	// Track rounds.
