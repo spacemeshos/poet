@@ -11,6 +11,7 @@ import (
 	"github.com/spacemeshos/smutil/log"
 	"golang.org/x/crypto/ed25519"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -23,8 +24,9 @@ type Config struct {
 	MemoryLayers         uint          `long:"memory" description:"Number of top Merkle tree layers to cache in-memory"`
 	RoundsDuration       time.Duration `long:"duration" description:"duration of the opening time for each round. If not specified, rounds duration will be determined by its previous round end of PoET execution"`
 	InitialRoundDuration time.Duration `long:"initialduration" description:"duration of the opening time for the initial round. if rounds duration isn't specified, this param is necessary"`
-	ExecuteEmpty         bool          `long:"empty" description:"whether to execution empty rounds, without any submitted challenges"`
+	ExecuteEmpty         bool          `long:"empty" description:"whether to execute empty rounds, without any submitted challenges"`
 	NoRecovery           bool          `long:"norecovery" description:"whether to disable a potential recovery procedure"`
+	Reset                bool          `long:"reset" description:"whether to reset the service state by deleting the datadir"`
 }
 
 const serviceStateFileBaseName = "state.bin"
@@ -96,6 +98,18 @@ func NewService(sig *signal.Signal, cfg *Config, datadir string, nodeAddress str
 	s.executingRounds = make(map[string]*round)
 	s.errChan = make(chan error, 10)
 	s.sig = sig
+
+	if cfg.Reset {
+		entries, err := ioutil.ReadDir(datadir)
+		if err != nil {
+			return nil, err
+		}
+		for _, entry := range entries {
+			if err := os.RemoveAll(filepath.Join(s.datadir, entry.Name())); err != nil {
+				return nil, err
+			}
+		}
+	}
 
 	state, err := s.state()
 	if err != nil {

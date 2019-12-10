@@ -21,6 +21,7 @@ type ServerConfig struct {
 	NodeAddress          string
 	N                    int
 	InitialRoundDuration string
+	Reset                bool
 }
 
 // DefaultConfig returns a newConfig with all default values.
@@ -61,6 +62,9 @@ func (cfg *ServerConfig) genArgs() []string {
 	}
 	if cfg.InitialRoundDuration != "" {
 		args = append(args, fmt.Sprintf("--initialduration=%v", cfg.InitialRoundDuration))
+	}
+	if cfg.Reset {
+		args = append(args, "--reset")
 	}
 
 	return args
