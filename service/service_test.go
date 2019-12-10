@@ -38,6 +38,7 @@ type challenge struct {
 //  - Wait a bit for round 0 execution to proceed.
 //  - Shutdown service.
 //  - Create a new service instance.
+//  - Wait a bit for round 1 execution to proceed.
 //  - Submit challenges to open round (2).
 //  - Verify that new service instance broadcast 3 distinct rounds proofs, by the expected order.
 func TestService_Recovery(t *testing.T) {
