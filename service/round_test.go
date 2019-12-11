@@ -155,8 +155,7 @@ func TestRound_State(t *testing.T) {
 	req.Equal(state, r.stateCache)
 
 	req.True(state.isOpen())
-	req.True(!state.Opened.IsZero())
-	req.True(state.ExecutionStarted.IsZero())
+	req.True(!state.isExecuted())
 	req.NotNil(state.Execution)
 	req.True(state.Execution.NumLeaves != 0)
 	req.True(state.Execution.SecurityParam != 0)
@@ -182,8 +181,7 @@ func TestRound_State(t *testing.T) {
 	req.NoError(err)
 	req.NotNil(state)
 	req.True(!state.isOpen())
-	req.True(!state.Opened.IsZero())
-	req.True(!state.ExecutionStarted.IsZero())
+	req.True(!state.isExecuted())
 	req.NotNil(state.Execution)
 	req.True(state.Execution.NumLeaves != 0)
 	req.True(state.Execution.SecurityParam != 0)
@@ -217,8 +215,17 @@ func TestRound_State(t *testing.T) {
 	req.Equal(r.execution.NIP, proof.Proof)
 	req.Equal(r.execution.Statement, proof.Statement)
 
-	// Verify round cleanup.
+	// Verify round execution state.
+	state, err = r.state()
+	req.True(!state.isOpen())
+	req.True(state.isExecuted())
+	req.Equal(r.execution, state.Execution)
+
+	// Trigger cleanup.
+	r.broadcasted()
 	time.Sleep(1 * time.Second)
+
+	// Verify cleanup.
 	state, err = r.state()
 	req.EqualError(err, fmt.Sprintf("file is missing: %v", filepath.Join(tempdir, roundStateFileBaseName)))
 	req.Nil(state)

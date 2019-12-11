@@ -224,7 +224,7 @@ func (s *Service) start(broadcaster Broadcaster) error {
 					return
 				}
 
-				go broadcastProof(s, r, broadcaster)
+				broadcastProof(s, r, r.execution, broadcaster)
 			}()
 		}
 	}()
@@ -252,17 +252,23 @@ func (s *Service) Recover(broadcaster Broadcaster) error {
 		}
 
 		if state.isOpen() {
-			if s.openRound != nil {
-				return fmt.Errorf("inconsistent state: multiple open rounds (%v, %v)", r.Id, s.openRound.Id)
-			}
 			log.Info("Recovery: found round %v in open state", r.Id)
+
+			// Keep the last open round as openRound (multiple open rounds state is possible
+			// only if recovery was previously disabled).
 			s.openRound = r
+			continue
+		}
+
+		if state.isExecuted() {
+			log.Info("Recovery: found round %v in executed state. broadcasting...", r.Id)
+			go broadcastProof(s, r, state.Execution, broadcaster)
 			continue
 		}
 
 		log.Info("Recovery: found round %v in executing state. recovering execution...", r.Id)
 
-		// Keep the last executing round as prevRound for potentially determine
+		// Keep the last executing round as prevRound for potentially affecting
 		// the closure of the current open round (see openRoundClosure()).
 		s.prevRound = r
 
@@ -282,7 +288,7 @@ func (s *Service) Recover(broadcaster Broadcaster) error {
 			}
 
 			log.Info("Recovery: round %v execution ended, phi=%x", r.Id, r.execution.NIP.Root)
-			broadcastProof(s, r, broadcaster)
+			broadcastProof(s, r, r.execution, broadcaster)
 		}()
 	}
 
@@ -402,34 +408,37 @@ func (s *Service) asyncError(err error) {
 	s.errChan <- err
 }
 
-func broadcastProof(s *Service, r *round, broadcaster Broadcaster) {
-	if msg, err := serializeProofMsg(s, r); err != nil {
+func broadcastProof(s *Service, r *round, execution *executionState, broadcaster Broadcaster) {
+	msg, err := serializeProofMsg(s.PubKey, r.Id, execution)
+	if err != nil {
 		log.Error(err.Error())
-	} else if err := broadcaster.BroadcastProof(msg, r.Id, r.execution.Members); err != nil {
-		log.Error("failed to broadcast poet message for round %v: %v", r.Id, err)
+		return
 	}
+
+	if err := broadcaster.BroadcastProof(msg, r.Id, r.execution.Members); err != nil {
+		log.Error("failed to broadcast poet message for round %v: %v", r.Id, err)
+		return
+	}
+
+	r.broadcasted()
 }
 
-func serializeProofMsg(s *Service, r *round) ([]byte, error) {
-	poetProof, err := r.proof(false)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get poet proof for round %v: %v", r.Id, err)
-	}
-
+func serializeProofMsg(servicePubKey []byte, roundId string, execution *executionState) ([]byte, error) {
 	proofMessage := PoetProofMessage{
 		GossipPoetProof: GossipPoetProof{
-			MerkleProof: *r.execution.NIP,
-			Members:     r.execution.Members,
-			NumLeaves:   uint64(1) << poetProof.N,
+			MerkleProof: *execution.NIP,
+			Members:     execution.Members,
+			NumLeaves:   execution.NumLeaves,
 		},
-		ServicePubKey: s.PubKey,
-		RoundId:       r.Id,
+		ServicePubKey: servicePubKey,
+		RoundId:       roundId,
 		Signature:     nil,
 	}
+
 	var dataBuf bytes.Buffer
-	_, err = xdr.Marshal(&dataBuf, proofMessage)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal proof message for round %v: %v", r.Id, err)
+	if _, err := xdr.Marshal(&dataBuf, proofMessage); err != nil {
+		return nil, fmt.Errorf("failed to marshal proof message for round %v: %v", roundId, err)
 	}
+
 	return dataBuf.Bytes(), nil
 }

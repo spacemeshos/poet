@@ -39,6 +39,10 @@ func (r *roundState) isOpen() bool {
 	return !r.Opened.IsZero() && r.ExecutionStarted.IsZero()
 }
 
+func (r *roundState) isExecuted() bool {
+	return r.Execution.NIP != nil
+}
+
 type round struct {
 	cfg     *Config
 	datadir string
@@ -53,6 +57,7 @@ type round struct {
 	openedChan           chan struct{}
 	executionStartedChan chan struct{}
 	executionEndedChan   chan struct{}
+	broadcastedChan      chan struct{}
 
 	stateCache *roundState
 
@@ -68,6 +73,7 @@ func newRound(sig *signal.Signal, cfg *Config, datadir string, id string) *round
 	r.openedChan = make(chan struct{})
 	r.executionStartedChan = make(chan struct{})
 	r.executionEndedChan = make(chan struct{})
+	r.broadcastedChan = make(chan struct{})
 	r.sig = sig
 
 	dbPath := filepath.Join(datadir, "challengesDb")
@@ -82,7 +88,7 @@ func newRound(sig *signal.Signal, cfg *Config, datadir string, id string) *round
 		var cleanup bool
 		select {
 		case <-sig.ShutdownRequestedChan:
-		case <-r.executionEndedChan:
+		case <-r.broadcastedChan:
 			cleanup = true
 		}
 
@@ -278,6 +284,10 @@ func (r *round) proof(wait bool) (*PoetProof, error) {
 		Statement: r.execution.Statement,
 		Proof:     r.execution.NIP,
 	}, nil
+}
+
+func (r *round) broadcasted() {
+	close(r.broadcastedChan)
 }
 
 func (r *round) state() (*roundState, error) {
