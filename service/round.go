@@ -54,6 +54,8 @@ type round struct {
 	executionStartedChan chan struct{}
 	executionEndedChan   chan struct{}
 
+	stateCache *roundState
+
 	sig       *signal.Signal
 	submitMtx sync.Mutex
 }
@@ -292,6 +294,8 @@ func (r *round) state() (*roundState, error) {
 	if r.execution.SecurityParam != s.Execution.SecurityParam {
 		return nil, errors.New("SecurityParam config mismatch")
 	}
+
+	r.stateCache = s
 
 	return s, nil
 }

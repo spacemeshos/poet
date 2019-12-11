@@ -38,6 +38,7 @@ type challenge struct {
 //  - Wait a bit for round 0 execution to proceed.
 //  - Shutdown service.
 //  - Create a new service instance.
+//  - Wait a bit for round 1 execution to proceed.
 //  - Submit challenges to open round (2).
 //  - Verify that new service instance broadcast 3 distinct rounds proofs, by the expected order.
 func TestService_Recovery(t *testing.T) {
@@ -50,7 +51,8 @@ func TestService_Recovery(t *testing.T) {
 	// Create a new service instance.
 	s, err := NewService(sig, cfg, tempdir, "")
 	req.NoError(err)
-	s.start(broadcaster)
+	err = s.start(broadcaster)
+	req.NoError(err)
 
 	// Track the service rounds.
 	numRounds := 3
@@ -91,7 +93,7 @@ func TestService_Recovery(t *testing.T) {
 	// Verify that round is still open.
 	req.Equal(rounds[0].Id, s.openRound.Id)
 
-	// Wait for round to start executing.
+	// Wait for round 0 to start executing.
 	select {
 	case <-rounds[0].executionStartedChan:
 	case err := <-s.errChan:
@@ -134,15 +136,27 @@ func TestService_Recovery(t *testing.T) {
 	req.NoError(err)
 	time.Sleep(500 * time.Millisecond)
 
-	// Service instance should have 2 rounds to recover (0, 1), in addition to the new open round (2)
-	req.Equal(2, len(s.executingRounds))
+	// Service instance should recover 2 rounds: round 0 in executing state, and round 1 in open state.
+	prevServiceRounds := rounds
+	req.Equal(1, len(s.executingRounds))
+	_, ok := s.executingRounds[prevServiceRounds[0].Id]
+	req.True(ok)
+	req.Equal(s.openRound.Id, prevServiceRounds[1].Id)
 
 	// Track rounds from the new service instance.
-	prevServiceRounds := rounds
 	rounds = make([]*round, numRounds)
 	rounds[0] = s.executingRounds[prevServiceRounds[0].Id]
-	rounds[1] = s.executingRounds[prevServiceRounds[1].Id]
-	rounds[2] = s.openRound
+	rounds[1] = s.openRound
+
+	// Wait for round 1 to start executing.
+	select {
+	case <-rounds[1].executionStartedChan:
+	case err := <-s.errChan:
+		req.Fail(err.Error())
+	}
+
+	// Verify that round iteration proceeds: a new round opened, previous round is executing.
+	req.Contains(s.executingRounds, rounds[1].Id)
 
 	// Submit challenges to open round (2).
 	submitChallenges(2)
@@ -205,7 +219,8 @@ func TestNewService(t *testing.T) {
 
 	challengesCount := 8
 	challenges := make([]challenge, challengesCount)
-	info := s.Info()
+	info, err := s.Info()
+	req.NoError(err)
 
 	// Generate random challenges.
 	for i := 0; i < len(challenges); i++ {
@@ -228,7 +243,9 @@ func TestNewService(t *testing.T) {
 	}
 
 	// Verify that round is still open.
-	req.Equal(info.OpenRoundId, s.Info().OpenRoundId)
+	info, err = s.Info()
+	req.NoError(err)
+	req.Equal(info.OpenRoundId, info.OpenRoundId)
 
 	// Wait for round to start execution.
 	select {
@@ -239,7 +256,8 @@ func TestNewService(t *testing.T) {
 
 	// Verify that round iteration proceeded.
 	prevInfo := info
-	info = s.Info()
+	info, err = s.Info()
+	req.NoError(err)
 	prevIndex, err := strconv.Atoi(prevInfo.OpenRoundId)
 	req.NoError(err)
 	req.Equal(fmt.Sprintf("%d", prevIndex+1), info.OpenRoundId)

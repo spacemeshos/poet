@@ -104,7 +104,8 @@ func TestHarness_CrashRecovery(t *testing.T) {
 	req.NoError(err)
 	cfg.NodeAddress = "NO_BROADCAST"
 	cfg.N = 18
-	cfg.InitialRoundDuration = time.Duration(1 * time.Second).String()
+	cfg.InitialRoundDuration = time.Duration(3 * time.Second).String()
+	cfg.Reset = true
 
 	// Track rounds.
 	numRounds := 2
@@ -219,6 +220,7 @@ func TestHarness_CrashRecovery(t *testing.T) {
 	req.NoError(err)
 
 	// Launch another server, with the same config.
+	cfg.Reset = false
 	h = newHarness(req, cfg)
 
 	// TODO: wait until both rounds 0 and 1 recovery completes. listen to their proof broadcast and compare it with the reference rounds.

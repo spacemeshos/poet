@@ -11,6 +11,7 @@ import (
 	"github.com/spacemeshos/smutil/log"
 	"golang.org/x/crypto/ed25519"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -23,8 +24,9 @@ type Config struct {
 	MemoryLayers         uint          `long:"memory" description:"Number of top Merkle tree layers to cache in-memory"`
 	RoundsDuration       time.Duration `long:"duration" description:"duration of the opening time for each round. If not specified, rounds duration will be determined by its previous round end of PoET execution"`
 	InitialRoundDuration time.Duration `long:"initialduration" description:"duration of the opening time for the initial round. if rounds duration isn't specified, this param is necessary"`
-	ExecuteEmpty         bool          `long:"empty" description:"whether to execution empty rounds, without any submitted challenges"`
+	ExecuteEmpty         bool          `long:"empty" description:"whether to execute empty rounds, without any submitted challenges"`
 	NoRecovery           bool          `long:"norecovery" description:"whether to disable a potential recovery procedure"`
+	Reset                bool          `long:"reset" description:"whether to reset the service state by deleting the datadir"`
 }
 
 const serviceStateFileBaseName = "state.bin"
@@ -96,6 +98,18 @@ func NewService(sig *signal.Signal, cfg *Config, datadir string, nodeAddress str
 	s.executingRounds = make(map[string]*round)
 	s.errChan = make(chan error, 10)
 	s.sig = sig
+
+	if cfg.Reset {
+		entries, err := ioutil.ReadDir(datadir)
+		if err != nil {
+			return nil, err
+		}
+		for _, entry := range entries {
+			if err := os.RemoveAll(filepath.Join(s.datadir, entry.Name())); err != nil {
+				return nil, err
+			}
+		}
+	}
 
 	state, err := s.state()
 	if err != nil {
@@ -179,16 +193,15 @@ func (s *Service) start(broadcaster Broadcaster) error {
 		return fmt.Errorf("failed to recover: %v", err)
 	}
 
-	s.openRound = s.newRound()
-	log.Info("Round %v opened", s.openRound.Id)
+	if s.openRound == nil {
+		s.openRound = s.newRound()
+		log.Info("Round %v opened", s.openRound.Id)
+	}
 
 	go func() {
 		for {
-			// Proceed either on previous round end of execution
-			// or on the rounds ticker.
 			select {
-			case <-s.prevRoundExecutionEnd():
-			case <-s.roundsTicker():
+			case <-s.openRoundClosure():
 			case <-s.sig.ShutdownRequestedChan:
 				log.Info("Shutdown requested, service shutting down")
 				s.openRound = nil
@@ -238,6 +251,21 @@ func (s *Service) Recover(broadcaster Broadcaster) error {
 			return fmt.Errorf("invalid round state: %v", err)
 		}
 
+		if state.isOpen() {
+			if s.openRound != nil {
+				return fmt.Errorf("inconsistent state: multiple open rounds (%v, %v)", r.Id, s.openRound.Id)
+			}
+			log.Info("Recovery: found round %v in open state", r.Id)
+			s.openRound = r
+			continue
+		}
+
+		log.Info("Recovery: found round %v in executing state. recovering execution...", r.Id)
+
+		// Keep the last executing round as prevRound for potentially determine
+		// the closure of the current open round (see openRoundClosure()).
+		s.prevRound = r
+
 		go func() {
 			s.Lock()
 			s.executingRounds[r.Id] = r
@@ -248,16 +276,7 @@ func (s *Service) Recover(broadcaster Broadcaster) error {
 				s.Unlock()
 			}()
 
-			var err error
-			if state.isOpen() {
-				log.Info("Recovery: found round %v in open state. executing...", r.Id)
-				err = r.execute()
-			} else {
-				log.Info("Recovery: found round %v in executing state. recovering execution...", r.Id)
-				err = r.recoverExecution(state.Execution)
-			}
-
-			if err != nil {
+			if err = r.recoverExecution(state.Execution); err != nil {
 				s.asyncError(fmt.Errorf("recovery: round %v execution failure: %v", r.Id, err))
 				return
 			}
@@ -340,30 +359,40 @@ func (s *Service) newRound() *round {
 	return r
 }
 
-func (s *Service) prevRoundExecutionEnd() <-chan struct{} {
+// openRoundClosure returns a channel used to notify the closure of the current open round.
+func (s *Service) openRoundClosure() <-chan struct{} {
+	c := make(chan struct{})
+
+	// If rounds duration was specified, use it to notify the closure.
+	// If the open round was recovered, include the time period from when it was originally opened.
+	if s.cfg.RoundsDuration > 0 {
+		var offset time.Duration
+		if s.openRound.stateCache != nil {
+			offset = time.Since(s.openRound.stateCache.Opened)
+		}
+		go func() {
+			<-time.After(s.cfg.RoundsDuration - offset)
+			close(c)
+		}()
+		return c
+	}
+
+	// If it's not the initial round, use the previous round end of execution to notify the closure.
 	if s.prevRound != nil {
 		return s.prevRound.executionEndedChan
-	} else {
-		// If there's no previous round, then it's the initial round,
-		// So simulate the previous round end of execution with the
-		// initial round duration config.
-		executionEndChan := make(chan struct{})
-		go func() {
-			<-time.After(s.cfg.InitialRoundDuration)
-			close(executionEndChan)
-		}()
-		return executionEndChan
 	}
-}
 
-var dummyChan = make(chan time.Time)
-
-func (s *Service) roundsTicker() <-chan time.Time {
-	if s.cfg.RoundsDuration > 0 {
-		return time.After(s.cfg.RoundsDuration)
-	} else {
-		return dummyChan
+	// Use the initial duration config to notify the closure.
+	// If the open round was recovered, include the time period from when it was originally opened.
+	var offset time.Duration
+	if s.openRound.stateCache != nil {
+		offset = time.Since(s.openRound.stateCache.Opened)
 	}
+	go func() {
+		<-time.After(s.cfg.InitialRoundDuration - offset)
+		close(c)
+	}()
+	return c
 }
 
 func (s *Service) asyncError(err error) {
