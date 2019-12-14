@@ -13,15 +13,16 @@ import (
 // ServerConfig contains all the args and data required to launch a poet server
 // instance  and connect to it via rpc client.
 type ServerConfig struct {
-	logLevel             string
-	rpcListen            string
-	baseDir              string
-	dataDir              string
-	exe                  string
-	NodeAddress          string
+	logLevel  string
+	rpcListen string
+	baseDir   string
+	dataDir   string
+	exe       string
+
 	N                    int
 	InitialRoundDuration string
 	Reset                bool
+	DisableBroadcast     bool
 }
 
 // DefaultConfig returns a newConfig with all default values.
@@ -57,14 +58,14 @@ func (cfg *ServerConfig) genArgs() []string {
 	if cfg.N != 0 {
 		args = append(args, fmt.Sprintf("--n=%d", cfg.N))
 	}
-	if cfg.NodeAddress != "" {
-		args = append(args, fmt.Sprintf("--nodeaddr=%v", cfg.NodeAddress))
-	}
 	if cfg.InitialRoundDuration != "" {
 		args = append(args, fmt.Sprintf("--initialduration=%v", cfg.InitialRoundDuration))
 	}
 	if cfg.Reset {
 		args = append(args, "--reset")
+	}
+	if cfg.DisableBroadcast {
+		args = append(args, "--disablebroadcast")
 	}
 
 	return args

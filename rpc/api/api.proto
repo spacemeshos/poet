@@ -27,7 +27,8 @@ service Poet {
 }
 
 message StartRequest {
-    string nodeAddress = 1;
+    repeated string gatewayAddresses = 1;
+    bool disableBroadcast = 2;
 }
 
 message StartResponse {

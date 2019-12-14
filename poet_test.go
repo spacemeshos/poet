@@ -50,14 +50,14 @@ func TestHarness(t *testing.T) {
 	_, err = h.Submit(ctx, &api.SubmitRequest{Challenge: []byte("this is a commitment")})
 	assert.EqualError(err, "rpc error: code = Unknown desc = service not started")
 
-	_, err = h.Start(ctx, &api.StartRequest{NodeAddress: "666"})
-	assert.EqualError(err, "rpc error: code = Unknown desc = failed to start service: failed not connect to gateway node (addr: 666): failed to connect to rpc server: context deadline exceeded")
+	_, err = h.Start(ctx, &api.StartRequest{GatewayAddresses: []string{"666"}})
+	assert.EqualError(err, "rpc error: code = Unknown desc = failed to connect to Spacemesh gateway node at \"666\": failed to connect to rpc server: context deadline exceeded")
 
-	_, err = h.Start(ctx, &api.StartRequest{NodeAddress: "NO_BROADCAST"})
+	_, err = h.Start(ctx, &api.StartRequest{DisableBroadcast: true})
 	assert.NoError(err)
 
-	_, err = h.Start(ctx, &api.StartRequest{NodeAddress: "NO_BROADCAST"})
-	assert.EqualError(err, "rpc error: code = Unknown desc = failed to start service: already opened")
+	_, err = h.Start(ctx, &api.StartRequest{DisableBroadcast: true})
+	assert.EqualError(err, "rpc error: code = Unknown desc = already started")
 
 	for _, testCase := range testCases {
 		success := t.Run(testCase.name, func(t1 *testing.T) {
@@ -102,10 +102,10 @@ func TestHarness_CrashRecovery(t *testing.T) {
 
 	cfg, err := integration.DefaultConfig()
 	req.NoError(err)
-	cfg.NodeAddress = "NO_BROADCAST"
 	cfg.N = 18
 	cfg.InitialRoundDuration = time.Duration(3 * time.Second).String()
 	cfg.Reset = true
+	cfg.DisableBroadcast = true
 
 	// Track rounds.
 	numRounds := 2

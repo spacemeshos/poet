@@ -27,6 +27,8 @@ type Config struct {
 	ExecuteEmpty         bool          `long:"empty" description:"whether to execute empty rounds, without any submitted challenges"`
 	NoRecovery           bool          `long:"norecovery" description:"whether to disable a potential recovery procedure"`
 	Reset                bool          `long:"reset" description:"whether to reset the service state by deleting the datadir"`
+	GatewayAddresses     []string      `long:"gateway" description:"list of Spacemesh gateway nodes RPC listeners (host:port) for broadcasting of proofs"`
+	DisableBroadcast     bool          `long:"disablebroadcast" description:"whether to disable broadcasting of proofs"`
 }
 
 const serviceStateFileBaseName = "state.bin"
@@ -91,7 +93,7 @@ type PoetProofMessage struct {
 	Signature     []byte
 }
 
-func NewService(sig *signal.Signal, cfg *Config, datadir string, nodeAddress string) (*Service, error) {
+func NewService(sig *signal.Signal, cfg *Config, datadir string) (*Service, error) {
 	s := new(Service)
 	s.cfg = cfg
 	s.datadir = datadir
@@ -125,8 +127,13 @@ func NewService(sig *signal.Signal, cfg *Config, datadir string, nodeAddress str
 
 	log.Info("Service public key: %x", s.PubKey)
 
-	if nodeAddress != "" {
-		if err := s.Start(nodeAddress); err != nil {
+	if len(cfg.GatewayAddresses) > 0 || cfg.DisableBroadcast {
+		b, err := broadcaster.New(cfg.GatewayAddresses, cfg.DisableBroadcast)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := s.Start(b); err != nil {
 			return nil, fmt.Errorf("failed to start service: %v", err)
 		}
 	} else {
@@ -169,22 +176,9 @@ func (s *Service) state() (*serviceState, error) {
 	return v, nil
 }
 
-func (s *Service) Start(nodeAddress string) error {
-	b, err := broadcaster.New(nodeAddress)
-	if err != nil {
-		return fmt.Errorf("failed not connect to gateway node (addr: %v): %v", nodeAddress, err)
-	}
-
-	if err := s.start(b); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (s *Service) start(broadcaster Broadcaster) error {
+func (s *Service) Start(broadcaster Broadcaster) error {
 	if !atomic.CompareAndSwapInt32(&s.started, 0, 1) {
-		return errors.New("already opened")
+		return errors.New("already started")
 	}
 
 	if s.cfg.NoRecovery {
@@ -230,6 +224,10 @@ func (s *Service) start(broadcaster Broadcaster) error {
 	}()
 
 	return nil
+}
+
+func (s *Service) Started() bool {
+	return atomic.LoadInt32(&s.started) == 1
 }
 
 func (s *Service) Recover(broadcaster Broadcaster) error {
@@ -318,7 +316,7 @@ func (s *Service) executeRound(r *round) error {
 }
 
 func (s *Service) Submit(data []byte) (*round, error) {
-	if atomic.LoadInt32(&s.started) != 1 {
+	if !s.Started() {
 		return nil, errors.New("service not started")
 	}
 
@@ -332,7 +330,7 @@ func (s *Service) Submit(data []byte) (*round, error) {
 }
 
 func (s *Service) Info() (*InfoResponse, error) {
-	if atomic.LoadInt32(&s.started) != 1 {
+	if !s.Started() {
 		return nil, errors.New("service not started")
 	}
 
@@ -416,7 +414,7 @@ func broadcastProof(s *Service, r *round, execution *executionState, broadcaster
 	}
 
 	if err := broadcaster.BroadcastProof(msg, r.Id, r.execution.Members); err != nil {
-		log.Error("failed to broadcast poet message for round %v: %v", r.Id, err)
+		log.Error("Round %v proof broadcast failure: %v", r.Id, err)
 		return
 	}
 

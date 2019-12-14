@@ -69,8 +69,6 @@ type config struct {
 
 	CoreService *coreServiceConfig `group:"Core Service" namespace:"core"`
 	Service     *service.Config    `group:"Service"`
-
-	NodeAddress string `short:"n" long:"nodeaddr" description:"The address:port of a Spacemesh node's gRPC server"`
 }
 
 // loadConfig initializes and parses the config using a config file and command
