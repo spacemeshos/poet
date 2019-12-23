@@ -20,15 +20,17 @@ import (
 )
 
 type Config struct {
-	N                    uint          `long:"n" description:"PoET time parameter"`
-	MemoryLayers         uint          `long:"memory" description:"Number of top Merkle tree layers to cache in-memory"`
-	RoundsDuration       time.Duration `long:"duration" description:"duration of the opening time for each round. If not specified, rounds duration will be determined by its previous round end of PoET execution"`
-	InitialRoundDuration time.Duration `long:"initialduration" description:"duration of the opening time for the initial round. if rounds duration isn't specified, this param is necessary"`
-	ExecuteEmpty         bool          `long:"empty" description:"whether to execute empty rounds, without any submitted challenges"`
-	NoRecovery           bool          `long:"norecovery" description:"whether to disable a potential recovery procedure"`
-	Reset                bool          `long:"reset" description:"whether to reset the service state by deleting the datadir"`
-	GatewayAddresses     []string      `long:"gateway" description:"list of Spacemesh gateway nodes RPC listeners (host:port) for broadcasting of proofs"`
-	DisableBroadcast     bool          `long:"disablebroadcast" description:"whether to disable broadcasting of proofs"`
+	N                      uint          `long:"n" description:"PoET time parameter"`
+	MemoryLayers           uint          `long:"memory" description:"Number of top Merkle tree layers to cache in-memory"`
+	RoundsDuration         time.Duration `long:"duration" description:"duration of the opening time for each round. If not specified, rounds duration will be determined by its previous round end of PoET execution"`
+	InitialRoundDuration   time.Duration `long:"initialduration" description:"duration of the opening time for the initial round. if rounds duration isn't specified, this param is necessary"`
+	ExecuteEmpty           bool          `long:"empty" description:"whether to execute empty rounds, without any submitted challenges"`
+	NoRecovery             bool          `long:"norecovery" description:"whether to disable a potential recovery procedure"`
+	Reset                  bool          `long:"reset" description:"whether to reset the service state by deleting the datadir"`
+	GatewayAddresses       []string      `long:"gateway" description:"list of Spacemesh gateway nodes RPC listeners (host:port) for broadcasting of proofs"`
+	DisableBroadcast       bool          `long:"disablebroadcast" description:"whether to disable broadcasting of proofs"`
+	ConnAcksThreshold      uint          `long:"conn-acks" description:"number of required successful connections to Spacemesh gateway nodes"`
+	BroadcastAcksThreshold uint          `long:"broadcast-acks" description:"number of required successful broadcasts via Spacemesh gateway nodes"`
 }
 
 const serviceStateFileBaseName = "state.bin"
@@ -128,7 +130,14 @@ func NewService(sig *signal.Signal, cfg *Config, datadir string) (*Service, erro
 	log.Info("Service public key: %x", s.PubKey)
 
 	if len(cfg.GatewayAddresses) > 0 || cfg.DisableBroadcast {
-		b, err := broadcaster.New(cfg.GatewayAddresses, cfg.DisableBroadcast)
+		b, err := broadcaster.New(
+			cfg.GatewayAddresses,
+			cfg.DisableBroadcast,
+			broadcaster.DefaultConnTimeout,
+			cfg.ConnAcksThreshold,
+			broadcaster.DefaultBroadcastTimeout,
+			cfg.BroadcastAcksThreshold,
+		)
 		if err != nil {
 			return nil, err
 		}

@@ -35,7 +35,24 @@ func (r *rpcServer) Start(ctx context.Context, in *api.StartRequest) (*api.Start
 		return nil, errors.New("already started")
 	}
 
-	b, err := broadcaster.New(in.GatewayAddresses, in.DisableBroadcast)
+	connAcks := in.ConnAcksThreshold
+	if connAcks < 1 {
+		connAcks = 1
+	}
+
+	broadcastAcks := in.BroadcastAcksThreshold
+	if broadcastAcks < 1 {
+		broadcastAcks = 1
+	}
+
+	b, err := broadcaster.New(
+		in.GatewayAddresses,
+		in.DisableBroadcast,
+		broadcaster.DefaultConnTimeout,
+		uint(connAcks),
+		broadcaster.DefaultBroadcastTimeout,
+		uint(broadcastAcks),
+	)
 	if err != nil {
 		return nil, err
 	}
