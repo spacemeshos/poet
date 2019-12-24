@@ -45,7 +45,7 @@ func New(gatewayAddresses []string, disableBroadcast bool, connTimeout time.Dura
 		return nil, fmt.Errorf("the successful connections threshold (%d) must be greater than the successful broadcast threshold (%d)", connAcksThreshold, broadcastAcksThreshold)
 	}
 
-	connections := make([]*grpc.ClientConn, len(gatewayAddresses))
+	connectionVals := make([]*grpc.ClientConn, len(gatewayAddresses))
 	errs := make([]error, len(gatewayAddresses))
 
 	log.Info("Attempting to connect to Spacemesh gateway nodes at %v", gatewayAddresses)
@@ -56,7 +56,7 @@ func New(gatewayAddresses []string, disableBroadcast bool, connTimeout time.Dura
 		address := address
 		go func() {
 			defer wg.Done()
-			connections[i], errs[i] = newClientConn(address, connTimeout)
+			connectionVals[i], errs[i] = newClientConn(address, connTimeout)
 			if errs[i] == nil {
 				log.Info("Successfully connected to Spacemesh gateway node at \"%v\"", address)
 			}
@@ -64,12 +64,12 @@ func New(gatewayAddresses []string, disableBroadcast bool, connTimeout time.Dura
 	}
 	wg.Wait()
 
-	// Count successful connections and concatenate errors of non-successful ones.
-	var numAcks int
+	// Extract successful connections and concatenate errors of non-successful ones.
 	var retErr error
+	var connections = make([]*grpc.ClientConn, 0)
 	for i, err := range errs {
 		if err == nil {
-			numAcks++
+			connections = append(connections, connectionVals[i])
 			continue
 		}
 
@@ -82,18 +82,17 @@ func New(gatewayAddresses []string, disableBroadcast bool, connTimeout time.Dura
 	}
 
 	// If successful connections threshold wasn't met, return errors concatenation and close the other successful connections.
-	if numAcks < int(connAcksThreshold) {
+	if len(connections) < int(connAcksThreshold) {
 		for _, conn := range connections {
-			if conn != nil {
-				_ = conn.Close()
-			}
+			_ = conn.Close()
+
 		}
 		return nil, retErr
 	}
 
 	// If some connections failed, log it.
 	if retErr != nil {
-		numErrors := len(gatewayAddresses) - numAcks
+		numErrors := len(gatewayAddresses) - len(connections)
 		log.Warning("Failed to connect to %d/%d gateway nodes: %v", numErrors, len(gatewayAddresses), retErr)
 	}
 
@@ -168,7 +167,7 @@ func (b *Broadcaster) BroadcastProof(msg []byte, roundId string, members [][]byt
 	// If some requests failed, log it.
 	if retErr != nil {
 		numErrors := len(b.clients) - numAcks
-		log.Warning("Round %v proof broadcast failed on %d/%d gateway nodes: %v", numErrors, len(b.clients), roundId, retErr)
+		log.Warning("Round %v proof broadcast failed on %d/%d gateway nodes: %v", roundId, numErrors, len(b.clients), retErr)
 	}
 
 	log.Info("Round %v proof broadcast completed successfully after %v, num of members: %d, proof size: %d", roundId, elapsed, len(members), len(msg))
