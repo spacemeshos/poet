@@ -106,8 +106,23 @@
     "apiStartRequest": {
       "type": "object",
       "properties": {
-        "nodeAddress": {
-          "type": "string"
+        "gatewayAddresses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "disableBroadcast": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "connAcksThreshold": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "broadcastAcksThreshold": {
+          "type": "integer",
+          "format": "int32"
         }
       }
     },

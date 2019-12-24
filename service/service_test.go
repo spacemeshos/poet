@@ -49,9 +49,9 @@ func TestService_Recovery(t *testing.T) {
 	tempdir, _ := ioutil.TempDir("", "poet-test")
 
 	// Create a new service instance.
-	s, err := NewService(sig, cfg, tempdir, "")
+	s, err := NewService(sig, cfg, tempdir)
 	req.NoError(err)
-	err = s.start(broadcaster)
+	err = s.Start(broadcaster)
 	req.NoError(err)
 
 	// Track the service rounds.
@@ -129,10 +129,10 @@ func TestService_Recovery(t *testing.T) {
 
 	// Create a new service instance.
 	sig = signal.NewSignal()
-	s, err = NewService(sig, cfg, tempdir, "")
+	s, err = NewService(sig, cfg, tempdir)
 	req.NoError(err)
 
-	err = s.start(broadcaster)
+	err = s.Start(broadcaster)
 	req.NoError(err)
 	time.Sleep(500 * time.Millisecond)
 
@@ -210,11 +210,11 @@ func TestNewService(t *testing.T) {
 	cfg.N = 17
 	cfg.InitialRoundDuration = 1 * time.Second
 
-	s, err := NewService(signal.NewSignal(), cfg, tempdir, "")
+	s, err := NewService(signal.NewSignal(), cfg, tempdir)
 	req.NoError(err)
 
 	proofBroadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
-	err = s.start(proofBroadcaster)
+	err = s.Start(proofBroadcaster)
 	req.NoError(err)
 
 	challengesCount := 8

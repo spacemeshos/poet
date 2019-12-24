@@ -59,7 +59,7 @@ func startServer() error {
 		proxyRegstr = append(proxyRegstr, apicore.RegisterPoetCoreProverHandlerFromEndpoint)
 		proxyRegstr = append(proxyRegstr, apicore.RegisterPoetVerifierHandlerFromEndpoint)
 	} else {
-		svc, err := service.NewService(sig, cfg.Service, cfg.DataDir, cfg.NodeAddress)
+		svc, err := service.NewService(sig, cfg.Service, cfg.DataDir)
 		if err != nil {
 			return err
 		}

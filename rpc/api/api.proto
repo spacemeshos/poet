@@ -27,7 +27,10 @@ service Poet {
 }
 
 message StartRequest {
-    string nodeAddress = 1;
+    repeated string gatewayAddresses = 1;
+    bool disableBroadcast = 2;
+    int32 connAcksThreshold = 3;
+    int32 broadcastAcksThreshold = 4;
 }
 
 message StartResponse {

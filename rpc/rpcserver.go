@@ -1,15 +1,19 @@
 package rpc
 
 import (
+	"errors"
 	"fmt"
+	"github.com/spacemeshos/poet/broadcaster"
 	"github.com/spacemeshos/poet/rpc/api"
 	"github.com/spacemeshos/poet/service"
 	"golang.org/x/net/context"
+	"sync"
 )
 
 // rpcServer is a gRPC, RPC front end to poet
 type rpcServer struct {
 	s *service.Service
+	sync.Mutex
 }
 
 // A compile time check to ensure that rpcService fully implements
@@ -24,7 +28,36 @@ func NewRPCServer(service *service.Service) *rpcServer {
 }
 
 func (r *rpcServer) Start(ctx context.Context, in *api.StartRequest) (*api.StartResponse, error) {
-	if err := r.s.Start(in.NodeAddress); err != nil {
+	r.Lock()
+	defer r.Unlock()
+
+	if r.s.Started() {
+		return nil, errors.New("already started")
+	}
+
+	connAcks := in.ConnAcksThreshold
+	if connAcks < 1 {
+		connAcks = 1
+	}
+
+	broadcastAcks := in.BroadcastAcksThreshold
+	if broadcastAcks < 1 {
+		broadcastAcks = 1
+	}
+
+	b, err := broadcaster.New(
+		in.GatewayAddresses,
+		in.DisableBroadcast,
+		broadcaster.DefaultConnTimeout,
+		uint(connAcks),
+		broadcaster.DefaultBroadcastTimeout,
+		uint(broadcastAcks),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := r.s.Start(b); err != nil {
 		return nil, fmt.Errorf("failed to start service: %v", err)
 	}
 	return &api.StartResponse{}, nil
