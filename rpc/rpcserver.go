@@ -1,7 +1,6 @@
 package rpc
 
 import (
-	"errors"
 	"fmt"
 	"github.com/spacemeshos/poet/broadcaster"
 	"github.com/spacemeshos/poet/rpc/api"
@@ -32,7 +31,7 @@ func (r *rpcServer) Start(ctx context.Context, in *api.StartRequest) (*api.Start
 	defer r.Unlock()
 
 	if r.s.Started() {
-		return nil, errors.New("already started")
+		return nil, service.ErrAlreadyStarted
 	}
 
 	connAcks := in.ConnAcksThreshold
@@ -61,6 +60,41 @@ func (r *rpcServer) Start(ctx context.Context, in *api.StartRequest) (*api.Start
 		return nil, fmt.Errorf("failed to start service: %v", err)
 	}
 	return &api.StartResponse{}, nil
+}
+
+func (r *rpcServer) UpdateGateway(ctx context.Context, in *api.UpdateGatewayRequest) (*api.UpdateGatewayResponse, error) {
+	r.Lock()
+	defer r.Unlock()
+
+	if !r.s.Started() {
+		return nil, service.ErrNotStarted
+	}
+
+	connAcks := in.ConnAcksThreshold
+	if connAcks < 1 {
+		connAcks = 1
+	}
+
+	broadcastAcks := in.BroadcastAcksThreshold
+	if broadcastAcks < 1 {
+		broadcastAcks = 1
+	}
+
+	b, err := broadcaster.New(
+		in.GatewayAddresses,
+		in.DisableBroadcast,
+		broadcaster.DefaultConnTimeout,
+		uint(connAcks),
+		broadcaster.DefaultBroadcastTimeout,
+		uint(broadcastAcks),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	r.s.SetBroadcaster(b)
+
+	return &api.UpdateGatewayResponse{}, nil
 }
 
 func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.SubmitResponse, error) {

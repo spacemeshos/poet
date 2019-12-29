@@ -12,6 +12,13 @@ service Poet {
         };
     }
 
+    rpc UpdateGateway (UpdateGatewayRequest) returns (UpdateGatewayResponse) {
+        option (google.api.http) = {
+            post: "/v1/updategateway",
+            body: "*",
+        };
+    }
+
     rpc Submit (SubmitRequest) returns (SubmitResponse) {
         option (google.api.http) = {
             post: "/v1/submit",
@@ -34,6 +41,16 @@ message StartRequest {
 }
 
 message StartResponse {
+}
+
+message UpdateGatewayRequest {
+    repeated string gatewayAddresses = 1;
+    bool disableBroadcast = 2;
+    int32 connAcksThreshold = 3;
+    int32 broadcastAcksThreshold = 4;
+}
+
+message UpdateGatewayResponse {
 }
 
 message SubmitRequest {
