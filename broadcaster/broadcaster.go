@@ -7,6 +7,7 @@ import (
 	"github.com/spacemeshos/poet/broadcaster/pb"
 	"github.com/spacemeshos/smutil/log"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/keepalive"
 	"sync"
 	"time"
 )
@@ -181,7 +182,13 @@ func newClientConn(target string, timeout time.Duration) (*grpc.ClientConn, erro
 	opts := []grpc.DialOption{
 		grpc.WithInsecure(),
 		grpc.WithBlock(),
-	}
+		// XXX: this is done to prevent routers from cleaning up our connections (e.g aws load balances..)
+		// TODO: these parameters work for now but we might need to revisit or add them as configuration
+		grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			time.Minute,
+			time.Minute * 3,
+			true,
+		})}
 	defer cancel()
 
 	conn, err := grpc.DialContext(ctx, target, opts...)
