@@ -308,7 +308,13 @@ func (s *Service) Recover() error {
 }
 
 func (s *Service) SetBroadcaster(b Broadcaster) {
+	initial := s.broadcaster == nil
 	s.broadcaster = b
+
+	if !initial {
+		log.Info("Service broadcaster updated")
+	}
+
 }
 
 func (s *Service) executeRound(r *round) error {
