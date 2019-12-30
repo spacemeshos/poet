@@ -56,6 +56,7 @@ func Retry(retryable func() error, numRetries int, interval time.Duration, logge
 	}
 
 	if numRetries < 1 {
+		logger(fmt.Sprintf("%v", err))
 		return errors.New("number of retries exceeded")
 	}
 
