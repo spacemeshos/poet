@@ -48,9 +48,10 @@ type Service struct {
 	executingRounds map[string]*round
 	nextRoundId     int
 
-	started int32
-	PubKey  ed25519.PublicKey
-	privKey ed25519.PrivateKey
+	started     int32
+	PubKey      ed25519.PublicKey
+	privKey     ed25519.PrivateKey
+	broadcaster Broadcaster
 
 	errChan chan error
 	sig     *signal.Signal
@@ -75,7 +76,9 @@ type PoetProof struct {
 }
 
 var (
-	ErrRoundNotFound = errors.New("round not found")
+	ErrRoundNotFound  = errors.New("round not found")
+	ErrNotStarted     = errors.New("service not started")
+	ErrAlreadyStarted = errors.New("already started")
 )
 
 type Broadcaster interface {
@@ -185,14 +188,16 @@ func (s *Service) state() (*serviceState, error) {
 	return v, nil
 }
 
-func (s *Service) Start(broadcaster Broadcaster) error {
+func (s *Service) Start(b Broadcaster) error {
 	if !atomic.CompareAndSwapInt32(&s.started, 0, 1) {
-		return errors.New("already started")
+		return ErrAlreadyStarted
 	}
+
+	s.SetBroadcaster(b)
 
 	if s.cfg.NoRecovery {
 		log.Info("Recovery is disabled")
-	} else if err := s.Recover(broadcaster); err != nil {
+	} else if err := s.Recover(); err != nil {
 		return fmt.Errorf("failed to recover: %v", err)
 	}
 
@@ -227,7 +232,7 @@ func (s *Service) Start(broadcaster Broadcaster) error {
 					return
 				}
 
-				broadcastProof(s, r, r.execution, broadcaster)
+				broadcastProof(s, r, r.execution, s.broadcaster)
 			}()
 		}
 	}()
@@ -239,7 +244,7 @@ func (s *Service) Started() bool {
 	return atomic.LoadInt32(&s.started) == 1
 }
 
-func (s *Service) Recover(broadcaster Broadcaster) error {
+func (s *Service) Recover() error {
 	entries, err := ioutil.ReadDir(s.datadir)
 	if err != nil {
 		return err
@@ -269,7 +274,7 @@ func (s *Service) Recover(broadcaster Broadcaster) error {
 
 		if state.isExecuted() {
 			log.Info("Recovery: found round %v in executed state. broadcasting...", r.Id)
-			go broadcastProof(s, r, state.Execution, broadcaster)
+			go broadcastProof(s, r, state.Execution, s.broadcaster)
 			continue
 		}
 
@@ -295,11 +300,21 @@ func (s *Service) Recover(broadcaster Broadcaster) error {
 			}
 
 			log.Info("Recovery: round %v execution ended, phi=%x", r.Id, r.execution.NIP.Root)
-			broadcastProof(s, r, r.execution, broadcaster)
+			broadcastProof(s, r, r.execution, s.broadcaster)
 		}()
 	}
 
 	return nil
+}
+
+func (s *Service) SetBroadcaster(b Broadcaster) {
+	initial := s.broadcaster == nil
+	s.broadcaster = b
+
+	if !initial {
+		log.Info("Service broadcaster updated")
+	}
+
 }
 
 func (s *Service) executeRound(r *round) error {
@@ -326,7 +341,7 @@ func (s *Service) executeRound(r *round) error {
 
 func (s *Service) Submit(data []byte) (*round, error) {
 	if !s.Started() {
-		return nil, errors.New("service not started")
+		return nil, ErrNotStarted
 	}
 
 	r := s.openRound
@@ -340,7 +355,7 @@ func (s *Service) Submit(data []byte) (*round, error) {
 
 func (s *Service) Info() (*InfoResponse, error) {
 	if !s.Started() {
-		return nil, errors.New("service not started")
+		return nil, ErrNotStarted
 	}
 
 	res := new(InfoResponse)
