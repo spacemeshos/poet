@@ -391,35 +391,30 @@ func (s *Service) newRound() *round {
 
 // openRoundClosure returns a channel used to notify the closure of the current open round.
 func (s *Service) openRoundClosure() <-chan struct{} {
-	c := make(chan struct{})
+	// If it's the initial round, use the initial duration config to notify the closure.
+	if s.prevRound == nil {
+		return s.openRoundClosurePerDuration(s.cfg.InitialRoundDuration)
+	}
 
 	// If rounds duration was specified, use it to notify the closure.
-	// If the open round was recovered, include the time period from when it was originally opened.
 	if s.cfg.RoundsDuration > 0 {
-		var offset time.Duration
-		if s.openRound.stateCache != nil {
-			offset = time.Since(s.openRound.stateCache.Opened)
-		}
-		go func() {
-			<-time.After(s.cfg.RoundsDuration - offset)
-			close(c)
-		}()
-		return c
+		return s.openRoundClosurePerDuration(s.cfg.RoundsDuration)
 	}
 
-	// If it's not the initial round, use the previous round end of execution to notify the closure.
-	if s.prevRound != nil {
-		return s.prevRound.executionEndedChan
-	}
+	// Use the previous round end of execution to notify the closure.
+	return s.prevRound.executionEndedChan
+}
 
-	// Use the initial duration config to notify the closure.
+func (s *Service) openRoundClosurePerDuration(d time.Duration) <-chan struct{} {
 	// If the open round was recovered, include the time period from when it was originally opened.
 	var offset time.Duration
 	if s.openRound.stateCache != nil {
 		offset = time.Since(s.openRound.stateCache.Opened)
 	}
+
+	c := make(chan struct{})
 	go func() {
-		<-time.After(s.cfg.InitialRoundDuration - offset)
+		<-time.After(d - offset)
 		close(c)
 	}()
 	return c
