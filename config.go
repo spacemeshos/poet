@@ -19,20 +19,22 @@ import (
 )
 
 const (
-	defaultConfigFilename         = "poet.conf"
-	defaultDataDirname            = "data"
-	defaultLogDirname             = "logs"
-	defaultLogFilename            = "poet.log"
-	defaultMaxLogFiles            = 3
-	defaultMaxLogFileSize         = 10
-	defaultRPCPort                = 50002
-	defaultRESTPort               = 8080
-	defaultN                      = 15
-	defaultInitialRoundDuration   = 35 * time.Second
-	defaultExecuteEmpty           = true
-	defaultMemoryLayers           = 26 // Up to (1 << 26) * 2 - 1 Merkle tree cache nodes (32 bytes each) will be held in-memory
-	defaultConnAcksThreshold      = 1
-	defaultBroadcastAcksThreshold = 1
+	defaultConfigFilename           = "poet.conf"
+	defaultDataDirname              = "data"
+	defaultLogDirname               = "logs"
+	defaultLogFilename              = "poet.log"
+	defaultMaxLogFiles              = 3
+	defaultMaxLogFileSize           = 10
+	defaultRPCPort                  = 50002
+	defaultRESTPort                 = 8080
+	defaultN                        = 15
+	defaultInitialRoundDuration     = 35 * time.Second
+	defaultExecuteEmpty             = true
+	defaultMemoryLayers             = 26 // Up to (1 << 26) * 2 - 1 Merkle tree cache nodes (32 bytes each) will be held in-memory
+	defaultConnAcksThreshold        = 1
+	defaultBroadcastAcksThreshold   = 1
+	defaultBroadcastNumRetries      = 100
+	defaultBroadcastRetriesInterval = 5 * time.Minute
 )
 
 var (
@@ -92,12 +94,14 @@ func loadConfig() (*config, error) {
 		RawRPCListener:  fmt.Sprintf("localhost:%d", defaultRPCPort),
 		RawRESTListener: fmt.Sprintf("localhost:%d", defaultRESTPort),
 		Service: &service.Config{
-			N:                      defaultN,
-			MemoryLayers:           defaultMemoryLayers,
-			InitialRoundDuration:   defaultInitialRoundDuration,
-			ExecuteEmpty:           defaultExecuteEmpty,
-			ConnAcksThreshold:      defaultConnAcksThreshold,
-			BroadcastAcksThreshold: defaultBroadcastAcksThreshold,
+			N:                        defaultN,
+			MemoryLayers:             defaultMemoryLayers,
+			InitialRoundDuration:     defaultInitialRoundDuration,
+			ExecuteEmpty:             defaultExecuteEmpty,
+			ConnAcksThreshold:        defaultConnAcksThreshold,
+			BroadcastAcksThreshold:   defaultBroadcastAcksThreshold,
+			BroadcastNumRetries:      defaultBroadcastNumRetries,
+			BroadcastRetriesInterval: defaultBroadcastRetriesInterval,
 		},
 		CoreService: &coreServiceConfig{
 			N:            defaultN,

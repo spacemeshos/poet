@@ -2,8 +2,11 @@ package shared
 
 import (
 	"encoding/binary"
+	"errors"
+	"fmt"
 	"github.com/spacemeshos/sha256-simd"
 	"os"
+	"time"
 )
 
 const (
@@ -44,4 +47,21 @@ type MerkleProof struct {
 	Root         []byte
 	ProvenLeaves [][]byte
 	ProofNodes   [][]byte
+}
+
+func Retry(retryable func() error, numRetries int, interval time.Duration, logger func(msg string)) error {
+	err := retryable()
+	if err == nil {
+		return nil
+	}
+
+	if numRetries < 1 {
+		logger(err.Error())
+		return errors.New("number of retries exceeded")
+	}
+
+	logger(fmt.Sprintf("%v | retrying in %v...", err, interval))
+	time.Sleep(interval)
+
+	return Retry(retryable, numRetries-1, interval, logger)
 }
