@@ -74,12 +74,14 @@ func TestMakeLabel(t *testing.T) {
 		return ret
 	}
 
+	makeLabel := MakeLabelFunc()
+
 	r.Equal("H(0000000000000001)",
-		string(MakeLabel(stringHash, 1, makeSiblings())))
+		string(makeLabel(stringHash, 1, makeSiblings())))
 
 	r.Equal("H(000000000000000211111111)",
-		string(MakeLabel(stringHash, 2, makeSiblings("11111111"))))
+		string(makeLabel(stringHash, 2, makeSiblings("11111111"))))
 
 	r.Equal("H(00000000000000031111111133333333)",
-		string(MakeLabel(stringHash, 3, makeSiblings("11111111", "", "33333333"))))
+		string(makeLabel(stringHash, 3, makeSiblings("11111111", "", "33333333"))))
 }

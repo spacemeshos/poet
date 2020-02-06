@@ -190,6 +190,7 @@ func generateProof(
 	unblock := sig.BlockShutdown()
 	defer unblock()
 
+	makeLabel := shared.MakeLabelFunc()
 	for leafId := nextLeafId; leafId < numLeaves; leafId++ {
 		// Handle persistence.
 		if sig.ShutdownRequested {
@@ -204,7 +205,7 @@ func generateProof(
 		}
 
 		// Generate the next leaf.
-		err := tree.AddLeaf(shared.MakeLabel(labelHashFunc, leafId, tree.GetParkedNodes()))
+		err := tree.AddLeaf(makeLabel(labelHashFunc, leafId, tree.GetParkedNodes()))
 		if err != nil {
 			return nil, err
 		}
