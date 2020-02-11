@@ -24,7 +24,7 @@ type ServerConfig struct {
 	Duration         string
 	Reset            bool
 	DisableBroadcast bool
-	RESTListen           string
+	RESTListen       string
 }
 
 // DefaultConfig returns a newConfig with all default values.
