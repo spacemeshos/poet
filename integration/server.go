@@ -19,10 +19,11 @@ type ServerConfig struct {
 	dataDir   string
 	exe       string
 
-	N                    int
-	InitialRoundDuration string
-	Reset                bool
-	DisableBroadcast     bool
+	N                int
+	InitialDuration  string
+	Duration         string
+	Reset            bool
+	DisableBroadcast bool
 }
 
 // DefaultConfig returns a newConfig with all default values.
@@ -58,8 +59,11 @@ func (cfg *ServerConfig) genArgs() []string {
 	if cfg.N != 0 {
 		args = append(args, fmt.Sprintf("--n=%d", cfg.N))
 	}
-	if cfg.InitialRoundDuration != "" {
-		args = append(args, fmt.Sprintf("--initialduration=%v", cfg.InitialRoundDuration))
+	if cfg.InitialDuration != "" {
+		args = append(args, fmt.Sprintf("--initialduration=%v", cfg.InitialDuration))
+	}
+	if cfg.Duration != "" {
+		args = append(args, fmt.Sprintf("--duration=%v", cfg.Duration))
 	}
 	if cfg.Reset {
 		args = append(args, "--reset")
