@@ -24,6 +24,7 @@ type ServerConfig struct {
 	Duration         string
 	Reset            bool
 	DisableBroadcast bool
+	RESTListen           string
 }
 
 // DefaultConfig returns a newConfig with all default values.
@@ -39,11 +40,12 @@ func DefaultConfig() (*ServerConfig, error) {
 	}
 
 	cfg := &ServerConfig{
-		logLevel:  "debug",
-		rpcListen: "127.0.0.1:18550",
-		baseDir:   baseDir,
-		dataDir:   filepath.Join(baseDir, "data"),
-		exe:       poetPath,
+		logLevel:   "debug",
+		rpcListen:  "127.0.0.1:18550",
+		RESTListen: "127.0.0.1:18551",
+		baseDir:    baseDir,
+		dataDir:    filepath.Join(baseDir, "data"),
+		exe:        poetPath,
 	}
 
 	return cfg, nil
@@ -55,6 +57,7 @@ func (cfg *ServerConfig) genArgs() []string {
 
 	args = append(args, fmt.Sprintf("--datadir=%v", cfg.dataDir))
 	args = append(args, fmt.Sprintf("--rpclisten=%v", cfg.rpcListen))
+	args = append(args, fmt.Sprintf("--restlisten=%v", cfg.RESTListen))
 
 	if cfg.N != 0 {
 		args = append(args, fmt.Sprintf("--n=%d", cfg.N))
