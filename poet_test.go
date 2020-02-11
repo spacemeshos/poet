@@ -32,7 +32,7 @@ func TestHarness(t *testing.T) {
 	cfg, err := integration.DefaultConfig()
 	assert.NoError(err)
 	cfg.N = 18
-	cfg.InitialRoundDuration = time.Duration(2 * time.Second).String()
+	cfg.InitialDuration = time.Duration(2 * time.Second).String()
 
 	h := newHarness(assert, cfg)
 
@@ -103,7 +103,7 @@ func TestHarness_CrashRecovery(t *testing.T) {
 	cfg, err := integration.DefaultConfig()
 	req.NoError(err)
 	cfg.N = 18
-	cfg.InitialRoundDuration = time.Duration(3 * time.Second).String()
+	cfg.InitialDuration = time.Duration(3 * time.Second).String()
 	cfg.Reset = true
 	cfg.DisableBroadcast = true
 
