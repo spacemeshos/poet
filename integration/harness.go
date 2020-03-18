@@ -127,7 +127,7 @@ func killProcess(address string) error {
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
 		args := fmt.Sprintf("(Get-NetTCPConnection -LocalPort %d).OwningProcess -Force", addr.Port)
-		cmd = exec.Command("Stop-Process", "-ID", args)
+		cmd = exec.Command("Stop-Process", "-Id", args)
 	} else {
 		args := fmt.Sprintf("lsof -i tcp:%d | grep LISTEN | awk '{print $2}' | xargs kill -9", addr.Port)
 		cmd = exec.Command("bash", "-c", args)
