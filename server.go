@@ -74,7 +74,7 @@ func startServer() error {
 	// Start the gRPC server listening for HTTP/2 connections.
 	lis, err := net.Listen(cfg.RPCListener.Network(), cfg.RPCListener.String())
 	if err != nil {
-		return fmt.Errorf("failed to listen: %v\n", err)
+		return fmt.Errorf("failed to listen: %v", err)
 	}
 	defer lis.Close()
 

@@ -2,6 +2,7 @@ package hash
 
 import "github.com/spacemeshos/sha256-simd"
 
+// LabelHashNestingDepth is the number of recursive hashes per label.
 const LabelHashNestingDepth = 100
 
 // GenMerkleHashFunc generates Merkle hash functions salted with a challenge. The challenge is prepended to the

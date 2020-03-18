@@ -16,27 +16,27 @@ var (
 	ErrNoProofExists = status.Error(codes.FailedPrecondition, "no computed proof exists")
 )
 
-// rpcServer is a gRPC, RPC front end to poet core
-type rpcServer struct {
+// RPCServer is a gRPC, RPC front end to poet core
+type RPCServer struct {
 	sig     *signal.Signal
 	datadir string
 	proof   *shared.MerkleProof
 }
 
-// A compile time check to ensure that rpcServer fully implements the
+// A compile time check to ensure that RPCServer fully implements the
 // PoetCoreProverServer and PoetVerifierServer gRPC services.
-var _ apicore.PoetCoreProverServer = (*rpcServer)(nil)
-var _ apicore.PoetVerifierServer = (*rpcServer)(nil)
+var _ apicore.PoetCoreProverServer = (*RPCServer)(nil)
+var _ apicore.PoetVerifierServer = (*RPCServer)(nil)
 
-// newRPCServer creates and returns a new instance of the rpcServer.
-func NewRPCServer(sig *signal.Signal, datadir string) *rpcServer {
-	return &rpcServer{
+// NewRPCServer creates and returns a new instance of the RPCServer.
+func NewRPCServer(sig *signal.Signal, datadir string) *RPCServer {
+	return &RPCServer{
 		sig:     sig,
 		datadir: datadir,
 	}
 }
 
-func (r *rpcServer) Compute(ctx context.Context, in *apicore.ComputeRequest) (*apicore.ComputeResponse, error) {
+func (r *RPCServer) Compute(ctx context.Context, in *apicore.ComputeRequest) (*apicore.ComputeResponse, error) {
 	challenge := in.D.X
 	numLeaves := uint64(1) << in.D.N
 	securityParam := shared.T
@@ -49,7 +49,7 @@ func (r *rpcServer) Compute(ctx context.Context, in *apicore.ComputeRequest) (*a
 	return &apicore.ComputeResponse{}, nil
 }
 
-func (r *rpcServer) GetNIP(ctx context.Context, in *apicore.GetNIPRequest) (*apicore.GetNIPResponse, error) {
+func (r *RPCServer) GetNIP(ctx context.Context, in *apicore.GetNIPRequest) (*apicore.GetNIPResponse, error) {
 	if r.proof == nil {
 		return nil, ErrNoProofExists
 	}
@@ -61,7 +61,7 @@ func (r *rpcServer) GetNIP(ctx context.Context, in *apicore.GetNIPRequest) (*api
 	}}, nil
 }
 
-func (r *rpcServer) Shutdown(context.Context, *apicore.ShutdownRequest) (*apicore.ShutdownResponse, error) {
+func (r *RPCServer) Shutdown(context.Context, *apicore.ShutdownRequest) (*apicore.ShutdownResponse, error) {
 	r.sig.RequestShutdown()
 	return &apicore.ShutdownResponse{}, nil
 }
@@ -74,7 +74,7 @@ func nativeProofFromWire(wireProof *apicore.Proof) shared.MerkleProof {
 	}
 }
 
-func (r *rpcServer) VerifyNIP(ctx context.Context, in *apicore.VerifyNIPRequest) (*apicore.VerifyNIPResponse, error) {
+func (r *RPCServer) VerifyNIP(ctx context.Context, in *apicore.VerifyNIPRequest) (*apicore.VerifyNIPResponse, error) {
 	proof := nativeProofFromWire(in.P)
 	challenge := in.D.X
 	numLeaves := uint64(1) << in.D.N

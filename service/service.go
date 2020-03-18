@@ -38,19 +38,30 @@ type Config struct {
 const serviceStateFileBaseName = "state.bin"
 
 type serviceState struct {
-	NextRoundId int
+	NextRoundID int
 	PrivKey     []byte
 }
 
+// Service implements functionality for creating proofs in dedicated rounds, so that
+// they can be shared among arbitrary number of miners, and thus amortize the CPU cost per proof.
 type Service struct {
-	cfg             *Config
-	datadir         string
-	openRound       *round
-	prevRound       *round
-	executingRounds map[string]*round
-	nextRoundId     int
+	cfg     *Config
+	datadir string
+	started int32
 
-	started     int32
+	// openRound is the round which is currently open for accepting challenges registration from miners.
+	// At any given time there is one single open round.
+	openRound *round
+
+	// executingRounds are the rounds which are currently executing, hence generating a proof.
+	// At any given time there may be 0 to ∞ total executing rounds. This variation is determined by
+	// the rounds opening time duration (cfg.RoundsDuration),
+	// and the proof generation duration (cfg.N + runtime variance + caching policies).
+	executingRounds map[string]*round
+
+	prevRound   *round
+	nextRoundID int
+
 	PubKey      ed25519.PublicKey
 	privKey     ed25519.PrivateKey
 	broadcaster Broadcaster
@@ -61,14 +72,8 @@ type Service struct {
 }
 
 type InfoResponse struct {
-	OpenRoundId        string
+	OpenRoundID        string
 	ExecutingRoundsIds []string
-}
-
-type MembershipProof struct {
-	Index int
-	Root  []byte
-	Proof [][]byte
 }
 
 type PoetProof struct {
@@ -84,19 +89,26 @@ var (
 )
 
 type Broadcaster interface {
-	BroadcastProof(msg []byte, roundId string, members [][]byte) error
+	BroadcastProof(msg []byte, roundID string, members [][]byte) error
 }
 
+// GossipPoetProof is the proof which amortizes multiple miners challenges (Members)
 type GossipPoetProof struct {
+	// Members is the ordered list of miners challenges which are included
+	// in the proof (by using the list hash as the proof generation input (the statement)).
+	Members [][]byte
+
+	// The actual proof.
 	shared.MerkleProof
-	Members   [][]byte
+
+	// NumLeaves is the width of the proof-generation tree.
 	NumLeaves uint64
 }
 
 type PoetProofMessage struct {
 	GossipPoetProof
 	ServicePubKey []byte
-	RoundId       string
+	RoundID       string
 	Signature     []byte
 }
 
@@ -130,7 +142,7 @@ func NewService(sig *signal.Signal, cfg *Config, datadir string) (*Service, erro
 
 	s.privKey = ed25519.NewKeyFromSeed(state.PrivKey[:32])
 	s.PubKey = state.PrivKey[32:]
-	s.nextRoundId = state.NextRoundId
+	s.nextRoundID = state.NextRoundID
 
 	log.Info("Service public key: %x", s.PubKey)
 
@@ -164,7 +176,7 @@ func (s *Service) initialState() *serviceState {
 	}
 
 	return &serviceState{
-		NextRoundId: 1,
+		NextRoundID: 1,
 		PrivKey:     priv,
 	}
 }
@@ -172,7 +184,7 @@ func (s *Service) initialState() *serviceState {
 func (s *Service) saveState() error {
 	filename := filepath.Join(s.datadir, serviceStateFileBaseName)
 	v := &serviceState{
-		NextRoundId: s.nextRoundId,
+		NextRoundID: s.nextRoundID,
 		PrivKey:     s.privKey,
 	}
 
@@ -205,7 +217,7 @@ func (s *Service) Start(b Broadcaster) error {
 
 	if s.openRound == nil {
 		s.openRound = s.newRound()
-		log.Info("Round %v opened", s.openRound.Id)
+		log.Info("Round %v opened", s.openRound.ID)
 	}
 
 	go func() {
@@ -224,13 +236,13 @@ func (s *Service) Start(b Broadcaster) error {
 
 			s.prevRound = s.openRound
 			s.openRound = s.newRound()
-			log.Info("Round %v opened", s.openRound.Id)
+			log.Info("Round %v opened", s.openRound.ID)
 
 			// Close previous round and execute it.
 			go func() {
 				r := s.prevRound
 				if err := s.executeRound(r); err != nil {
-					s.asyncError(fmt.Errorf("round %v execution error: %v", r.Id, err))
+					s.asyncError(fmt.Errorf("round %v execution error: %v", r.ID, err))
 					return
 				}
 
@@ -266,7 +278,7 @@ func (s *Service) Recover() error {
 		}
 
 		if state.isOpen() {
-			log.Info("Recovery: found round %v in open state", r.Id)
+			log.Info("Recovery: found round %v in open state", r.ID)
 
 			// Keep the last open round as openRound (multiple open rounds state is possible
 			// only if recovery was previously disabled).
@@ -275,12 +287,12 @@ func (s *Service) Recover() error {
 		}
 
 		if state.isExecuted() {
-			log.Info("Recovery: found round %v in executed state. broadcasting...", r.Id)
+			log.Info("Recovery: found round %v in executed state. broadcasting...", r.ID)
 			go broadcastProof(s, r, state.Execution, s.broadcaster)
 			continue
 		}
 
-		log.Info("Recovery: found round %v in executing state. recovering execution...", r.Id)
+		log.Info("Recovery: found round %v in executing state. recovering execution...", r.ID)
 
 		// Keep the last executing round as prevRound for potentially affecting
 		// the closure of the current open round (see openRoundClosure()).
@@ -288,20 +300,20 @@ func (s *Service) Recover() error {
 
 		go func() {
 			s.Lock()
-			s.executingRounds[r.Id] = r
+			s.executingRounds[r.ID] = r
 			s.Unlock()
 			defer func() {
 				s.Lock()
-				delete(s.executingRounds, r.Id)
+				delete(s.executingRounds, r.ID)
 				s.Unlock()
 			}()
 
 			if err = r.recoverExecution(state.Execution); err != nil {
-				s.asyncError(fmt.Errorf("recovery: round %v execution failure: %v", r.Id, err))
+				s.asyncError(fmt.Errorf("recovery: round %v execution failure: %v", r.ID, err))
 				return
 			}
 
-			log.Info("Recovery: round %v execution ended, phi=%x", r.Id, r.execution.NIP.Root)
+			log.Info("Recovery: round %v execution ended, phi=%x", r.ID, r.execution.NIP.Root)
 			broadcastProof(s, r, r.execution, s.broadcaster)
 		}()
 	}
@@ -321,22 +333,22 @@ func (s *Service) SetBroadcaster(b Broadcaster) {
 
 func (s *Service) executeRound(r *round) error {
 	s.Lock()
-	s.executingRounds[r.Id] = r
+	s.executingRounds[r.ID] = r
 	s.Unlock()
 
 	defer func() {
 		s.Lock()
-		delete(s.executingRounds, r.Id)
+		delete(s.executingRounds, r.ID)
 		s.Unlock()
 	}()
 
-	log.Info("Round %v executing...", r.Id)
+	log.Info("Round %v executing...", r.ID)
 
 	if err := r.execute(); err != nil {
 		return err
 	}
 
-	log.Info("Round %v execution ended, phi=%x", r.Id, r.execution.NIP.Root)
+	log.Info("Round %v execution ended, phi=%x", r.ID, r.execution.NIP.Root)
 
 	return nil
 }
@@ -361,7 +373,7 @@ func (s *Service) Info() (*InfoResponse, error) {
 	}
 
 	res := new(InfoResponse)
-	res.OpenRoundId = s.openRound.Id
+	res.OpenRoundID = s.openRound.ID
 
 	ids := make([]string, 0, len(s.executingRounds))
 	for id := range s.executingRounds {
@@ -373,15 +385,15 @@ func (s *Service) Info() (*InfoResponse, error) {
 }
 
 func (s *Service) newRound() *round {
-	roundId := fmt.Sprintf("%d", s.nextRoundId)
-	s.nextRoundId++
+	roundID := fmt.Sprintf("%d", s.nextRoundID)
+	s.nextRoundID++
 	if err := s.saveState(); err != nil {
 		panic(err)
 	}
 
-	datadir := filepath.Join(s.datadir, roundId)
+	datadir := filepath.Join(s.datadir, roundID)
 
-	r := newRound(s.sig, s.cfg, datadir, roundId)
+	r := newRound(s.sig, s.cfg, datadir, roundID)
 	if err := r.open(); err != nil {
 		panic(fmt.Errorf("failed to open round: %v", err))
 	}
@@ -428,24 +440,24 @@ func (s *Service) asyncError(err error) {
 }
 
 func broadcastProof(s *Service, r *round, execution *executionState, broadcaster Broadcaster) {
-	msg, err := serializeProofMsg(s.PubKey, r.Id, execution)
+	msg, err := serializeProofMsg(s.PubKey, r.ID, execution)
 	if err != nil {
 		log.Error(err.Error())
 		return
 	}
 
-	bindFunc := func() error { return broadcaster.BroadcastProof(msg, r.Id, r.execution.Members) }
-	logger := func(msg string) { log.Warning("Round %v: %v", r.Id, msg) }
+	bindFunc := func() error { return broadcaster.BroadcastProof(msg, r.ID, r.execution.Members) }
+	logger := func(msg string) { log.Warning("Round %v: %v", r.ID, msg) }
 
 	if err := shared.Retry(bindFunc, int(s.cfg.BroadcastNumRetries), s.cfg.BroadcastRetriesInterval, logger); err != nil {
-		log.Error("Round %v proof broadcast failure: %v", r.Id, err)
+		log.Error("Round %v proof broadcast failure: %v", r.ID, err)
 		return
 	}
 
 	r.broadcasted()
 }
 
-func serializeProofMsg(servicePubKey []byte, roundId string, execution *executionState) ([]byte, error) {
+func serializeProofMsg(servicePubKey []byte, roundID string, execution *executionState) ([]byte, error) {
 	proofMessage := PoetProofMessage{
 		GossipPoetProof: GossipPoetProof{
 			MerkleProof: *execution.NIP,
@@ -453,13 +465,13 @@ func serializeProofMsg(servicePubKey []byte, roundId string, execution *executio
 			NumLeaves:   execution.NumLeaves,
 		},
 		ServicePubKey: servicePubKey,
-		RoundId:       roundId,
+		RoundID:       roundID,
 		Signature:     nil,
 	}
 
 	var dataBuf bytes.Buffer
 	if _, err := xdr.Marshal(&dataBuf, proofMessage); err != nil {
-		return nil, fmt.Errorf("failed to marshal proof message for round %v: %v", roundId, err)
+		return nil, fmt.Errorf("failed to marshal proof message for round %v: %v", roundID, err)
 	}
 
 	return dataBuf.Bytes(), nil

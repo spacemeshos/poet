@@ -17,6 +17,7 @@ const (
 	DefaultBroadcastTimeout = 30 * time.Second
 )
 
+// Broadcaster is responsible for broadcasting proofs to a list of Spacemesh-compatible gateway nodes.
 type Broadcaster struct {
 	clients               []pb.SpacemeshServiceClient
 	connections           []*grpc.ClientConn
@@ -24,6 +25,12 @@ type Broadcaster struct {
 	broadcastAckThreshold uint
 }
 
+// New instantiate a new Broadcaster for a given list of gateway nodes addresses.
+// disableBroadcast allows to create a disabled Broadcaster instance.
+// connTimeout set the timeout per gRPC connection attempt to a node.
+// connAcksThreshold set the lower-bound of required successful gRPC connections to the nodes. If not met, an error will be returned.
+// broadcastTimeout set the timeout per proof broadcast.
+// broadcastAcksThreshold set the lower-bound of required successful proof broadcasts. If not met, a warning will be logged.
 func New(gatewayAddresses []string, disableBroadcast bool, connTimeout time.Duration, connAcksThreshold uint, broadcastTimeout time.Duration, broadcastAcksThreshold uint) (*Broadcaster, error) {
 	if disableBroadcast {
 		log.Info("Broadcast is disabled")
@@ -110,9 +117,10 @@ func New(gatewayAddresses []string, disableBroadcast bool, connTimeout time.Dura
 	}, nil
 }
 
-func (b *Broadcaster) BroadcastProof(msg []byte, roundId string, members [][]byte) error {
+// BroadcastProof broadcasts a serialized proof of a given round.
+func (b *Broadcaster) BroadcastProof(msg []byte, roundID string, members [][]byte) error {
 	if b.clients == nil {
-		log.Info("Broadcast is disabled, not broadcasting round %v proof", roundId)
+		log.Info("Broadcast is disabled, not broadcasting round %v proof", roundID)
 		return nil
 	}
 	pbMsg := &pb.BinaryMessage{Data: msg}
@@ -168,10 +176,10 @@ func (b *Broadcaster) BroadcastProof(msg []byte, roundId string, members [][]byt
 	// If some requests failed, log it.
 	if retErr != nil {
 		numErrors := len(b.clients) - numAcks
-		log.Warning("Round %v proof broadcast failed on %d/%d gateway nodes: %v", roundId, numErrors, len(b.clients), retErr)
+		log.Warning("Round %v proof broadcast failed on %d/%d gateway nodes: %v", roundID, numErrors, len(b.clients), retErr)
 	}
 
-	log.Info("Round %v proof broadcast completed successfully after %v, num of members: %d, proof size: %d", roundId, elapsed, len(members), len(msg))
+	log.Info("Round %v proof broadcast completed successfully after %v, num of members: %d, proof size: %d", roundID, elapsed, len(members), len(msg))
 	return nil
 }
 

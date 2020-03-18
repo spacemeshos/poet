@@ -160,7 +160,7 @@ func TestRound_State(t *testing.T) {
 	req.True(state.Execution.NumLeaves != 0)
 	req.True(state.Execution.SecurityParam != 0)
 	req.True(state.Execution.Statement == nil)
-	req.True(state.Execution.NextLeafId == 0)
+	req.True(state.Execution.NextLeafID == 0)
 	req.True(state.Execution.ParkedNodes == nil)
 	req.True(state.Execution.NIP == nil)
 
@@ -186,7 +186,7 @@ func TestRound_State(t *testing.T) {
 	req.True(state.Execution.NumLeaves != 0)
 	req.True(state.Execution.SecurityParam != 0)
 	req.True(len(state.Execution.Statement) == 32)
-	req.True(state.Execution.NextLeafId > 0)
+	req.True(state.Execution.NextLeafID > 0)
 	req.True(state.Execution.ParkedNodes != nil)
 	req.True(state.Execution.NIP == nil)
 
