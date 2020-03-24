@@ -193,9 +193,9 @@ func newClientConn(target string, timeout time.Duration) (*grpc.ClientConn, erro
 		// XXX: this is done to prevent routers from cleaning up our connections (e.g aws load balances..)
 		// TODO: these parameters work for now but we might need to revisit or add them as configuration
 		grpc.WithKeepaliveParams(keepalive.ClientParameters{
-			time.Minute,
-			time.Minute * 3,
-			true,
+			Time:                time.Minute,
+			Timeout:             time.Minute * 3,
+			PermitWithoutStream: true,
 		})}
 	defer cancel()
 

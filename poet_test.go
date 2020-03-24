@@ -14,7 +14,7 @@ import (
 // of the Harness to exercise functionality.
 type harnessTestCase struct {
 	name string
-	test func(h *integration.Harness, assert *require.Assertions, ctx context.Context)
+	test func(ctx context.Context, h *integration.Harness, assert *require.Assertions)
 }
 
 // TODO(moshababo): create a mock for the node which the harness poet server
@@ -61,8 +61,10 @@ func TestHarness(t *testing.T) {
 
 	for _, testCase := range testCases {
 		success := t.Run(testCase.name, func(t1 *testing.T) {
-			ctx, _ := context.WithTimeout(context.Background(), time.Duration(5*time.Second))
-			testCase.test(h, assert, ctx)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(5*time.Second))
+			defer cancel()
+
+			testCase.test(ctx, h, assert)
 		})
 
 		if !success {
@@ -98,7 +100,8 @@ func testSubmit(ctx context.Context, h *integration.Harness, assert *require.Ass
 //  - TODO: Wait until rounds 0 and 1 recovery completes. listen to their proof broadcast and compare it with the reference rounds.
 func TestHarness_CrashRecovery(t *testing.T) {
 	req := require.New(t)
-	ctx, _ := context.WithTimeout(context.Background(), time.Duration(30*time.Second))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(30*time.Second))
+	defer cancel()
 
 	cfg, err := integration.DefaultConfig()
 	req.NoError(err)
