@@ -213,7 +213,7 @@ func generateProof(
 		}
 
 		// Generate the next leaf.
-		err := tree.AddLeaf(makeLabel(labelHashFunc, leafId, tree.GetParkedNodes()))
+		err := tree.AddLeaf(makeLabel(labelHashFunc, leafID, tree.GetParkedNodes()))
 		if err != nil {
 			return nil, err
 		}
