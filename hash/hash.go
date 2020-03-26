@@ -7,10 +7,21 @@ const LabelHashNestingDepth = 100
 
 // GenMerkleHashFunc generates Merkle hash functions salted with a challenge. The challenge is prepended to the
 // concatenation of the left- and right-child in the tree and the result is hashed using Sha256.
+//
+// ⚠️ The resulting function is NOT thread-safe, however different generated instances are independent.
+// The code is optimized for performance and memory allocations.
 func GenMerkleHashFunc(challenge []byte) func(lChild, rChild []byte) []byte {
+	var buffer []byte
 	return func(lChild, rChild []byte) []byte {
-		children := append(lChild, rChild...)
-		result := sha256.Sum256(append(challenge, children...))
+		size := len(challenge) + len(lChild) + len(rChild)
+		if len(buffer) < size {
+			buffer = make([]byte, size)
+		}
+		copy(buffer, challenge)
+		copy(buffer[len(challenge):], lChild)
+		copy(buffer[len(challenge)+len(lChild):], rChild)
+
+		result := sha256.Sum256(buffer[:size])
 		return result[:]
 	}
 }

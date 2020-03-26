@@ -28,8 +28,9 @@ func Validate(proof shared.MerkleProof, labelHashFunc func(data []byte) []byte,
 		return fmt.Errorf("merkle proof not valid")
 	}
 
+	makeLabel := shared.MakeLabelFunc()
 	for id, label := range proof.ProvenLeaves {
-		expectedLabel := shared.MakeLabel(labelHashFunc, provenLeafIndices[id], parkingSnapshots[id])
+		expectedLabel := makeLabel(labelHashFunc, provenLeafIndices[id], parkingSnapshots[id])
 		if !bytes.Equal(expectedLabel, label) {
 			return fmt.Errorf("label at index %d incorrect - expected: %x actual: %x", id, expectedLabel, label)
 		}

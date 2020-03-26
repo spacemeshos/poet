@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/sha256-simd"
 	"os"
 	"time"
@@ -32,17 +33,33 @@ func FiatShamir(challenge []byte, spaceSize uint64, securityParam uint8) map[uin
 	return ret
 }
 
-// MakeLabel generates a PoET DAG label by concatenating a representation of the labelID with the list of left siblings
-// and then hashing the result using the provided hash function.
-func MakeLabel(hash func(data []byte) []byte, labelID uint64, leftSiblings [][]byte) []byte {
-	data := make([]byte, 8)
-	binary.BigEndian.PutUint64(data, labelID)
-	for _, sibling := range leftSiblings {
-		data = append(data, sibling...)
+// MakeLabelFunc returns a function which generates a PoET DAG label by concatenating a representation
+// of the labelID with the list of left siblings and then hashing the result using the provided hash function.
+//
+// ⚠️ The resulting function is NOT thread-safe, however different generated instances are independent.
+// The code is optimized for performance and memory allocations.
+func MakeLabelFunc() func(hash func(data []byte) []byte, labelID uint64, leftSiblings [][]byte) []byte {
+	var buffer []byte
+	return func(hash func(data []byte) []byte, labelID uint64, leftSiblings [][]byte) []byte {
+		// Calculate the buffer required size.
+		// 8 is for the size of labelID.
+		// leftSiblings slice might contain nil values, so the result size is inflated and used as an upper bound.
+		size := 8 + len(leftSiblings)*merkle.NodeSize
+
+		if len(buffer) < size {
+			buffer = make([]byte, size)
+		}
+
+		binary.BigEndian.PutUint64(buffer, labelID)
+		offset := 8
+
+		for _, sibling := range leftSiblings {
+			copied := copy(buffer[offset:], sibling)
+			offset += copied
+		}
+		sum := hash(buffer[:offset])
+		return sum
 	}
-	sum := hash(data)
-	//fmt.Printf("label %2d: %x | data: %x\n", labelID, sum, data)
-	return sum
 }
 
 type MerkleProof struct {
