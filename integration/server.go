@@ -130,7 +130,7 @@ func (s *server) start() error {
 			// Don't propagate 'signal: killed' error,
 			// since it's an expected behavior.
 			if !strings.Contains(err.Error(), "signal: killed") {
-				s.errChan <- fmt.Errorf("%v\n%v\n", err, errb.String())
+				s.errChan <- fmt.Errorf("%v | %v", err, errb.String())
 			}
 		}
 

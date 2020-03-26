@@ -5,6 +5,9 @@ import "google/api/annotations.proto";
 package api;
 
 service Poet {
+    /**
+    Start is used to start the service.
+    */
     rpc Start (StartRequest) returns (StartResponse) {
         option (google.api.http) = {
             post: "/v1/start",
@@ -12,6 +15,10 @@ service Poet {
         };
     }
 
+    /**
+    UpdateGateway allows to update the list of gateway addresses (with additional broadcasting config),
+    similar to the Start rpc, but after the service already started.
+    */
     rpc UpdateGateway (UpdateGatewayRequest) returns (UpdateGatewayResponse) {
         option (google.api.http) = {
             post: "/v1/updategateway",
@@ -19,6 +26,10 @@ service Poet {
         };
     }
 
+    /**
+    Submit adds a challenge to the service's current open round,
+    to be included its later generated proof.
+    */
     rpc Submit (SubmitRequest) returns (SubmitResponse) {
         option (google.api.http) = {
             post: "/v1/submit",
@@ -26,6 +37,10 @@ service Poet {
         };
     }
 
+    /**
+    GetInfo returns general information concerning the service,
+    including its identity pubkey.
+    */
     rpc GetInfo (GetInfoRequest) returns (GetInfoResponse) {
         option (google.api.http) = {
             get: "/v1/info"

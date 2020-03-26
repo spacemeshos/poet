@@ -104,7 +104,7 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 	}
 
 	out := new(api.SubmitResponse)
-	out.RoundId = round.Id
+	out.RoundId = round.ID
 	return out, nil
 }
 
@@ -115,7 +115,7 @@ func (r *rpcServer) GetInfo(ctx context.Context, in *api.GetInfoRequest) (*api.G
 	}
 
 	out := new(api.GetInfoResponse)
-	out.OpenRoundId = info.OpenRoundId
+	out.OpenRoundId = info.OpenRoundID
 
 	ids := make([]string, len(info.ExecutingRoundsIds))
 	for i, id := range info.ExecutingRoundsIds {

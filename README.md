@@ -1,6 +1,11 @@
-# poet
 
-A reference poet implementation for testing of the Spacemesh open source POET server
+## Overview
+
+This project implements the Proofs Sequential Work (PoSW) protocol construction defined in [Simple Proofs of Sequential Work](https://eprint.iacr.org/2018/183.pdf), which can be used as a proxy for Proof of Elapsed Time (PoET). We follow the paper's definitions, construction and are guided by the reference python source code implementation.
+
+The executable package in this repository is the PoET service, which harness the core protocol in order to provide proving services to multiple clients, with amortized CPU cost. It is designed to be used by the Spacemesh network and is part of the broader Spacemesh protocol.
+
+For more information, visit the PoET [protocol specifications](https://github.com/spacemeshos/protocol/blob/master/mining/03-poet.md). 
 
 ## Build
 
@@ -13,19 +18,39 @@ $ cd poet
 $ go build
 ```
 
+## Run the service
+
+##### New round every 5 sec, disabled broadcasting
+```
+$ ./poet --initialduration=5s --duration=5s --disablebroadcast
+```
+
+##### New round every 5 sec, broadcasting to a local Spacemesh gateway node
+```
+$ ./poet --initialduration=5s --duration=5s --gateway=localhost:9091 
+```
+
+##### Use the sample configuration file
+```
+$ ./poet --configfile=$PWD/sample-poet.conf
+```
+
+##### Show the help message
+```
+$ ./poet --help
+```
+
+
+
 ## Run the tests
 ```
 $ go test ./...
 ```
 
-# POET Server Specifications
-Draft
 
-## Overview
-The POET Server implements the proofs sequential work protocol construction defined in [simple proofs of sequential work](https://eprint.iacr.org/2018/183.pdf). We follow the paper's definitions, construction and are guided by the reference python source code implementation. Please read the paper and analyze the reference python source code. The POET Server is designed to be used by the Spacemesh POET service with is part of the broader Spacemesh protocol but is also useful for other use cases.
+# Specifications
 
-Section numbers in "Simple proofs of sequential work" are referenced by this spec.
-
+Section numbers in [Simple Proofs of Sequential Work](https://eprint.iacr.org/2018/183.pdf) are referenced by this spec.
 
 ## Constants (See section 1.2)
 - t:int = 150. A statistical security parameter. (Note: is 150 needed for Fiat-Shamir or does 21 suffices?). Shared between prover and verifier

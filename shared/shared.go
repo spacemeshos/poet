@@ -10,19 +10,21 @@ import (
 )
 
 const (
-	T uint8 = 150 // security param
+	// T is the security param which determines the number of leaves
+	// to be included in a non-interactive proof.
+	T uint8 = 150
 
 	// OwnerReadWrite is a standard owner read / write file permission.
 	OwnerReadWrite = os.FileMode(0600)
 )
 
 // FiatShamir generates a set of indices to include in a non-interactive proof.
-func FiatShamir(challenge []byte, spaceSize uint64, indexCount uint8) map[uint64]bool {
-	if uint64(indexCount) > spaceSize {
-		indexCount = uint8(spaceSize)
+func FiatShamir(challenge []byte, spaceSize uint64, securityParam uint8) map[uint64]bool {
+	if uint64(securityParam) > spaceSize {
+		securityParam = uint8(spaceSize)
 	}
-	ret := make(map[uint64]bool, indexCount)
-	for i := uint8(0); len(ret) < int(indexCount); i++ {
+	ret := make(map[uint64]bool, securityParam)
+	for i := uint8(0); len(ret) < int(securityParam); i++ {
 		result := sha256.Sum256(append(challenge, i))
 		id := binary.BigEndian.Uint64(result[:8]) % spaceSize
 		ret[id] = true
@@ -49,6 +51,7 @@ type MerkleProof struct {
 	ProofNodes   [][]byte
 }
 
+// Retry provides generic capability for retryable function execution.
 func Retry(retryable func() error, numRetries int, interval time.Duration, logger func(msg string)) error {
 	err := retryable()
 	if err == nil {

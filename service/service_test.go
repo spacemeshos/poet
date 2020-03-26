@@ -19,7 +19,7 @@ type MockBroadcaster struct {
 	receivedMessages chan []byte
 }
 
-func (b *MockBroadcaster) BroadcastProof(msg []byte, roundId string, members [][]byte) error {
+func (b *MockBroadcaster) BroadcastProof(msg []byte, roundID string, members [][]byte) error {
 	b.receivedMessages <- msg
 	return nil
 }
@@ -76,7 +76,7 @@ func TestService_Recovery(t *testing.T) {
 		for i := 0; i < len(roundChallenges); i++ {
 			round, err := s.Submit(roundChallenges[i].data)
 			req.NoError(err)
-			req.Equal(s.openRound.Id, round.Id)
+			req.Equal(s.openRound.ID, round.ID)
 
 			// Verify that all submissions returned the same round instance.
 			if rounds[roundIndex] == nil {
@@ -91,7 +91,7 @@ func TestService_Recovery(t *testing.T) {
 	submitChallenges(0)
 
 	// Verify that round is still open.
-	req.Equal(rounds[0].Id, s.openRound.Id)
+	req.Equal(rounds[0].ID, s.openRound.ID)
 
 	// Wait for round 0 to start executing.
 	select {
@@ -101,7 +101,7 @@ func TestService_Recovery(t *testing.T) {
 	}
 
 	// Verify that round iteration proceeds: a new round opened, previous round is executing.
-	req.Contains(s.executingRounds, rounds[0].Id)
+	req.Contains(s.executingRounds, rounds[0].ID)
 	rounds[1] = s.openRound
 
 	// Submit challenges to open round (1).
@@ -116,7 +116,7 @@ func TestService_Recovery(t *testing.T) {
 	// Verify shutdown error is received.
 	select {
 	case err := <-s.errChan:
-		req.EqualError(err, fmt.Sprintf("round %v execution error: %v", rounds[0].Id, prover.ErrShutdownRequested.Error()))
+		req.EqualError(err, fmt.Sprintf("round %v execution error: %v", rounds[0].ID, prover.ErrShutdownRequested.Error()))
 	case <-rounds[0].executionEndedChan:
 		req.Fail("round execution ended instead of shutting down")
 	}
@@ -139,13 +139,13 @@ func TestService_Recovery(t *testing.T) {
 	// Service instance should recover 2 rounds: round 0 in executing state, and round 1 in open state.
 	prevServiceRounds := rounds
 	req.Equal(1, len(s.executingRounds))
-	_, ok := s.executingRounds[prevServiceRounds[0].Id]
+	_, ok := s.executingRounds[prevServiceRounds[0].ID]
 	req.True(ok)
-	req.Equal(s.openRound.Id, prevServiceRounds[1].Id)
+	req.Equal(s.openRound.ID, prevServiceRounds[1].ID)
 
 	// Track rounds from the new service instance.
 	rounds = make([]*round, numRounds)
-	rounds[0] = s.executingRounds[prevServiceRounds[0].Id]
+	rounds[0] = s.executingRounds[prevServiceRounds[0].ID]
 	rounds[1] = s.openRound
 
 	// Wait for round 1 to start executing.
@@ -156,7 +156,7 @@ func TestService_Recovery(t *testing.T) {
 	}
 
 	// Verify that round iteration proceeds: a new round opened, previous round is executing.
-	req.Contains(s.executingRounds, rounds[1].Id)
+	req.Contains(s.executingRounds, rounds[1].ID)
 
 	// Submit challenges to open round (2).
 	submitChallenges(2)
@@ -172,7 +172,7 @@ func TestService_Recovery(t *testing.T) {
 			req.NoError(err)
 		}
 
-		req.Equal(rounds[i].Id, proofMsg.RoundId)
+		req.Equal(rounds[i].ID, proofMsg.RoundID)
 
 		// Verify round submitted challenges.
 		for _, ch := range roundsChallenges[i] {
@@ -233,7 +233,7 @@ func TestNewService(t *testing.T) {
 	for i := 0; i < len(challenges); i++ {
 		round, err := s.Submit(challenges[i].data)
 		req.NoError(err)
-		req.Equal(info.OpenRoundId, round.Id)
+		req.Equal(info.OpenRoundID, round.ID)
 		challenges[i].round = round
 
 		// Verify that all submissions returned the same round instance.
@@ -245,7 +245,7 @@ func TestNewService(t *testing.T) {
 	// Verify that round is still open.
 	info, err = s.Info()
 	req.NoError(err)
-	req.Equal(info.OpenRoundId, info.OpenRoundId)
+	req.Equal(info.OpenRoundID, info.OpenRoundID)
 
 	// Wait for round to start execution.
 	select {
@@ -258,10 +258,10 @@ func TestNewService(t *testing.T) {
 	prevInfo := info
 	info, err = s.Info()
 	req.NoError(err)
-	prevIndex, err := strconv.Atoi(prevInfo.OpenRoundId)
+	prevIndex, err := strconv.Atoi(prevInfo.OpenRoundID)
 	req.NoError(err)
-	req.Equal(fmt.Sprintf("%d", prevIndex+1), info.OpenRoundId)
-	req.Contains(info.ExecutingRoundsIds, prevInfo.OpenRoundId)
+	req.Equal(fmt.Sprintf("%d", prevIndex+1), info.OpenRoundID)
+	req.Contains(info.ExecutingRoundsIds, prevInfo.OpenRoundID)
 
 	// Wait for end of execution.
 	select {

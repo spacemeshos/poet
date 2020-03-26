@@ -36,7 +36,7 @@ type Signal struct {
 	ShutdownRequestedChan chan struct{}
 
 	blocking       map[int]bool
-	blockingNextId int
+	blockingNextID int
 	blockingMtx    sync.Mutex
 }
 
@@ -114,9 +114,9 @@ func (s *Signal) ShutdownChannel() <-chan struct{} {
 func (s *Signal) BlockShutdown() func() {
 	s.blockingMtx.Lock()
 
-	s.blocking[s.blockingNextId] = true
-	next := s.blockingNextId
-	s.blockingNextId++
+	s.blocking[s.blockingNextID] = true
+	next := s.blockingNextID
+	s.blockingNextID++
 
 	s.blockingMtx.Unlock()
 

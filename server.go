@@ -36,11 +36,11 @@ func startServer() error {
 		// TODO: these parameters work for now but we might need to revisit or add them as configuration
 		// TODO: Configure maxconns, maxconcurrentcons ..
 		grpc.KeepaliveParams(keepalive.ServerParameters{
-			time.Minute * 120,
-			time.Minute * 180,
-			time.Minute * 10,
-			time.Minute,
-			time.Minute * 3,
+			MaxConnectionIdle:     time.Minute * 120,
+			MaxConnectionAge:      time.Minute * 180,
+			MaxConnectionAgeGrace: time.Minute * 10,
+			Time:                  time.Minute,
+			Timeout:               time.Minute * 3,
 		}),
 	}
 
@@ -74,7 +74,7 @@ func startServer() error {
 	// Start the gRPC server listening for HTTP/2 connections.
 	lis, err := net.Listen(cfg.RPCListener.Network(), cfg.RPCListener.String())
 	if err != nil {
-		return fmt.Errorf("failed to listen: %v\n", err)
+		return fmt.Errorf("failed to listen: %v", err)
 	}
 	defer lis.Close()
 
