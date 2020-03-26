@@ -17,10 +17,15 @@ import (
 )
 
 const (
-	MerkleMinCacheLayer        = 0 // Merkle nodes from this layer up will be cached, in addition to the base layer
-	hardShutdownCheckpointRate = 1 << 24
+	// MerkleMinCacheLayer set the min layer in which all layers above will be cached, in addition to the base layer.
+	MerkleMinCacheLayer = 0
 
+	// LowestMerkleMinMemoryLayer set the lowest-allowed layer in which all layers above will be cached in-memory.
 	LowestMerkleMinMemoryLayer = 1
+
+	// The rate, in leaves, in which the proof generation state snapshot will be saved to disk
+	// to allow potential crash recovery.
+	hardShutdownCheckpointRate = 1 << 24
 )
 
 var (
@@ -33,17 +38,6 @@ var (
 	sig                 = signal.NewSignal()
 	persist persistFunc = func(tree *merkle.Tree, treeCache *cache.Writer, nextLeafId uint64) error { return nil }
 )
-
-func GenerateProofWithoutPersistency(
-	datadir string,
-	labelHashFunc func(data []byte) []byte,
-	merkleHashFunc func(lChild, rChild []byte) []byte,
-	numLeaves uint64,
-	securityParam uint8,
-	minMemoryLayer uint,
-) (*shared.MerkleProof, error) {
-	return GenerateProof(sig, datadir, labelHashFunc, merkleHashFunc, numLeaves, securityParam, minMemoryLayer, persist)
-}
 
 // GenerateProof computes the PoET DAG, uses Fiat-Shamir to derive a challenge from the Merkle root and generates a Merkle
 // proof using the challenge and the DAG.
@@ -65,6 +59,7 @@ func GenerateProof(
 	return generateProof(sig, labelHashFunc, tree, treeCache, numLeaves, 0, securityParam, persist)
 }
 
+// GenerateProofRecovery recovers proof generation, from a given 'nextLeafID' and for a given 'parkedNodes' snapshot.
 func GenerateProofRecovery(
 	sig *signal.Signal,
 	datadir string,
@@ -72,16 +67,29 @@ func GenerateProofRecovery(
 	merkleHashFunc func(lChild, rChild []byte) []byte,
 	numLeaves uint64,
 	securityParam uint8,
-	nextLeafId uint64,
+	nextLeafID uint64,
 	parkedNodes [][]byte,
 	persist persistFunc,
 ) (*shared.MerkleProof, error) {
-	treeCache, tree, err := makeRecoveryProofTree(datadir, merkleHashFunc, nextLeafId, parkedNodes)
+	treeCache, tree, err := makeRecoveryProofTree(datadir, merkleHashFunc, nextLeafID, parkedNodes)
 	if err != nil {
 		return nil, err
 	}
 
-	return generateProof(sig, labelHashFunc, tree, treeCache, numLeaves, nextLeafId, securityParam, persist)
+	return generateProof(sig, labelHashFunc, tree, treeCache, numLeaves, nextLeafID, securityParam, persist)
+}
+
+// GenerateProofWithoutPersistency calls GenerateProof with disabled persistency functionality
+// and potential soft/hard-shutdown recovery.
+func GenerateProofWithoutPersistency(
+	datadir string,
+	labelHashFunc func(data []byte) []byte,
+	merkleHashFunc func(lChild, rChild []byte) []byte,
+	numLeaves uint64,
+	securityParam uint8,
+	minMemoryLayer uint,
+) (*shared.MerkleProof, error) {
+	return GenerateProof(sig, datadir, labelHashFunc, merkleHashFunc, numLeaves, securityParam, minMemoryLayer, persist)
 }
 
 func makeProofTree(
@@ -108,7 +116,7 @@ func makeProofTree(
 func makeRecoveryProofTree(
 	datadir string,
 	merkleHashFunc func(lChild, rChild []byte) []byte,
-	nextLeafId uint64,
+	nextLeafID uint64,
 	parkedNodes [][]byte,
 ) (*cache.Writer, *merkle.Tree, error) {
 
@@ -139,7 +147,7 @@ func makeRecoveryProofTree(
 		}
 
 		// Each incremental layer divides the base layer by 2.
-		expectedWidth := nextLeafId >> layer
+		expectedWidth := nextLeafID >> layer
 
 		// If file is longer than expected, truncate the file.
 		if expectedWidth < width {
@@ -183,7 +191,7 @@ func generateProof(
 	tree *merkle.Tree,
 	treeCache *cache.Writer,
 	numLeaves uint64,
-	nextLeafId uint64,
+	nextLeafID uint64,
 	securityParam uint8,
 	persist persistFunc,
 ) (*shared.MerkleProof, error) {
@@ -191,15 +199,15 @@ func generateProof(
 	defer unblock()
 
 	makeLabel := shared.MakeLabelFunc()
-	for leafId := nextLeafId; leafId < numLeaves; leafId++ {
+	for leafID := nextLeafID; leafID < numLeaves; leafID++ {
 		// Handle persistence.
 		if sig.ShutdownRequested {
-			if err := persist(tree, treeCache, leafId); err != nil {
+			if err := persist(tree, treeCache, leafID); err != nil {
 				return nil, err
 			}
 			return nil, ErrShutdownRequested
-		} else if leafId != 0 && leafId%hardShutdownCheckpointRate == 0 {
-			if err := persist(tree, treeCache, leafId); err != nil {
+		} else if leafID != 0 && leafID%hardShutdownCheckpointRate == 0 {
+			if err := persist(tree, treeCache, leafID); err != nil {
 				return nil, err
 			}
 		}

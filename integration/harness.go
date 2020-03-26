@@ -24,7 +24,6 @@ type Harness struct {
 }
 
 // NewHarness creates and initializes a new instance of Harness.
-// nodeAddress (string) is the address of a Spacemesh node gRPC server. Use "NO_BROADCAST" to skip broadcasting proofs.
 func NewHarness(cfg *ServerConfig) (*Harness, error) {
 	server, err := newServer(cfg)
 	if err != nil {
@@ -78,6 +77,11 @@ func (h *Harness) TearDown(cleanup bool) error {
 // ProcessErrors returns a channel used for reporting any fatal process errors.
 func (h *Harness) ProcessErrors() <-chan error {
 	return h.server.errChan
+}
+
+// RESTListen returns the configured interface/port/socket for REST connections.
+func (h *Harness) RESTListen() string {
+	return h.server.cfg.RESTListen
 }
 
 // connectClient attempts to establish a gRPC Client connection

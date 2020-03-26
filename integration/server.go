@@ -19,10 +19,12 @@ type ServerConfig struct {
 	dataDir   string
 	exe       string
 
-	N                    int
-	InitialRoundDuration string
-	Reset                bool
-	DisableBroadcast     bool
+	N                int
+	InitialDuration  string
+	Duration         string
+	Reset            bool
+	DisableBroadcast bool
+	RESTListen       string
 }
 
 // DefaultConfig returns a newConfig with all default values.
@@ -38,11 +40,12 @@ func DefaultConfig() (*ServerConfig, error) {
 	}
 
 	cfg := &ServerConfig{
-		logLevel:  "debug",
-		rpcListen: "127.0.0.1:18550",
-		baseDir:   baseDir,
-		dataDir:   filepath.Join(baseDir, "data"),
-		exe:       poetPath,
+		logLevel:   "debug",
+		rpcListen:  "127.0.0.1:18550",
+		RESTListen: "127.0.0.1:18551",
+		baseDir:    baseDir,
+		dataDir:    filepath.Join(baseDir, "data"),
+		exe:        poetPath,
 	}
 
 	return cfg, nil
@@ -54,12 +57,16 @@ func (cfg *ServerConfig) genArgs() []string {
 
 	args = append(args, fmt.Sprintf("--datadir=%v", cfg.dataDir))
 	args = append(args, fmt.Sprintf("--rpclisten=%v", cfg.rpcListen))
+	args = append(args, fmt.Sprintf("--restlisten=%v", cfg.RESTListen))
 
 	if cfg.N != 0 {
 		args = append(args, fmt.Sprintf("--n=%d", cfg.N))
 	}
-	if cfg.InitialRoundDuration != "" {
-		args = append(args, fmt.Sprintf("--initialduration=%v", cfg.InitialRoundDuration))
+	if cfg.InitialDuration != "" {
+		args = append(args, fmt.Sprintf("--initialduration=%v", cfg.InitialDuration))
+	}
+	if cfg.Duration != "" {
+		args = append(args, fmt.Sprintf("--duration=%v", cfg.Duration))
 	}
 	if cfg.Reset {
 		args = append(args, "--reset")
@@ -123,7 +130,7 @@ func (s *server) start() error {
 			// Don't propagate 'signal: killed' error,
 			// since it's an expected behavior.
 			if !strings.Contains(err.Error(), "signal: killed") {
-				s.errChan <- fmt.Errorf("%v\n%v\n", err, errb.String())
+				s.errChan <- fmt.Errorf("%v | %v", err, errb.String())
 			}
 		}
 

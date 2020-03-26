@@ -23,7 +23,7 @@ type executionState struct {
 	Members       [][]byte
 	Statement     []byte
 	ParkedNodes   [][]byte
-	NextLeafId    uint64
+	NextLeafID    uint64
 	NIP           *shared.MerkleProof
 }
 
@@ -46,7 +46,7 @@ func (r *roundState) isExecuted() bool {
 type round struct {
 	cfg     *Config
 	datadir string
-	Id      string
+	ID      string
 
 	challengesDb *LevelDB
 	execution    *executionState
@@ -69,7 +69,7 @@ func newRound(sig *signal.Signal, cfg *Config, datadir string, id string) *round
 	r := new(round)
 	r.cfg = cfg
 	r.datadir = datadir
-	r.Id = id
+	r.ID = id
 	r.openedChan = make(chan struct{})
 	r.executionStartedChan = make(chan struct{})
 	r.executionEndedChan = make(chan struct{})
@@ -93,11 +93,11 @@ func newRound(sig *signal.Signal, cfg *Config, datadir string, id string) *round
 		}
 
 		if err := r.teardown(cleanup); err != nil {
-			log.Error("Round %v tear down error: %v", r.Id, err)
+			log.Error("Round %v tear down error: %v", r.ID, err)
 			return
 		}
 
-		log.Info("Round %v teared down", r.Id)
+		log.Info("Round %v teared down", r.ID)
 	}()
 
 	return r
@@ -195,15 +195,15 @@ func (r *round) execute() error {
 	return nil
 }
 
-func (r *round) persistExecution(tree *merkle.Tree, treeCache *cache.Writer, nextLeafId uint64) error {
-	log.Info("Round %v: persisting execution state (done: %d, total: %d)", r.Id, nextLeafId, r.execution.NumLeaves)
+func (r *round) persistExecution(tree *merkle.Tree, treeCache *cache.Writer, nextLeafID uint64) error {
+	log.Info("Round %v: persisting execution state (done: %d, total: %d)", r.ID, nextLeafID, r.execution.NumLeaves)
 
 	// Call GetReader() so that the cache would flush and validate structure.
 	if _, err := treeCache.GetReader(); err != nil {
 		return err
 	}
 
-	r.execution.NextLeafId = nextLeafId
+	r.execution.NextLeafID = nextLeafID
 	r.execution.ParkedNodes = tree.GetParkedNodes()
 	if err := r.saveState(); err != nil {
 		return err
@@ -242,7 +242,7 @@ func (r *round) recoverExecution(state *executionState) error {
 		hash.GenMerkleHashFunc(state.Statement),
 		state.NumLeaves,
 		state.SecurityParam,
-		state.NextLeafId,
+		state.NextLeafID,
 		state.ParkedNodes,
 		r.persistExecution,
 	)

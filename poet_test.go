@@ -14,7 +14,7 @@ import (
 // of the Harness to exercise functionality.
 type harnessTestCase struct {
 	name string
-	test func(h *integration.Harness, assert *require.Assertions, ctx context.Context)
+	test func(ctx context.Context, h *integration.Harness, assert *require.Assertions)
 }
 
 // TODO(moshababo): create a mock for the node which the harness poet server
@@ -32,7 +32,7 @@ func TestHarness(t *testing.T) {
 	cfg, err := integration.DefaultConfig()
 	assert.NoError(err)
 	cfg.N = 18
-	cfg.InitialRoundDuration = time.Duration(2 * time.Second).String()
+	cfg.InitialDuration = time.Duration(2 * time.Second).String()
 
 	h := newHarness(assert, cfg)
 
@@ -61,8 +61,10 @@ func TestHarness(t *testing.T) {
 
 	for _, testCase := range testCases {
 		success := t.Run(testCase.name, func(t1 *testing.T) {
-			ctx, _ := context.WithTimeout(context.Background(), time.Duration(5*time.Second))
-			testCase.test(h, assert, ctx)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(5*time.Second))
+			defer cancel()
+
+			testCase.test(ctx, h, assert)
 		})
 
 		if !success {
@@ -71,13 +73,13 @@ func TestHarness(t *testing.T) {
 	}
 }
 
-func testInfo(h *integration.Harness, assert *require.Assertions, ctx context.Context) {
+func testInfo(ctx context.Context, h *integration.Harness, assert *require.Assertions) {
 	// TODO: implement
 	_, err := h.GetInfo(ctx, &api.GetInfoRequest{})
 	assert.NoError(err)
 }
 
-func testSubmit(h *integration.Harness, assert *require.Assertions, ctx context.Context) {
+func testSubmit(ctx context.Context, h *integration.Harness, assert *require.Assertions) {
 	com := []byte("this is a commitment")
 	submitReq := api.SubmitRequest{Challenge: com}
 	submitRes, err := h.Submit(ctx, &submitReq)
@@ -98,18 +100,19 @@ func testSubmit(h *integration.Harness, assert *require.Assertions, ctx context.
 //  - TODO: Wait until rounds 0 and 1 recovery completes. listen to their proof broadcast and compare it with the reference rounds.
 func TestHarness_CrashRecovery(t *testing.T) {
 	req := require.New(t)
-	ctx, _ := context.WithTimeout(context.Background(), time.Duration(30*time.Second))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(30*time.Second))
+	defer cancel()
 
 	cfg, err := integration.DefaultConfig()
 	req.NoError(err)
 	cfg.N = 18
-	cfg.InitialRoundDuration = time.Duration(3 * time.Second).String()
+	cfg.InitialDuration = time.Duration(3 * time.Second).String()
 	cfg.Reset = true
 	cfg.DisableBroadcast = true
 
 	// Track rounds.
 	numRounds := 2
-	roundsId := make([]string, numRounds)
+	roundsID := make([]string, numRounds)
 
 	// Generate random challenges for 2 distinct rounds.
 	numRoundChallenges := 40
@@ -132,10 +135,10 @@ func TestHarness_CrashRecovery(t *testing.T) {
 			req.NotNil(res)
 
 			// Verify that all submissions returned the same round instance.
-			if roundsId[roundIndex] == "" {
-				roundsId[roundIndex] = res.RoundId
+			if roundsID[roundIndex] == "" {
+				roundsID[roundIndex] = res.RoundId
 			} else {
-				req.Equal(roundsId[roundIndex], res.RoundId)
+				req.Equal(roundsID[roundIndex], res.RoundId)
 			}
 		}
 	}
@@ -165,10 +168,10 @@ func TestHarness_CrashRecovery(t *testing.T) {
 	// Verify that round 0 is still open.
 	info, err := h.GetInfo(ctx, &api.GetInfoRequest{})
 	req.NoError(err)
-	req.Equal(roundsId[0], info.OpenRoundId)
+	req.Equal(roundsID[0], info.OpenRoundId)
 
 	// Wait until round iteration proceeds: a new round opened, previous round is executing.
-	waitNewRound(h, roundsId[0])
+	waitNewRound(h, roundsID[0])
 
 	// Submit challenges to open round (1).
 	submitChallenges(h, 1)
@@ -177,8 +180,8 @@ func TestHarness_CrashRecovery(t *testing.T) {
 	info, err = h.GetInfo(ctx, &api.GetInfoRequest{})
 	req.NoError(err)
 	req.Equal(1, len(info.ExecutingRoundsIds))
-	req.Equal(roundsId[0], info.ExecutingRoundsIds[0])
-	req.Equal(roundsId[1], info.OpenRoundId)
+	req.Equal(roundsID[0], info.ExecutingRoundsIds[0])
+	req.Equal(roundsID[1], info.OpenRoundId)
 
 	// TODO: Wait until rounds 0 and 1 execution completes. listen to their proof broadcast and save it as a reference.
 	time.Sleep(10 * time.Second) // remove, used for manual log check
@@ -189,7 +192,7 @@ func TestHarness_CrashRecovery(t *testing.T) {
 
 	// Create a new server harness instance.
 	h = newHarness(req, cfg)
-	roundsId = make([]string, numRounds)
+	roundsID = make([]string, numRounds)
 
 	// Submit challenges to open round (0).
 	submitChallenges(h, 0)
@@ -197,10 +200,10 @@ func TestHarness_CrashRecovery(t *testing.T) {
 	// Verify that round 0 is still open.
 	info, err = h.GetInfo(ctx, &api.GetInfoRequest{})
 	req.NoError(err)
-	req.Equal(roundsId[0], info.OpenRoundId)
+	req.Equal(roundsID[0], info.OpenRoundId)
 
 	// Wait until round iteration proceeds: a new round opened, previous round is executing.
-	waitNewRound(h, roundsId[0])
+	waitNewRound(h, roundsID[0])
 
 	// Submit challenges to open round (1).
 	submitChallenges(h, 1)
@@ -209,8 +212,8 @@ func TestHarness_CrashRecovery(t *testing.T) {
 	info, err = h.GetInfo(ctx, &api.GetInfoRequest{})
 	req.NoError(err)
 	req.Equal(1, len(info.ExecutingRoundsIds))
-	req.Equal(roundsId[0], info.ExecutingRoundsIds[0])
-	req.Equal(roundsId[1], info.OpenRoundId)
+	req.Equal(roundsID[0], info.ExecutingRoundsIds[0])
+	req.Equal(roundsID[1], info.OpenRoundId)
 
 	// Wait a bit for round 0 execution to proceed.
 	time.Sleep(1 * time.Second)
@@ -251,5 +254,5 @@ func newHarness(req *require.Assertions, cfg *integration.ServerConfig) *integra
 
 type challenge struct {
 	data    []byte
-	roundId int
+	roundID int
 }
