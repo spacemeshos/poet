@@ -23,6 +23,8 @@ const (
 	// LowestMerkleMinMemoryLayer set the lowest-allowed layer in which all layers above will be cached in-memory.
 	LowestMerkleMinMemoryLayer = 1
 
+	// The rate, in leaves, in which the proof generation state snapshot will be saved to disk
+	// to allow potential crash recovery.
 	hardShutdownCheckpointRate = 1 << 24
 )
 
@@ -36,19 +38,6 @@ var (
 	sig                 = signal.NewSignal()
 	persist persistFunc = func(tree *merkle.Tree, treeCache *cache.Writer, nextLeafId uint64) error { return nil }
 )
-
-// GenerateProofWithoutPersistency calls GenerateProof with disabled persistency functionality
-// and potential soft/hard-shutdown recovery.
-func GenerateProofWithoutPersistency(
-	datadir string,
-	labelHashFunc func(data []byte) []byte,
-	merkleHashFunc func(lChild, rChild []byte) []byte,
-	numLeaves uint64,
-	securityParam uint8,
-	minMemoryLayer uint,
-) (*shared.MerkleProof, error) {
-	return GenerateProof(sig, datadir, labelHashFunc, merkleHashFunc, numLeaves, securityParam, minMemoryLayer, persist)
-}
 
 // GenerateProof computes the PoET DAG, uses Fiat-Shamir to derive a challenge from the Merkle root and generates a Merkle
 // proof using the challenge and the DAG.
@@ -88,6 +77,19 @@ func GenerateProofRecovery(
 	}
 
 	return generateProof(sig, labelHashFunc, tree, treeCache, numLeaves, nextLeafID, securityParam, persist)
+}
+
+// GenerateProofWithoutPersistency calls GenerateProof with disabled persistency functionality
+// and potential soft/hard-shutdown recovery.
+func GenerateProofWithoutPersistency(
+	datadir string,
+	labelHashFunc func(data []byte) []byte,
+	merkleHashFunc func(lChild, rChild []byte) []byte,
+	numLeaves uint64,
+	securityParam uint8,
+	minMemoryLayer uint,
+) (*shared.MerkleProof, error) {
+	return GenerateProof(sig, datadir, labelHashFunc, merkleHashFunc, numLeaves, securityParam, minMemoryLayer, persist)
 }
 
 func makeProofTree(

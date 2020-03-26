@@ -42,8 +42,8 @@ type serviceState struct {
 	PrivKey     []byte
 }
 
-// Service implements functionality for creating proofs in dedicated rounds, so that
-// they can be shared among arbitrary number of miners, and thus amortize the CPU cost per proof.
+// Service orchestrates rounds functionality; each responsible for accepting challenges,
+// generating a proof from their hash digest, and broadcasting the result to the Spacemesh network.
 type Service struct {
 	cfg     *Config
 	datadir string
