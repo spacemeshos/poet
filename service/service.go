@@ -94,12 +94,12 @@ type Broadcaster interface {
 
 // GossipPoetProof is the proof which amortizes multiple miners challenges (Members)
 type GossipPoetProof struct {
+	// The actual proof.
+	shared.MerkleProof
+
 	// Members is the ordered list of miners challenges which are included
 	// in the proof (by using the list hash as the proof generation input (the statement)).
 	Members [][]byte
-
-	// The actual proof.
-	shared.MerkleProof
 
 	// NumLeaves is the width of the proof-generation tree.
 	NumLeaves uint64
