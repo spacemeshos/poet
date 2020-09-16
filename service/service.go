@@ -374,10 +374,12 @@ func (s *Service) Info() (*InfoResponse, error) {
 	res := new(InfoResponse)
 	res.OpenRoundID = s.openRound.ID
 
+	s.Lock()
 	ids := make([]string, 0, len(s.executingRounds))
 	for id := range s.executingRounds {
 		ids = append(ids, id)
 	}
+	s.Unlock()
 	res.ExecutingRoundsIds = ids
 
 	return res, nil
