@@ -217,11 +217,7 @@ func (r *round) persistExecution(tree *merkle.Tree, treeCache *cache.Writer, nex
 }
 
 func (r *round) recoverExecution(state *executionState) error {
-	r.executionStarted = time.Now()
-	if err := r.saveState(); err != nil {
-		return err
-	}
-
+	r.executionStarted = r.stateCache.ExecutionStarted
 	close(r.executionStartedChan)
 
 	if state.Members != nil && state.Statement != nil {
