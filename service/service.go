@@ -83,7 +83,6 @@ type PoetProof struct {
 }
 
 var (
-	ErrRoundNotFound  = errors.New("round not found")
 	ErrNotStarted     = errors.New("service not started")
 	ErrAlreadyStarted = errors.New("already started")
 )
@@ -278,6 +277,9 @@ func (s *Service) Recover() error {
 
 		if state.isOpen() {
 			log.Info("Recovery: found round %v in open state", r.ID)
+			if err := r.open(); err != nil {
+				return fmt.Errorf("failed to open round: %v", err)
+			}
 
 			// Keep the last open round as openRound (multiple open rounds state is possible
 			// only if recovery was previously disabled).

@@ -104,9 +104,13 @@ func newRound(sig *signal.Signal, cfg *Config, datadir string, id string) *round
 }
 
 func (r *round) open() error {
-	r.opened = time.Now()
-	if err := r.saveState(); err != nil {
-		return err
+	if r.stateCache != nil {
+		r.opened = r.stateCache.Opened
+	} else {
+		r.opened = time.Now()
+		if err := r.saveState(); err != nil {
+			return err
+		}
 	}
 
 	close(r.openedChan)
