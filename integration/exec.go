@@ -2,6 +2,7 @@ package integration
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -41,10 +42,17 @@ func poetExecutablePath(baseDir string) (string, error) {
 	cmd := exec.Command(
 		"go", "build", "-o", outputPath, "github.com/spacemeshos/poet",
 	)
-
-	err := cmd.Run()
+	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		return "", fmt.Errorf("failed to build poet: %v", err)
+		return "", fmt.Errorf("failed to build poet: failed to get stderr: %s", err)
+	}
+	if err := cmd.Start(); err != nil {
+		return "", fmt.Errorf("failed to build poet: failed to start go build: %s", err)
+	}
+
+	slurp, _ := ioutil.ReadAll(stderr)
+	if err := cmd.Wait(); err != nil {
+		return "", fmt.Errorf("failed to build poet: go build failed: %s\nstderr: %s\n", err, slurp)
 	}
 
 	// Save executable path so future calls do not recompile.
