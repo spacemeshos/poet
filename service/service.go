@@ -448,7 +448,7 @@ func broadcastProof(s *Service, r *round, execution *executionState, broadcaster
 	}
 
 	bindFunc := func() error { return broadcaster.BroadcastProof(msg, r.ID, r.execution.Members) }
-	logger := func(msg string) { log.Warning("Round %v: %v", r.ID, msg) }
+	logger := func(msg string) { log.Error("Round %v: %v", r.ID, msg) }
 
 	if err := shared.Retry(bindFunc, int(s.cfg.BroadcastNumRetries), s.cfg.BroadcastRetriesInterval, logger); err != nil {
 		log.Error("Round %v proof broadcast failure: %v", r.ID, err)
