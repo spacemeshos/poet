@@ -97,7 +97,7 @@ func newRound(sig *signal.Signal, cfg *Config, datadir string, id string) *round
 			return
 		}
 
-		log.Info("Round %v teared down", r.ID)
+		log.Info("Round %v torn down", r.ID)
 	}()
 
 	return r

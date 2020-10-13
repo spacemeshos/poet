@@ -39,7 +39,7 @@ func TestHarness(t *testing.T) {
 	defer func() {
 		err := h.TearDown(true)
 		assert.NoError(err, "failed to tear down harness")
-		t.Logf("harness teared down")
+		t.Logf("harness torn down")
 	}()
 
 	assert.NoError(err)
