@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/spacemeshos/poet/broadcaster/pb"
+	pb "github.com/spacemeshos/api/release/go/spacemesh/v1"
 	"github.com/spacemeshos/smutil/log"
+	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 	"sync"
@@ -19,7 +20,7 @@ const (
 
 // Broadcaster is responsible for broadcasting proofs to a list of Spacemesh-compatible gateway nodes.
 type Broadcaster struct {
-	clients               []pb.SpacemeshServiceClient
+	clients               []pb.GatewayServiceClient
 	connections           []*grpc.ClientConn
 	broadcastTimeout      time.Duration
 	broadcastAckThreshold uint
@@ -104,9 +105,9 @@ func New(gatewayAddresses []string, disableBroadcast bool, connTimeout time.Dura
 		log.Warning("Failed to connect to %d/%d gateway nodes: %v", numErrors, len(gatewayAddresses), retErr)
 	}
 
-	clients := make([]pb.SpacemeshServiceClient, len(connections))
+	clients := make([]pb.GatewayServiceClient, len(connections))
 	for i, conn := range connections {
-		clients[i] = pb.NewSpacemeshServiceClient(conn)
+		clients[i] = pb.NewGatewayServiceClient(conn)
 	}
 
 	return &Broadcaster{
@@ -123,11 +124,11 @@ func (b *Broadcaster) BroadcastProof(msg []byte, roundID string, members [][]byt
 		log.Info("Broadcast is disabled, not broadcasting round %v proof", roundID)
 		return nil
 	}
-	pbMsg := &pb.BinaryMessage{Data: msg}
+	pbMsg := &pb.BroadcastPoetRequest{Data: msg}
 	ctx, cancel := context.WithTimeout(context.Background(), b.broadcastTimeout)
 	defer cancel()
 
-	responses := make([]*pb.SimpleMessage, len(b.clients))
+	responses := make([]*pb.BroadcastPoetResponse, len(b.clients))
 	errs := make([]error, len(b.clients))
 
 	start := time.Now()
@@ -152,9 +153,11 @@ func (b *Broadcaster) BroadcastProof(msg []byte, roundID string, members [][]byt
 		err := errs[i]
 
 		if err != nil {
-			err = fmt.Errorf("failed to broadcast via gateway node at \"%v\" after %v: %v", b.connections[i].Target(), elapsed, err)
-		} else if res.Value != "ok" {
-			err = fmt.Errorf("failed to broadcast via gateway node at \"%v\" after %v: node response: %v", b.connections[i].Target(), elapsed, res.Value)
+			err = fmt.Errorf("failed to broadcast via gateway node at \"%v\" after %v: %v",
+				b.connections[i].Target(), elapsed, err)
+		} else if code.Code(res.Status.Code) != code.Code_OK {
+			err = fmt.Errorf("failed to broadcast via gateway node at \"%v\" after %v: node response: %s (%s)",
+				b.connections[i].Target(), elapsed, code.Code(res.Status.Code).String(), res.Status.GetMessage())
 		} else {
 			// Valid response.
 			numAcks++
