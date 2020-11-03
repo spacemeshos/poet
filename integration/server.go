@@ -3,6 +3,8 @@ package integration
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -92,6 +94,9 @@ type server struct {
 	wg   sync.WaitGroup
 
 	errChan chan error
+
+	stdout io.Reader
+	stderr io.Reader
 }
 
 // newNode creates a new poet server instance according to the passed cfg.
@@ -109,12 +114,22 @@ func (s *server) start() error {
 	args := s.cfg.genArgs()
 	s.cmd = exec.Command(s.cfg.exe, args...)
 
-	// Redirect stderr output to buffer
+	// Get stderr and stdout pipes in case the caller wants to read them.
+	// We also save a copy of stderr output here, and check it below.
+	stderr, err := s.cmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("failed to capture server stderr: %s", err)
+	}
 	var errb bytes.Buffer
-	s.cmd.Stderr = &errb
+	s.stderr = io.TeeReader(stderr, &errb)
+
+	s.stdout, err = s.cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to capture server stdout: %s", err)
+	}
 
 	if err := s.cmd.Start(); err != nil {
-		return err
+		return fmt.Errorf("failed to start server: %s", err)
 	}
 
 	// Launch a new goroutine which that bubbles up any potential fatal
@@ -130,6 +145,9 @@ func (s *server) start() error {
 			// Don't propagate 'signal: killed' error,
 			// since it's an expected behavior.
 			if !strings.Contains(err.Error(), "signal: killed") {
+				// make sure all of the input to the teereader was consumed so we can read it here.
+				// ignore output and error here, we just need to make sure it was all consumed.
+				ioutil.ReadAll(s.stderr)
 				s.errChan <- fmt.Errorf("%v | %v", err, errb.String())
 			}
 		}

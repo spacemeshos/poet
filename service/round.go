@@ -104,9 +104,13 @@ func newRound(sig *signal.Signal, cfg *Config, datadir string, id string) *round
 }
 
 func (r *round) open() error {
-	r.opened = time.Now()
-	if err := r.saveState(); err != nil {
-		return err
+	if r.stateCache != nil {
+		r.opened = r.stateCache.Opened
+	} else {
+		r.opened = time.Now()
+		if err := r.saveState(); err != nil {
+			return err
+		}
 	}
 
 	close(r.openedChan)
@@ -213,11 +217,7 @@ func (r *round) persistExecution(tree *merkle.Tree, treeCache *cache.Writer, nex
 }
 
 func (r *round) recoverExecution(state *executionState) error {
-	r.executionStarted = time.Now()
-	if err := r.saveState(); err != nil {
-		return err
-	}
-
+	r.executionStarted = r.stateCache.ExecutionStarted
 	close(r.executionStartedChan)
 
 	if state.Members != nil && state.Statement != nil {

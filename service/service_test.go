@@ -38,6 +38,7 @@ type challenge struct {
 //  - Wait a bit for round 0 execution to proceed.
 //  - Shutdown service.
 //  - Create a new service instance.
+//  - Submit challenges to open round (1)
 //  - Wait a bit for round 1 execution to proceed.
 //  - Submit challenges to open round (2).
 //  - Verify that new service instance broadcast 3 distinct rounds proofs, by the expected order.
@@ -58,23 +59,24 @@ func TestService_Recovery(t *testing.T) {
 	numRounds := 3
 	rounds := make([]*round, numRounds)
 
-	// Generate random challenges for 3 distinct rounds.
-	numRoundChallenges := 40
-	roundsChallenges := make([][]challenge, numRounds)
-	for i := 0; i < numRounds; i++ {
-		challenges := make([]challenge, numRoundChallenges)
-		for i := 0; i < numRoundChallenges; i++ {
-			challenges[i] = challenge{data: make([]byte, 32)}
-			_, err := rand.Read(challenges[i].data)
+	// Generate 4 groups of random challenges.
+	challengeGroupSize := 40
+	challengeGroups := make([][]challenge, 4)
+	for i := 0; i < 4; i++ {
+		challengeGroup := make([]challenge, challengeGroupSize)
+		for i := 0; i < challengeGroupSize; i++ {
+			challengeGroup[i] = challenge{data: make([]byte, 32)}
+			_, err := rand.Read(challengeGroup[i].data)
 			req.NoError(err)
 		}
-		roundsChallenges[i] = challenges
+		challengeGroups[i] = challengeGroup
 	}
 
-	submitChallenges := func(roundIndex int) {
-		roundChallenges := roundsChallenges[roundIndex]
-		for i := 0; i < len(roundChallenges); i++ {
-			round, err := s.Submit(roundChallenges[i].data)
+	submittedChallenges := make(map[int][]challenge)
+	submitChallenges := func(roundIndex int, groupIndex int) {
+		challengesGroup := challengeGroups[groupIndex]
+		for i := 0; i < len(challengeGroups[groupIndex]); i++ {
+			round, err := s.Submit(challengesGroup[i].data)
 			req.NoError(err)
 			req.Equal(s.openRound.ID, round.ID)
 
@@ -85,10 +87,13 @@ func TestService_Recovery(t *testing.T) {
 				req.Equal(rounds[roundIndex], round)
 			}
 		}
+
+		// Track the submitted challenges per-round for later validation.
+		submittedChallenges[roundIndex] = append(submittedChallenges[roundIndex], challengesGroup...)
 	}
 
 	// Submit challenges to open round (0).
-	submitChallenges(0)
+	submitChallenges(0, 0)
 
 	// Verify that round is still open.
 	req.Equal(rounds[0].ID, s.openRound.ID)
@@ -105,7 +110,7 @@ func TestService_Recovery(t *testing.T) {
 	rounds[1] = s.openRound
 
 	// Submit challenges to open round (1).
-	submitChallenges(1)
+	submitChallenges(1, 1)
 
 	// Wait a bit for round 0 execution to proceed.
 	time.Sleep(1 * time.Second)
@@ -148,6 +153,9 @@ func TestService_Recovery(t *testing.T) {
 	rounds[0] = s.executingRounds[prevServiceRounds[0].ID]
 	rounds[1] = s.openRound
 
+	// Submit challenges to open round (1).
+	submitChallenges(1, 2)
+
 	// Wait for round 1 to start executing.
 	select {
 	case <-rounds[1].executionStartedChan:
@@ -159,7 +167,7 @@ func TestService_Recovery(t *testing.T) {
 	req.Contains(s.executingRounds, rounds[1].ID)
 
 	// Submit challenges to open round (2).
-	submitChallenges(2)
+	submitChallenges(2, 3)
 
 	// Verify that new service instance broadcast 3 distinct rounds proofs, by the expected order.
 	for i := 0; i < numRounds; i++ {
@@ -174,8 +182,9 @@ func TestService_Recovery(t *testing.T) {
 
 		req.Equal(rounds[i].ID, proofMsg.RoundID)
 
-		// Verify round submitted challenges.
-		for _, ch := range roundsChallenges[i] {
+		// Verify the submitted challenges.
+		req.Len(proofMsg.Members, len(submittedChallenges[i]))
+		for _, ch := range submittedChallenges[i] {
 			req.True(contains(proofMsg.Members, ch.data))
 		}
 
