@@ -132,6 +132,11 @@ func (s *server) start() error {
 		return fmt.Errorf("failed to start server: %s", err)
 	}
 
+	go func() {
+		// should be read to prevent panic
+		ioutil.ReadAll(s.stdout)
+	}()
+
 	// Launch a new goroutine which that bubbles up any potential fatal
 	// process errors to errChan.
 	s.processExit = make(chan struct{})
