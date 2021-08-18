@@ -17,6 +17,7 @@
   "paths": {
     "/v1/info": {
       "get": {
+        "summary": "*\nGetInfo returns general information concerning the service,\nincluding its identity pubkey.",
         "operationId": "GetInfo",
         "responses": {
           "200": {
@@ -33,6 +34,7 @@
     },
     "/v1/start": {
       "post": {
+        "summary": "*\nStart is used to start the service.",
         "operationId": "Start",
         "responses": {
           "200": {
@@ -57,8 +59,36 @@
         ]
       }
     },
+    "/v1/stop": {
+      "post": {
+        "summary": "*\nStop is used to stop the service.",
+        "operationId": "Stop",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/apiShutdownResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/apiShutdownRequest"
+            }
+          }
+        ],
+        "tags": [
+          "Poet"
+        ]
+      }
+    },
     "/v1/submit": {
       "post": {
+        "summary": "*\nSubmit adds a challenge to the service's current open round,\nto be included its later generated proof.",
         "operationId": "Submit",
         "responses": {
           "200": {
@@ -85,6 +115,7 @@
     },
     "/v1/updategateway": {
       "post": {
+        "summary": "*\nUpdateGateway allows to update the list of gateway addresses (with additional broadcasting config),\nsimilar to the Start rpc, but after the service already started.",
         "operationId": "UpdateGateway",
         "responses": {
           "200": {
@@ -128,6 +159,12 @@
           "format": "byte"
         }
       }
+    },
+    "apiShutdownRequest": {
+      "type": "object"
+    },
+    "apiShutdownResponse": {
+      "type": "object"
     },
     "apiStartRequest": {
       "type": "object",
