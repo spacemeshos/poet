@@ -16,6 +16,16 @@ service Poet {
     }
 
     /**
+    Stop is used to stop the service.
+    */
+    rpc Stop (ShutdownRequest) returns (ShutdownResponse) {
+        option (google.api.http) = {
+            post: "/v1/stop",
+            body: "*",
+        };
+    }
+
+    /**
     UpdateGateway allows to update the list of gateway addresses (with additional broadcasting config),
     similar to the Start rpc, but after the service already started.
     */
@@ -56,6 +66,12 @@ message StartRequest {
 }
 
 message StartResponse {
+}
+
+message ShutdownRequest {
+}
+
+message ShutdownResponse {
 }
 
 message UpdateGatewayRequest {
