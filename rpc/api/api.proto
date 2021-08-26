@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 import "google/api/annotations.proto";
-
+option go_package = ".;api";
 package api;
 
 service Poet {
@@ -11,16 +11,6 @@ service Poet {
     rpc Start (StartRequest) returns (StartResponse) {
         option (google.api.http) = {
             post: "/v1/start",
-            body: "*",
-        };
-    }
-
-    /**
-    Stop is used to stop the service.
-    */
-    rpc Stop (ShutdownRequest) returns (ShutdownResponse) {
-        option (google.api.http) = {
-            post: "/v1/stop",
             body: "*",
         };
     }
@@ -66,12 +56,6 @@ message StartRequest {
 }
 
 message StartResponse {
-}
-
-message ShutdownRequest {
-}
-
-message ShutdownResponse {
 }
 
 message UpdateGatewayRequest {

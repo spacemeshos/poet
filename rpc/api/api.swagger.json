@@ -4,10 +4,6 @@
     "title": "api.proto",
     "version": "version not set"
   },
-  "schemes": [
-    "http",
-    "https"
-  ],
   "consumes": [
     "application/json"
   ],
@@ -18,12 +14,18 @@
     "/v1/info": {
       "get": {
         "summary": "*\nGetInfo returns general information concerning the service,\nincluding its identity pubkey.",
-        "operationId": "GetInfo",
+        "operationId": "Poet_GetInfo",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/apiGetInfoResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -35,12 +37,18 @@
     "/v1/start": {
       "post": {
         "summary": "*\nStart is used to start the service.",
-        "operationId": "Start",
+        "operationId": "Poet_Start",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/apiStartResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -59,42 +67,21 @@
         ]
       }
     },
-    "/v1/stop": {
-      "post": {
-        "summary": "*\nStop is used to stop the service.",
-        "operationId": "Stop",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/apiShutdownResponse"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/apiShutdownRequest"
-            }
-          }
-        ],
-        "tags": [
-          "Poet"
-        ]
-      }
-    },
     "/v1/submit": {
       "post": {
         "summary": "*\nSubmit adds a challenge to the service's current open round,\nto be included its later generated proof.",
-        "operationId": "Submit",
+        "operationId": "Poet_Submit",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/apiSubmitResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -116,12 +103,18 @@
     "/v1/updategateway": {
       "post": {
         "summary": "*\nUpdateGateway allows to update the list of gateway addresses (with additional broadcasting config),\nsimilar to the Start rpc, but after the service already started.",
-        "operationId": "UpdateGateway",
+        "operationId": "Poet_UpdateGateway",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/apiUpdateGatewayResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -160,12 +153,6 @@
         }
       }
     },
-    "apiShutdownRequest": {
-      "type": "object"
-    },
-    "apiShutdownResponse": {
-      "type": "object"
-    },
     "apiStartRequest": {
       "type": "object",
       "properties": {
@@ -176,8 +163,7 @@
           }
         },
         "disableBroadcast": {
-          "type": "boolean",
-          "format": "boolean"
+          "type": "boolean"
         },
         "connAcksThreshold": {
           "type": "integer",
@@ -219,8 +205,7 @@
           }
         },
         "disableBroadcast": {
-          "type": "boolean",
-          "format": "boolean"
+          "type": "boolean"
         },
         "connAcksThreshold": {
           "type": "integer",
@@ -234,6 +219,39 @@
     },
     "apiUpdateGatewayResponse": {
       "type": "object"
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "type_url": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "runtimeError": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "string"
+        },
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
     }
   }
 }

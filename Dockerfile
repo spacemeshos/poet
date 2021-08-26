@@ -17,9 +17,13 @@ FROM build_base AS server_builder
 # Here we copy the rest of the source code
 COPY . .
 
+WORKDIR /go/src/github.com/spacemeshos/poet/cmd/grpc_client
+RUN go build
+
 # And compile the project
 RUN go build
 
 FROM alpine AS spacemesh
 COPY --from=server_builder /go/src/github.com/spacemeshos/poet/poet /bin/poet
+COPY --from=server_builder /go/src/github.com/spacemeshos/poet/cmd/grpc_client/grpc_client /bin/grpc_client
 ENTRYPOINT ["/bin/poet"]
