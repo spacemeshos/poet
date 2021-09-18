@@ -1,5 +1,3 @@
-// +build !debug
-
 package main
 
 import (
@@ -70,6 +68,7 @@ func startServer() error {
 		grpcServer = grpc.NewServer(options...)
 
 		api.RegisterPoetServer(grpcServer, rpcServer)
+		registerRPCServers(grpcServer)
 
 		proxyRegstr = append(proxyRegstr, api.RegisterPoetHandlerFromEndpoint)
 	}
