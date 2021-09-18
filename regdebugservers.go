@@ -10,7 +10,7 @@ import (
 )
 
 // startServer starts the RPC server.
-func registerRPCServers(g *grpc.Server) {
+func registerAdditionalRPCServers(g *grpc.Server) {
 	log.Info("registering debug service")
 	debugServer := rpc.NewDebugServer()
 	debug.RegisterDebugServer(g, debugServer)

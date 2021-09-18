@@ -7,6 +7,6 @@ import (
 )
 
 // registerRPCServers does nothing in case debug tag was not supply.
-func registerRPCServers(g *grpc.Server) {
+func registerAdditionalRPCServers(g *grpc.Server) {
 
 }
