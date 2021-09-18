@@ -19,7 +19,6 @@ import (
 )
 
 const (
-	defaultApiService	 			= "api"
 	defaultConfigFilename           = "poet.conf"
 	defaultDataDirname              = "data"
 	defaultLogDirname               = "logs"
@@ -64,7 +63,6 @@ type config struct {
 	MaxLogFileSize  int      `long:"maxlogfilesize" description:"Maximum logfile size in MB"`
 	RawRPCListener  string   `short:"r" long:"rpclisten" description:"The interface/port/socket to listen for RPC connections"`
 	RawRESTListener string   `short:"w" long:"restlisten" description:"The interface/port/socket to listen for REST connections"`
-	APIServices 	string 	 `long:"apiservices" description:"The API services to enable"`
 	RPCListener     net.Addr
 	RESTListener    net.Addr
 
@@ -95,7 +93,6 @@ func loadConfig() (*config, error) {
 		MaxLogFileSize:  defaultMaxLogFileSize,
 		RawRPCListener:  fmt.Sprintf("localhost:%d", defaultRPCPort),
 		RawRESTListener: fmt.Sprintf("localhost:%d", defaultRESTPort),
-		APIServices: 	 defaultApiService,
 		Service: &service.Config{
 			N:                        defaultN,
 			MemoryLayers:             defaultMemoryLayers,

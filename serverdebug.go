@@ -1,4 +1,4 @@
-// +build !debug
+// +build debug
 
 package main
 
@@ -7,6 +7,7 @@ import (
 	proxy "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/spacemeshos/poet/rpc"
 	"github.com/spacemeshos/poet/rpc/api"
+	"github.com/spacemeshos/poet/rpc/debug"
 	"github.com/spacemeshos/poet/rpccore"
 	"github.com/spacemeshos/poet/rpccore/apicore"
 	"github.com/spacemeshos/poet/service"
@@ -70,6 +71,8 @@ func startServer() error {
 		grpcServer = grpc.NewServer(options...)
 
 		api.RegisterPoetServer(grpcServer, rpcServer)
+		debugServer := rpc.NewDebugServer()
+		debug.RegisterDebugServer(grpcServer, debugServer)
 
 		proxyRegstr = append(proxyRegstr, api.RegisterPoetHandlerFromEndpoint)
 	}

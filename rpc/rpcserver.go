@@ -4,10 +4,8 @@ import (
 	"fmt"
 	"github.com/spacemeshos/poet/broadcaster"
 	"github.com/spacemeshos/poet/rpc/api"
-	debugApi "github.com/spacemeshos/poet/rpc/debug"
 	"github.com/spacemeshos/poet/service"
 	"golang.org/x/net/context"
-	"log"
 	"sync"
 )
 
@@ -16,10 +14,6 @@ type rpcServer struct {
 	api.PoetServer
 	s *service.Service
 	sync.Mutex
-}
-
-type debugServer struct{
-	debugApi.DebugServer
 }
 
 // A compile time check to ensure that rpcService fully implements
@@ -31,11 +25,6 @@ func NewRPCServer(service *service.Service) *rpcServer {
 	return &rpcServer{
 		s: service,
 	}
-}
-
-// NewDebugServer creates and returns a new instance of the rpcServer.
-func NewDebugServer() *debugServer {
-	return &debugServer{}
 }
 
 func (r *rpcServer) Start(ctx context.Context, in *api.StartRequest) (*api.StartResponse, error) {
@@ -72,12 +61,6 @@ func (r *rpcServer) Start(ctx context.Context, in *api.StartRequest) (*api.Start
 		return nil, fmt.Errorf("failed to start service: %v", err)
 	}
 	return &api.StartResponse{}, nil
-}
-
-func (d *debugServer) Shutdown(context.Context, *debugApi.ShutdownRequest) (*debugApi.ShutdownResponse, error) {
-	// TODO (amit): add the actions when shutting down
-	log.Panic("shutting down")
-	return &debugApi.ShutdownResponse{}, nil
 }
 
 func (r *rpcServer) UpdateGateway(ctx context.Context, in *api.UpdateGatewayRequest) (*api.UpdateGatewayResponse, error) {
