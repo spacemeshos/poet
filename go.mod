@@ -1,6 +1,7 @@
 module github.com/spacemeshos/poet
 
 require (
+	cloud.google.com/go/storage v1.10.0
 	github.com/btcsuite/btcd v0.0.0-20190629003639-c26ffa870fd8 // indirect
 	github.com/btcsuite/btcutil v0.0.0-20190425235716-9e5f4b9a998d
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.5.0
