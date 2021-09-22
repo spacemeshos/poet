@@ -11,6 +11,7 @@ import (
 
 // rpcServer is a gRPC, RPC front end to poet
 type rpcServer struct {
+	api.PoetServer
 	s *service.Service
 	sync.Mutex
 }

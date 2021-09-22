@@ -18,6 +18,8 @@ var (
 
 // RPCServer is a gRPC, RPC front end to poet core
 type RPCServer struct {
+	apicore.PoetCoreProverServer
+	apicore.PoetVerifierServer
 	sig     *signal.Signal
 	datadir string
 	proof   *shared.MerkleProof

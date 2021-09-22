@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+import "google/api/annotations.proto";
+option go_package = ".;debug";
+package api;
+
+service Debug {
+    /**
+    Shutdown is used to stop the service.
+    */
+    rpc Shutdown (ShutdownRequest) returns (ShutdownResponse) {
+        option (google.api.http) = {
+            post: "/v1/shutdown",
+            body: "*",
+        };
+    }
+}
+
+message ShutdownRequest {
+}
+
+message ShutdownResponse {
+}

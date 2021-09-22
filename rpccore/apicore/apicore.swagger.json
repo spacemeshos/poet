@@ -4,10 +4,6 @@
     "title": "apicore.proto",
     "version": "version not set"
   },
-  "schemes": [
-    "http",
-    "https"
-  ],
   "consumes": [
     "application/json"
   ],
@@ -17,12 +13,18 @@
   "paths": {
     "/v1/prover/compute": {
       "get": {
-        "operationId": "Compute",
+        "operationId": "PoetCoreProver_Compute",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/apicoreComputeResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -49,12 +51,18 @@
     },
     "/v1/prover/getnip": {
       "get": {
-        "operationId": "GetNIP",
+        "operationId": "PoetCoreProver_GetNIP",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/apicoreGetNIPResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -65,12 +73,18 @@
     },
     "/v1/prover/shutdown": {
       "get": {
-        "operationId": "Shutdown",
+        "operationId": "PoetCoreProver_Shutdown",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/apicoreShutdownResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -81,12 +95,18 @@
     },
     "/v1/verifier/verifynip": {
       "get": {
-        "operationId": "VerifyNIP",
+        "operationId": "PoetVerifier_VerifyNIP",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/apicoreVerifyNIPResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -120,7 +140,8 @@
             "items": {
               "type": "string",
               "format": "byte"
-            }
+            },
+            "collectionFormat": "multi"
           },
           {
             "name": "p.proofNodes",
@@ -130,7 +151,8 @@
             "items": {
               "type": "string",
               "format": "byte"
-            }
+            },
+            "collectionFormat": "multi"
           }
         ],
         "tags": [
@@ -200,8 +222,40 @@
       "type": "object",
       "properties": {
         "verified": {
-          "type": "boolean",
-          "format": "boolean"
+          "type": "boolean"
+        }
+      }
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "type_url": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "runtimeError": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "string"
+        },
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protobufAny"
+          }
         }
       }
     }

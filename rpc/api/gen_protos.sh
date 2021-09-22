@@ -5,7 +5,7 @@ googleapis_path="$grpc_gateway_path/third_party/googleapis"
 
 
 # Generate protos.
-protoc -I. -I$googleapis_path --go_out=plugins=grpc:. api.proto
+protoc -I. -I$googleapis_path --go-grpc_out=. --go_out=. api.proto
 
 # Generate web proxy.
 protoc -I. -I$googleapis_path --grpc-gateway_out=logtostderr=true:. api.proto

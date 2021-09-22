@@ -1,4 +1,5 @@
 BINARY := poet
+RUNNER_BINARY := runner
 DOCKER_IMAGE_REPO := poet
 
 ifdef TRAVIS_BRANCH
@@ -24,3 +25,8 @@ dockerpush: dockerbuild-go
 	docker tag $(DOCKER_IMAGE_REPO):$(BRANCH) spacemeshos/$(DOCKER_IMAGE_REPO):$(BRANCH)
 	docker push spacemeshos/$(DOCKER_IMAGE_REPO):$(BRANCH)
 .PHONY: dockerpush
+
+
+buildrunner:
+	cd cmd/runner ; go build -o $(RUNNER_BINARY)
+.PHONY: build

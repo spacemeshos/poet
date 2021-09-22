@@ -54,15 +54,15 @@ type coreServiceConfig struct {
 // See loadConfig for further details regarding the
 // configuration loading+parsing process.
 type config struct {
-	PoetDir         string `long:"poetdir" description:"The base directory that contains poet's data, logs, configuration file, etc."`
-	ConfigFile      string `short:"c" long:"configfile" description:"Path to configuration file"`
-	DataDir         string `short:"b" long:"datadir" description:"The directory to store poet's data within"`
-	LogDir          string `long:"logdir" description:"Directory to log output."`
-	JSONLog         bool   `long:"jsonlog" description:"Whether to log in JSON format"`
-	MaxLogFiles     int    `long:"maxlogfiles" description:"Maximum logfiles to keep (0 for no rotation)"`
-	MaxLogFileSize  int    `long:"maxlogfilesize" description:"Maximum logfile size in MB"`
-	RawRPCListener  string `short:"r" long:"rpclisten" description:"The interface/port/socket to listen for RPC connections"`
-	RawRESTListener string `short:"w" long:"restlisten" description:"The interface/port/socket to listen for REST connections"`
+	PoetDir         string   `long:"poetdir" description:"The base directory that contains poet's data, logs, configuration file, etc."`
+	ConfigFile      string   `short:"c" long:"configfile" description:"Path to configuration file"`
+	DataDir         string   `short:"b" long:"datadir" description:"The directory to store poet's data within"`
+	LogDir          string   `long:"logdir" description:"Directory to log output."`
+	JSONLog         bool     `long:"jsonlog" description:"Whether to log in JSON format"`
+	MaxLogFiles     int      `long:"maxlogfiles" description:"Maximum logfiles to keep (0 for no rotation)"`
+	MaxLogFileSize  int      `long:"maxlogfilesize" description:"Maximum logfile size in MB"`
+	RawRPCListener  string   `short:"r" long:"rpclisten" description:"The interface/port/socket to listen for RPC connections"`
+	RawRESTListener string   `short:"w" long:"restlisten" description:"The interface/port/socket to listen for REST connections"`
 	RPCListener     net.Addr
 	RESTListener    net.Addr
 
