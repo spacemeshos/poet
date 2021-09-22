@@ -19,14 +19,14 @@ COPY . .
 
 # And compile the project
 RUN go build
+RUN make buildrunner
 
 WORKDIR /go/src/github.com/spacemeshos/poet/cmd/grpc_shutdown
 RUN go build
-RUN make buildrunner
 
 FROM alpine AS spacemesh
 COPY --from=server_builder /go/src/github.com/spacemeshos/poet/poet /bin/poet
 COPY --from=server_builder /go/src/github.com/spacemeshos/poet/cmd/runner/runner /bin/runner
 COPY --from=server_builder /go/src/github.com/spacemeshos/poet/cmd/grpc_shutdown/grpc_shutdown /bin/grpc_shutdown
-ENV EXEC_PATH="/bin/poet"
+ENV EXEC_PATH=/bin/poet
 ENTRYPOINT ["/bin/runner"]
