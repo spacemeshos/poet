@@ -9,15 +9,9 @@ import (
 )
 
 func newRunner(args []string) {
-	execPathInd := utils.Contains(args, "--executable-path")
-	if execPathInd == -1 {
-		log.Panic("could not find executable path in arguments")
-	}
-
-	execPath := args[execPathInd+1]
+	execPath := os.Getenv("EXEC_PATH")
 	log.Info("execpath = %s", execPath)
 	log.Info("args = %s", args)
-	args = append(args[:execPathInd], args[execPathInd+2:]...)
 
 	// get filename index under args
 	restoreFileNameInd := utils.Contains(args, "--data-paths")

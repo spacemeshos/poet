@@ -22,9 +22,11 @@ RUN go build
 
 WORKDIR /go/src/github.com/spacemeshos/poet/cmd/grpc_shutdown
 RUN go build
+RUN make buildrunner
 
 FROM alpine AS spacemesh
 COPY --from=server_builder /go/src/github.com/spacemeshos/poet/poet /bin/poet
-COPY --from=server_builder /go/src/github.com/spacemeshos/poet/runner.sh /bin/runner.sh
+COPY --from=server_builder /go/src/github.com/spacemeshos/poet/cmd/runner/runner /bin/runner
 COPY --from=server_builder /go/src/github.com/spacemeshos/poet/cmd/grpc_shutdown/grpc_shutdown /bin/grpc_shutdown
-ENTRYPOINT ["/bin/runner.sh"]
+ENV EXEC_PATH="/bin/poet"
+ENTRYPOINT ["/bin/runner"]
