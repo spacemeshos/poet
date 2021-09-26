@@ -16,7 +16,8 @@ build:
 .PHONY: build
 
 dockerbuild-go:
-	docker build -t $(DOCKER_IMAGE_REPO):$(BRANCH) .
+	docker build --build-arg GCLOUD_KEY="$(GCLOUD_KEY)" \
+	             -t $(DOCKER_IMAGE_REPO):$(BRANCH) .
 .PHONY: dockerbuild-go
 
 

@@ -18,15 +18,26 @@ FROM build_base AS server_builder
 COPY . .
 
 # And compile the project
-RUN go build
+RUN go build -tags debug
 RUN make buildrunner
 
 WORKDIR /go/src/github.com/spacemeshos/poet/cmd/grpc_shutdown
 RUN go build
 
 FROM alpine AS spacemesh
-COPY --from=server_builder /go/src/github.com/spacemeshos/poet/poet /bin/poet
+
+RUN apk add --update coreutils
+
+ARG GCLOUD_KEY
+
+ENV GCLOUD_KEY ${GCLOUD_KEY}
+ENV POET_EXEC_PATH=/bin/poet
+
+COPY --from=server_builder /go/src/github.com/spacemeshos/poet/poet $POET_EXEC_PATH
 COPY --from=server_builder /go/src/github.com/spacemeshos/poet/cmd/runner/runner /bin/runner
 COPY --from=server_builder /go/src/github.com/spacemeshos/poet/cmd/grpc_shutdown/grpc_shutdown /bin/grpc_shutdown
-ENV EXEC_PATH=/bin/poet
+
+RUN echo $GCLOUD_KEY | base64 --decode > spacemesh.json
+ENV GOOGLE_APPLICATION_CREDENTIALS=./spacemesh.json
+
 ENTRYPOINT ["/bin/runner"]

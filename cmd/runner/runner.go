@@ -9,7 +9,7 @@ import (
 )
 
 func newRunner(args []string) {
-	execPath := os.Getenv("EXEC_PATH")
+	execPath := os.Getenv("POET_EXEC_PATH")
 	log.Info("execpath = %s", execPath)
 	log.Info("args = %s", args)
 
