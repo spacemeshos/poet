@@ -2,18 +2,17 @@ package main
 
 import (
 	"fmt"
-	"github.com/jessevdk/go-flags"
-	"github.com/spacemeshos/smutil/log"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
 	"runtime"
 	"runtime/pprof"
-)
 
-var (
-	cfg *config
+	"github.com/jessevdk/go-flags"
+	"github.com/spacemeshos/poet/config"
+	"github.com/spacemeshos/poet/server"
+	"github.com/spacemeshos/smutil/log"
 )
 
 // poetMain is the true entry point for poet. This function is required since
@@ -22,14 +21,25 @@ var (
 func poetMain() error {
 	// Use all processor cores.
 	runtime.GOMAXPROCS(runtime.NumCPU())
-
-	// Load configuration and parse command line. This function also
-	// initializes logging and configures it accordingly.
-	loadedConfig, err := loadConfig()
+	var err error
+	// Start with a default Config with sane settings
+	cfg := config.DefaultConfig()
+	// Pre-parse the command line to check for an alternative Config file
+	cfg, err = config.ParseFlags(cfg)
 	if err != nil {
 		return err
 	}
-	cfg = loadedConfig
+	// Load configuration file overwriting defaults with any specified options
+	// Parse CLI options and overwrite/add any specified options
+	cfg, err = config.ReadConfigFile(cfg)
+	if err != nil {
+		return err
+	}
+	//
+	cfg, err = config.SetupConfig(cfg)
+	if err != nil {
+		return err
+	}
 
 	log.JSONLog(cfg.JSONLog)
 	log.InitSpacemeshLoggingSystem(cfg.LogDir, "poet.log")
@@ -68,7 +78,7 @@ func poetMain() error {
 		defer pprof.StopCPUProfile()
 	}
 
-	if err := startServer(); err != nil {
+	if err := server.StartServer(cfg); err != nil {
 		log.Error("failed to start server: %v", err)
 		return err
 	}

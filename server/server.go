@@ -1,8 +1,14 @@
-package main
+package server
 
 import (
 	"fmt"
+	"net"
+	"net/http"
+	"os"
+	"time"
+
 	proxy "github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/rpc"
 	"github.com/spacemeshos/poet/rpc/api"
 	"github.com/spacemeshos/poet/rpccore"
@@ -14,14 +20,10 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/peer"
-	"net"
-	"net/http"
-	"os"
-	"time"
 )
 
 // startServer starts the RPC server.
-func startServer() error {
+func StartServer(cfg *config.Config) error {
 	sig := signal.NewSignal()
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
