@@ -56,6 +56,7 @@ func main() {
 
 	numLeaves := uint64(1) << cfg.N
 	securityParam := shared.T
+	fmt.Printf("numLeaves: %d, securityParam: %d\n", numLeaves, securityParam)
 
 	t1 := time.Now()
 	println("Computing dag...")
@@ -68,6 +69,8 @@ func main() {
 	e := time.Since(t1)
 	fmt.Printf("Proof generated in %s (%f)\n", e, e.Seconds())
 	fmt.Printf("Dag root label: %x\n", merkleProof.Root)
+	size := proofSize(merkleProof)
+	fmt.Printf("Proof size: %s (%d bytes)\n", ByteCountIEC(size), size)
 
 	t1 = time.Now()
 	err = verifier.Validate(*merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
@@ -75,6 +78,34 @@ func main() {
 		panic("Failed to verify nip")
 	}
 
-	e = time.Since(t1)
-	fmt.Printf("Proof verified in %s (%f)\n", e, e.Seconds())
+	e1 := time.Since(t1)
+	fmt.Printf("Proof verified in %s (%f)\n", e1, e1.Seconds())
+
+	fmt.Printf("%d %d %f %f %d\n", numLeaves, securityParam, e.Seconds(), e1.Seconds(), size)
+}
+
+func proofSize(proof *shared.MerkleProof) int {
+	size := 0
+	for _, node := range proof.ProofNodes {
+		size += len(node)
+	}
+	size += len(proof.Root)
+	for _, leaf := range proof.ProvenLeaves {
+		size += len(leaf)
+	}
+	return size
+}
+
+func ByteCountIEC(b int) string {
+	const unit = 1024
+	if b < unit {
+		return fmt.Sprintf("%d B", b)
+	}
+	div, exp := int64(unit), 0
+	for n := b / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %ciB",
+		float64(b)/float64(div), "KMGTPE"[exp])
 }

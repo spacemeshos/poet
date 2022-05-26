@@ -47,7 +47,7 @@ func GenerateProof(
 	labelHashFunc func(data []byte) []byte,
 	merkleHashFunc func(lChild, rChild []byte) []byte,
 	numLeaves uint64,
-	securityParam uint8,
+	securityParam uint16,
 	minMemoryLayer uint,
 	persist persistFunc,
 ) (*shared.MerkleProof, error) {
@@ -66,7 +66,7 @@ func GenerateProofRecovery(
 	labelHashFunc func(data []byte) []byte,
 	merkleHashFunc func(lChild, rChild []byte) []byte,
 	numLeaves uint64,
-	securityParam uint8,
+	securityParam uint16,
 	nextLeafID uint64,
 	parkedNodes [][]byte,
 	persist persistFunc,
@@ -86,7 +86,7 @@ func GenerateProofWithoutPersistency(
 	labelHashFunc func(data []byte) []byte,
 	merkleHashFunc func(lChild, rChild []byte) []byte,
 	numLeaves uint64,
-	securityParam uint8,
+	securityParam uint16,
 	minMemoryLayer uint,
 ) (*shared.MerkleProof, error) {
 	return GenerateProof(sig, datadir, labelHashFunc, merkleHashFunc, numLeaves, securityParam, minMemoryLayer, persist)
@@ -192,7 +192,7 @@ func generateProof(
 	treeCache *cache.Writer,
 	numLeaves uint64,
 	nextLeafID uint64,
-	securityParam uint8,
+	securityParam uint16,
 	persist persistFunc,
 ) (*shared.MerkleProof, error) {
 	unblock := sig.BlockShutdown()

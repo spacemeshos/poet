@@ -14,24 +14,24 @@ func TestFiatShamir(t *testing.T) {
 
 	occurrences := make(map[uint64]uint)
 	rounds := 5000
-	indicesPerRound := uint8(255)
+	indicesPerRound := uint16(255)
 	spaceSize := uint64(30000000000)
 	buckets := 10
 	bucketDivisor := spaceSize / uint64(buckets)
 	expectedIndicesPerBucket := rounds * int(indicesPerRound) / buckets
 	for i := 0; i < rounds; i++ {
 		binary.BigEndian.PutUint64(challenge, uint64(i))
-		//println(i, string(challenge))
+		// println(i, string(challenge))
 		shamir := FiatShamir(challenge, spaceSize, indicesPerRound)
 		for key := range shamir {
 			occurrences[key/bucketDivisor]++
 		}
 	}
-	//fmt.Println("expected indices per bucket:", expectedIndicesPerBucket)
+	// fmt.Println("expected indices per bucket:", expectedIndicesPerBucket)
 	for i := 0; i < buckets; i++ {
 		deviationFromExpected := float64(int(occurrences[uint64(i)])-expectedIndicesPerBucket) /
 			float64(expectedIndicesPerBucket)
-		//fmt.Printf("%d %d %+0.3f%%\n", i, occurrences[uint64(i)], 100*deviationFromExpected)
+		// fmt.Printf("%d %d %+0.3f%%\n", i, occurrences[uint64(i)], 100*deviationFromExpected)
 		assert.True(t, math.Abs(deviationFromExpected) < 0.005,
 			"deviation from expected cannot exceed 0.5%% (for bucket %d it was %+0.3f%%)", i,
 			100*deviationFromExpected)

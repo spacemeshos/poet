@@ -19,7 +19,7 @@ import (
 
 type executionState struct {
 	NumLeaves     uint64
-	SecurityParam uint8
+	SecurityParam uint16
 	Members       [][]byte
 	Statement     []byte
 	ParkedNodes   [][]byte

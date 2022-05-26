@@ -13,21 +13,26 @@ import (
 const (
 	// T is the security param which determines the number of leaves
 	// to be included in a non-interactive proof.
-	T uint8 = 150
+	T uint16 = 300
 
 	// OwnerReadWrite is a standard owner read / write file permission.
 	OwnerReadWrite = os.FileMode(0600)
 )
 
 // FiatShamir generates a set of indices to include in a non-interactive proof.
-func FiatShamir(challenge []byte, spaceSize uint64, securityParam uint8) map[uint64]bool {
+func FiatShamir(challenge []byte, spaceSize uint64, securityParam uint16) map[uint64]bool {
 	if uint64(securityParam) > spaceSize {
-		securityParam = uint8(spaceSize)
+		securityParam = uint16(spaceSize)
 	}
 	ret := make(map[uint64]bool, securityParam)
-	for i := uint8(0); len(ret) < int(securityParam); i++ {
-		result := sha256.Sum256(append(challenge, i))
+	for i := uint16(0); len(ret) < int(securityParam); i++ {
+		b := make([]byte, 2)
+		binary.LittleEndian.PutUint16(b, i)
+		result := sha256.Sum256(append(challenge, b...))
 		id := binary.BigEndian.Uint64(result[:8]) % spaceSize
+		if _, ok := ret[id]; ok {
+			fmt.Printf("→ duplicate: i=%d len(ret)=%d id=%d\n", i, len(ret), id)
+		}
 		ret[id] = true
 	}
 	return ret

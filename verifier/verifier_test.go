@@ -15,7 +15,7 @@ func TestValidate(t *testing.T) {
 
 	challenge := []byte("challenge")
 	numLeaves := uint64(16)
-	securityParam := uint8(4)
+	securityParam := uint16(4)
 	merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam, prover.LowestMerkleMinMemoryLayer)
 	r.NoError(err)
 
@@ -31,7 +31,7 @@ func TestValidateWrongSecParam(t *testing.T) {
 	}
 	challenge := []byte("challenge")
 	numLeaves := uint64(16)
-	securityParam := uint8(4)
+	securityParam := uint16(4)
 	err := Validate(merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
 	require.EqualError(t, err, "number of proven leaves (2) must be equal to security param (4)")
 }
@@ -44,7 +44,7 @@ func TestValidateWrongMerkleValidationError(t *testing.T) {
 	}
 	challenge := []byte("challenge")
 	numLeaves := uint64(16)
-	securityParam := uint8(0)
+	securityParam := uint16(0)
 	err := Validate(merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
 	require.EqualError(t, err, "error while validating merkle proof: at least one leaf is required for validation")
 }
@@ -55,7 +55,7 @@ func TestValidateWrongRoot(t *testing.T) {
 
 	challenge := []byte("challenge")
 	numLeaves := uint64(16)
-	securityParam := uint8(4)
+	securityParam := uint16(4)
 	merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam, prover.LowestMerkleMinMemoryLayer)
 	r.NoError(err)
 
@@ -75,7 +75,7 @@ func TestValidateFailLabelValidation(t *testing.T) {
 
 	challenge := []byte("challenge")
 	numLeaves := uint64(16)
-	securityParam := uint8(4)
+	securityParam := uint16(4)
 	merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam, prover.LowestMerkleMinMemoryLayer)
 	r.NoError(err)
 
