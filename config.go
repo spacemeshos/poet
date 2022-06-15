@@ -6,16 +6,17 @@ package main
 
 import (
 	"fmt"
-	"github.com/btcsuite/btcutil"
-	"github.com/jessevdk/go-flags"
-	"github.com/spacemeshos/poet/service"
-	"github.com/spacemeshos/smutil/log"
 	"net"
 	"os"
 	"os/user"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/btcsuite/btcd/btcutil"
+	"github.com/jessevdk/go-flags"
+	"github.com/spacemeshos/poet/service"
+	"github.com/spacemeshos/smutil/log"
 )
 
 const (
