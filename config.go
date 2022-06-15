@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/btcsuite/btcd/btcutil"
 	"github.com/jessevdk/go-flags"
+	"github.com/spacemeshos/poet/appdata"
 	"github.com/spacemeshos/poet/service"
 	"github.com/spacemeshos/smutil/log"
 )
@@ -39,7 +39,7 @@ const (
 )
 
 var (
-	defaultPoetDir    = btcutil.AppDataDir("poet", false)
+	defaultPoetDir    = appdata.AppDataDir("poet", false)
 	defaultConfigFile = filepath.Join(defaultPoetDir, defaultConfigFilename)
 	defaultDataDir    = filepath.Join(defaultPoetDir, defaultDataDirname)
 	defaultLogDir     = filepath.Join(defaultPoetDir, defaultLogDirname)
