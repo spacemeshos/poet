@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/spacemeshos/poet/rpc/api"
-	"google.golang.org/grpc"
 	"io"
 	"net"
 	"os"
@@ -13,6 +11,11 @@ import (
 	"path/filepath"
 	"runtime"
 	"time"
+
+	"github.com/spacemeshos/poet/rpc/api"
+	"google.golang.org/grpc"
+
+	_ "github.com/jessevdk/go-flags"
 )
 
 // Harness fully encapsulates an active poet server process to provide a unified
