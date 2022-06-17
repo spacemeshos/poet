@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc"
 
 	_ "github.com/jessevdk/go-flags"
+	_ "github.com/syndtr/goleveldb/leveldb/table"
 )
 
 // Harness fully encapsulates an active poet server process to provide a unified
