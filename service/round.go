@@ -3,6 +3,12 @@ package service
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
+	"sync"
+	"time"
+
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/merkle-tree/cache"
 	"github.com/spacemeshos/poet/hash"
@@ -11,14 +17,10 @@ import (
 	"github.com/spacemeshos/poet/signal"
 	"github.com/spacemeshos/smutil/log"
 	"github.com/syndtr/goleveldb/leveldb/opt"
-	"os"
-	"path/filepath"
-	"sync"
-	"time"
 )
 
 type executionState struct {
-	NumLeaves     uint64
+	Epoch         uint32
 	SecurityParam uint8
 	Members       [][]byte
 	Statement     []byte
@@ -65,11 +67,11 @@ type round struct {
 	submitMtx sync.Mutex
 }
 
-func newRound(sig *signal.Signal, cfg *Config, datadir string, id string) *round {
+func newRound(sig *signal.Signal, cfg *Config, datadir string, epoch uint32) *round {
 	r := new(round)
 	r.cfg = cfg
 	r.datadir = datadir
-	r.ID = id
+	r.ID = strconv.FormatUint(uint64(epoch), 10)
 	r.openedChan = make(chan struct{})
 	r.executionStartedChan = make(chan struct{})
 	r.executionEndedChan = make(chan struct{})
@@ -81,7 +83,7 @@ func newRound(sig *signal.Signal, cfg *Config, datadir string, id string) *round
 	r.challengesDb = NewLevelDbStore(dbPath, wo, nil) // This creates the datadir if it doesn't exist already.
 
 	r.execution = new(executionState)
-	r.execution.NumLeaves = uint64(1) << r.cfg.N // TODO(noamnelke): configure tick count instead of height
+	r.execution.Epoch = epoch
 	r.execution.SecurityParam = shared.T
 
 	go func() {
@@ -172,7 +174,7 @@ func (r *round) execute() error {
 		return err
 	}
 
-	minMemoryLayer := int(r.cfg.N - r.cfg.MemoryLayers)
+	minMemoryLayer := int(23 - r.cfg.MemoryLayers)
 	if minMemoryLayer < prover.LowestMerkleMinMemoryLayer {
 		minMemoryLayer = prover.LowestMerkleMinMemoryLayer
 	}
@@ -182,7 +184,11 @@ func (r *round) execute() error {
 		r.datadir,
 		hash.GenLabelHashFunc(r.execution.Statement),
 		hash.GenMerkleHashFunc(r.execution.Statement),
-		r.execution.NumLeaves,
+		prover.TimeLimit(r.cfg.Genesis.
+			Add(r.cfg.EpochDuration*time.Duration(r.execution.Epoch+1)).
+			Add(r.cfg.PhaseShift).
+			Add(-r.cfg.CycleGap),
+		),
 		r.execution.SecurityParam,
 		uint(minMemoryLayer),
 		r.persistExecution,
@@ -200,7 +206,7 @@ func (r *round) execute() error {
 }
 
 func (r *round) persistExecution(tree *merkle.Tree, treeCache *cache.Writer, nextLeafID uint64) error {
-	log.Info("Round %v: persisting execution state (done: %d, total: %d)", r.ID, nextLeafID, r.execution.NumLeaves)
+	log.Info("Round %v: persisting execution state (done: %d, total: %d)", r.ID, nextLeafID)
 
 	// Call GetReader() so that the cache would flush and validate structure.
 	if _, err := treeCache.GetReader(); err != nil {
@@ -240,7 +246,11 @@ func (r *round) recoverExecution(state *executionState) error {
 		r.datadir,
 		hash.GenLabelHashFunc(state.Statement),
 		hash.GenMerkleHashFunc(state.Statement),
-		state.NumLeaves,
+		prover.TimeLimit(r.cfg.Genesis.
+			Add(r.cfg.EpochDuration*time.Duration(r.execution.Epoch)).
+			Add(r.cfg.PhaseShift).
+			Add(-r.cfg.CycleGap),
+		),
 		state.SecurityParam,
 		state.NextLeafID,
 		state.ParkedNodes,
@@ -280,7 +290,7 @@ func (r *round) proof(wait bool) (*PoetProof, error) {
 	}
 
 	return &PoetProof{
-		N:         r.cfg.N,
+		// TODO set number of leaves
 		Statement: r.execution.Statement,
 		Proof:     r.execution.NIP,
 	}, nil
@@ -296,10 +306,6 @@ func (r *round) state() (*roundState, error) {
 
 	if err := load(filename, s); err != nil {
 		return nil, err
-	}
-
-	if r.execution.NumLeaves != s.Execution.NumLeaves {
-		return nil, errors.New("NumLeaves config mismatch")
 	}
 	if r.execution.SecurityParam != s.Execution.SecurityParam {
 		return nil, errors.New("SecurityParam config mismatch")

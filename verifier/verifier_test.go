@@ -1,12 +1,13 @@
 package verifier
 
 import (
+	"io/ioutil"
+	"testing"
+
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/stretchr/testify/require"
-	"io/ioutil"
-	"testing"
 )
 
 func TestValidate(t *testing.T) {
@@ -16,7 +17,7 @@ func TestValidate(t *testing.T) {
 	challenge := []byte("challenge")
 	numLeaves := uint64(16)
 	securityParam := uint8(4)
-	merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam, prover.LowestMerkleMinMemoryLayer)
+	merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), prover.LeafLimit(0, numLeaves), securityParam, prover.LowestMerkleMinMemoryLayer)
 	r.NoError(err)
 
 	err = Validate(*merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
@@ -56,7 +57,7 @@ func TestValidateWrongRoot(t *testing.T) {
 	challenge := []byte("challenge")
 	numLeaves := uint64(16)
 	securityParam := uint8(4)
-	merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam, prover.LowestMerkleMinMemoryLayer)
+	merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), prover.LeafLimit(0, numLeaves), securityParam, prover.LowestMerkleMinMemoryLayer)
 	r.NoError(err)
 
 	merkleProof.Root[0] = 0
@@ -76,7 +77,7 @@ func TestValidateFailLabelValidation(t *testing.T) {
 	challenge := []byte("challenge")
 	numLeaves := uint64(16)
 	securityParam := uint8(4)
-	merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam, prover.LowestMerkleMinMemoryLayer)
+	merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), prover.LeafLimit(0, numLeaves), securityParam, prover.LowestMerkleMinMemoryLayer)
 	r.NoError(err)
 
 	err = Validate(*merkleProof, BadLabelHashFunc, hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)

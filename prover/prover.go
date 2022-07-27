@@ -3,17 +3,19 @@ package prover
 import (
 	"errors"
 	"fmt"
-	"github.com/spacemeshos/merkle-tree"
-	"github.com/spacemeshos/merkle-tree/cache"
-	"github.com/spacemeshos/poet/shared"
-	"github.com/spacemeshos/poet/signal"
-	"github.com/spacemeshos/smutil/log"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/spacemeshos/merkle-tree"
+	"github.com/spacemeshos/merkle-tree/cache"
+	"github.com/spacemeshos/poet/shared"
+	"github.com/spacemeshos/poet/signal"
+	"github.com/spacemeshos/smutil/log"
 )
 
 const (
@@ -46,7 +48,7 @@ func GenerateProof(
 	datadir string,
 	labelHashFunc func(data []byte) []byte,
 	merkleHashFunc func(lChild, rChild []byte) []byte,
-	numLeaves uint64,
+	limit limitFunc,
 	securityParam uint8,
 	minMemoryLayer uint,
 	persist persistFunc,
@@ -56,7 +58,7 @@ func GenerateProof(
 		return nil, err
 	}
 
-	return generateProof(sig, labelHashFunc, tree, treeCache, numLeaves, 0, securityParam, persist)
+	return generateProof(sig, labelHashFunc, tree, treeCache, limit, 0, securityParam, persist)
 }
 
 // GenerateProofRecovery recovers proof generation, from a given 'nextLeafID' and for a given 'parkedNodes' snapshot.
@@ -65,7 +67,7 @@ func GenerateProofRecovery(
 	datadir string,
 	labelHashFunc func(data []byte) []byte,
 	merkleHashFunc func(lChild, rChild []byte) []byte,
-	numLeaves uint64,
+	limit limitFunc,
 	securityParam uint8,
 	nextLeafID uint64,
 	parkedNodes [][]byte,
@@ -75,8 +77,7 @@ func GenerateProofRecovery(
 	if err != nil {
 		return nil, err
 	}
-
-	return generateProof(sig, labelHashFunc, tree, treeCache, numLeaves, nextLeafID, securityParam, persist)
+	return generateProof(sig, labelHashFunc, tree, treeCache, limit, nextLeafID, securityParam, persist)
 }
 
 // GenerateProofWithoutPersistency calls GenerateProof with disabled persistency functionality
@@ -85,11 +86,11 @@ func GenerateProofWithoutPersistency(
 	datadir string,
 	labelHashFunc func(data []byte) []byte,
 	merkleHashFunc func(lChild, rChild []byte) []byte,
-	numLeaves uint64,
+	limit limitFunc,
 	securityParam uint8,
 	minMemoryLayer uint,
 ) (*shared.MerkleProof, error) {
-	return GenerateProof(sig, datadir, labelHashFunc, merkleHashFunc, numLeaves, securityParam, minMemoryLayer, persist)
+	return GenerateProof(sig, datadir, labelHashFunc, merkleHashFunc, limit, securityParam, minMemoryLayer, persist)
 }
 
 func makeProofTree(
@@ -185,12 +186,30 @@ func makeRecoveryProofTree(
 	return treeCache, tree, nil
 }
 
+// TimeLimit stops proof generation after limit.
+func TimeLimit(end time.Time) limitFunc {
+	return func() bool {
+		return time.Until(end) > 0
+	}
+}
+
+// LeafLimit stops execution when leaf limit is reached.
+func LeafLimit(start uint64, limit uint64) limitFunc {
+	return func() bool {
+		rst := start < limit
+		start++
+		return rst
+	}
+}
+
+type limitFunc func() bool
+
 func generateProof(
 	sig *signal.Signal,
 	labelHashFunc func(data []byte) []byte,
 	tree *merkle.Tree,
 	treeCache *cache.Writer,
-	numLeaves uint64,
+	limit limitFunc,
 	nextLeafID uint64,
 	securityParam uint8,
 	persist persistFunc,
@@ -199,7 +218,8 @@ func generateProof(
 	defer unblock()
 
 	makeLabel := shared.MakeLabelFunc()
-	for leafID := nextLeafID; leafID < numLeaves; leafID++ {
+	leafID := nextLeafID
+	for ; limit(); leafID++ {
 		// Handle persistence.
 		if sig.ShutdownRequested {
 			if err := persist(tree, treeCache, leafID); err != nil {
@@ -227,7 +247,7 @@ func generateProof(
 	if err != nil {
 		return nil, err
 	}
-	provenLeafIndices := shared.FiatShamir(root, numLeaves, securityParam)
+	provenLeafIndices := shared.FiatShamir(root, leafID+1, securityParam)
 	_, provenLeaves, proofNodes, err := merkle.GenerateProof(provenLeafIndices, cacheReader)
 	if err != nil {
 		return nil, err

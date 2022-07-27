@@ -28,8 +28,6 @@ const (
 	defaultMaxLogFileSize           = 10
 	defaultRPCPort                  = 50002
 	defaultRESTPort                 = 8080
-	defaultN                        = 15
-	defaultInitialRoundDuration     = 35 * time.Second
 	defaultExecuteEmpty             = true
 	defaultMemoryLayers             = 26 // Up to (1 << 26) * 2 - 1 Merkle tree cache nodes (32 bytes each) will be held in-memory
 	defaultConnAcksThreshold        = 1
@@ -39,14 +37,17 @@ const (
 )
 
 var (
-	defaultPoetDir    = appdata.AppDataDir("poet", false)
-	defaultConfigFile = filepath.Join(defaultPoetDir, defaultConfigFilename)
-	defaultDataDir    = filepath.Join(defaultPoetDir, defaultDataDirname)
-	defaultLogDir     = filepath.Join(defaultPoetDir, defaultLogDirname)
+	defaultPoetDir       = appdata.AppDataDir("poet", false)
+	defaultConfigFile    = filepath.Join(defaultPoetDir, defaultConfigFilename)
+	defaultDataDir       = filepath.Join(defaultPoetDir, defaultDataDirname)
+	defaultLogDir        = filepath.Join(defaultPoetDir, defaultLogDirname)
+	defaultGenesisTime   = time.Now()
+	defaultEpochDuration = 30 * time.Second
+	defaultPhaseShift    = 5 * time.Second
+	defaultCycleGap      = 5 * time.Second
 )
 
 type coreServiceConfig struct {
-	N            int  `long:"n" description:"PoET time parameter"`
 	MemoryLayers uint `long:"memory" description:"Number of top Merkle tree layers to cache in-memory"`
 }
 
@@ -95,9 +96,11 @@ func loadConfig() (*config, error) {
 		RawRPCListener:  fmt.Sprintf("localhost:%d", defaultRPCPort),
 		RawRESTListener: fmt.Sprintf("localhost:%d", defaultRESTPort),
 		Service: &service.Config{
-			N:                        defaultN,
+			Genesis:                  defaultGenesisTime,
+			EpochDuration:            defaultEpochDuration,
+			PhaseShift:               defaultPhaseShift,
+			CycleGap:                 defaultCycleGap,
 			MemoryLayers:             defaultMemoryLayers,
-			InitialRoundDuration:     defaultInitialRoundDuration,
 			ExecuteEmpty:             defaultExecuteEmpty,
 			ConnAcksThreshold:        defaultConnAcksThreshold,
 			BroadcastAcksThreshold:   defaultBroadcastAcksThreshold,
@@ -105,7 +108,6 @@ func loadConfig() (*config, error) {
 			BroadcastRetriesInterval: defaultBroadcastRetriesInterval,
 		},
 		CoreService: &coreServiceConfig{
-			N:            defaultN,
 			MemoryLayers: defaultMemoryLayers,
 		},
 	}
@@ -119,7 +121,6 @@ func loadConfig() (*config, error) {
 
 	appName := filepath.Base(os.Args[0])
 	appName = strings.TrimSuffix(appName, filepath.Ext(appName))
-	usageMessage := fmt.Sprintf("Use %s -h to show usage", appName)
 
 	// If the config file path has not been modified by the user, then we'll
 	// use the default config file path. However, if the user has modified
@@ -187,14 +188,6 @@ func loadConfig() (*config, error) {
 	// to use them later on.
 	cfg.DataDir = cleanAndExpandPath(cfg.DataDir)
 	cfg.LogDir = cleanAndExpandPath(cfg.LogDir)
-
-	// Ensure that the user didn't attempt to specify non-positive values
-	// for the poet n parameter
-	if cfg.Service.N < 1 || cfg.CoreService.N < 1 {
-		fmt.Fprintln(os.Stderr, usageMessage)
-		err := fmt.Errorf("%s: n must be positive", funcName)
-		return nil, err
-	}
 
 	// Resolve the RPC listener
 	addr, err := net.ResolveTCPAddr("tcp", cfg.RawRPCListener)

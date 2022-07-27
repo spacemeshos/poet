@@ -4,26 +4,29 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/nullstyle/go-xdr/xdr3"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	xdr "github.com/nullstyle/go-xdr/xdr3"
 	"github.com/spacemeshos/poet/broadcaster"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/signal"
 	"github.com/spacemeshos/smutil/log"
 	"golang.org/x/crypto/ed25519"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"strings"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
 type Config struct {
-	N                        uint          `long:"n" description:"PoET time parameter"`
+	Genesis                  time.Time     `long:"genesis" description:"Genesis timestamp"`
+	EpochDuration            time.Duration `long:"epoch-duration" description:"Epoch duration"`
+	PhaseShift               time.Duration `long:"phase-shift"`
+	CycleGap                 time.Duration `long:"cycle-gap"`
 	MemoryLayers             uint          `long:"memory" description:"Number of top Merkle tree layers to cache in-memory"`
-	RoundsDuration           time.Duration `long:"duration" description:"duration of the opening time for each round. If not specified, rounds duration will be determined by its previous round end of PoET execution"`
-	InitialRoundDuration     time.Duration `long:"initialduration" description:"duration of the opening time for the initial round. if rounds duration isn't specified, this param is necessary"`
 	ExecuteEmpty             bool          `long:"empty" description:"whether to execute empty rounds, without any submitted challenges"`
 	NoRecovery               bool          `long:"norecovery" description:"whether to disable a potential recovery procedure"`
 	Reset                    bool          `long:"reset" description:"whether to reset the service state by deleting the datadir"`
@@ -38,8 +41,7 @@ type Config struct {
 const serviceStateFileBaseName = "state.bin"
 
 type serviceState struct {
-	NextRoundID int
-	PrivKey     []byte
+	PrivKey []byte
 }
 
 // Service orchestrates rounds functionality; each responsible for accepting challenges,
@@ -59,8 +61,7 @@ type Service struct {
 	// and the proof generation duration (cfg.N + runtime variance + caching policies).
 	executingRounds map[string]*round
 
-	prevRound   *round
-	nextRoundID int
+	prevRound *round
 
 	PubKey      ed25519.PublicKey
 	privKey     ed25519.PrivateKey
@@ -140,7 +141,6 @@ func NewService(sig *signal.Signal, cfg *Config, datadir string) (*Service, erro
 
 	s.privKey = ed25519.NewKeyFromSeed(state.PrivKey[:32])
 	s.PubKey = state.PrivKey[32:]
-	s.nextRoundID = state.NextRoundID
 
 	log.Info("Service public key: %x", s.PubKey)
 
@@ -174,16 +174,14 @@ func (s *Service) initialState() *serviceState {
 	}
 
 	return &serviceState{
-		NextRoundID: 1,
-		PrivKey:     priv,
+		PrivKey: priv,
 	}
 }
 
 func (s *Service) saveState() error {
 	filename := filepath.Join(s.datadir, serviceStateFileBaseName)
 	v := &serviceState{
-		NextRoundID: s.nextRoundID,
-		PrivKey:     s.privKey,
+		PrivKey: s.privKey,
 	}
 
 	return persist(filename, v)
@@ -220,12 +218,20 @@ func (s *Service) Start(b Broadcaster) error {
 
 	go func() {
 		for {
-			select {
-			case <-s.openRoundClosure():
-			case <-s.sig.ShutdownRequestedChan:
-				log.Info("Shutdown requested, service shutting down")
-				s.openRound = nil
-				return
+			now := time.Now()
+			epoch := time.Duration(0)
+			if d := now.Sub(s.cfg.Genesis); d > 0 {
+				epoch = d / s.cfg.EpochDuration
+			}
+			start := s.cfg.Genesis.Add(s.cfg.EpochDuration * epoch).Add(s.cfg.PhaseShift)
+			if d := start.Sub(now); d > 0 {
+				select {
+				case <-time.After(d):
+				case <-s.sig.ShutdownRequestedChan:
+					log.Info("Shutdown requested, service shutting down")
+					s.openRound = nil
+					return
+				}
 			}
 
 			if s.openRound.isEmpty() && !s.cfg.ExecuteEmpty {
@@ -267,8 +273,12 @@ func (s *Service) Recover() error {
 			continue
 		}
 
+		epoch, err := strconv.ParseUint(entry.Name(), 10, 32)
+		if err != nil {
+			return fmt.Errorf("entry is not a uint32 %s", entry.Name())
+		}
 		datadir := filepath.Join(s.datadir, entry.Name())
-		r := newRound(s.sig, s.cfg, datadir, entry.Name())
+		r := newRound(s.sig, s.cfg, datadir, uint32(epoch))
 
 		state, err := r.state()
 		if err != nil {
@@ -388,36 +398,20 @@ func (s *Service) Info() (*InfoResponse, error) {
 }
 
 func (s *Service) newRound() *round {
-	roundID := fmt.Sprintf("%d", s.nextRoundID)
-	s.nextRoundID++
+	now := time.Now()
+	epoch := now.Sub(s.cfg.Genesis) / s.cfg.EpochDuration
 	if err := s.saveState(); err != nil {
 		panic(err)
 	}
 
-	datadir := filepath.Join(s.datadir, roundID)
+	datadir := filepath.Join(s.datadir, strconv.Itoa(int(epoch)))
 
-	r := newRound(s.sig, s.cfg, datadir, roundID)
+	r := newRound(s.sig, s.cfg, datadir, uint32(epoch))
 	if err := r.open(); err != nil {
 		panic(fmt.Errorf("failed to open round: %v", err))
 	}
 
 	return r
-}
-
-// openRoundClosure returns a channel used to notify the closure of the current open round.
-func (s *Service) openRoundClosure() <-chan struct{} {
-	// If it's the initial round, use the initial duration config to notify the closure.
-	if s.prevRound == nil {
-		return s.openRoundClosurePerDuration(s.cfg.InitialRoundDuration)
-	}
-
-	// If rounds duration was specified, use it to notify the closure.
-	if s.cfg.RoundsDuration > 0 {
-		return s.openRoundClosurePerDuration(s.cfg.RoundsDuration)
-	}
-
-	// Use the previous round end of execution to notify the closure.
-	return s.prevRound.executionEndedChan
 }
 
 func (s *Service) openRoundClosurePerDuration(d time.Duration) <-chan struct{} {
@@ -465,7 +459,8 @@ func serializeProofMsg(servicePubKey []byte, roundID string, execution *executio
 		GossipPoetProof: GossipPoetProof{
 			MerkleProof: *execution.NIP,
 			Members:     execution.Members,
-			NumLeaves:   execution.NumLeaves,
+			// TODO(dshulyak) refactor api to get number of leaves in the result
+			// NumLeaves:   execution.NumLeaves,
 		},
 		ServicePubKey: servicePubKey,
 		RoundID:       roundID,

@@ -40,7 +40,7 @@ func (r *RPCServer) Compute(ctx context.Context, in *apicore.ComputeRequest) (*a
 	challenge := in.D.X
 	numLeaves := uint64(1) << in.D.N
 	securityParam := shared.T
-	proof, err := prover.GenerateProofWithoutPersistency(r.datadir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam, prover.LowestMerkleMinMemoryLayer)
+	proof, err := prover.GenerateProofWithoutPersistency(r.datadir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), prover.LeafLimit(0, numLeaves), securityParam, prover.LowestMerkleMinMemoryLayer)
 	if err != nil {
 		return nil, status.Error(codes.Unknown, err.Error())
 	}
