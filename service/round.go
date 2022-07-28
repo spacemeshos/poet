@@ -26,6 +26,7 @@ type executionState struct {
 	Statement     []byte
 	ParkedNodes   [][]byte
 	NextLeafID    uint64
+	Leafs         uint64
 	NIP           *shared.MerkleProof
 }
 
@@ -179,16 +180,15 @@ func (r *round) execute() error {
 		minMemoryLayer = prover.LowestMerkleMinMemoryLayer
 	}
 
-	r.execution.NIP, err = prover.GenerateProof(
+	r.execution.Leafs, r.execution.NIP, err = prover.GenerateProof(
 		r.sig,
 		r.datadir,
 		hash.GenLabelHashFunc(r.execution.Statement),
 		hash.GenMerkleHashFunc(r.execution.Statement),
-		prover.TimeLimit(r.cfg.Genesis.
+		r.cfg.Genesis.
 			Add(r.cfg.EpochDuration*time.Duration(r.execution.Epoch+1)).
 			Add(r.cfg.PhaseShift).
 			Add(-r.cfg.CycleGap),
-		),
 		r.execution.SecurityParam,
 		uint(minMemoryLayer),
 		r.persistExecution,
@@ -241,16 +241,15 @@ func (r *round) recoverExecution(state *executionState) error {
 	}
 
 	var err error
-	r.execution.NIP, err = prover.GenerateProofRecovery(
+	r.execution.Leafs, r.execution.NIP, err = prover.GenerateProofRecovery(
 		r.sig,
 		r.datadir,
 		hash.GenLabelHashFunc(state.Statement),
 		hash.GenMerkleHashFunc(state.Statement),
-		prover.TimeLimit(r.cfg.Genesis.
+		r.cfg.Genesis.
 			Add(r.cfg.EpochDuration*time.Duration(r.execution.Epoch)).
 			Add(r.cfg.PhaseShift).
 			Add(-r.cfg.CycleGap),
-		),
 		state.SecurityParam,
 		state.NextLeafID,
 		state.ParkedNodes,

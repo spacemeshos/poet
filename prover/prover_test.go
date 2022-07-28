@@ -1,7 +1,6 @@
 package prover
 
 import (
-	"fmt"
 	"io/ioutil"
 	"testing"
 	"time"
@@ -27,17 +26,11 @@ func BenchmarkGetProof(b *testing.B) {
 	tempdir := b.TempDir()
 
 	challenge := []byte("challenge this! challenge this! ")
-	numLeaves := uint64(1) << 20
 	securityParam := shared.T
-	fmt.Printf("=> Generating proof for %d leaves with security param %d...\n", numLeaves, securityParam)
-
-	total := uint64(0)
-	for i := 0; i < b.N; i++ {
-		leafs, _, err := GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(100*time.Microsecond), securityParam, LowestMerkleMinMemoryLayer)
-		if err != nil {
-			b.Fatal(err)
-		}
-		total += leafs
+	duration := 10 * time.Millisecond
+	leafs, _, err := GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(duration), securityParam, LowestMerkleMinMemoryLayer)
+	if err != nil {
+		b.Fatal(err)
 	}
-	b.ReportMetric(float64(total), "leafs")
+	b.ReportMetric(float64(leafs), "leafs/op")
 }

@@ -3,12 +3,13 @@ package main
 import (
 	"crypto/rand"
 	"fmt"
+	"io/ioutil"
+	"runtime"
+
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/verifier"
-	"io/ioutil"
-	"runtime"
 
 	"log"
 	"os"
@@ -54,23 +55,23 @@ func main() {
 		panic("no entropy")
 	}
 
-	numLeaves := uint64(1) << cfg.N
+	end := time.Now().Add(cfg.Duration)
 	securityParam := shared.T
 
 	t1 := time.Now()
 	println("Computing dag...")
 	tempdir, _ := ioutil.TempDir("", "poet-test")
-	merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam, prover.LowestMerkleMinMemoryLayer)
+	leafs, merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), end, securityParam, prover.LowestMerkleMinMemoryLayer)
 	if err != nil {
 		panic("failed to generate proof")
 	}
 
 	e := time.Since(t1)
-	fmt.Printf("Proof generated in %s (%f)\n", e, e.Seconds())
+	fmt.Printf("Proof from %d leafs generated in %s (%f)\n", leafs, e, e.Seconds())
 	fmt.Printf("Dag root label: %x\n", merkleProof.Root)
 
 	t1 = time.Now()
-	err = verifier.Validate(*merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
+	err = verifier.Validate(*merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafs, securityParam)
 	if err != nil {
 		panic("Failed to verify nip")
 	}
