@@ -6,10 +6,11 @@
 package signal
 
 import (
-	"github.com/spacemeshos/smutil/log"
 	"os"
 	"os/signal"
 	"sync"
+
+	"github.com/spacemeshos/smutil/log"
 )
 
 type Signal struct {

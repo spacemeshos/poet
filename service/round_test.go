@@ -28,7 +28,7 @@ func TestRound_Recovery(t *testing.T) {
 
 	sig := signal.NewSignal()
 	cfg := &Config{}
-	duration := 100 * time.Microsecond
+	duration := 1 * time.Millisecond
 
 	challenges, err := genChallenges(32)
 	req.NoError(err)
@@ -64,7 +64,7 @@ func TestRound_Recovery(t *testing.T) {
 	req.False(r2.isEmpty())
 
 	go func() {
-		time.Sleep(r1exec / 3)
+		time.Sleep(duration / 3)
 		sig.RequestShutdown()
 	}()
 

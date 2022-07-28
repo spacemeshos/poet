@@ -217,7 +217,7 @@ func generateProof(
 	defer unblock()
 
 	makeLabel := shared.MakeLabelFunc()
-	leafs := nextLeafID
+	leaves := nextLeafID
 	for leafID := nextLeafID; time.Until(end) > 0; leafID++ {
 		// Handle persistence.
 		if sig.ShutdownRequested {
@@ -236,10 +236,10 @@ func generateProof(
 		if err != nil {
 			return 0, nil, err
 		}
-		leafs++
+		leaves++
 	}
 
-	log.Info("Merkle tree construction finished with %d leafs, generating proof...", leafs)
+	log.Info("Merkle tree construction finished with %d leafs, generating proof...", leaves)
 
 	root := tree.Root()
 
@@ -247,13 +247,13 @@ func generateProof(
 	if err != nil {
 		return 0, nil, err
 	}
-	provenLeafIndices := shared.FiatShamir(root, leafs, securityParam)
+	provenLeafIndices := shared.FiatShamir(root, leaves, securityParam)
 	_, provenLeaves, proofNodes, err := merkle.GenerateProof(provenLeafIndices, cacheReader)
 	if err != nil {
 		return 0, nil, err
 	}
 
-	return leafs, &shared.MerkleProof{
+	return leaves, &shared.MerkleProof{
 		Root:         root,
 		ProvenLeaves: provenLeaves,
 		ProofNodes:   proofNodes,
