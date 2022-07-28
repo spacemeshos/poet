@@ -2,13 +2,14 @@ package service
 
 import (
 	"fmt"
-	"github.com/spacemeshos/poet/prover"
-	"github.com/spacemeshos/poet/signal"
-	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/spacemeshos/poet/prover"
+	"github.com/spacemeshos/poet/signal"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -26,14 +27,15 @@ func TestRound_Recovery(t *testing.T) {
 	req := require.New(t)
 
 	sig := signal.NewSignal()
-	cfg := &Config{N: 18}
+	cfg := &Config{}
+	duration := 100 * time.Microsecond
 
 	challenges, err := genChallenges(32)
 	req.NoError(err)
 
 	// Execute r1 as a reference round.
-	tempdir, _ := ioutil.TempDir("", "poet-test")
-	r1 := newRound(sig, cfg, tempdir, "test-round-1")
+	tempdir := t.TempDir()
+	r1 := newRound(sig, cfg, tempdir, 0)
 	req.NoError(r1.open())
 	req.Equal(0, r1.numChallenges())
 	req.True(r1.isEmpty())
@@ -45,12 +47,12 @@ func TestRound_Recovery(t *testing.T) {
 	req.False(r1.isEmpty())
 
 	start := time.Now()
-	req.NoError(r1.execute())
+	req.NoError(r1.execute(time.Now().Add(duration)))
 	r1exec := time.Since(start)
 
 	// Execute r2, and request shutdown before completion.
 	tempdir, _ = ioutil.TempDir("", "poet-test")
-	r2 := newRound(sig, cfg, tempdir, "test-round-2")
+	r2 := newRound(sig, cfg, tempdir, 1)
 	req.NoError(r2.open())
 	req.Equal(0, r2.numChallenges())
 	req.True(r2.isEmpty())
@@ -67,12 +69,12 @@ func TestRound_Recovery(t *testing.T) {
 	}()
 
 	start = time.Now()
-	req.EqualError(r2.execute(), prover.ErrShutdownRequested.Error())
+	req.EqualError(r2.execute(time.Now().Add(duration)), prover.ErrShutdownRequested.Error())
 	r2exec1 := time.Since(start)
 
 	// Recover r2 execution, and request shutdown before completion.
 	sig = signal.NewSignal()
-	r2recovery1 := newRound(sig, cfg, tempdir, "test-round-2-recovery-1")
+	r2recovery1 := newRound(sig, cfg, tempdir, 1)
 	req.Equal(len(challenges), r2recovery1.numChallenges())
 	req.False(r2recovery1.isEmpty())
 
@@ -80,24 +82,24 @@ func TestRound_Recovery(t *testing.T) {
 	req.NoError(err)
 
 	go func() {
-		time.Sleep(r1exec / 3)
+		time.Sleep(duration / 3)
 		sig.RequestShutdown()
 	}()
 
 	start = time.Now()
-	req.EqualError(r2recovery1.recoverExecution(state.Execution), prover.ErrShutdownRequested.Error())
+	req.EqualError(r2recovery1.recoverExecution(state.Execution, time.Now().Add(duration)), prover.ErrShutdownRequested.Error())
 	r2exec2 := time.Since(start)
 
 	// Recover r2 execution again, and let it complete.
 	sig = signal.NewSignal()
-	r2recovery2 := newRound(sig, cfg, tempdir, "test-round-2-recovery-2")
+	r2recovery2 := newRound(sig, cfg, tempdir, 1)
 	req.Equal(len(challenges), r2recovery2.numChallenges())
 	req.False(r2recovery2.isEmpty())
 	state, err = r2recovery2.state()
 	req.NoError(err)
 
 	start = time.Now()
-	req.NoError(r2recovery2.recoverExecution(state.Execution))
+	req.NoError(r2recovery2.recoverExecution(state.Execution, time.Now().Add(duration)))
 	r2exec3 := time.Since(start)
 
 	// Compare r2 total execution time and execution results with r1.
@@ -113,11 +115,11 @@ func TestRound_State(t *testing.T) {
 	req := require.New(t)
 
 	sig := signal.NewSignal()
-	cfg := &Config{N: 18}
+	cfg := &Config{}
 	tempdir, _ := ioutil.TempDir("", "poet-test")
 
 	// Create a new round.
-	r := newRound(sig, cfg, tempdir, "test-round")
+	r := newRound(sig, cfg, tempdir, 0)
 	req.True(!r.isOpen())
 	req.True(r.opened.IsZero())
 	req.True(r.executionStarted.IsZero())
@@ -166,11 +168,11 @@ func TestRound_State(t *testing.T) {
 
 	// Execute the round, and request shutdown before completion.
 	go func() {
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(100 * time.Microsecond)
 		sig.RequestShutdown()
 	}()
 
-	req.EqualError(r.execute(), prover.ErrShutdownRequested.Error())
+	req.EqualError(r.execute(time.Now().Add(200*time.Microsecond)), prover.ErrShutdownRequested.Error())
 	req.True(!r.isOpen())
 	req.True(!r.opened.IsZero())
 	req.True(!r.executionStarted.IsZero())
@@ -191,7 +193,7 @@ func TestRound_State(t *testing.T) {
 	req.True(state.Execution.NIP == nil)
 
 	// Create a new round instance of the same round.
-	r = newRound(signal.NewSignal(), cfg, tempdir, "test-round")
+	r = newRound(signal.NewSignal(), cfg, tempdir, 0)
 	req.True(!r.isOpen())
 	req.True(r.opened.IsZero())
 	req.True(r.executionStarted.IsZero())
@@ -206,7 +208,7 @@ func TestRound_State(t *testing.T) {
 	req.Equal(prevState, state)
 
 	// Recover execution.
-	req.NoError(r.recoverExecution(state.Execution))
+	req.NoError(r.recoverExecution(state.Execution, time.Now().Add(100*time.Microsecond)))
 
 	req.True(!r.executionStarted.IsZero())
 	proof, err := r.proof(false)

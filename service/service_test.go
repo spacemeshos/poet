@@ -4,15 +4,16 @@ import (
 	"bytes"
 	"crypto/rand"
 	"fmt"
-	"github.com/nullstyle/go-xdr/xdr3"
-	"github.com/spacemeshos/merkle-tree"
-	"github.com/spacemeshos/poet/prover"
-	"github.com/spacemeshos/poet/signal"
-	"github.com/stretchr/testify/require"
 	"io/ioutil"
 	"strconv"
 	"testing"
 	"time"
+
+	xdr "github.com/nullstyle/go-xdr/xdr3"
+	"github.com/spacemeshos/merkle-tree"
+	"github.com/spacemeshos/poet/prover"
+	"github.com/spacemeshos/poet/signal"
+	"github.com/stretchr/testify/require"
 )
 
 type MockBroadcaster struct {
@@ -46,7 +47,7 @@ func TestService_Recovery(t *testing.T) {
 	req := require.New(t)
 	sig := signal.NewSignal()
 	broadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
-	cfg := &Config{N: 17, InitialRoundDuration: 1 * time.Second}
+	cfg := &Config{Genesis: time.Now(), EpochDuration: 100 * time.Microsecond}
 	tempdir, _ := ioutil.TempDir("", "poet-test")
 
 	// Create a new service instance.
@@ -216,8 +217,6 @@ func TestNewService(t *testing.T) {
 	tempdir, _ := ioutil.TempDir("", "poet-test")
 
 	cfg := new(Config)
-	cfg.N = 17
-	cfg.InitialRoundDuration = 1 * time.Second
 
 	s, err := NewService(signal.NewSignal(), cfg, tempdir)
 	req.NoError(err)

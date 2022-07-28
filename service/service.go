@@ -319,7 +319,12 @@ func (s *Service) Recover() error {
 				s.Unlock()
 			}()
 
-			if err = r.recoverExecution(state.Execution); err != nil {
+			end := s.cfg.Genesis.
+				Add(s.cfg.EpochDuration * time.Duration(r.execution.Epoch+1)).
+				Add(s.cfg.PhaseShift).
+				Add(-s.cfg.CycleGap)
+
+			if err = r.recoverExecution(r.execution, end); err != nil {
 				s.asyncError(fmt.Errorf("recovery: round %v execution failure: %v", r.ID, err))
 				return
 			}
@@ -353,9 +358,14 @@ func (s *Service) executeRound(r *round) error {
 		s.Unlock()
 	}()
 
-	log.Info("Round %v executing...", r.ID)
+	end := s.cfg.Genesis.
+		Add(s.cfg.EpochDuration * time.Duration(r.execution.Epoch+1)).
+		Add(s.cfg.PhaseShift).
+		Add(-s.cfg.CycleGap)
 
-	if err := r.execute(); err != nil {
+	log.Info("Round %v executing until %v...", r.ID, end)
+
+	if err := r.execute(end); err != nil {
 		return err
 	}
 
@@ -459,8 +469,7 @@ func serializeProofMsg(servicePubKey []byte, roundID string, execution *executio
 		GossipPoetProof: GossipPoetProof{
 			MerkleProof: *execution.NIP,
 			Members:     execution.Members,
-			// TODO(dshulyak) refactor api to get number of leaves in the result
-			// NumLeaves:   execution.NumLeaves,
+			NumLeaves:   execution.NumLeaves,
 		},
 		ServicePubKey: servicePubKey,
 		RoundID:       roundID,

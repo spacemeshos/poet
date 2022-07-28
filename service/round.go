@@ -26,7 +26,7 @@ type executionState struct {
 	Statement     []byte
 	ParkedNodes   [][]byte
 	NextLeafID    uint64
-	Leafs         uint64
+	NumLeaves     uint64
 	NIP           *shared.MerkleProof
 }
 
@@ -131,10 +131,8 @@ func (r *round) submit(challenge []byte) error {
 	}
 
 	r.submitMtx.Lock()
-	err := r.challengesDb.Put(challenge, nil)
-	r.submitMtx.Unlock()
-
-	return err
+	defer r.submitMtx.Unlock()
+	return r.challengesDb.Put(challenge, nil)
 }
 
 func (r *round) numChallenges() int {
@@ -155,7 +153,7 @@ func (r *round) isEmpty() bool {
 	return !iter.Next()
 }
 
-func (r *round) execute() error {
+func (r *round) execute(end time.Time) error {
 	r.executionStarted = time.Now()
 	if err := r.saveState(); err != nil {
 		return err
@@ -167,6 +165,7 @@ func (r *round) execute() error {
 	var err error
 	r.execution.Members, r.execution.Statement, err = r.calcMembersAndStatement()
 	if err != nil {
+		r.submitMtx.Unlock()
 		return err
 	}
 	r.submitMtx.Unlock()
@@ -175,20 +174,14 @@ func (r *round) execute() error {
 		return err
 	}
 
-	minMemoryLayer := int(23 - r.cfg.MemoryLayers)
-	if minMemoryLayer < prover.LowestMerkleMinMemoryLayer {
-		minMemoryLayer = prover.LowestMerkleMinMemoryLayer
-	}
+	minMemoryLayer := prover.LowestMerkleMinMemoryLayer
 
-	r.execution.Leafs, r.execution.NIP, err = prover.GenerateProof(
+	r.execution.NumLeaves, r.execution.NIP, err = prover.GenerateProof(
 		r.sig,
 		r.datadir,
 		hash.GenLabelHashFunc(r.execution.Statement),
 		hash.GenMerkleHashFunc(r.execution.Statement),
-		r.cfg.Genesis.
-			Add(r.cfg.EpochDuration*time.Duration(r.execution.Epoch+1)).
-			Add(r.cfg.PhaseShift).
-			Add(-r.cfg.CycleGap),
+		end,
 		r.execution.SecurityParam,
 		uint(minMemoryLayer),
 		r.persistExecution,
@@ -222,7 +215,7 @@ func (r *round) persistExecution(tree *merkle.Tree, treeCache *cache.Writer, nex
 	return nil
 }
 
-func (r *round) recoverExecution(state *executionState) error {
+func (r *round) recoverExecution(state *executionState, end time.Time) error {
 	r.executionStarted = r.stateCache.ExecutionStarted
 	close(r.executionStartedChan)
 
@@ -241,15 +234,12 @@ func (r *round) recoverExecution(state *executionState) error {
 	}
 
 	var err error
-	r.execution.Leafs, r.execution.NIP, err = prover.GenerateProofRecovery(
+	r.execution.NumLeaves, r.execution.NIP, err = prover.GenerateProofRecovery(
 		r.sig,
 		r.datadir,
 		hash.GenLabelHashFunc(state.Statement),
 		hash.GenMerkleHashFunc(state.Statement),
-		r.cfg.Genesis.
-			Add(r.cfg.EpochDuration*time.Duration(r.execution.Epoch)).
-			Add(r.cfg.PhaseShift).
-			Add(-r.cfg.CycleGap),
+		end,
 		state.SecurityParam,
 		state.NextLeafID,
 		state.ParkedNodes,
