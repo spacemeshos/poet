@@ -48,16 +48,15 @@ func GenerateProof(
 	datadir string,
 	labelHashFunc func(data []byte) []byte,
 	merkleHashFunc func(lChild, rChild []byte) []byte,
-	limit limitFunc,
+	limit time.Time,
 	securityParam uint8,
 	minMemoryLayer uint,
 	persist persistFunc,
-) (*shared.MerkleProof, error) {
+) (uint64, *shared.MerkleProof, error) {
 	tree, treeCache, err := makeProofTree(datadir, merkleHashFunc, minMemoryLayer)
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
-
 	return generateProof(sig, labelHashFunc, tree, treeCache, limit, 0, securityParam, persist)
 }
 
@@ -67,15 +66,15 @@ func GenerateProofRecovery(
 	datadir string,
 	labelHashFunc func(data []byte) []byte,
 	merkleHashFunc func(lChild, rChild []byte) []byte,
-	limit limitFunc,
+	limit time.Time,
 	securityParam uint8,
 	nextLeafID uint64,
 	parkedNodes [][]byte,
 	persist persistFunc,
-) (*shared.MerkleProof, error) {
+) (uint64, *shared.MerkleProof, error) {
 	treeCache, tree, err := makeRecoveryProofTree(datadir, merkleHashFunc, nextLeafID, parkedNodes)
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
 	return generateProof(sig, labelHashFunc, tree, treeCache, limit, nextLeafID, securityParam, persist)
 }
@@ -86,10 +85,10 @@ func GenerateProofWithoutPersistency(
 	datadir string,
 	labelHashFunc func(data []byte) []byte,
 	merkleHashFunc func(lChild, rChild []byte) []byte,
-	limit limitFunc,
+	limit time.Time,
 	securityParam uint8,
 	minMemoryLayer uint,
-) (*shared.MerkleProof, error) {
+) (uint64, *shared.MerkleProof, error) {
 	return GenerateProof(sig, datadir, labelHashFunc, merkleHashFunc, limit, securityParam, minMemoryLayer, persist)
 }
 
@@ -209,34 +208,35 @@ func generateProof(
 	labelHashFunc func(data []byte) []byte,
 	tree *merkle.Tree,
 	treeCache *cache.Writer,
-	limit limitFunc,
+	end time.Time,
 	nextLeafID uint64,
 	securityParam uint8,
 	persist persistFunc,
-) (*shared.MerkleProof, error) {
+) (uint64, *shared.MerkleProof, error) {
 	unblock := sig.BlockShutdown()
 	defer unblock()
 
 	makeLabel := shared.MakeLabelFunc()
-	leafID := nextLeafID
-	for ; limit(); leafID++ {
+	leafs := nextLeafID
+	for leafID := nextLeafID; time.Until(end) > 0; leafID++ {
 		// Handle persistence.
 		if sig.ShutdownRequested {
 			if err := persist(tree, treeCache, leafID); err != nil {
-				return nil, err
+				return 0, nil, err
 			}
-			return nil, ErrShutdownRequested
+			return 0, nil, ErrShutdownRequested
 		} else if leafID != 0 && leafID%hardShutdownCheckpointRate == 0 {
 			if err := persist(tree, treeCache, leafID); err != nil {
-				return nil, err
+				return 0, nil, err
 			}
 		}
 
 		// Generate the next leaf.
 		err := tree.AddLeaf(makeLabel(labelHashFunc, leafID, tree.GetParkedNodes()))
 		if err != nil {
-			return nil, err
+			return 0, nil, err
 		}
+		leafs++
 	}
 
 	log.Info("Merkle tree construction finished, generating proof...")
@@ -245,15 +245,15 @@ func generateProof(
 
 	cacheReader, err := treeCache.GetReader()
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
-	provenLeafIndices := shared.FiatShamir(root, leafID+1, securityParam)
+	provenLeafIndices := shared.FiatShamir(root, leafs, securityParam)
 	_, provenLeaves, proofNodes, err := merkle.GenerateProof(provenLeafIndices, cacheReader)
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
 
-	return &shared.MerkleProof{
+	return leafs, &shared.MerkleProof{
 		Root:         root,
 		ProvenLeaves: provenLeaves,
 		ProofNodes:   proofNodes,

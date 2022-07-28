@@ -16,30 +16,28 @@ func TestGetProof(t *testing.T) {
 	tempdir, _ := ioutil.TempDir("", "poet-test")
 
 	challenge := []byte("challenge this")
-	merkleProof, err := GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), LeafLimit(0, 16), 5, LowestMerkleMinMemoryLayer)
+	leafs, merkleProof, err := GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(10*time.Millisecond), 5, LowestMerkleMinMemoryLayer)
 	r.NoError(err)
-	fmt.Printf("root: %x\n", merkleProof.Root)
-	fmt.Printf("proof: %x\n", merkleProof.ProvenLeaves)
+	t.Logf("root: %x", merkleProof.Root)
+	t.Logf("proof: %x", merkleProof.ProvenLeaves)
+	t.Logf("leafs: %d", leafs)
 }
 
 func BenchmarkGetProof(b *testing.B) {
-	r := require.New(b)
-	tempdir, _ := ioutil.TempDir("", "poet-test")
+	tempdir := b.TempDir()
 
 	challenge := []byte("challenge this! challenge this! ")
 	numLeaves := uint64(1) << 20
 	securityParam := shared.T
 	fmt.Printf("=> Generating proof for %d leaves with security param %d...\n", numLeaves, securityParam)
 
-	t1 := time.Now()
-	_, err := GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), LeafLimit(0, numLeaves), securityParam, LowestMerkleMinMemoryLayer)
-	e := time.Since(t1)
-
-	r.NoError(err)
-	fmt.Printf("=> Completed in %v.\n", e)
-
-	/*
-		=> Generating proof for 1048576 leaves with security param 150...
-		=> Completed in 22.020794606s.
-	*/
+	total := uint64(0)
+	for i := 0; i < b.N; i++ {
+		leafs, _, err := GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(100*time.Microsecond), securityParam, LowestMerkleMinMemoryLayer)
+		if err != nil {
+			b.Fatal(err)
+		}
+		total += leafs
+	}
+	b.ReportMetric(float64(total), "leafs")
 }
