@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -61,6 +62,7 @@ type round struct {
 	executionStartedChan chan struct{}
 	executionEndedChan   chan struct{}
 	broadcastedChan      chan struct{}
+	teardownChan         chan struct{}
 
 	stateCache *roundState
 
@@ -71,17 +73,17 @@ type round struct {
 func newRound(sig *signal.Signal, cfg *Config, datadir string, epoch uint32) *round {
 	r := new(round)
 	r.cfg = cfg
-	r.datadir = datadir
 	r.ID = strconv.FormatUint(uint64(epoch), 10)
+	r.datadir = filepath.Join(datadir, r.ID)
 	r.openedChan = make(chan struct{})
 	r.executionStartedChan = make(chan struct{})
 	r.executionEndedChan = make(chan struct{})
 	r.broadcastedChan = make(chan struct{})
+	r.teardownChan = make(chan struct{})
 	r.sig = sig
 
-	dbPath := filepath.Join(datadir, "challengesDb")
 	wo := &opt.WriteOptions{Sync: true}
-	r.challengesDb = NewLevelDbStore(dbPath, wo, nil) // This creates the datadir if it doesn't exist already.
+	r.challengesDb = NewLevelDbStore(filepath.Join(r.datadir, "challengesDb"), wo, nil) // This creates the datadir if it doesn't exist already.
 
 	r.execution = new(executionState)
 	r.execution.Epoch = epoch
@@ -100,7 +102,8 @@ func newRound(sig *signal.Signal, cfg *Config, datadir string, epoch uint32) *ro
 			return
 		}
 
-		log.Info("Round %v torn down", r.ID)
+		log.Info("Round %v torn down (cleanup %v)", r.ID, cleanup)
+		close(r.teardownChan)
 	}()
 
 	return r
@@ -119,6 +122,15 @@ func (r *round) open() error {
 	close(r.openedChan)
 
 	return nil
+}
+
+func (r *round) waitTeardown(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-r.teardownChan:
+		return nil
+	}
 }
 
 func (r *round) isOpen() bool {
@@ -165,7 +177,6 @@ func (r *round) execute(end time.Time) error {
 	var err error
 	r.execution.Members, r.execution.Statement, err = r.calcMembersAndStatement()
 	if err != nil {
-		r.submitMtx.Unlock()
 		return err
 	}
 	r.submitMtx.Unlock()
@@ -199,7 +210,7 @@ func (r *round) execute(end time.Time) error {
 }
 
 func (r *round) persistExecution(tree *merkle.Tree, treeCache *cache.Writer, nextLeafID uint64) error {
-	log.Info("Round %v: persisting execution state (done: %d, total: %d)", r.ID, nextLeafID)
+	log.Info("Round %v: persisting execution state (done: %d)", r.ID, nextLeafID)
 
 	// Call GetReader() so that the cache would flush and validate structure.
 	if _, err := treeCache.GetReader(); err != nil {
