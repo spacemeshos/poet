@@ -239,7 +239,7 @@ func generateProof(
 		leaves++
 	}
 
-	log.Info("Merkle tree construction finished with %d leafs, generating proof...", leaves)
+	log.Info("Merkle tree construction finished with %d leaves, generating proof...", leaves)
 
 	root := tree.Root()
 

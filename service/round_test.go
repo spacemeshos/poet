@@ -132,7 +132,7 @@ func TestRound_State(t *testing.T) {
 
 	req.Nil(r.stateCache)
 	state, err := r.state()
-	req.EqualError(err, fmt.Sprintf("file is missing: %v", filepath.Join(tempdir, roundStateFileBaseName)))
+	req.EqualError(err, fmt.Sprintf("file is missing: %v", filepath.Join(r.datadir, roundStateFileBaseName)))
 	req.Nil(state)
 
 	challenges, err := genChallenges(32)
@@ -163,7 +163,6 @@ func TestRound_State(t *testing.T) {
 	req.True(state.isOpen())
 	req.True(!state.isExecuted())
 	req.NotNil(state.Execution)
-	req.True(state.Execution.NumLeaves != 0)
 	req.True(state.Execution.SecurityParam != 0)
 	req.True(state.Execution.Statement == nil)
 	req.True(state.Execution.NextLeafID == 0)
@@ -171,12 +170,13 @@ func TestRound_State(t *testing.T) {
 	req.True(state.Execution.NIP == nil)
 
 	// Execute the round, and request shutdown before completion.
+	duration := 10 * time.Millisecond
 	go func() {
-		time.Sleep(100 * time.Microsecond)
+		time.Sleep(duration / 2)
 		sig.RequestShutdown()
 	}()
 
-	req.EqualError(r.execute(time.Now().Add(200*time.Microsecond)), prover.ErrShutdownRequested.Error())
+	req.ErrorIs(r.execute(time.Now().Add(duration)), prover.ErrShutdownRequested)
 	req.True(!r.isOpen())
 	req.True(!r.opened.IsZero())
 	req.True(!r.executionStarted.IsZero())
@@ -189,12 +189,12 @@ func TestRound_State(t *testing.T) {
 	req.True(!state.isOpen())
 	req.True(!state.isExecuted())
 	req.NotNil(state.Execution)
-	req.True(state.Execution.NumLeaves != 0)
 	req.True(state.Execution.SecurityParam != 0)
 	req.True(len(state.Execution.Statement) == 32)
 	req.True(state.Execution.NextLeafID > 0)
 	req.True(state.Execution.ParkedNodes != nil)
 	req.True(state.Execution.NIP == nil)
+	require.NoError(t, r.waitTeardown(context.Background()))
 
 	// Create a new round instance of the same round.
 	r = newRound(signal.NewSignal(), cfg, tempdir, 0)
@@ -233,6 +233,6 @@ func TestRound_State(t *testing.T) {
 
 	// Verify cleanup.
 	state, err = r.state()
-	req.EqualError(err, fmt.Sprintf("file is missing: %v", filepath.Join(tempdir, roundStateFileBaseName)))
+	req.EqualError(err, fmt.Sprintf("file is missing: %v", filepath.Join(r.datadir, roundStateFileBaseName)))
 	req.Nil(state)
 }

@@ -8,7 +8,7 @@ require (
 	github.com/kr/pretty v0.1.0 // indirect
 	github.com/nullstyle/go-xdr v0.0.0-20180726165426-f4c839f75077
 	github.com/spacemeshos/api/release/go v0.0.0-20201103002846-7d0dfed55cc1
-	github.com/spacemeshos/merkle-tree v0.0.0-20191028110812-1908c3126c82
+	github.com/spacemeshos/merkle-tree v0.0.0-20220729080607-43e48df65cd4
 	github.com/spacemeshos/sha256-simd v0.0.0-20190111104731-8575aafc88c9
 	github.com/spacemeshos/smutil v0.0.0-20190604133034-b5189449f5c5
 	github.com/stretchr/testify v1.7.0

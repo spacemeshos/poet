@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/rand"
 	"fmt"
-	"io/ioutil"
 	"strconv"
 	"testing"
 	"time"
@@ -47,9 +46,14 @@ func TestService_Recovery(t *testing.T) {
 	req := require.New(t)
 	sig := signal.NewSignal()
 	broadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
-	cfg := &Config{Genesis: time.Now(), EpochDuration: 100 * time.Microsecond}
-	tempdir, _ := ioutil.TempDir("", "poet-test")
+	cfg := &Config{
+		Genesis:       time.Now(),
+		EpochDuration: time.Second,
+		PhaseShift:    time.Second / 2,
+		CycleGap:      time.Second / 4,
+	}
 
+	tempdir := t.TempDir()
 	// Create a new service instance.
 	s, err := NewService(sig, cfg, tempdir)
 	req.NoError(err)
@@ -122,8 +126,8 @@ func TestService_Recovery(t *testing.T) {
 	// Verify shutdown error is received.
 	select {
 	case err := <-s.errChan:
-		req.EqualError(err, fmt.Sprintf("round %v execution error: %v", rounds[0].ID, prover.ErrShutdownRequested.Error()))
-	case <-rounds[0].executionEndedChan:
+		req.EqualError(err, fmt.Sprintf("round %v execution error: %v", rounds[1].ID, prover.ErrShutdownRequested.Error()))
+	case <-rounds[1].executionEndedChan:
 		req.Fail("round execution ended instead of shutting down")
 	}
 
@@ -142,7 +146,7 @@ func TestService_Recovery(t *testing.T) {
 	req.NoError(err)
 	time.Sleep(500 * time.Millisecond)
 
-	// Service instance should recover 2 rounds: round 0 in executing state, and round 1 in open state.
+	// Service instance should recover 2 rounds: round 1 in executing state, and round 2 in open state.
 	prevServiceRounds := rounds
 	req.Equal(1, len(s.executingRounds))
 	_, ok := s.executingRounds[prevServiceRounds[0].ID]
@@ -214,9 +218,13 @@ func contains(list [][]byte, item []byte) bool {
 
 func TestNewService(t *testing.T) {
 	req := require.New(t)
-	tempdir, _ := ioutil.TempDir("", "poet-test")
+	tempdir := t.TempDir()
 
 	cfg := new(Config)
+	cfg.Genesis = time.Now()
+	cfg.EpochDuration = time.Second
+	cfg.PhaseShift = time.Second / 2
+	cfg.CycleGap = time.Second / 4
 
 	s, err := NewService(signal.NewSignal(), cfg, tempdir)
 	req.NoError(err)

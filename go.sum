@@ -67,8 +67,8 @@ github.com/prometheus/client_model v0.0.0-20190812154241-14fe0d1b01d4/go.mod h1:
 github.com/rogpeppe/fastuuid v1.2.0/go.mod h1:jVj6XXZzXRy/MSR5jhDC/2q6DgLz+nrA6LYCDYWNEvQ=
 github.com/spacemeshos/api/release/go v0.0.0-20201103002846-7d0dfed55cc1 h1:7GoyccHS/hWGM2wryRzNi5LEymBy5FbGvfRSx3wXjd8=
 github.com/spacemeshos/api/release/go v0.0.0-20201103002846-7d0dfed55cc1/go.mod h1:kNY4cuAimIxpUbMLPZSgU8jl7Zbv5ohQrLn87ybl0QI=
-github.com/spacemeshos/merkle-tree v0.0.0-20191028110812-1908c3126c82 h1:FmAao0SylhJiAkJfC1+Ots9SS71b8Upvxx6yoBFqEsY=
-github.com/spacemeshos/merkle-tree v0.0.0-20191028110812-1908c3126c82/go.mod h1:mPxjt4RONPxSUhxOq4bhSJyKVGQJ0VMSyRiE51dDLgE=
+github.com/spacemeshos/merkle-tree v0.0.0-20220729080607-43e48df65cd4 h1:XAxTo47x7ATM12L9pg5fBoknKButXawgwwEf28Zrv5A=
+github.com/spacemeshos/merkle-tree v0.0.0-20220729080607-43e48df65cd4/go.mod h1:oIGAc1rLKlxnF8swd52wOlEIVfmJOMjLSCNlH9Ti4j0=
 github.com/spacemeshos/sha256-simd v0.0.0-20190111104731-8575aafc88c9 h1:Cc+np6ORem5wrvO+YHQ1sdu71ItiQVRiYB4ugazpgxM=
 github.com/spacemeshos/sha256-simd v0.0.0-20190111104731-8575aafc88c9/go.mod h1:Pz5LyRghtiEuSixOVGO0da5AxKBZa6+Yq8ZJfjTAPI0=
 github.com/spacemeshos/smutil v0.0.0-20190604133034-b5189449f5c5 h1:a+uIX0wjwWdK2JpsQnNhSdp3KDkqGg6P7Jp3nMZP8BM=

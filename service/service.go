@@ -156,7 +156,6 @@ func NewService(sig *signal.Signal, cfg *Config, datadir string) (*Service, erro
 		if err != nil {
 			return nil, err
 		}
-
 		if err := s.Start(b); err != nil {
 			return nil, fmt.Errorf("failed to start service: %v", err)
 		}
@@ -210,23 +209,28 @@ func (s *Service) Start(b Broadcaster) error {
 	} else if err := s.Recover(); err != nil {
 		return fmt.Errorf("failed to recover: %v", err)
 	}
-
+	now := time.Now()
+	epoch := time.Duration(0)
+	if d := now.Sub(s.cfg.Genesis); d > 0 {
+		epoch = d / s.cfg.EpochDuration
+	}
 	if s.openRound == nil {
-		s.openRound = s.newRound()
+		s.openRound = s.newRound(uint32(epoch))
 		log.Info("Round %v opened", s.openRound.ID)
 	}
 
 	go func() {
+		timer := time.NewTimer(0)
+		<-timer.C
+		defer timer.Stop()
 		for {
-			now := time.Now()
-			epoch := time.Duration(0)
-			if d := now.Sub(s.cfg.Genesis); d > 0 {
-				epoch = d / s.cfg.EpochDuration
-			}
-			start := s.cfg.Genesis.Add(s.cfg.EpochDuration * epoch).Add(s.cfg.PhaseShift)
-			if d := start.Sub(now); d > 0 {
+			start := s.cfg.Genesis.Add(s.cfg.EpochDuration * time.Duration(s.openRound.Epoch())).Add(s.cfg.PhaseShift)
+			if d := start.Sub(time.Now()); d > 0 {
+				log.Info("Round %v waiting for execution to start for %v",
+					s.openRound.ID, d)
+				timer.Reset(d)
 				select {
-				case <-time.After(d):
+				case <-timer.C:
 				case <-s.sig.ShutdownRequestedChan:
 					log.Info("Shutdown requested, service shutting down")
 					s.openRound = nil
@@ -239,19 +243,17 @@ func (s *Service) Start(b Broadcaster) error {
 			}
 
 			s.prevRound = s.openRound
-			s.openRound = s.newRound()
+			s.openRound = s.newRound(s.prevRound.Epoch() + 1)
 			log.Info("Round %v opened", s.openRound.ID)
 
 			// Close previous round and execute it.
-			go func() {
-				r := s.prevRound
+			go func(r *round) {
 				if err := s.executeRound(r); err != nil {
 					s.asyncError(fmt.Errorf("round %v execution error: %v", r.ID, err))
 					return
 				}
-
 				broadcastProof(s, r, r.execution, s.broadcaster)
-			}()
+			}(s.prevRound)
 		}
 	}()
 
@@ -277,8 +279,7 @@ func (s *Service) Recover() error {
 		if err != nil {
 			return fmt.Errorf("entry is not a uint32 %s", entry.Name())
 		}
-		datadir := filepath.Join(s.datadir, entry.Name())
-		r := newRound(s.sig, s.cfg, datadir, uint32(epoch))
+		r := newRound(s.sig, s.cfg, s.datadir, uint32(epoch))
 
 		state, err := r.state()
 		if err != nil {
@@ -286,7 +287,7 @@ func (s *Service) Recover() error {
 		}
 
 		if state.isOpen() {
-			log.Info("Recovery: found round %v in open state", r.ID)
+			log.Info("Recovery: found round %v in open state. next leaf", r.ID)
 			if err := r.open(); err != nil {
 				return fmt.Errorf("failed to open round: %v", err)
 			}
@@ -358,8 +359,9 @@ func (s *Service) executeRound(r *round) error {
 		s.Unlock()
 	}()
 
+	start := time.Now()
 	end := s.cfg.Genesis.
-		Add(s.cfg.EpochDuration * time.Duration(r.execution.Epoch+1)).
+		Add(s.cfg.EpochDuration * time.Duration(r.Epoch()+1)).
 		Add(s.cfg.PhaseShift).
 		Add(-s.cfg.CycleGap)
 
@@ -369,7 +371,7 @@ func (s *Service) executeRound(r *round) error {
 		return err
 	}
 
-	log.Info("Round %v execution ended, phi=%x", r.ID, r.execution.NIP.Root)
+	log.Info("Round %v execution ended, phi=%x, duration %v", r.ID, r.execution.NIP.Root, time.Since(start))
 
 	return nil
 }
@@ -407,20 +409,14 @@ func (s *Service) Info() (*InfoResponse, error) {
 	return res, nil
 }
 
-func (s *Service) newRound() *round {
-	now := time.Now()
-	epoch := now.Sub(s.cfg.Genesis) / s.cfg.EpochDuration
+func (s *Service) newRound(epoch uint32) *round {
 	if err := s.saveState(); err != nil {
 		panic(err)
 	}
-
-	datadir := filepath.Join(s.datadir, strconv.Itoa(int(epoch)))
-
-	r := newRound(s.sig, s.cfg, datadir, uint32(epoch))
+	r := newRound(s.sig, s.cfg, s.datadir, epoch)
 	if err := r.open(); err != nil {
 		panic(fmt.Errorf("failed to open round: %v", err))
 	}
-
 	return r
 }
 

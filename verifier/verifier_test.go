@@ -20,7 +20,7 @@ func TestValidate(t *testing.T) {
 	r.NoError(err)
 
 	err = Validate(*merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafs, securityParam)
-	r.NoError(err, "leafs %d", leafs)
+	r.NoError(err, "leaves %d", leafs)
 }
 
 func TestValidateWrongSecParam(t *testing.T) {

@@ -70,6 +70,10 @@ type round struct {
 	submitMtx sync.Mutex
 }
 
+func (r *round) Epoch() uint32 {
+	return r.execution.Epoch
+}
+
 func newRound(sig *signal.Signal, cfg *Config, datadir string, epoch uint32) *round {
 	r := new(round)
 	r.cfg = cfg
@@ -310,7 +314,6 @@ func (r *round) state() (*roundState, error) {
 	if r.execution.SecurityParam != s.Execution.SecurityParam {
 		return nil, errors.New("SecurityParam config mismatch")
 	}
-
 	r.stateCache = s
 
 	return s, nil
@@ -323,7 +326,6 @@ func (r *round) saveState() error {
 		ExecutionStarted: r.executionStarted,
 		Execution:        r.execution,
 	}
-
 	return persist(filename, v)
 }
 
