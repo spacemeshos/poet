@@ -280,10 +280,15 @@ func (s *Service) Recover() error {
 			return fmt.Errorf("entry is not a uint32 %s", entry.Name())
 		}
 		r := newRound(s.sig, s.cfg, s.datadir, uint32(epoch))
-
 		state, err := r.state()
 		if err != nil {
 			return fmt.Errorf("invalid round state: %v", err)
+		}
+
+		if state.isExecuted() {
+			log.Info("Recovery: found round %v in executed state. broadcasting...", r.ID)
+			go broadcastProof(s, r, state.Execution, s.broadcaster)
+			continue
 		}
 
 		if state.isOpen() {
@@ -298,22 +303,11 @@ func (s *Service) Recover() error {
 			continue
 		}
 
-		if state.isExecuted() {
-			log.Info("Recovery: found round %v in executed state. broadcasting...", r.ID)
-			go broadcastProof(s, r, state.Execution, s.broadcaster)
-			continue
-		}
-
 		log.Info("Recovery: found round %v in executing state. recovering execution...", r.ID)
-
-		// Keep the last executing round as prevRound for potentially affecting
-		// the closure of the current open round (see openRoundClosure()).
-		s.prevRound = r
-
-		go func() {
-			s.Lock()
-			s.executingRounds[r.ID] = r
-			s.Unlock()
+		s.Lock()
+		s.executingRounds[r.ID] = r
+		s.Unlock()
+		go func(r *round) {
 			defer func() {
 				s.Lock()
 				delete(s.executingRounds, r.ID)
@@ -332,7 +326,7 @@ func (s *Service) Recover() error {
 
 			log.Info("Recovery: round %v execution ended, phi=%x", r.ID, r.execution.NIP.Root)
 			broadcastProof(s, r, r.execution, s.broadcaster)
-		}()
+		}(r)
 	}
 
 	return nil
