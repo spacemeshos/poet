@@ -131,8 +131,6 @@ func TestService_Recovery(t *testing.T) {
 		req.Fail("round execution ended instead of shutting down")
 	}
 
-	time.Sleep(1 * time.Second)
-
 	// Verify service state. should have no open or executing rounds.
 	req.Equal((*round)(nil), s.openRound)
 	req.Equal(len(s.executingRounds), 0)
@@ -144,35 +142,23 @@ func TestService_Recovery(t *testing.T) {
 
 	err = s.Start(broadcaster)
 	req.NoError(err)
-	time.Sleep(500 * time.Millisecond)
 
 	// Service instance should recover 2 rounds: round 1 in executing state, and round 2 in open state.
-	prevServiceRounds := rounds
 	req.Equal(1, len(s.executingRounds))
-	_, ok := s.executingRounds[prevServiceRounds[0].ID]
+	first, ok := s.executingRounds["1"]
 	req.True(ok)
-	req.Equal(s.openRound.ID, prevServiceRounds[1].ID)
+	req.Equal(s.openRound.ID, "2")
+	rounds[1] = first
+	rounds[2] = s.openRound
 
-	// Track rounds from the new service instance.
-	rounds = make([]*round, numRounds)
-	rounds[0] = s.executingRounds[prevServiceRounds[0].ID]
-	rounds[1] = s.openRound
+	submitChallenges(2, 2)
 
-	// Submit challenges to open round (1).
-	submitChallenges(1, 2)
-
-	// Wait for round 1 to start executing.
+	// Wait for round 2 to start executing.
 	select {
-	case <-rounds[1].executionStartedChan:
+	case <-rounds[2].executionEndedChan:
 	case err := <-s.errChan:
 		req.Fail(err.Error())
 	}
-
-	// Verify that round iteration proceeds: a new round opened, previous round is executing.
-	req.Contains(s.executingRounds, rounds[1].ID)
-
-	// Submit challenges to open round (2).
-	submitChallenges(2, 3)
 
 	// Verify that new service instance broadcast 3 distinct rounds proofs, by the expected order.
 	for i := 0; i < numRounds; i++ {
@@ -185,12 +171,12 @@ func TestService_Recovery(t *testing.T) {
 			req.NoError(err)
 		}
 
-		req.Equal(rounds[i].ID, proofMsg.RoundID)
-
 		// Verify the submitted challenges.
-		req.Len(proofMsg.Members, len(submittedChallenges[i]))
-		for _, ch := range submittedChallenges[i] {
-			req.True(contains(proofMsg.Members, ch.data))
+		n, err := strconv.Atoi(proofMsg.RoundID)
+		require.NoError(t, err)
+		req.Len(proofMsg.Members, len(submittedChallenges[n]))
+		for _, ch := range submittedChallenges[n] {
+			req.True(contains(proofMsg.Members, ch.data), "proof %v, round %v", proofMsg.RoundID, i)
 		}
 
 		// Verify round statement.
@@ -199,9 +185,8 @@ func TestService_Recovery(t *testing.T) {
 		for _, m := range proofMsg.Members {
 			req.NoError(mtree.AddLeaf(m))
 		}
-
-		proof, err := rounds[i].proof(false)
-		req.NoError(err)
+		proof, err := rounds[n].proof(false)
+		req.NoError(err, "round %d", n)
 		req.Equal(mtree.Root(), proof.Statement)
 	}
 }

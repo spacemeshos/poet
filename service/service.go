@@ -292,7 +292,7 @@ func (s *Service) Recover() error {
 		}
 
 		if state.isOpen() {
-			log.Info("Recovery: found round %v in open state. next leaf", r.ID)
+			log.Info("Recovery: found round %v in open state.", r.ID)
 			if err := r.open(); err != nil {
 				return fmt.Errorf("failed to open round: %v", err)
 			}
@@ -307,7 +307,7 @@ func (s *Service) Recover() error {
 		s.Lock()
 		s.executingRounds[r.ID] = r
 		s.Unlock()
-		go func(r *round) {
+		go func(r *round, rs *roundState) {
 			defer func() {
 				s.Lock()
 				delete(s.executingRounds, r.ID)
@@ -319,14 +319,14 @@ func (s *Service) Recover() error {
 				Add(s.cfg.PhaseShift).
 				Add(-s.cfg.CycleGap)
 
-			if err = r.recoverExecution(r.execution, end); err != nil {
+			if err = r.recoverExecution(rs.Execution, end); err != nil {
 				s.asyncError(fmt.Errorf("recovery: round %v execution failure: %v", r.ID, err))
 				return
 			}
 
 			log.Info("Recovery: round %v execution ended, phi=%x", r.ID, r.execution.NIP.Root)
 			broadcastProof(s, r, r.execution, s.broadcaster)
-		}(r)
+		}(r, state)
 	}
 
 	return nil
