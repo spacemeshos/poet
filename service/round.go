@@ -294,7 +294,7 @@ func (r *round) proof(wait bool) (*PoetProof, error) {
 	}
 
 	return &PoetProof{
-		// TODO set number of leaves
+		N:         uint(r.execution.NumLeaves),
 		Statement: r.execution.Statement,
 		Proof:     r.execution.NIP,
 	}, nil

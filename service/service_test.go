@@ -153,7 +153,6 @@ func TestService_Recovery(t *testing.T) {
 
 	submitChallenges(2, 2)
 
-	// Wait for round 2 to start executing.
 	select {
 	case <-rounds[2].executionEndedChan:
 	case err := <-s.errChan:

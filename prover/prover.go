@@ -185,24 +185,6 @@ func makeRecoveryProofTree(
 	return treeCache, tree, nil
 }
 
-// TimeLimit stops proof generation after limit.
-func TimeLimit(end time.Time) limitFunc {
-	return func() bool {
-		return time.Until(end) > 0
-	}
-}
-
-// LeafLimit stops execution when leaf limit is reached.
-func LeafLimit(start uint64, limit uint64) limitFunc {
-	return func() bool {
-		rst := start < limit
-		start++
-		return rst
-	}
-}
-
-type limitFunc func() bool
-
 func generateProof(
 	sig *signal.Signal,
 	labelHashFunc func(data []byte) []byte,
@@ -258,7 +240,6 @@ func generateProof(
 		ProvenLeaves: provenLeaves,
 		ProofNodes:   proofNodes,
 	}, nil
-
 }
 
 func getLayersFiles(datadir string) (map[uint]string, error) {

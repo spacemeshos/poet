@@ -1,7 +1,6 @@
 package prover
 
 import (
-	"io/ioutil"
 	"testing"
 	"time"
 
@@ -12,7 +11,7 @@ import (
 
 func TestGetProof(t *testing.T) {
 	r := require.New(t)
-	tempdir, _ := ioutil.TempDir("", "poet-test")
+	tempdir := t.TempDir()
 
 	challenge := []byte("challenge this")
 	leafs, merkleProof, err := GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(10*time.Millisecond), 5, LowestMerkleMinMemoryLayer)

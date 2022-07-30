@@ -1,6 +1,7 @@
 package verifier
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -10,17 +11,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestValidate(t *testing.T) {
+func testValidate(t *testing.T, minMemoryLayer uint) {
 	r := require.New(t)
-
 	challenge := []byte("challenge")
-	duration := 100 * time.Microsecond
-	securityParam := uint8(4)
-	leafs, merkleProof, err := prover.GenerateProofWithoutPersistency(t.TempDir(), hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(duration), securityParam, prover.LowestMerkleMinMemoryLayer)
+	securityParam := uint8(1)
+	leaves, merkleProof, err := prover.GenerateProofWithoutPersistency(t.TempDir(), hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(10*time.Millisecond), securityParam, minMemoryLayer)
 	r.NoError(err)
+	fmt.Println(merkleProof.ProofNodes)
+	err = Validate(*merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leaves, securityParam)
+	r.NoError(err, "leaves %d", leaves)
+}
 
-	err = Validate(*merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafs, securityParam)
-	r.NoError(err, "leaves %d", leafs)
+func TestValidate(t *testing.T) {
+	t.Run("Leaves", func(t *testing.T) {
+		testValidate(t, 0)
+	})
+	t.Run("NoLeaves", func(t *testing.T) {
+		testValidate(t, prover.LowestMerkleMinMemoryLayer)
+	})
 }
 
 func TestValidateWrongSecParam(t *testing.T) {

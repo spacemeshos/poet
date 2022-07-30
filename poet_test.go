@@ -3,11 +3,12 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"testing"
+	"time"
+
 	"github.com/spacemeshos/poet/integration"
 	"github.com/spacemeshos/poet/rpc/api"
 	"github.com/stretchr/testify/require"
-	"testing"
-	"time"
 )
 
 // harnessTestCase represents a test-case which utilizes an instance
@@ -31,8 +32,7 @@ func TestHarness(t *testing.T) {
 
 	cfg, err := integration.DefaultConfig()
 	assert.NoError(err)
-	cfg.N = 18
-	cfg.InitialDuration = time.Duration(2 * time.Second).String()
+	cfg.Genesis = time.Now()
 
 	h := newHarness(assert, cfg)
 
@@ -105,8 +105,7 @@ func TestHarness_CrashRecovery(t *testing.T) {
 
 	cfg, err := integration.DefaultConfig()
 	req.NoError(err)
-	cfg.N = 18
-	cfg.InitialDuration = time.Duration(3 * time.Second).String()
+	cfg.Genesis = time.Now()
 	cfg.Reset = true
 	cfg.DisableBroadcast = true
 
