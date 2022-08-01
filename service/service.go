@@ -246,7 +246,9 @@ func (s *Service) Start(b Broadcaster) error {
 		<-timer.C
 		defer timer.Stop()
 		for {
-			start := s.genesis.Add(s.cfg.EpochDuration * time.Duration(s.openRound.Epoch())).Add(s.cfg.PhaseShift)
+			start := s.genesis.
+				Add(s.cfg.EpochDuration * time.Duration(s.openRound.Epoch())).
+				Add(s.cfg.PhaseShift)
 			if d := start.Sub(time.Now()); d > 0 {
 				log.Info("Round %v waiting for execution to start for %v",
 					s.openRound.ID, d)
