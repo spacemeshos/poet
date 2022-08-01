@@ -4,7 +4,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/nullstyle/go-xdr/xdr3"
+	"github.com/spacemeshos/go-scale"
+
 	"github.com/spacemeshos/poet/broadcaster"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/signal"
@@ -102,6 +103,8 @@ type GossipPoetProof struct {
 	// NumLeaves is the width of the proof-generation tree.
 	NumLeaves uint64
 }
+
+//go:generate scalegen -types PoetProofMessage,GossipPoetProof
 
 type PoetProofMessage struct {
 	GossipPoetProof
@@ -473,7 +476,7 @@ func serializeProofMsg(servicePubKey []byte, roundID string, execution *executio
 	}
 
 	var dataBuf bytes.Buffer
-	if _, err := xdr.Marshal(&dataBuf, proofMessage); err != nil {
+	if _, err := proofMessage.EncodeScale(scale.NewEncoder(&dataBuf)); err != nil {
 		return nil, fmt.Errorf("failed to marshal proof message for round %v: %v", roundID, err)
 	}
 
