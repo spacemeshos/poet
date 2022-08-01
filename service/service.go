@@ -265,10 +265,12 @@ func (s *Service) Start(b Broadcaster) error {
 			}
 
 			s.prevRound = s.openRound
+			open := time.Now()
+			// TODO(dshulyak) some time is wasted here to persist data on disk
+			// on my computer ~20ms
 			s.openRound = s.newRound(s.prevRound.Epoch() + 1)
-			log.Info("Round %v opened", s.openRound.ID)
+			log.Info("Round %v opened. took %v", s.openRound.ID, time.Since(open))
 
-			// Close previous round and execute it.
 			go func(r *round) {
 				if err := s.executeRound(r); err != nil {
 					s.asyncError(fmt.Errorf("round %v execution error: %v", r.ID, err))
@@ -434,21 +436,6 @@ func (s *Service) newRound(epoch uint32) *round {
 		panic(fmt.Errorf("failed to open round: %v", err))
 	}
 	return r
-}
-
-func (s *Service) openRoundClosurePerDuration(d time.Duration) <-chan struct{} {
-	// If the open round was recovered, include the time period from when it was originally opened.
-	var offset time.Duration
-	if s.openRound.stateCache != nil {
-		offset = time.Since(s.openRound.stateCache.Opened)
-	}
-
-	c := make(chan struct{})
-	go func() {
-		<-time.After(d - offset)
-		close(c)
-	}()
-	return c
 }
 
 func (s *Service) asyncError(err error) {
