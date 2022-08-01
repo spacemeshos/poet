@@ -29,25 +29,12 @@ type challenge struct {
 	round *round
 }
 
-// TestService_Recovery test Service recovery functionality by tracking 3 distinct rounds.
-// The scenario proceeds as follows:
-// 	- Create a new service instance.
-//  - Submit challenges to open round (0).
-//  - Wait for round to start executing, and a new round to be open.
-//  - Submit challenges to open round (1).
-//  - Wait a bit for round 0 execution to proceed.
-//  - Shutdown service.
-//  - Create a new service instance.
-//  - Submit challenges to open round (1)
-//  - Wait a bit for round 1 execution to proceed.
-//  - Submit challenges to open round (2).
-//  - Verify that new service instance broadcast 3 distinct rounds proofs, by the expected order.
 func TestService_Recovery(t *testing.T) {
 	req := require.New(t)
 	sig := signal.NewSignal()
 	broadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
 	cfg := &Config{
-		Genesis:       time.Now(),
+		Genesis:       time.Now().Add(time.Second / 2).Format(time.RFC3339),
 		EpochDuration: time.Second,
 		PhaseShift:    time.Second / 2,
 		CycleGap:      time.Second / 4,
@@ -117,17 +104,14 @@ func TestService_Recovery(t *testing.T) {
 	// Submit challenges to open round (1).
 	submitChallenges(1, 1)
 
-	// Wait a bit for round 0 execution to proceed.
-	time.Sleep(1 * time.Second)
-
 	// Request shutdown.
 	sig.RequestShutdown()
 
 	// Verify shutdown error is received.
 	select {
 	case err := <-s.errChan:
-		req.EqualError(err, fmt.Sprintf("round %v execution error: %v", rounds[1].ID, prover.ErrShutdownRequested.Error()))
-	case <-rounds[1].executionEndedChan:
+		req.EqualError(err, fmt.Sprintf("round %v execution error: %v", rounds[0].ID, prover.ErrShutdownRequested.Error()))
+	case <-rounds[0].executionEndedChan:
 		req.Fail("round execution ended instead of shutting down")
 	}
 
@@ -145,11 +129,17 @@ func TestService_Recovery(t *testing.T) {
 
 	// Service instance should recover 2 rounds: round 1 in executing state, and round 2 in open state.
 	req.Equal(1, len(s.executingRounds))
-	first, ok := s.executingRounds["1"]
+	first, ok := s.executingRounds["0"]
 	req.True(ok)
-	req.Equal(s.openRound.ID, "2")
-	rounds[1] = first
-	rounds[2] = s.openRound
+	req.Equal(s.openRound.ID, "1")
+	rounds[0] = first
+	rounds[1] = s.openRound
+
+	select {
+	case <-rounds[1].executionStartedChan:
+	case err := <-s.errChan:
+		req.Fail(err.Error())
+	}
 
 	submitChallenges(2, 2)
 
@@ -171,10 +161,8 @@ func TestService_Recovery(t *testing.T) {
 		}
 
 		// Verify the submitted challenges.
-		n, err := strconv.Atoi(proofMsg.RoundID)
-		require.NoError(t, err)
-		req.Len(proofMsg.Members, len(submittedChallenges[n]))
-		for _, ch := range submittedChallenges[n] {
+		req.Len(proofMsg.Members, len(submittedChallenges[i]))
+		for _, ch := range submittedChallenges[i] {
 			req.True(contains(proofMsg.Members, ch.data), "proof %v, round %v", proofMsg.RoundID, i)
 		}
 
@@ -184,8 +172,8 @@ func TestService_Recovery(t *testing.T) {
 		for _, m := range proofMsg.Members {
 			req.NoError(mtree.AddLeaf(m))
 		}
-		proof, err := rounds[n].proof(false)
-		req.NoError(err, "round %d", n)
+		proof, err := rounds[i].proof(false)
+		req.NoError(err, "round %d", i)
 		req.Equal(mtree.Root(), proof.Statement)
 	}
 }
@@ -205,7 +193,7 @@ func TestNewService(t *testing.T) {
 	tempdir := t.TempDir()
 
 	cfg := new(Config)
-	cfg.Genesis = time.Now()
+	cfg.Genesis = time.Now().Add(time.Second / 2).Format(time.RFC3339)
 	cfg.EpochDuration = time.Second
 	cfg.PhaseShift = time.Second / 2
 	cfg.CycleGap = time.Second / 4

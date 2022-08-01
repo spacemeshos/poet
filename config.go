@@ -41,7 +41,7 @@ var (
 	defaultConfigFile    = filepath.Join(defaultPoetDir, defaultConfigFilename)
 	defaultDataDir       = filepath.Join(defaultPoetDir, defaultDataDirname)
 	defaultLogDir        = filepath.Join(defaultPoetDir, defaultLogDirname)
-	defaultGenesisTime   = time.Now()
+	defaultGenesisTime   = time.Now().Format(time.RFC3339)
 	defaultEpochDuration = 30 * time.Second
 	defaultPhaseShift    = 5 * time.Second
 	defaultCycleGap      = 5 * time.Second

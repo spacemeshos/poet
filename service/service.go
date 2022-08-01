@@ -22,7 +22,7 @@ import (
 )
 
 type Config struct {
-	Genesis                  time.Time     `long:"genesis" description:"Genesis timestamp"`
+	Genesis                  string        `long:"genesis" description:"Genesis timestamp"`
 	EpochDuration            time.Duration `long:"epoch-duration" description:"Epoch duration"`
 	PhaseShift               time.Duration `long:"phase-shift"`
 	CycleGap                 time.Duration `long:"cycle-gap"`
@@ -49,6 +49,7 @@ type serviceState struct {
 type Service struct {
 	cfg     *Config
 	datadir string
+	genesis time.Time
 	started int32
 
 	// openRound is the round which is currently open for accepting challenges registration from miners.
@@ -114,6 +115,11 @@ type PoetProofMessage struct {
 func NewService(sig *signal.Signal, cfg *Config, datadir string) (*Service, error) {
 	s := new(Service)
 	s.cfg = cfg
+	genesis, err := time.Parse(time.RFC3339, cfg.Genesis)
+	if err != nil {
+		return nil, err
+	}
+	s.genesis = genesis
 	s.datadir = datadir
 	s.executingRounds = make(map[string]*round)
 	s.errChan = make(chan error, 10)
@@ -211,7 +217,7 @@ func (s *Service) Start(b Broadcaster) error {
 	}
 	now := time.Now()
 	epoch := time.Duration(0)
-	if d := now.Sub(s.cfg.Genesis); d > 0 {
+	if d := now.Sub(s.genesis); d > 0 {
 		epoch = d / s.cfg.EpochDuration
 	}
 	if s.openRound == nil {
@@ -224,7 +230,7 @@ func (s *Service) Start(b Broadcaster) error {
 		<-timer.C
 		defer timer.Stop()
 		for {
-			start := s.cfg.Genesis.Add(s.cfg.EpochDuration * time.Duration(s.openRound.Epoch())).Add(s.cfg.PhaseShift)
+			start := s.genesis.Add(s.cfg.EpochDuration * time.Duration(s.openRound.Epoch())).Add(s.cfg.PhaseShift)
 			if d := start.Sub(time.Now()); d > 0 {
 				log.Info("Round %v waiting for execution to start for %v",
 					s.openRound.ID, d)
@@ -314,7 +320,7 @@ func (s *Service) Recover() error {
 				s.Unlock()
 			}()
 
-			end := s.cfg.Genesis.
+			end := s.genesis.
 				Add(s.cfg.EpochDuration * time.Duration(r.execution.Epoch+1)).
 				Add(s.cfg.PhaseShift).
 				Add(-s.cfg.CycleGap)
@@ -354,7 +360,7 @@ func (s *Service) executeRound(r *round) error {
 	}()
 
 	start := time.Now()
-	end := s.cfg.Genesis.
+	end := s.genesis.
 		Add(s.cfg.EpochDuration * time.Duration(r.Epoch()+1)).
 		Add(s.cfg.PhaseShift).
 		Add(-s.cfg.CycleGap)

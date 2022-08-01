@@ -40,7 +40,7 @@ func poetMain() error {
 	}()
 
 	// Show version at startup.
-	log.Info("Version: %s, dir: %v, datadir: %v", version(), cfg.PoetDir, cfg.DataDir)
+	log.Info("Version: %s, dir: %v, datadir: %v, genesis: %v", version(), cfg.PoetDir, cfg.DataDir, cfg.Service.Genesis)
 
 	// Enable http profiling server if requested.
 	if cfg.Profile != "" {

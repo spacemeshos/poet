@@ -50,7 +50,7 @@ func DefaultConfig() (*ServerConfig, error) {
 		baseDir:       baseDir,
 		dataDir:       filepath.Join(baseDir, "data"),
 		exe:           poetPath,
-		EpochDuration: time.Second,
+		EpochDuration: 2 * time.Second,
 		PhaseShift:    time.Second / 2,
 		CycleGap:      time.Second / 4,
 	}
@@ -65,7 +65,7 @@ func (cfg *ServerConfig) genArgs() []string {
 	args = append(args, fmt.Sprintf("--datadir=%v", cfg.dataDir))
 	args = append(args, fmt.Sprintf("--rpclisten=%v", cfg.rpcListen))
 	args = append(args, fmt.Sprintf("--restlisten=%v", cfg.RESTListen))
-	args = append(args, fmt.Sprintf("--genesis=%s", cfg.Genesis))
+	args = append(args, fmt.Sprintf("--genesis=%s", cfg.Genesis.Format(time.RFC3339)))
 	args = append(args, fmt.Sprintf("--epoch-duration=%s", cfg.EpochDuration))
 	args = append(args, fmt.Sprintf("--phase-shift=%s", cfg.PhaseShift))
 	args = append(args, fmt.Sprintf("--cycle-gap=%s", cfg.CycleGap))

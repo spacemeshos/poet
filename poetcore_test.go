@@ -47,7 +47,7 @@ func TestNip(t *testing.T) {
 
 	securityParam := shared.T
 
-	numLeaves, merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(100*time.Microsecond), securityParam, prover.LowestMerkleMinMemoryLayer)
+	numLeaves, merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(10*time.Millisecond), securityParam, prover.LowestMerkleMinMemoryLayer)
 	assert.NoError(t, err)
 	fmt.Printf("Dag root label: %x\n", merkleProof.Root)
 
