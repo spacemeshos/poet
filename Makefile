@@ -16,9 +16,9 @@ build:
 	go build -o $(BINARY)
 .PHONY: build
 
-image:
-	docker build -t $(ORG)/$(IMAGE):$(BRANCH) .
-.PHONY: image
+docker:
+	@DOCKER_BUILDKIT=1 docker build -t $(ORG)/$(IMAGE):$(BRANCH) .
+.PHONY: docker
 
 
 push:
