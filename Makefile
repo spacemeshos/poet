@@ -1,5 +1,7 @@
+ORG ?= spacemeshos
+IMAGE ?= poet
 BINARY := poet
-DOCKER_IMAGE_REPO := poet
+
 
 ifdef TRAVIS_BRANCH
         BRANCH := $(TRAVIS_BRANCH)
@@ -14,13 +16,11 @@ build:
 	go build -o $(BINARY)
 .PHONY: build
 
-dockerbuild-go:
-	docker build -t $(DOCKER_IMAGE_REPO):$(BRANCH) .
-.PHONY: dockerbuild-go
+image:
+	docker build -t $(ORG)/$(IMAGE):$(BRANCH) .
+.PHONY: image
 
 
-dockerpush: dockerbuild-go
-	echo "$(DOCKER_PASSWORD)" | docker login -u "$(DOCKER_USERNAME)" --password-stdin
-	docker tag $(DOCKER_IMAGE_REPO):$(BRANCH) spacemeshos/$(DOCKER_IMAGE_REPO):$(BRANCH)
-	docker push spacemeshos/$(DOCKER_IMAGE_REPO):$(BRANCH)
-.PHONY: dockerpush
+push:
+	docker push $(ORG)/$(IMAGE):$(BRANCH)
+.PHONY: push
