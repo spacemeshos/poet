@@ -24,7 +24,7 @@ import (
 )
 
 type Config struct {
-	Genesis                  string        `long:"genesis" description:"Genesis timestamp"`
+	Genesis                  string        `long:"genesis-time" description:"Genesis timestamp"`
 	EpochDuration            time.Duration `long:"epoch-duration" description:"Epoch duration"`
 	PhaseShift               time.Duration `long:"phase-shift"`
 	CycleGap                 time.Duration `long:"cycle-gap"`

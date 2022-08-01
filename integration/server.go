@@ -65,7 +65,7 @@ func (cfg *ServerConfig) genArgs() []string {
 	args = append(args, fmt.Sprintf("--datadir=%v", cfg.dataDir))
 	args = append(args, fmt.Sprintf("--rpclisten=%v", cfg.rpcListen))
 	args = append(args, fmt.Sprintf("--restlisten=%v", cfg.RESTListen))
-	args = append(args, fmt.Sprintf("--genesis=%s", cfg.Genesis.Format(time.RFC3339)))
+	args = append(args, fmt.Sprintf("--genesis-time=%s", cfg.Genesis.Format(time.RFC3339)))
 	args = append(args, fmt.Sprintf("--epoch-duration=%s", cfg.EpochDuration))
 	args = append(args, fmt.Sprintf("--phase-shift=%s", cfg.PhaseShift))
 	args = append(args, fmt.Sprintf("--cycle-gap=%s", cfg.CycleGap))
