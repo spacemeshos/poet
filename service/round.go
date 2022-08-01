@@ -169,7 +169,7 @@ func (r *round) isEmpty() bool {
 	return !iter.Next()
 }
 
-func (r *round) execute(end time.Time) error {
+func (r *round) execute(end time.Time, minMemoryLayer uint) error {
 	r.executionStarted = time.Now()
 	if err := r.saveState(); err != nil {
 		return err
@@ -189,8 +189,6 @@ func (r *round) execute(end time.Time) error {
 		return err
 	}
 
-	minMemoryLayer := prover.LowestMerkleMinMemoryLayer
-
 	r.execution.NumLeaves, r.execution.NIP, err = prover.GenerateProof(
 		r.sig,
 		r.datadir,
@@ -198,7 +196,7 @@ func (r *round) execute(end time.Time) error {
 		hash.GenMerkleHashFunc(r.execution.Statement),
 		end,
 		r.execution.SecurityParam,
-		uint(minMemoryLayer),
+		minMemoryLayer,
 		r.persistExecution,
 	)
 	if err != nil {

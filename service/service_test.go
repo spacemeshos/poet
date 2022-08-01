@@ -34,7 +34,7 @@ func TestService_Recovery(t *testing.T) {
 	sig := signal.NewSignal()
 	broadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
 	cfg := &Config{
-		Genesis:       time.Now().Add(time.Second / 2).Format(time.RFC3339),
+		Genesis:       time.Now().Add(time.Second).Format(time.RFC3339),
 		EpochDuration: time.Second,
 		PhaseShift:    time.Second / 2,
 		CycleGap:      time.Second / 4,

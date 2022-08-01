@@ -56,9 +56,7 @@ func TestNip(t *testing.T) {
 }
 
 func BenchmarkProofEx(t *testing.B) {
-	tempdir := t.TempDir()
 	for j := 0; j < 10; j++ {
-
 		// generate random commitment
 		challenge := make([]byte, 32)
 		_, err := rand.Read(challenge)
@@ -66,7 +64,7 @@ func BenchmarkProofEx(t *testing.B) {
 
 		securityParam := shared.T
 
-		numLeaves, merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(time.Second), securityParam, prover.LowestMerkleMinMemoryLayer)
+		numLeaves, merkleProof, err := prover.GenerateProofWithoutPersistency(t.TempDir(), hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(time.Second), securityParam, prover.LowestMerkleMinMemoryLayer)
 		assert.NoError(t, err)
 		fmt.Printf("Dag root label: %x\n", merkleProof.Root)
 

@@ -50,7 +50,7 @@ func TestRound_Recovery(t *testing.T) {
 	req.False(r1.isEmpty())
 
 	start := time.Now()
-	req.NoError(r1.execute(time.Now().Add(duration)))
+	req.NoError(r1.execute(time.Now().Add(duration), prover.LowestMerkleMinMemoryLayer))
 	r1exec := time.Since(start)
 
 	// Execute r2, and request shutdown before completion.
@@ -71,7 +71,7 @@ func TestRound_Recovery(t *testing.T) {
 	}()
 
 	start = time.Now()
-	req.ErrorIs(r2.execute(time.Now().Add(duration)), prover.ErrShutdownRequested)
+	req.ErrorIs(r2.execute(time.Now().Add(duration), prover.LowestMerkleMinMemoryLayer), prover.ErrShutdownRequested)
 	r2exec1 := time.Since(start)
 	require.NoError(t, r2.waitTeardown(ctx))
 
@@ -176,7 +176,7 @@ func TestRound_State(t *testing.T) {
 		sig.RequestShutdown()
 	}()
 
-	req.ErrorIs(r.execute(time.Now().Add(duration)), prover.ErrShutdownRequested)
+	req.ErrorIs(r.execute(time.Now().Add(duration), prover.LowestMerkleMinMemoryLayer), prover.ErrShutdownRequested)
 	req.True(!r.isOpen())
 	req.True(!r.opened.IsZero())
 	req.True(!r.executionStarted.IsZero())

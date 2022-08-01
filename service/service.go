@@ -14,7 +14,9 @@ import (
 	"time"
 
 	xdr "github.com/nullstyle/go-xdr/xdr3"
+	mshared "github.com/spacemeshos/merkle-tree/shared"
 	"github.com/spacemeshos/poet/broadcaster"
+	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/signal"
 	"github.com/spacemeshos/smutil/log"
@@ -38,6 +40,10 @@ type Config struct {
 	BroadcastRetriesInterval time.Duration `long:"broadcast-retries-interval" description:"duration interval between broadcast retries"`
 }
 
+// estimatedLeavesPerSecond is used to computed estimated height of the proving tree
+// in the epoch, which is used for cache estimation
+const estimatedLeavesPerSecond = 1 << 17
+
 const serviceStateFileBaseName = "state.bin"
 
 type serviceState struct {
@@ -47,10 +53,11 @@ type serviceState struct {
 // Service orchestrates rounds functionality; each responsible for accepting challenges,
 // generating a proof from their hash digest, and broadcasting the result to the Spacemesh network.
 type Service struct {
-	cfg     *Config
-	datadir string
-	genesis time.Time
-	started int32
+	cfg            *Config
+	datadir        string
+	genesis        time.Time
+	minMemoryLayer uint
+	started        int32
 
 	// openRound is the round which is currently open for accepting challenges registration from miners.
 	// At any given time there is one single open round.
@@ -119,6 +126,15 @@ func NewService(sig *signal.Signal, cfg *Config, datadir string) (*Service, erro
 	if err != nil {
 		return nil, err
 	}
+	minMemoryLayer := mshared.RootHeightFromWidth(
+		uint64(cfg.EpochDuration.Seconds()*estimatedLeavesPerSecond),
+	) - cfg.MemoryLayers
+	if minMemoryLayer < prover.LowestMerkleMinMemoryLayer {
+		minMemoryLayer = prover.LowestMerkleMinMemoryLayer
+	}
+	log.Info("poet will keep layers starting from %v in memory", minMemoryLayer)
+
+	s.minMemoryLayer = minMemoryLayer
 	s.genesis = genesis
 	s.datadir = datadir
 	s.executingRounds = make(map[string]*round)
@@ -367,7 +383,7 @@ func (s *Service) executeRound(r *round) error {
 
 	log.Info("Round %v executing until %v...", r.ID, end)
 
-	if err := r.execute(end); err != nil {
+	if err := r.execute(end, uint(s.minMemoryLayer)); err != nil {
 		return err
 	}
 

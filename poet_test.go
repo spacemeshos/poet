@@ -100,7 +100,7 @@ func TestHarness_CrashRecovery(t *testing.T) {
 	cfg.DisableBroadcast = true
 
 	// Track rounds.
-	numRounds := 3
+	numRounds := 40
 	roundsID := make([]string, numRounds)
 
 	numRoundChallenges := 2

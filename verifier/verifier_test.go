@@ -1,7 +1,6 @@
 package verifier
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -17,7 +16,6 @@ func testValidate(t *testing.T, minMemoryLayer uint) {
 	securityParam := uint8(1)
 	leaves, merkleProof, err := prover.GenerateProofWithoutPersistency(t.TempDir(), hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(10*time.Millisecond), securityParam, minMemoryLayer)
 	r.NoError(err)
-	fmt.Println(merkleProof.ProofNodes)
 	err = Validate(*merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leaves, securityParam)
 	r.NoError(err, "leaves %d", leaves)
 }
