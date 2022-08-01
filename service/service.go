@@ -126,15 +126,15 @@ func NewService(sig *signal.Signal, cfg *Config, datadir string) (*Service, erro
 	if err != nil {
 		return nil, err
 	}
-	minMemoryLayer := mshared.RootHeightFromWidth(
+	minMemoryLayer := int(mshared.RootHeightFromWidth(
 		uint64(cfg.EpochDuration.Seconds()*estimatedLeavesPerSecond),
-	) - cfg.MemoryLayers
+	)) - int(cfg.MemoryLayers)
 	if minMemoryLayer < prover.LowestMerkleMinMemoryLayer {
 		minMemoryLayer = prover.LowestMerkleMinMemoryLayer
 	}
 	log.Info("poet will keep layers starting from %v in memory", minMemoryLayer)
 
-	s.minMemoryLayer = minMemoryLayer
+	s.minMemoryLayer = uint(minMemoryLayer)
 	s.genesis = genesis
 	s.datadir = datadir
 	s.executingRounds = make(map[string]*round)
