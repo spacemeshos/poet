@@ -3,6 +3,7 @@ package shared
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"github.com/spacemeshos/go-scale/tester"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"math"
@@ -84,4 +85,12 @@ func TestMakeLabel(t *testing.T) {
 
 	r.Equal("H(00000000000000031111111133333333)",
 		string(makeLabel(stringHash, 3, makeSiblings("11111111", "", "33333333"))))
+}
+
+func FuzzMerkleProofConsistency(f *testing.F) {
+	tester.FuzzConsistency[MerkleProof](f)
+}
+
+func FuzzMerkleProofSafety(f *testing.F) {
+	tester.FuzzSafety[MerkleProof](f)
 }

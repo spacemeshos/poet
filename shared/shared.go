@@ -10,6 +10,8 @@ import (
 	"time"
 )
 
+//go:generate scalegen -types MerkleProof
+
 const (
 	// T is the security param which determines the number of leaves
 	// to be included in a non-interactive proof.
