@@ -40,8 +40,7 @@ func NewRPCServer(sig *signal.Signal, datadir string) *RPCServer {
 
 func (r *RPCServer) Compute(ctx context.Context, in *apicore.ComputeRequest) (*apicore.ComputeResponse, error) {
 	challenge := in.D.X
-	duration := time.Duration(in.D.N)
-	end := time.Now().Add(duration)
+	end := time.Now().Add(time.Duration(in.D.N))
 	securityParam := shared.T
 	_, proof, err := prover.GenerateProofWithoutPersistency(r.datadir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), end, securityParam, prover.LowestMerkleMinMemoryLayer)
 	if err != nil {

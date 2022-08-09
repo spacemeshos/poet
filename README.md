@@ -20,30 +20,33 @@ $ go build
 
 ## Run the service
 
-##### New round every 5 sec, disabled broadcasting
-```
-$ ./poet --initialduration=5s --duration=5s --disablebroadcast
+##### New epoch every 60s, poet stops execution 5s before next round starts execution for next epoch, disabled broadcasting
+```bash
+$ ./poet --genesis-time=2022-08-09T09:21:19+03:00 --epoch-duration=60s --cycle-gap=5s --disablebroadcast
 ```
 
-##### New round every 5 sec, broadcasting to a local Spacemesh gateway node
-```
+`--genesis-time` is set according to [RFC3339](https://www.rfc-editor.org/rfc/rfc3339).
+
+##### Same as above but with broadcasting to a local Spacemesh gateway node
+
+```bash
 $ ./poet --initialduration=5s --duration=5s --gateway=localhost:9091 
 ```
 
 ##### Use the sample configuration file
-```
+```bash
 $ ./poet --configfile=$PWD/sample-poet.conf
 ```
 
 ##### Show the help message
-```
+```bash
 $ ./poet --help
 ```
 
 
 
 ## Run the tests
-```
+```bash
 $ go test ./...
 ```
 
@@ -67,6 +70,7 @@ Note: The constants are fixed and shared between the Prover and the Verifier. Va
 - x: {0,1}^w = rndBelow(2^w - 1) - verifier provided input statement (commitment)
 
 - N:int - number of iterations. N := 2^(n+1) - 1. Computed based on n.
+For the purposes of the implementation N is determined after running poet for a specific amount of time.  
 
 - m:int , 0 <= m <= n. Defines how much data should be stored by the prover.
 

@@ -26,7 +26,6 @@ type executionState struct {
 	Members       [][]byte
 	Statement     []byte
 	ParkedNodes   [][]byte
-	NextLeafID    uint64
 	NumLeaves     uint64
 	NIP           *shared.MerkleProof
 }
@@ -211,15 +210,15 @@ func (r *round) execute(end time.Time, minMemoryLayer uint) error {
 	return nil
 }
 
-func (r *round) persistExecution(tree *merkle.Tree, treeCache *cache.Writer, nextLeafID uint64) error {
-	log.Info("Round %v: persisting execution state (done: %d)", r.ID, nextLeafID)
+func (r *round) persistExecution(tree *merkle.Tree, treeCache *cache.Writer, numLeaves uint64) error {
+	log.Info("Round %v: persisting execution state (done: %d)", r.ID, numLeaves)
 
 	// Call GetReader() so that the cache would flush and validate structure.
 	if _, err := treeCache.GetReader(); err != nil {
 		return err
 	}
 
-	r.execution.NextLeafID = nextLeafID
+	r.execution.NumLeaves = numLeaves
 	r.execution.ParkedNodes = tree.GetParkedNodes()
 	if err := r.saveState(); err != nil {
 		return err
@@ -254,7 +253,7 @@ func (r *round) recoverExecution(state *executionState, end time.Time) error {
 		hash.GenMerkleHashFunc(state.Statement),
 		end,
 		state.SecurityParam,
-		state.NextLeafID,
+		state.NumLeaves,
 		state.ParkedNodes,
 		r.persistExecution,
 	)

@@ -64,9 +64,6 @@ type Service struct {
 	openRound *round
 
 	// executingRounds are the rounds which are currently executing, hence generating a proof.
-	// At any given time there may be 0 to ∞ total executing rounds. This variation is determined by
-	// the rounds opening time duration (cfg.RoundsDuration),
-	// and the proof generation duration (cfg.N + runtime variance + caching policies).
 	executingRounds map[string]*round
 
 	prevRound *round
@@ -132,7 +129,7 @@ func NewService(sig *signal.Signal, cfg *Config, datadir string) (*Service, erro
 	if minMemoryLayer < prover.LowestMerkleMinMemoryLayer {
 		minMemoryLayer = prover.LowestMerkleMinMemoryLayer
 	}
-	log.Info("poet will keep layers starting from %v in memory", minMemoryLayer)
+	log.Info("starting poet service. min memory layer: %v. genesis: %s", minMemoryLayer, cfg.Genesis)
 
 	s.minMemoryLayer = uint(minMemoryLayer)
 	s.genesis = genesis
@@ -341,7 +338,7 @@ func (s *Service) Recover() error {
 			}()
 
 			end := s.genesis.
-				Add(s.cfg.EpochDuration * time.Duration(r.execution.Epoch+1)).
+				Add(s.cfg.EpochDuration * time.Duration(r.Epoch()+1)).
 				Add(s.cfg.PhaseShift).
 				Add(-s.cfg.CycleGap)
 
