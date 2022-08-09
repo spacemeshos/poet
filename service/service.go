@@ -13,14 +13,15 @@ import (
 	"sync/atomic"
 	"time"
 
-	xdr "github.com/nullstyle/go-xdr/xdr3"
+	"github.com/spacemeshos/go-scale"
 	mshared "github.com/spacemeshos/merkle-tree/shared"
+	"golang.org/x/crypto/ed25519"
+
 	"github.com/spacemeshos/poet/broadcaster"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/signal"
 	"github.com/spacemeshos/smutil/log"
-	"golang.org/x/crypto/ed25519"
 )
 
 type Config struct {
@@ -108,6 +109,8 @@ type GossipPoetProof struct {
 	// NumLeaves is the width of the proof-generation tree.
 	NumLeaves uint64
 }
+
+//go:generate scalegen -types PoetProofMessage,GossipPoetProof
 
 type PoetProofMessage struct {
 	GossipPoetProof
@@ -475,7 +478,7 @@ func serializeProofMsg(servicePubKey []byte, roundID string, execution *executio
 	}
 
 	var dataBuf bytes.Buffer
-	if _, err := xdr.Marshal(&dataBuf, proofMessage); err != nil {
+	if _, err := proofMessage.EncodeScale(scale.NewEncoder(&dataBuf)); err != nil {
 		return nil, fmt.Errorf("failed to marshal proof message for round %v: %v", roundID, err)
 	}
 

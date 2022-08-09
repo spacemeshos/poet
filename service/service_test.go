@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	xdr "github.com/nullstyle/go-xdr/xdr3"
+	"github.com/spacemeshos/go-scale"
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/signal"
@@ -156,7 +156,8 @@ func TestService_Recovery(t *testing.T) {
 		case <-time.After(10 * time.Second):
 			req.Fail("proof message wasn't sent")
 		case msg := <-broadcaster.receivedMessages:
-			_, err := xdr.Unmarshal(bytes.NewReader(msg), &proofMsg)
+			dec := scale.NewDecoder(bytes.NewReader(msg))
+			_, err := proofMsg.DecodeScale(dec)
 			req.NoError(err)
 		}
 
@@ -262,7 +263,8 @@ func TestNewService(t *testing.T) {
 	select {
 	case msg := <-proofBroadcaster.receivedMessages:
 		poetProof := PoetProofMessage{}
-		_, err := xdr.Unmarshal(bytes.NewReader(msg), &poetProof)
+		dec := scale.NewDecoder(bytes.NewReader(msg))
+		_, err := poetProof.DecodeScale(dec)
 		req.NoError(err)
 	case <-time.After(100 * time.Millisecond):
 		req.Fail("proof message wasn't sent")
