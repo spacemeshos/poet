@@ -1,26 +1,32 @@
 package verifier
 
 import (
+	"testing"
+	"time"
+
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/stretchr/testify/require"
-	"io/ioutil"
-	"testing"
 )
 
-func TestValidate(t *testing.T) {
+func testValidate(t *testing.T, minMemoryLayer uint) {
 	r := require.New(t)
-	tempdir, _ := ioutil.TempDir("", "poet-test")
-
 	challenge := []byte("challenge")
-	numLeaves := uint64(16)
-	securityParam := uint8(4)
-	merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam, prover.LowestMerkleMinMemoryLayer)
+	securityParam := uint8(1)
+	leaves, merkleProof, err := prover.GenerateProofWithoutPersistency(t.TempDir(), hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(10*time.Millisecond), securityParam, minMemoryLayer)
 	r.NoError(err)
+	err = Validate(*merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leaves, securityParam)
+	r.NoError(err, "leaves %d", leaves)
+}
 
-	err = Validate(*merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
-	r.NoError(err)
+func TestValidate(t *testing.T) {
+	t.Run("Leaves", func(t *testing.T) {
+		testValidate(t, 0)
+	})
+	t.Run("NoLeaves", func(t *testing.T) {
+		testValidate(t, prover.LowestMerkleMinMemoryLayer)
+	})
 }
 
 func TestValidateWrongSecParam(t *testing.T) {
@@ -51,17 +57,16 @@ func TestValidateWrongMerkleValidationError(t *testing.T) {
 
 func TestValidateWrongRoot(t *testing.T) {
 	r := require.New(t)
-	tempdir, _ := ioutil.TempDir("", "poet-test")
 
 	challenge := []byte("challenge")
-	numLeaves := uint64(16)
+	duration := 100 * time.Microsecond
 	securityParam := uint8(4)
-	merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam, prover.LowestMerkleMinMemoryLayer)
+	leafs, merkleProof, err := prover.GenerateProofWithoutPersistency(t.TempDir(), hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(duration), securityParam, prover.LowestMerkleMinMemoryLayer)
 	r.NoError(err)
 
 	merkleProof.Root[0] = 0
 
-	err = Validate(*merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
+	err = Validate(*merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafs, securityParam)
 	r.EqualError(err, "merkle proof not valid")
 }
 
@@ -71,15 +76,13 @@ func BadLabelHashFunc(data []byte) []byte {
 
 func TestValidateFailLabelValidation(t *testing.T) {
 	r := require.New(t)
-	tempdir, _ := ioutil.TempDir("", "poet-test")
 
 	challenge := []byte("challenge")
-	numLeaves := uint64(16)
+	duration := 100 * time.Microsecond
 	securityParam := uint8(4)
-	merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam, prover.LowestMerkleMinMemoryLayer)
+	leafs, merkleProof, err := prover.GenerateProofWithoutPersistency(t.TempDir(), hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(duration), securityParam, prover.LowestMerkleMinMemoryLayer)
 	r.NoError(err)
-
-	err = Validate(*merkleProof, BadLabelHashFunc, hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
+	err = Validate(*merkleProof, BadLabelHashFunc, hash.GenMerkleHashFunc(challenge), leafs, securityParam)
 	r.Error(err)
 	r.Regexp("label at index 0 incorrect - expected: [0-f]* actual: [0-f]*", err.Error())
 }

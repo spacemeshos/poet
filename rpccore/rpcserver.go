@@ -1,6 +1,8 @@
 package rpccore
 
 import (
+	"time"
+
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/rpccore/apicore"
@@ -38,9 +40,10 @@ func NewRPCServer(sig *signal.Signal, datadir string) *RPCServer {
 
 func (r *RPCServer) Compute(ctx context.Context, in *apicore.ComputeRequest) (*apicore.ComputeResponse, error) {
 	challenge := in.D.X
-	numLeaves := uint64(1) << in.D.N
+	// TODO(dshulyak) if this is actually will be used change N to Duration for clarity
+	end := time.Now().Add(time.Duration(in.D.N))
 	securityParam := shared.T
-	proof, err := prover.GenerateProofWithoutPersistency(r.datadir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam, prover.LowestMerkleMinMemoryLayer)
+	_, proof, err := prover.GenerateProofWithoutPersistency(r.datadir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), end, securityParam, prover.LowestMerkleMinMemoryLayer)
 	if err != nil {
 		return nil, status.Error(codes.Unknown, err.Error())
 	}

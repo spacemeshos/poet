@@ -3,17 +3,19 @@ package prover
 import (
 	"errors"
 	"fmt"
-	"github.com/spacemeshos/merkle-tree"
-	"github.com/spacemeshos/merkle-tree/cache"
-	"github.com/spacemeshos/poet/shared"
-	"github.com/spacemeshos/poet/signal"
-	"github.com/spacemeshos/smutil/log"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/spacemeshos/merkle-tree"
+	"github.com/spacemeshos/merkle-tree/cache"
+	"github.com/spacemeshos/poet/shared"
+	"github.com/spacemeshos/poet/signal"
+	"github.com/spacemeshos/smutil/log"
 )
 
 const (
@@ -46,17 +48,16 @@ func GenerateProof(
 	datadir string,
 	labelHashFunc func(data []byte) []byte,
 	merkleHashFunc func(lChild, rChild []byte) []byte,
-	numLeaves uint64,
+	limit time.Time,
 	securityParam uint8,
 	minMemoryLayer uint,
 	persist persistFunc,
-) (*shared.MerkleProof, error) {
+) (uint64, *shared.MerkleProof, error) {
 	tree, treeCache, err := makeProofTree(datadir, merkleHashFunc, minMemoryLayer)
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
-
-	return generateProof(sig, labelHashFunc, tree, treeCache, numLeaves, 0, securityParam, persist)
+	return generateProof(sig, labelHashFunc, tree, treeCache, limit, 0, securityParam, persist)
 }
 
 // GenerateProofRecovery recovers proof generation, from a given 'nextLeafID' and for a given 'parkedNodes' snapshot.
@@ -65,18 +66,17 @@ func GenerateProofRecovery(
 	datadir string,
 	labelHashFunc func(data []byte) []byte,
 	merkleHashFunc func(lChild, rChild []byte) []byte,
-	numLeaves uint64,
+	limit time.Time,
 	securityParam uint8,
 	nextLeafID uint64,
 	parkedNodes [][]byte,
 	persist persistFunc,
-) (*shared.MerkleProof, error) {
+) (uint64, *shared.MerkleProof, error) {
 	treeCache, tree, err := makeRecoveryProofTree(datadir, merkleHashFunc, nextLeafID, parkedNodes)
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
-
-	return generateProof(sig, labelHashFunc, tree, treeCache, numLeaves, nextLeafID, securityParam, persist)
+	return generateProof(sig, labelHashFunc, tree, treeCache, limit, nextLeafID, securityParam, persist)
 }
 
 // GenerateProofWithoutPersistency calls GenerateProof with disabled persistency functionality
@@ -85,11 +85,11 @@ func GenerateProofWithoutPersistency(
 	datadir string,
 	labelHashFunc func(data []byte) []byte,
 	merkleHashFunc func(lChild, rChild []byte) []byte,
-	numLeaves uint64,
+	limit time.Time,
 	securityParam uint8,
 	minMemoryLayer uint,
-) (*shared.MerkleProof, error) {
-	return GenerateProof(sig, datadir, labelHashFunc, merkleHashFunc, numLeaves, securityParam, minMemoryLayer, persist)
+) (uint64, *shared.MerkleProof, error) {
+	return GenerateProof(sig, datadir, labelHashFunc, merkleHashFunc, limit, securityParam, minMemoryLayer, persist)
 }
 
 func makeProofTree(
@@ -190,55 +190,56 @@ func generateProof(
 	labelHashFunc func(data []byte) []byte,
 	tree *merkle.Tree,
 	treeCache *cache.Writer,
-	numLeaves uint64,
+	end time.Time,
 	nextLeafID uint64,
 	securityParam uint8,
 	persist persistFunc,
-) (*shared.MerkleProof, error) {
+) (uint64, *shared.MerkleProof, error) {
 	unblock := sig.BlockShutdown()
 	defer unblock()
 
 	makeLabel := shared.MakeLabelFunc()
-	for leafID := nextLeafID; leafID < numLeaves; leafID++ {
+	leaves := nextLeafID
+	for leafID := nextLeafID; time.Until(end) > 0; leafID++ {
 		// Handle persistence.
 		if sig.ShutdownRequested {
 			if err := persist(tree, treeCache, leafID); err != nil {
-				return nil, err
+				return 0, nil, err
 			}
-			return nil, ErrShutdownRequested
+			return 0, nil, ErrShutdownRequested
 		} else if leafID != 0 && leafID%hardShutdownCheckpointRate == 0 {
 			if err := persist(tree, treeCache, leafID); err != nil {
-				return nil, err
+				return 0, nil, err
 			}
 		}
 
 		// Generate the next leaf.
 		err := tree.AddLeaf(makeLabel(labelHashFunc, leafID, tree.GetParkedNodes()))
 		if err != nil {
-			return nil, err
+			return 0, nil, err
 		}
+		leaves++
 	}
 
-	log.Info("Merkle tree construction finished, generating proof...")
+	log.Info("Merkle tree construction finished with %d leaves, generating proof...", leaves)
 
 	root := tree.Root()
 
 	cacheReader, err := treeCache.GetReader()
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
-	provenLeafIndices := shared.FiatShamir(root, numLeaves, securityParam)
+	provenLeafIndices := shared.FiatShamir(root, leaves, securityParam)
 	_, provenLeaves, proofNodes, err := merkle.GenerateProof(provenLeafIndices, cacheReader)
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
 
-	return &shared.MerkleProof{
+	return leaves, &shared.MerkleProof{
 		Root:         root,
 		ProvenLeaves: provenLeaves,
 		ProofNodes:   proofNodes,
 	}, nil
-
 }
 
 func getLayersFiles(datadir string) (map[uint]string, error) {

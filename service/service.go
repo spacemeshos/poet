@@ -4,27 +4,32 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/spacemeshos/go-scale"
-
-	"github.com/spacemeshos/poet/broadcaster"
-	"github.com/spacemeshos/poet/shared"
-	"github.com/spacemeshos/poet/signal"
-	"github.com/spacemeshos/smutil/log"
-	"golang.org/x/crypto/ed25519"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/spacemeshos/go-scale"
+	mshared "github.com/spacemeshos/merkle-tree/shared"
+	"golang.org/x/crypto/ed25519"
+
+	"github.com/spacemeshos/poet/broadcaster"
+	"github.com/spacemeshos/poet/prover"
+	"github.com/spacemeshos/poet/shared"
+	"github.com/spacemeshos/poet/signal"
+	"github.com/spacemeshos/smutil/log"
 )
 
 type Config struct {
-	N                        uint          `long:"n" description:"PoET time parameter"`
+	Genesis                  string        `long:"genesis-time" description:"Genesis timestamp"`
+	EpochDuration            time.Duration `long:"epoch-duration" description:"Epoch duration"`
+	PhaseShift               time.Duration `long:"phase-shift"`
+	CycleGap                 time.Duration `long:"cycle-gap"`
 	MemoryLayers             uint          `long:"memory" description:"Number of top Merkle tree layers to cache in-memory"`
-	RoundsDuration           time.Duration `long:"duration" description:"duration of the opening time for each round. If not specified, rounds duration will be determined by its previous round end of PoET execution"`
-	InitialRoundDuration     time.Duration `long:"initialduration" description:"duration of the opening time for the initial round. if rounds duration isn't specified, this param is necessary"`
 	ExecuteEmpty             bool          `long:"empty" description:"whether to execute empty rounds, without any submitted challenges"`
 	NoRecovery               bool          `long:"norecovery" description:"whether to disable a potential recovery procedure"`
 	Reset                    bool          `long:"reset" description:"whether to reset the service state by deleting the datadir"`
@@ -36,32 +41,33 @@ type Config struct {
 	BroadcastRetriesInterval time.Duration `long:"broadcast-retries-interval" description:"duration interval between broadcast retries"`
 }
 
+// estimatedLeavesPerSecond is used to computed estimated height of the proving tree
+// in the epoch, which is used for cache estimation
+const estimatedLeavesPerSecond = 1 << 17
+
 const serviceStateFileBaseName = "state.bin"
 
 type serviceState struct {
-	NextRoundID int
-	PrivKey     []byte
+	PrivKey []byte
 }
 
 // Service orchestrates rounds functionality; each responsible for accepting challenges,
 // generating a proof from their hash digest, and broadcasting the result to the Spacemesh network.
 type Service struct {
-	cfg     *Config
-	datadir string
-	started int32
+	cfg            *Config
+	datadir        string
+	genesis        time.Time
+	minMemoryLayer uint
+	started        int32
 
 	// openRound is the round which is currently open for accepting challenges registration from miners.
 	// At any given time there is one single open round.
 	openRound *round
 
 	// executingRounds are the rounds which are currently executing, hence generating a proof.
-	// At any given time there may be 0 to ∞ total executing rounds. This variation is determined by
-	// the rounds opening time duration (cfg.RoundsDuration),
-	// and the proof generation duration (cfg.N + runtime variance + caching policies).
 	executingRounds map[string]*round
 
-	prevRound   *round
-	nextRoundID int
+	prevRound *round
 
 	PubKey      ed25519.PublicKey
 	privKey     ed25519.PrivateKey
@@ -116,6 +122,20 @@ type PoetProofMessage struct {
 func NewService(sig *signal.Signal, cfg *Config, datadir string) (*Service, error) {
 	s := new(Service)
 	s.cfg = cfg
+	genesis, err := time.Parse(time.RFC3339, cfg.Genesis)
+	if err != nil {
+		return nil, err
+	}
+	minMemoryLayer := int(mshared.RootHeightFromWidth(
+		uint64(cfg.EpochDuration.Seconds()*estimatedLeavesPerSecond),
+	)) - int(cfg.MemoryLayers)
+	if minMemoryLayer < prover.LowestMerkleMinMemoryLayer {
+		minMemoryLayer = prover.LowestMerkleMinMemoryLayer
+	}
+	log.Info("starting poet service. min memory layer: %v. genesis: %s", minMemoryLayer, cfg.Genesis)
+
+	s.minMemoryLayer = uint(minMemoryLayer)
+	s.genesis = genesis
 	s.datadir = datadir
 	s.executingRounds = make(map[string]*round)
 	s.errChan = make(chan error, 10)
@@ -143,7 +163,6 @@ func NewService(sig *signal.Signal, cfg *Config, datadir string) (*Service, erro
 
 	s.privKey = ed25519.NewKeyFromSeed(state.PrivKey[:32])
 	s.PubKey = state.PrivKey[32:]
-	s.nextRoundID = state.NextRoundID
 
 	log.Info("Service public key: %x", s.PubKey)
 
@@ -159,7 +178,6 @@ func NewService(sig *signal.Signal, cfg *Config, datadir string) (*Service, erro
 		if err != nil {
 			return nil, err
 		}
-
 		if err := s.Start(b); err != nil {
 			return nil, fmt.Errorf("failed to start service: %v", err)
 		}
@@ -177,16 +195,14 @@ func (s *Service) initialState() *serviceState {
 	}
 
 	return &serviceState{
-		NextRoundID: 1,
-		PrivKey:     priv,
+		PrivKey: priv,
 	}
 }
 
 func (s *Service) saveState() error {
 	filename := filepath.Join(s.datadir, serviceStateFileBaseName)
 	v := &serviceState{
-		NextRoundID: s.nextRoundID,
-		PrivKey:     s.privKey,
+		PrivKey: s.privKey,
 	}
 
 	return persist(filename, v)
@@ -215,20 +231,35 @@ func (s *Service) Start(b Broadcaster) error {
 	} else if err := s.Recover(); err != nil {
 		return fmt.Errorf("failed to recover: %v", err)
 	}
-
+	now := time.Now()
+	epoch := time.Duration(0)
+	if d := now.Sub(s.genesis); d > 0 {
+		epoch = d / s.cfg.EpochDuration
+	}
 	if s.openRound == nil {
-		s.openRound = s.newRound()
+		s.openRound = s.newRound(uint32(epoch))
 		log.Info("Round %v opened", s.openRound.ID)
 	}
 
 	go func() {
+		timer := time.NewTimer(0)
+		<-timer.C
+		defer timer.Stop()
 		for {
-			select {
-			case <-s.openRoundClosure():
-			case <-s.sig.ShutdownRequestedChan:
-				log.Info("Shutdown requested, service shutting down")
-				s.openRound = nil
-				return
+			start := s.genesis.
+				Add(s.cfg.EpochDuration * time.Duration(s.openRound.Epoch())).
+				Add(s.cfg.PhaseShift)
+			if d := start.Sub(time.Now()); d > 0 {
+				log.Info("Round %v waiting for execution to start for %v",
+					s.openRound.ID, d)
+				timer.Reset(d)
+				select {
+				case <-timer.C:
+				case <-s.sig.ShutdownRequestedChan:
+					log.Info("Shutdown requested, service shutting down")
+					s.openRound = nil
+					return
+				}
 			}
 
 			if s.openRound.isEmpty() && !s.cfg.ExecuteEmpty {
@@ -236,19 +267,19 @@ func (s *Service) Start(b Broadcaster) error {
 			}
 
 			s.prevRound = s.openRound
-			s.openRound = s.newRound()
-			log.Info("Round %v opened", s.openRound.ID)
+			open := time.Now()
+			// TODO(dshulyak) some time is wasted here to persist data on disk
+			// on my computer ~20ms
+			s.openRound = s.newRound(s.prevRound.Epoch() + 1)
+			log.Info("Round %v opened. took %v", s.openRound.ID, time.Since(open))
 
-			// Close previous round and execute it.
-			go func() {
-				r := s.prevRound
+			go func(r *round) {
 				if err := s.executeRound(r); err != nil {
 					s.asyncError(fmt.Errorf("round %v execution error: %v", r.ID, err))
 					return
 				}
-
 				broadcastProof(s, r, r.execution, s.broadcaster)
-			}()
+			}(s.prevRound)
 		}
 	}()
 
@@ -270,16 +301,24 @@ func (s *Service) Recover() error {
 			continue
 		}
 
-		datadir := filepath.Join(s.datadir, entry.Name())
-		r := newRound(s.sig, s.cfg, datadir, entry.Name())
-
+		epoch, err := strconv.ParseUint(entry.Name(), 10, 32)
+		if err != nil {
+			return fmt.Errorf("entry is not a uint32 %s", entry.Name())
+		}
+		r := newRound(s.sig, s.cfg, s.datadir, uint32(epoch))
 		state, err := r.state()
 		if err != nil {
 			return fmt.Errorf("invalid round state: %v", err)
 		}
 
+		if state.isExecuted() {
+			log.Info("Recovery: found round %v in executed state. broadcasting...", r.ID)
+			go broadcastProof(s, r, state.Execution, s.broadcaster)
+			continue
+		}
+
 		if state.isOpen() {
-			log.Info("Recovery: found round %v in open state", r.ID)
+			log.Info("Recovery: found round %v in open state.", r.ID)
 			if err := r.open(); err != nil {
 				return fmt.Errorf("failed to open round: %v", err)
 			}
@@ -290,36 +329,30 @@ func (s *Service) Recover() error {
 			continue
 		}
 
-		if state.isExecuted() {
-			log.Info("Recovery: found round %v in executed state. broadcasting...", r.ID)
-			go broadcastProof(s, r, state.Execution, s.broadcaster)
-			continue
-		}
-
 		log.Info("Recovery: found round %v in executing state. recovering execution...", r.ID)
-
-		// Keep the last executing round as prevRound for potentially affecting
-		// the closure of the current open round (see openRoundClosure()).
-		s.prevRound = r
-
-		go func() {
-			s.Lock()
-			s.executingRounds[r.ID] = r
-			s.Unlock()
+		s.Lock()
+		s.executingRounds[r.ID] = r
+		s.Unlock()
+		go func(r *round, rs *roundState) {
 			defer func() {
 				s.Lock()
 				delete(s.executingRounds, r.ID)
 				s.Unlock()
 			}()
 
-			if err = r.recoverExecution(state.Execution); err != nil {
+			end := s.genesis.
+				Add(s.cfg.EpochDuration * time.Duration(r.Epoch()+1)).
+				Add(s.cfg.PhaseShift).
+				Add(-s.cfg.CycleGap)
+
+			if err = r.recoverExecution(rs.Execution, end); err != nil {
 				s.asyncError(fmt.Errorf("recovery: round %v execution failure: %v", r.ID, err))
 				return
 			}
 
 			log.Info("Recovery: round %v execution ended, phi=%x", r.ID, r.execution.NIP.Root)
 			broadcastProof(s, r, r.execution, s.broadcaster)
-		}()
+		}(r, state)
 	}
 
 	return nil
@@ -346,13 +379,19 @@ func (s *Service) executeRound(r *round) error {
 		s.Unlock()
 	}()
 
-	log.Info("Round %v executing...", r.ID)
+	start := time.Now()
+	end := s.genesis.
+		Add(s.cfg.EpochDuration * time.Duration(r.Epoch()+1)).
+		Add(s.cfg.PhaseShift).
+		Add(-s.cfg.CycleGap)
 
-	if err := r.execute(); err != nil {
+	log.Info("Round %v executing until %v...", r.ID, end)
+
+	if err := r.execute(end, uint(s.minMemoryLayer)); err != nil {
 		return err
 	}
 
-	log.Info("Round %v execution ended, phi=%x", r.ID, r.execution.NIP.Root)
+	log.Info("Round %v execution ended, phi=%x, duration %v", r.ID, r.execution.NIP.Root, time.Since(start))
 
 	return nil
 }
@@ -390,52 +429,15 @@ func (s *Service) Info() (*InfoResponse, error) {
 	return res, nil
 }
 
-func (s *Service) newRound() *round {
-	roundID := fmt.Sprintf("%d", s.nextRoundID)
-	s.nextRoundID++
+func (s *Service) newRound(epoch uint32) *round {
 	if err := s.saveState(); err != nil {
 		panic(err)
 	}
-
-	datadir := filepath.Join(s.datadir, roundID)
-
-	r := newRound(s.sig, s.cfg, datadir, roundID)
+	r := newRound(s.sig, s.cfg, s.datadir, epoch)
 	if err := r.open(); err != nil {
 		panic(fmt.Errorf("failed to open round: %v", err))
 	}
-
 	return r
-}
-
-// openRoundClosure returns a channel used to notify the closure of the current open round.
-func (s *Service) openRoundClosure() <-chan struct{} {
-	// If it's the initial round, use the initial duration config to notify the closure.
-	if s.prevRound == nil {
-		return s.openRoundClosurePerDuration(s.cfg.InitialRoundDuration)
-	}
-
-	// If rounds duration was specified, use it to notify the closure.
-	if s.cfg.RoundsDuration > 0 {
-		return s.openRoundClosurePerDuration(s.cfg.RoundsDuration)
-	}
-
-	// Use the previous round end of execution to notify the closure.
-	return s.prevRound.executionEndedChan
-}
-
-func (s *Service) openRoundClosurePerDuration(d time.Duration) <-chan struct{} {
-	// If the open round was recovered, include the time period from when it was originally opened.
-	var offset time.Duration
-	if s.openRound.stateCache != nil {
-		offset = time.Since(s.openRound.stateCache.Opened)
-	}
-
-	c := make(chan struct{})
-	go func() {
-		<-time.After(d - offset)
-		close(c)
-	}()
-	return c
 }
 
 func (s *Service) asyncError(err error) {

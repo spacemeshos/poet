@@ -4,10 +4,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/spacemeshos/merkle-tree"
-	"github.com/spacemeshos/sha256-simd"
 	"os"
 	"time"
+
+	"github.com/spacemeshos/merkle-tree"
+	"github.com/spacemeshos/sha256-simd"
 )
 
 //go:generate scalegen -types MerkleProof
@@ -23,10 +24,13 @@ const (
 
 // FiatShamir generates a set of indices to include in a non-interactive proof.
 func FiatShamir(challenge []byte, spaceSize uint64, securityParam uint8) map[uint64]bool {
-	if uint64(securityParam) > spaceSize {
-		securityParam = uint8(spaceSize)
-	}
 	ret := make(map[uint64]bool, securityParam)
+	if uint64(securityParam) > spaceSize {
+		for i := uint64(0); i < spaceSize; i++ {
+			ret[i] = true
+		}
+		return ret
+	}
 	for i := uint8(0); len(ret) < int(securityParam); i++ {
 		result := sha256.Sum256(append(challenge, i))
 		id := binary.BigEndian.Uint64(result[:8]) % spaceSize

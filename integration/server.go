@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 // ServerConfig contains all the args and data required to launch a poet server
@@ -21,9 +22,10 @@ type ServerConfig struct {
 	dataDir   string
 	exe       string
 
-	N                int
-	InitialDuration  string
-	Duration         string
+	Genesis          time.Time
+	EpochDuration    time.Duration
+	PhaseShift       time.Duration
+	CycleGap         time.Duration
 	Reset            bool
 	DisableBroadcast bool
 	RESTListen       string
@@ -42,12 +44,15 @@ func DefaultConfig() (*ServerConfig, error) {
 	}
 
 	cfg := &ServerConfig{
-		logLevel:   "debug",
-		rpcListen:  "127.0.0.1:18550",
-		RESTListen: "127.0.0.1:18551",
-		baseDir:    baseDir,
-		dataDir:    filepath.Join(baseDir, "data"),
-		exe:        poetPath,
+		logLevel:      "debug",
+		rpcListen:     "127.0.0.1:18550",
+		RESTListen:    "127.0.0.1:18551",
+		baseDir:       baseDir,
+		dataDir:       filepath.Join(baseDir, "data"),
+		exe:           poetPath,
+		EpochDuration: 2 * time.Second,
+		PhaseShift:    time.Second / 2,
+		CycleGap:      time.Second / 4,
 	}
 
 	return cfg, nil
@@ -60,16 +65,11 @@ func (cfg *ServerConfig) genArgs() []string {
 	args = append(args, fmt.Sprintf("--datadir=%v", cfg.dataDir))
 	args = append(args, fmt.Sprintf("--rpclisten=%v", cfg.rpcListen))
 	args = append(args, fmt.Sprintf("--restlisten=%v", cfg.RESTListen))
+	args = append(args, fmt.Sprintf("--genesis-time=%s", cfg.Genesis.Format(time.RFC3339)))
+	args = append(args, fmt.Sprintf("--epoch-duration=%s", cfg.EpochDuration))
+	args = append(args, fmt.Sprintf("--phase-shift=%s", cfg.PhaseShift))
+	args = append(args, fmt.Sprintf("--cycle-gap=%s", cfg.CycleGap))
 
-	if cfg.N != 0 {
-		args = append(args, fmt.Sprintf("--n=%d", cfg.N))
-	}
-	if cfg.InitialDuration != "" {
-		args = append(args, fmt.Sprintf("--initialduration=%v", cfg.InitialDuration))
-	}
-	if cfg.Duration != "" {
-		args = append(args, fmt.Sprintf("--duration=%v", cfg.Duration))
-	}
 	if cfg.Reset {
 		args = append(args, "--reset")
 	}

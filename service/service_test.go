@@ -4,15 +4,15 @@ import (
 	"bytes"
 	"crypto/rand"
 	"fmt"
-	"github.com/nullstyle/go-xdr/xdr3"
+	"strconv"
+	"testing"
+	"time"
+
+	"github.com/spacemeshos/go-scale"
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/signal"
 	"github.com/stretchr/testify/require"
-	"io/ioutil"
-	"strconv"
-	"testing"
-	"time"
 )
 
 type MockBroadcaster struct {
@@ -29,26 +29,18 @@ type challenge struct {
 	round *round
 }
 
-// TestService_Recovery test Service recovery functionality by tracking 3 distinct rounds.
-// The scenario proceeds as follows:
-// 	- Create a new service instance.
-//  - Submit challenges to open round (0).
-//  - Wait for round to start executing, and a new round to be open.
-//  - Submit challenges to open round (1).
-//  - Wait a bit for round 0 execution to proceed.
-//  - Shutdown service.
-//  - Create a new service instance.
-//  - Submit challenges to open round (1)
-//  - Wait a bit for round 1 execution to proceed.
-//  - Submit challenges to open round (2).
-//  - Verify that new service instance broadcast 3 distinct rounds proofs, by the expected order.
 func TestService_Recovery(t *testing.T) {
 	req := require.New(t)
 	sig := signal.NewSignal()
 	broadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
-	cfg := &Config{N: 17, InitialRoundDuration: 1 * time.Second}
-	tempdir, _ := ioutil.TempDir("", "poet-test")
+	cfg := &Config{
+		Genesis:       time.Now().Add(time.Second).Format(time.RFC3339),
+		EpochDuration: time.Second,
+		PhaseShift:    time.Second / 2,
+		CycleGap:      time.Second / 4,
+	}
 
+	tempdir := t.TempDir()
 	// Create a new service instance.
 	s, err := NewService(sig, cfg, tempdir)
 	req.NoError(err)
@@ -112,9 +104,6 @@ func TestService_Recovery(t *testing.T) {
 	// Submit challenges to open round (1).
 	submitChallenges(1, 1)
 
-	// Wait a bit for round 0 execution to proceed.
-	time.Sleep(1 * time.Second)
-
 	// Request shutdown.
 	sig.RequestShutdown()
 
@@ -125,8 +114,6 @@ func TestService_Recovery(t *testing.T) {
 	case <-rounds[0].executionEndedChan:
 		req.Fail("round execution ended instead of shutting down")
 	}
-
-	time.Sleep(1 * time.Second)
 
 	// Verify service state. should have no open or executing rounds.
 	req.Equal((*round)(nil), s.openRound)
@@ -139,35 +126,28 @@ func TestService_Recovery(t *testing.T) {
 
 	err = s.Start(broadcaster)
 	req.NoError(err)
-	time.Sleep(500 * time.Millisecond)
 
-	// Service instance should recover 2 rounds: round 0 in executing state, and round 1 in open state.
-	prevServiceRounds := rounds
+	// Service instance should recover 2 rounds: round 1 in executing state, and round 2 in open state.
 	req.Equal(1, len(s.executingRounds))
-	_, ok := s.executingRounds[prevServiceRounds[0].ID]
+	first, ok := s.executingRounds["0"]
 	req.True(ok)
-	req.Equal(s.openRound.ID, prevServiceRounds[1].ID)
-
-	// Track rounds from the new service instance.
-	rounds = make([]*round, numRounds)
-	rounds[0] = s.executingRounds[prevServiceRounds[0].ID]
+	req.Equal(s.openRound.ID, "1")
+	rounds[0] = first
 	rounds[1] = s.openRound
 
-	// Submit challenges to open round (1).
-	submitChallenges(1, 2)
-
-	// Wait for round 1 to start executing.
 	select {
 	case <-rounds[1].executionStartedChan:
 	case err := <-s.errChan:
 		req.Fail(err.Error())
 	}
 
-	// Verify that round iteration proceeds: a new round opened, previous round is executing.
-	req.Contains(s.executingRounds, rounds[1].ID)
+	submitChallenges(2, 2)
 
-	// Submit challenges to open round (2).
-	submitChallenges(2, 3)
+	select {
+	case <-rounds[2].executionEndedChan:
+	case err := <-s.errChan:
+		req.Fail(err.Error())
+	}
 
 	// Verify that new service instance broadcast 3 distinct rounds proofs, by the expected order.
 	for i := 0; i < numRounds; i++ {
@@ -176,16 +156,15 @@ func TestService_Recovery(t *testing.T) {
 		case <-time.After(10 * time.Second):
 			req.Fail("proof message wasn't sent")
 		case msg := <-broadcaster.receivedMessages:
-			_, err := xdr.Unmarshal(bytes.NewReader(msg), &proofMsg)
+			dec := scale.NewDecoder(bytes.NewReader(msg))
+			_, err := proofMsg.DecodeScale(dec)
 			req.NoError(err)
 		}
-
-		req.Equal(rounds[i].ID, proofMsg.RoundID)
 
 		// Verify the submitted challenges.
 		req.Len(proofMsg.Members, len(submittedChallenges[i]))
 		for _, ch := range submittedChallenges[i] {
-			req.True(contains(proofMsg.Members, ch.data))
+			req.True(contains(proofMsg.Members, ch.data), "proof %v, round %v", proofMsg.RoundID, i)
 		}
 
 		// Verify round statement.
@@ -194,9 +173,8 @@ func TestService_Recovery(t *testing.T) {
 		for _, m := range proofMsg.Members {
 			req.NoError(mtree.AddLeaf(m))
 		}
-
 		proof, err := rounds[i].proof(false)
-		req.NoError(err)
+		req.NoError(err, "round %d", i)
 		req.Equal(mtree.Root(), proof.Statement)
 	}
 }
@@ -213,11 +191,13 @@ func contains(list [][]byte, item []byte) bool {
 
 func TestNewService(t *testing.T) {
 	req := require.New(t)
-	tempdir, _ := ioutil.TempDir("", "poet-test")
+	tempdir := t.TempDir()
 
 	cfg := new(Config)
-	cfg.N = 17
-	cfg.InitialRoundDuration = 1 * time.Second
+	cfg.Genesis = time.Now().Add(time.Second / 2).Format(time.RFC3339)
+	cfg.EpochDuration = time.Second
+	cfg.PhaseShift = time.Second / 2
+	cfg.CycleGap = time.Second / 4
 
 	s, err := NewService(signal.NewSignal(), cfg, tempdir)
 	req.NoError(err)
@@ -283,7 +263,8 @@ func TestNewService(t *testing.T) {
 	select {
 	case msg := <-proofBroadcaster.receivedMessages:
 		poetProof := PoetProofMessage{}
-		_, err := xdr.Unmarshal(bytes.NewReader(msg), &poetProof)
+		dec := scale.NewDecoder(bytes.NewReader(msg))
+		_, err := poetProof.DecodeScale(dec)
 		req.NoError(err)
 	case <-time.After(100 * time.Millisecond):
 		req.Fail("proof message wasn't sent")

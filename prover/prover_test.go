@@ -1,44 +1,35 @@
 package prover
 
 import (
-	"fmt"
+	"testing"
+	"time"
+
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/stretchr/testify/require"
-	"io/ioutil"
-	"testing"
-	"time"
 )
 
 func TestGetProof(t *testing.T) {
 	r := require.New(t)
-	tempdir, _ := ioutil.TempDir("", "poet-test")
+	tempdir := t.TempDir()
 
 	challenge := []byte("challenge this")
-	merkleProof, err := GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), 16, 5, LowestMerkleMinMemoryLayer)
+	leafs, merkleProof, err := GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(10*time.Millisecond), 5, LowestMerkleMinMemoryLayer)
 	r.NoError(err)
-	fmt.Printf("root: %x\n", merkleProof.Root)
-	fmt.Printf("proof: %x\n", merkleProof.ProvenLeaves)
+	t.Logf("root: %x", merkleProof.Root)
+	t.Logf("proof: %x", merkleProof.ProvenLeaves)
+	t.Logf("leafs: %d", leafs)
 }
 
 func BenchmarkGetProof(b *testing.B) {
-	r := require.New(b)
-	tempdir, _ := ioutil.TempDir("", "poet-test")
+	tempdir := b.TempDir()
 
 	challenge := []byte("challenge this! challenge this! ")
-	numLeaves := uint64(1) << 20
 	securityParam := shared.T
-	fmt.Printf("=> Generating proof for %d leaves with security param %d...\n", numLeaves, securityParam)
-
-	t1 := time.Now()
-	_, err := GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam, LowestMerkleMinMemoryLayer)
-	e := time.Since(t1)
-
-	r.NoError(err)
-	fmt.Printf("=> Completed in %v.\n", e)
-
-	/*
-		=> Generating proof for 1048576 leaves with security param 150...
-		=> Completed in 22.020794606s.
-	*/
+	duration := 10 * time.Millisecond
+	leafs, _, err := GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(duration), securityParam, LowestMerkleMinMemoryLayer)
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ReportMetric(float64(leafs), "leafs/op")
 }
