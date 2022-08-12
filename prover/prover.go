@@ -229,7 +229,7 @@ func generateProof(
 	if err != nil {
 		return 0, nil, err
 	}
-	log.Info("calling fiat shamir %x: %d: %d", root, leaves, securityParam)
+	log.Info("fiat shamir with root=%x, leaves=%d, security=%d", root, leaves, securityParam)
 	provenLeafIndices := shared.FiatShamir(root, leaves, securityParam)
 	_, provenLeaves, proofNodes, err := merkle.GenerateProof(provenLeafIndices, cacheReader)
 	if err != nil {
