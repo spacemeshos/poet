@@ -194,7 +194,9 @@ func TestRound_State(t *testing.T) {
 	req.True(state.Execution.NumLeaves > 0)
 	req.True(state.Execution.ParkedNodes != nil)
 	req.True(state.Execution.NIP == nil)
-	require.NoError(t, r.waitTeardown(context.Background()))
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Second)
+	defer cancel()
+	require.NoError(t, r.waitTeardown(ctx))
 
 	// Create a new round instance of the same round.
 	r = newRound(signal.NewSignal(), cfg, tempdir, 0)
