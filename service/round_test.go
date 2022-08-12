@@ -170,7 +170,7 @@ func TestRound_State(t *testing.T) {
 	req.True(state.Execution.NIP == nil)
 
 	// Execute the round, and request shutdown before completion.
-	duration := 10 * time.Millisecond
+	duration := 100 * time.Millisecond
 	go func() {
 		time.Sleep(duration / 2)
 		sig.RequestShutdown()
