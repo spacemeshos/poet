@@ -170,7 +170,7 @@ func TestRound_State(t *testing.T) {
 	req.True(state.Execution.NIP == nil)
 
 	// Execute the round, and request shutdown before completion.
-	duration := 10 * time.Millisecond
+	duration := 100 * time.Millisecond
 	go func() {
 		time.Sleep(duration / 2)
 		sig.RequestShutdown()
@@ -194,7 +194,9 @@ func TestRound_State(t *testing.T) {
 	req.True(state.Execution.NumLeaves > 0)
 	req.True(state.Execution.ParkedNodes != nil)
 	req.True(state.Execution.NIP == nil)
-	require.NoError(t, r.waitTeardown(context.Background()))
+	ctx, cancel := context.WithTimeout(context.TODO(), time.Second)
+	defer cancel()
+	require.NoError(t, r.waitTeardown(ctx))
 
 	// Create a new round instance of the same round.
 	r = newRound(signal.NewSignal(), cfg, tempdir, 0)

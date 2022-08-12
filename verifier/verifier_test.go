@@ -59,7 +59,7 @@ func TestValidateWrongRoot(t *testing.T) {
 	r := require.New(t)
 
 	challenge := []byte("challenge")
-	duration := 100 * time.Microsecond
+	duration := 10 * time.Millisecond
 	securityParam := uint8(4)
 	leafs, merkleProof, err := prover.GenerateProofWithoutPersistency(t.TempDir(), hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(duration), securityParam, prover.LowestMerkleMinMemoryLayer)
 	r.NoError(err)
@@ -78,7 +78,7 @@ func TestValidateFailLabelValidation(t *testing.T) {
 	r := require.New(t)
 
 	challenge := []byte("challenge")
-	duration := 100 * time.Microsecond
+	duration := 10 * time.Millisecond
 	securityParam := uint8(4)
 	leafs, merkleProof, err := prover.GenerateProofWithoutPersistency(t.TempDir(), hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(duration), securityParam, prover.LowestMerkleMinMemoryLayer)
 	r.NoError(err)
