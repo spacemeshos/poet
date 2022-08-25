@@ -3,7 +3,7 @@ module github.com/spacemeshos/poet
 go 1.18
 
 require (
-	github.com/golang/protobuf v1.4.2
+	github.com/golang/protobuf v1.5.2
 	github.com/grpc-ecosystem/grpc-gateway v1.14.6
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/nullstyle/go-xdr v0.0.0-20180726165426-f4c839f75077
@@ -31,7 +31,7 @@ require (
 	go.uber.org/zap v1.10.0 // indirect
 	golang.org/x/sys v0.0.0-20220614162138-6c1b26c55098 // indirect
 	golang.org/x/text v0.3.7 // indirect
-	google.golang.org/protobuf v1.25.0 // indirect
+	google.golang.org/protobuf v1.26.0 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
