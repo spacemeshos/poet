@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/golang/protobuf v1.4.2
-	github.com/grpc-ecosystem/grpc-gateway v1.14.6
+	github.com/grpc-ecosystem/grpc-gateway v1.16.0
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/nullstyle/go-xdr v0.0.0-20180726165426-f4c839f75077
 	github.com/spacemeshos/api/release/go v0.0.0-20201103002846-7d0dfed55cc1
@@ -17,7 +17,7 @@ require (
 	golang.org/x/crypto v0.0.0-20220525230936-793ad666bf5e
 	golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2
 	google.golang.org/genproto v0.0.0-20200726014623-da3ae01ef02d
-	google.golang.org/grpc v1.30.0
+	google.golang.org/grpc v1.33.1
 )
 
 require (
