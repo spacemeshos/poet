@@ -3,10 +3,11 @@ package service
 import (
 	"bytes"
 	"fmt"
-	"github.com/nullstyle/go-xdr/xdr3"
-	"github.com/spacemeshos/poet/shared"
 	"io/ioutil"
 	"os"
+
+	"github.com/nullstyle/go-xdr/xdr3"
+	"github.com/spacemeshos/poet/shared"
 )
 
 func persist(filename string, v interface{}) error {
@@ -22,7 +23,6 @@ func persist(filename string, v interface{}) error {
 	}
 
 	return nil
-
 }
 
 func load(filename string, v interface{}) error {

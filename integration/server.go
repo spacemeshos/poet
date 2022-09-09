@@ -140,7 +140,6 @@ func (s *server) start() error {
 		defer s.wg.Done()
 
 		err := s.cmd.Wait()
-
 		if err != nil {
 			// Don't propagate 'signal: killed' error,
 			// since it's an expected behavior.

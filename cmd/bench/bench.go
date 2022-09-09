@@ -4,18 +4,17 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io/ioutil"
+	"log"
+	"os"
+	"path"
 	"runtime"
+	"runtime/pprof"
+	"time"
 
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/verifier"
-
-	"log"
-	"os"
-	"path"
-	"runtime/pprof"
-	"time"
 )
 
 func main() {

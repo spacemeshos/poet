@@ -120,7 +120,7 @@ func connectClient(target string) (*grpc.ClientConn, error) {
 // baseDir is the directory path of the temp directory for all the harness files.
 func baseDir() (string, error) {
 	baseDir := filepath.Join(os.TempDir(), "poet")
-	err := os.MkdirAll(baseDir, 0755)
+	err := os.MkdirAll(baseDir, 0o755)
 	return baseDir, err
 }
 

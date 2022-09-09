@@ -2,6 +2,11 @@ package main
 
 import (
 	"fmt"
+	"net"
+	"net/http"
+	"os"
+	"time"
+
 	proxy "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/spacemeshos/poet/rpc"
 	"github.com/spacemeshos/poet/rpc/api"
@@ -14,10 +19,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/peer"
-	"net"
-	"net/http"
-	"os"
-	"time"
 )
 
 // startServer starts the RPC server.
@@ -45,7 +46,7 @@ func startServer() error {
 	}
 
 	if _, err := os.Stat(cfg.DataDir); os.IsNotExist(err) {
-		if err := os.Mkdir(cfg.DataDir, 0700); err != nil {
+		if err := os.Mkdir(cfg.DataDir, 0o700); err != nil {
 			return err
 		}
 	}
@@ -125,7 +126,6 @@ func loggerInterceptor() func(ctx context.Context, req interface{}, info *grpc.U
 		}
 
 		resp, err := handler(ctx, req)
-
 		if err != nil {
 			log.Info("FAILURE %v | %v | %v", info.FullMethod, err, peer.Addr.String())
 		}

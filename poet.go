@@ -13,9 +13,7 @@ import (
 	"github.com/spacemeshos/smutil/log"
 )
 
-var (
-	cfg *config
-)
+var cfg *config
 
 // poetMain is the true entry point for poet. This function is required since
 // defers created in the top-level scope of a main method aren't executed if

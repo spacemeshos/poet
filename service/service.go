@@ -365,7 +365,6 @@ func (s *Service) SetBroadcaster(b Broadcaster) {
 	if !initial {
 		log.Info("Service broadcaster updated")
 	}
-
 }
 
 func (s *Service) executeRound(r *round) error {
