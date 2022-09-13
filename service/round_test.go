@@ -225,6 +225,7 @@ func TestRound_State(t *testing.T) {
 
 	// Verify round execution state.
 	state, err = r.state()
+	req.NoError(err)
 	req.True(!state.isOpen())
 	req.True(state.isExecuted())
 	req.Equal(r.execution, state.Execution)
