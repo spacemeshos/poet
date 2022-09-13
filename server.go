@@ -2,6 +2,11 @@ package main
 
 import (
 	"fmt"
+	"net"
+	"net/http"
+	"os"
+	"time"
+
 	proxy "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/spacemeshos/poet/rpc"
 	"github.com/spacemeshos/poet/rpc/api"
@@ -12,12 +17,9 @@ import (
 	"github.com/spacemeshos/smutil/log"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/peer"
-	"net"
-	"net/http"
-	"os"
-	"time"
 )
 
 // startServer starts the RPC server.
@@ -80,13 +82,16 @@ func startServer() error {
 
 	go func() {
 		log.Info("RPC server listening on %s", lis.Addr())
-		grpcServer.Serve(lis)
+		err := grpcServer.Serve(lis)
+		if err != nil {
+			log.Error("failed to serve: %v", err)
+		}
 	}()
 
 	// Start the REST proxy for the gRPC server above.
 	mux := proxy.NewServeMux()
 	for _, r := range proxyRegstr {
-		err := r(ctx, mux, cfg.RPCListener.String(), []grpc.DialOption{grpc.WithInsecure()})
+		err := r(ctx, mux, cfg.RPCListener.String(), []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())})
 		if err != nil {
 			return err
 		}

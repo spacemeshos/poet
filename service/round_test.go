@@ -13,10 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var (
-	recoveryExecDecreaseThreshold = 0.85
-)
-
 // TestRound_Recovery test round recovery functionality.
 // The scenario proceeds as follows:
 // 	- Execute r1 as a reference round.

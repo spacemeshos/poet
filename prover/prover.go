@@ -177,6 +177,9 @@ func makeRecoveryProofTree(
 		WithHashFunc(merkleHashFunc).
 		WithCacheWriter(treeCache).
 		Build()
+	if err != nil {
+		return nil, nil, err
+	}
 
 	if err := tree.SetParkedNodes(parkedNodes); err != nil {
 		return nil, nil, err
