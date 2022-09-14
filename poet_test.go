@@ -233,6 +233,5 @@ func newHarness(tb testing.TB, cfg *integration.ServerConfig) *integration.Harne
 }
 
 type challenge struct {
-	data    []byte
-	roundID int
+	data []byte
 }

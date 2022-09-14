@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -146,7 +145,7 @@ func (s *server) start() error {
 			if !strings.Contains(err.Error(), "signal: killed") {
 				// make sure all of the input to the teereader was consumed so we can read it here.
 				// ignore output and error here, we just need to make sure it was all consumed.
-				ioutil.ReadAll(s.stderr)
+				_, _ = io.ReadAll(s.stderr)
 				s.errChan <- fmt.Errorf("%v | %v", err, errb.String())
 			}
 		}
