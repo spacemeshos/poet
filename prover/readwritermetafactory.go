@@ -2,11 +2,12 @@ package prover
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+
 	"github.com/spacemeshos/merkle-tree/cache"
 	"github.com/spacemeshos/merkle-tree/cache/readwriters"
 	"github.com/spacemeshos/smutil/log"
-	"os"
-	"path/filepath"
 )
 
 // ReadWriterMetaFactory generates Merkle LayerFactory functions. The functions it creates generate file read-writers

@@ -2,11 +2,12 @@ package rpc
 
 import (
 	"fmt"
+	"sync"
+
 	"github.com/spacemeshos/poet/broadcaster"
 	"github.com/spacemeshos/poet/rpc/api"
 	"github.com/spacemeshos/poet/service"
 	"golang.org/x/net/context"
-	"sync"
 )
 
 // rpcServer is a gRPC, RPC front end to poet

@@ -19,7 +19,7 @@ const (
 	T uint8 = 150
 
 	// OwnerReadWrite is a standard owner read / write file permission.
-	OwnerReadWrite = os.FileMode(0600)
+	OwnerReadWrite = os.FileMode(0o600)
 )
 
 // FiatShamir generates a set of indices to include in a non-interactive proof.

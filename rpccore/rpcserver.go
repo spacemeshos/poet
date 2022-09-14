@@ -14,9 +14,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var (
-	ErrNoProofExists = status.Error(codes.FailedPrecondition, "no computed proof exists")
-)
+var ErrNoProofExists = status.Error(codes.FailedPrecondition, "no computed proof exists")
 
 // RPCServer is a gRPC, RPC front end to poet core
 type RPCServer struct {

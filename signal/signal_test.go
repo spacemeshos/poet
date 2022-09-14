@@ -1,9 +1,10 @@
 package signal
 
 import (
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestSignal(t *testing.T) {

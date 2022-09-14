@@ -30,9 +30,7 @@ const (
 	hardShutdownCheckpointRate = 1 << 24
 )
 
-var (
-	ErrShutdownRequested = errors.New("shutdown requested")
-)
+var ErrShutdownRequested = errors.New("shutdown requested")
 
 type persistFunc func(tree *merkle.Tree, treeCache *cache.Writer, nextLeafId uint64) error
 
@@ -119,7 +117,6 @@ func makeRecoveryProofTree(
 	nextLeafID uint64,
 	parkedNodes [][]byte,
 ) (*cache.Writer, *merkle.Tree, error) {
-
 	// Don't use memory cache. Just utilize the existing files cache.
 	maxUint := ^uint(0)
 	layerFactory := NewReadWriterMetaFactory(maxUint, datadir).GetFactory()
@@ -177,6 +174,9 @@ func makeRecoveryProofTree(
 		WithHashFunc(merkleHashFunc).
 		WithCacheWriter(treeCache).
 		Build()
+	if err != nil {
+		return nil, nil, err
+	}
 
 	if err := tree.SetParkedNodes(parkedNodes); err != nil {
 		return nil, nil, err
