@@ -3,11 +3,12 @@ package shared
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"math"
+	"testing"
+
 	"github.com/spacemeshos/go-scale/tester"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"math"
-	"testing"
 )
 
 func TestFiatShamir(t *testing.T) {
@@ -22,17 +23,17 @@ func TestFiatShamir(t *testing.T) {
 	expectedIndicesPerBucket := rounds * int(indicesPerRound) / buckets
 	for i := 0; i < rounds; i++ {
 		binary.BigEndian.PutUint64(challenge, uint64(i))
-		//println(i, string(challenge))
+		// println(i, string(challenge))
 		shamir := FiatShamir(challenge, spaceSize, indicesPerRound)
 		for key := range shamir {
 			occurrences[key/bucketDivisor]++
 		}
 	}
-	//fmt.Println("expected indices per bucket:", expectedIndicesPerBucket)
+	// fmt.Println("expected indices per bucket:", expectedIndicesPerBucket)
 	for i := 0; i < buckets; i++ {
 		deviationFromExpected := float64(int(occurrences[uint64(i)])-expectedIndicesPerBucket) /
 			float64(expectedIndicesPerBucket)
-		//fmt.Printf("%d %d %+0.3f%%\n", i, occurrences[uint64(i)], 100*deviationFromExpected)
+		// fmt.Printf("%d %d %+0.3f%%\n", i, occurrences[uint64(i)], 100*deviationFromExpected)
 		assert.True(t, math.Abs(deviationFromExpected) < 0.005,
 			"deviation from expected cannot exceed 0.5%% (for bucket %d it was %+0.3f%%)", i,
 			100*deviationFromExpected)

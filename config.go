@@ -163,7 +163,7 @@ func loadConfig() (*config, error) {
 
 	// Create the poet directory if it doesn't already exist.
 	funcName := "loadConfig"
-	if err := os.MkdirAll(cfg.PoetDir, 0700); err != nil {
+	if err := os.MkdirAll(cfg.PoetDir, 0o700); err != nil {
 		// Show a nicer error message if it's because a symlink is
 		// linked to a directory that does not exist (probably because
 		// it's not mounted).

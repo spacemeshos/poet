@@ -77,7 +77,7 @@ func New(gatewayAddresses []string, disableBroadcast bool, connTimeout time.Dura
 
 	// Extract successful connections and concatenate errors of non-successful ones.
 	var retErr error
-	var connections = make([]*grpc.ClientConn, 0)
+	connections := make([]*grpc.ClientConn, 0)
 	for i, err := range errs {
 		if err == nil {
 			connections = append(connections, connectionVals[i])
@@ -96,7 +96,6 @@ func New(gatewayAddresses []string, disableBroadcast bool, connTimeout time.Dura
 	if len(connections) < int(connAcksThreshold) {
 		for _, conn := range connections {
 			_ = conn.Close()
-
 		}
 		return nil, retErr
 	}
@@ -201,7 +200,8 @@ func newClientConn(target string, timeout time.Duration) (*grpc.ClientConn, erro
 			Time:                time.Minute,
 			Timeout:             time.Minute * 3,
 			PermitWithoutStream: true,
-		})}
+		}),
+	}
 	defer cancel()
 
 	conn, err := grpc.DialContext(ctx, target, opts...)
