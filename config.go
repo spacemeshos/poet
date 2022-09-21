@@ -119,9 +119,6 @@ func loadConfig() (*config, error) {
 		return nil, err
 	}
 
-	appName := filepath.Base(os.Args[0])
-	appName = strings.TrimSuffix(appName, filepath.Ext(appName))
-
 	// If the config file path has not been modified by the user, then we'll
 	// use the default config file path. However, if the user has modified
 	// their poetdir, then we should assume they intend to use the config

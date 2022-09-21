@@ -119,9 +119,7 @@ func (r *rpcServer) GetInfo(ctx context.Context, in *api.GetInfoRequest) (*api.G
 	out.OpenRoundId = info.OpenRoundID
 
 	ids := make([]string, len(info.ExecutingRoundsIds))
-	for i, id := range info.ExecutingRoundsIds {
-		ids[i] = id
-	}
+	copy(ids, info.ExecutingRoundsIds)
 	out.ExecutingRoundsIds = ids
 	out.ServicePubKey = r.s.PubKey
 

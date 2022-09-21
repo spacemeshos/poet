@@ -9,6 +9,7 @@ import (
 
 	"github.com/spacemeshos/poet/integration"
 	"github.com/spacemeshos/poet/rpc/api"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -29,43 +30,43 @@ var testCases = []*harnessTestCase{
 }
 
 func TestHarness(t *testing.T) {
-	assert := require.New(t)
+	r := require.New(t)
 
 	cfg, err := integration.DefaultConfig()
-	assert.NoError(err)
+	r.NoError(err)
 	cfg.Genesis = time.Now()
 
 	h := newHarness(t, cfg)
-
-	defer func() {
+	t.Cleanup(func() {
 		err := h.TearDown(true)
-		assert.NoError(err, "failed to tear down harness")
-		t.Logf("harness torn down")
-	}()
+		if assert.NoError(t, err, "failed to tear down harness") {
+			t.Logf("harness torn down")
+		}
+	})
 
-	assert.NoError(err)
-	assert.NotNil(h)
+	r.NoError(err)
+	r.NotNil(h)
 	t.Logf("harness launched")
 
 	ctx := context.Background()
 	_, err = h.Submit(ctx, &api.SubmitRequest{Challenge: []byte("this is a commitment")})
-	assert.EqualError(err, "rpc error: code = Unknown desc = service not started")
+	r.EqualError(err, "rpc error: code = Unknown desc = service not started")
 
 	_, err = h.Start(ctx, &api.StartRequest{GatewayAddresses: []string{"666"}})
-	assert.EqualError(err, "rpc error: code = Unknown desc = failed to connect to Spacemesh gateway node at \"666\": failed to connect to rpc server: context deadline exceeded")
+	r.EqualError(err, "rpc error: code = Unknown desc = failed to connect to Spacemesh gateway node at \"666\": failed to connect to rpc server: context deadline exceeded")
 
 	_, err = h.Start(ctx, &api.StartRequest{DisableBroadcast: true})
-	assert.NoError(err)
+	r.NoError(err)
 
 	_, err = h.Start(ctx, &api.StartRequest{DisableBroadcast: true})
-	assert.EqualError(err, "rpc error: code = Unknown desc = already started")
+	r.EqualError(err, "rpc error: code = Unknown desc = already started")
 
 	for _, testCase := range testCases {
 		success := t.Run(testCase.name, func(t1 *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(5*time.Second))
 			defer cancel()
 
-			testCase.test(ctx, h, assert)
+			testCase.test(ctx, h, r)
 		})
 
 		if !success {
@@ -233,6 +234,5 @@ func newHarness(tb testing.TB, cfg *integration.ServerConfig) *integration.Harne
 }
 
 type challenge struct {
-	data    []byte
-	roundID int
+	data []byte
 }
