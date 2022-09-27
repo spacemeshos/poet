@@ -6,7 +6,7 @@ This project implements the Proofs Sequential Work (PoSW) protocol construction 
 
 The executable package in this repository is the PoET service, which harness the core protocol in order to provide proving services to multiple clients, with amortized CPU cost. It is designed to be used by the Spacemesh network and is part of the broader Spacemesh protocol.
 
-For more information, visit the PoET [protocol specifications](https://github.com/spacemeshos/protocol/blob/master/mining/03-poet.md).
+For more information, visit the PoET [protocol specification](https://github.com/spacemeshos/protocol/blob/master/poet.md).
 
 ## Build
 
