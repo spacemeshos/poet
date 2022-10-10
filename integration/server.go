@@ -102,7 +102,7 @@ type server struct {
 func newServer(cfg *ServerConfig) (*server, error) {
 	return &server{
 		cfg:     cfg,
-		errChan: make(chan error),
+		errChan: make(chan error, 1),
 	}, nil
 }
 
