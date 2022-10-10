@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -90,7 +89,6 @@ type server struct {
 	processExit chan struct{}
 
 	quit chan struct{}
-	wg   sync.WaitGroup
 
 	errChan chan error
 
@@ -134,10 +132,7 @@ func (s *server) start() error {
 	// Launch a new goroutine which that bubbles up any potential fatal
 	// process errors to errChan.
 	s.processExit = make(chan struct{})
-	s.wg.Add(1)
 	go func() {
-		defer s.wg.Done()
-
 		err := s.cmd.Wait()
 		if err != nil {
 			// Don't propagate 'signal: killed' error,
@@ -146,7 +141,12 @@ func (s *server) start() error {
 				// make sure all of the input to the teereader was consumed so we can read it here.
 				// ignore output and error here, we just need to make sure it was all consumed.
 				_, _ = io.ReadAll(s.stderr)
-				s.errChan <- fmt.Errorf("%v | %v", err, errb.String())
+				select {
+				case s.errChan <- fmt.Errorf("%v | %v", err, errb.String()):
+					// we successfully sent the error to the channel
+				case <-s.quit:
+					// we were told to quit and no one is listening for the error so don't send the error
+				}
 			}
 		}
 
@@ -186,8 +186,8 @@ func (s *server) stop() error {
 	}
 
 	close(s.quit)
-	s.wg.Wait()
 
+	<-s.processExit
 	s.quit = nil
 	s.processExit = nil
 	return nil
