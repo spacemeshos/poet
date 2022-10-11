@@ -11,14 +11,13 @@ require (
 	github.com/spacemeshos/api/release/go v1.4.1-0.20220909175001-1907c2fe076e
 	github.com/spacemeshos/go-scale v0.0.0-20220915084948-ecda42870b1b
 	github.com/spacemeshos/merkle-tree v0.0.0-20220909175028-45e6d3500683
-	github.com/spacemeshos/sha256-simd v0.0.0-20190111104731-8575aafc88c9
 	github.com/spacemeshos/smutil v0.0.0-20220819180433-6aaadca3eb1d
 	github.com/stretchr/testify v1.8.0
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	golang.org/x/crypto v0.0.0-20220919173607-35f4265a4bc0
 	golang.org/x/net v0.0.0-20220920203100-d0c6ba3f52d9
 	google.golang.org/genproto v0.0.0-20220920201722-2b89144ce006
-	google.golang.org/grpc v1.49.0
+	google.golang.org/grpc v1.50.0
 )
 
 require (
