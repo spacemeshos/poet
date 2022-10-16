@@ -35,6 +35,10 @@ test-fmt:
 	git diff --exit-code || (git --no-pager diff && git checkout . && exit 1)
 .PHONY: test-fmt
 
+clear-test-cache:
+	go clean -testcache
+.PHONY: clear-test-cache
+
 lint:
 	go vet ./...
 	./bin/golangci-lint run --config .golangci.yml
