@@ -6,7 +6,7 @@ all: install build
 .PHONY: all
 
 test:
-	gotestsum -- -timeout 5m -p 1 -race ./...
+	gotestsum -- -timeout 5m -p 1 ./...
 .PHONY: test
 
 install:
