@@ -6,3 +6,5 @@ poet
 *.pdf
 *.test
 vendor/*/
+bin
+*.out
