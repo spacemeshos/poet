@@ -71,7 +71,7 @@ func TestService_Recovery(t *testing.T) {
 		for i := 0; i < len(challengeGroups[groupIndex]); i++ {
 			round, err := s.Submit(challengesGroup[i].data)
 			req.NoError(err)
-			req.Equal(s.openRound.ID, round.ID)
+			req.Equal(s.openRoundID(), round.ID)
 
 			// Verify that all submissions returned the same round instance.
 			if rounds[roundIndex] == nil {
@@ -89,7 +89,7 @@ func TestService_Recovery(t *testing.T) {
 	submitChallenges(0, 0)
 
 	// Verify that round is still open.
-	req.Equal(rounds[0].ID, s.openRound.ID)
+	req.Equal(rounds[0].ID, s.openRoundID())
 
 	// Wait for round 0 to start executing.
 	select {
@@ -117,7 +117,9 @@ func TestService_Recovery(t *testing.T) {
 	}
 
 	// Verify service state. should have no open or executing rounds.
-	req.Equal((*round)(nil), s.openRound)
+	s.openRoundMutex.Lock()
+	req.Nil(s.openRound)
+	s.openRoundMutex.Unlock()
 	req.Equal(len(s.executingRounds), 0)
 
 	// Create a new service instance.
@@ -132,9 +134,11 @@ func TestService_Recovery(t *testing.T) {
 	req.Equal(1, len(s.executingRounds))
 	first, ok := s.executingRounds["0"]
 	req.True(ok)
-	req.Equal(s.openRound.ID, "1")
+	req.Equal(s.openRoundID(), "1")
 	rounds[0] = first
+	s.openRoundMutex.Lock()
 	rounds[1] = s.openRound
+	s.openRoundMutex.Unlock()
 
 	select {
 	case <-rounds[1].executionStartedChan:

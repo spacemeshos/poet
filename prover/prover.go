@@ -202,7 +202,7 @@ func generateProof(
 	leaves := nextLeafID
 	for leafID := nextLeafID; time.Until(end) > 0; leafID++ {
 		// Handle persistence.
-		if sig.ShutdownRequested {
+		if sig.ShutdownRequested() {
 			if err := persist(tree, treeCache, leafID); err != nil {
 				return 0, nil, err
 			}

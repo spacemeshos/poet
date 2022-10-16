@@ -61,7 +61,8 @@ type Service struct {
 
 	// openRound is the round which is currently open for accepting challenges registration from miners.
 	// At any given time there is one single open round.
-	openRound *round
+	openRound      *round
+	openRoundMutex sync.Mutex
 
 	// executingRounds are the rounds which are currently executing, hence generating a proof.
 	executingRounds map[string]*round
@@ -235,9 +236,12 @@ func (s *Service) Start(b Broadcaster) error {
 	if d := now.Sub(s.genesis); d > 0 {
 		epoch = d / s.cfg.EpochDuration
 	}
-	if s.openRound == nil {
-		s.openRound = s.newRound(uint32(epoch))
-		log.Info("Round %v opened", s.openRound.ID)
+	s.openRoundMutex.Lock()
+	noOpenRound := s.openRound == nil
+	s.openRoundMutex.Unlock()
+	if noOpenRound {
+		s.newRound(uint32(epoch))
+		log.Info("Round %v opened", s.openRoundID())
 	}
 
 	go func() {
@@ -249,13 +253,15 @@ func (s *Service) Start(b Broadcaster) error {
 				Add(s.cfg.EpochDuration * time.Duration(s.openRound.Epoch())).
 				Add(s.cfg.PhaseShift)
 			if d := time.Until(start); d > 0 {
-				log.Info("Round %v waiting for execution to start for %v", s.openRound.ID, d)
+				log.Info("Round %v waiting for execution to start for %v", s.openRoundID(), d)
 				timer.Reset(d)
 				select {
 				case <-timer.C:
 				case <-s.sig.ShutdownRequestedChan:
 					log.Info("Shutdown requested, service shutting down")
+					s.openRoundMutex.Lock()
 					s.openRound = nil
+					s.openRoundMutex.Unlock()
 					return
 				}
 			}
@@ -268,8 +274,8 @@ func (s *Service) Start(b Broadcaster) error {
 			open := time.Now()
 			// TODO(dshulyak) some time is wasted here to persist data on disk
 			// on my computer ~20ms
-			s.openRound = s.newRound(s.prevRound.Epoch() + 1)
-			log.Info("Round %v opened. took %v", s.openRound.ID, time.Since(open))
+			s.newRound(s.prevRound.Epoch() + 1)
+			log.Info("Round %v opened. took %v", s.openRoundID(), time.Since(open))
 
 			go func(r *round) {
 				if err := s.executeRound(r); err != nil {
@@ -398,7 +404,9 @@ func (s *Service) Submit(data []byte) (*round, error) {
 		return nil, ErrNotStarted
 	}
 
+	s.openRoundMutex.Lock()
 	r := s.openRound
+	s.openRoundMutex.Unlock()
 	err := r.submit(data)
 	if err != nil {
 		return nil, err
@@ -413,7 +421,7 @@ func (s *Service) Info() (*InfoResponse, error) {
 	}
 
 	res := new(InfoResponse)
-	res.OpenRoundID = s.openRound.ID
+	res.OpenRoundID = s.openRoundID()
 
 	s.Lock()
 	ids := make([]string, 0, len(s.executingRounds))
@@ -426,7 +434,10 @@ func (s *Service) Info() (*InfoResponse, error) {
 	return res, nil
 }
 
-func (s *Service) newRound(epoch uint32) *round {
+func (s *Service) newRound(epoch uint32) {
+	s.openRoundMutex.Lock()
+	defer s.openRoundMutex.Unlock()
+
 	if err := s.saveState(); err != nil {
 		panic(err)
 	}
@@ -434,7 +445,15 @@ func (s *Service) newRound(epoch uint32) *round {
 	if err := r.open(); err != nil {
 		panic(fmt.Errorf("failed to open round: %v", err))
 	}
-	return r
+
+	s.openRound = r
+}
+
+func (s *Service) openRoundID() string {
+	s.openRoundMutex.Lock()
+	defer s.openRoundMutex.Unlock()
+
+	return s.openRound.ID
 }
 
 func (s *Service) asyncError(err error) {

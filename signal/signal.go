@@ -6,11 +6,10 @@
 package signal
 
 import (
+	"log"
 	"os"
 	"os/signal"
 	"sync"
-
-	"github.com/spacemeshos/smutil/log"
 )
 
 type Signal struct {
@@ -27,13 +26,6 @@ type Signal struct {
 	// shutdownChan is closed once the main interrupt handler exits.
 	shutdownChan chan struct{}
 
-	// ShutdownStarted is a flag which is used to indicate whether or not
-	// the shutdown signal has already been received and hence any future
-	// attempts to add a new interrupt handler should invoke them
-	// immediately.
-	ShutdownStarted bool
-
-	ShutdownRequested     bool
 	ShutdownRequestedChan chan struct{}
 
 	blocking       map[int]bool
@@ -60,15 +52,15 @@ func (s *Signal) mainInterruptHandler() {
 	for {
 		select {
 		case <-s.interruptChan:
-			log.Info("Received SIGINT (Ctrl+C)")
+			log.Println("Received SIGINT (Ctrl+C)")
 			s.shutdown()
 
 		case <-s.requestShutdownChan:
-			log.Info("Received shutdown request")
+			log.Println("Received shutdown request")
 			s.shutdown()
 
 		case <-s.quit:
-			log.Info("Gracefully shutting down...")
+			log.Println("Gracefully shutting down...")
 			close(s.shutdownChan)
 			return
 		}
@@ -78,23 +70,16 @@ func (s *Signal) mainInterruptHandler() {
 // shutdown invokes the registered interrupt handlers, then signals the
 // shutdownChan.
 func (s *Signal) shutdown() {
-	if !s.ShutdownRequested {
-		s.ShutdownRequested = true
+	select {
+	case <-s.ShutdownRequestedChan:
+	default:
 		close(s.ShutdownRequestedChan)
 	}
 
-	// Ignore more than one shutdown signal.
-	if s.ShutdownStarted {
-		log.Info("Already shutting down...")
-		return
-	}
-
 	if s.NumBlocking() > 0 {
-		log.Info("Shutdown: tasks are blocking")
+		log.Println("Shutdown: tasks are blocking")
 		return
 	}
-
-	s.ShutdownStarted = true
 
 	// Signal the main interrupt handler to exit, and stop accept
 	// post-facto requests.
@@ -104,6 +89,15 @@ func (s *Signal) shutdown() {
 // RequestShutdown initiates a graceful shutdown from the application.
 func (s *Signal) RequestShutdown() {
 	s.requestShutdownChan <- struct{}{}
+}
+
+func (s *Signal) ShutdownRequested() bool {
+	select {
+	case <-s.ShutdownRequestedChan:
+		return true
+	default:
+		return false
+	}
 }
 
 // ShutdownChannel returns the channel that will be closed once the main
@@ -132,8 +126,12 @@ func (s *Signal) unblockShutdown(id int) {
 	numBlocking := len(s.blocking)
 	s.blockingMtx.Unlock()
 
-	if numBlocking == 0 && s.ShutdownRequested {
-		s.shutdown()
+	select {
+	case <-s.ShutdownRequestedChan:
+		if numBlocking == 0 {
+			s.shutdown()
+		}
+	default:
 	}
 }
 

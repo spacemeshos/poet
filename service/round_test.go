@@ -22,12 +22,12 @@ import (
 //   - Compare r2 total execution time and execution results with r1.
 func TestRound_Recovery(t *testing.T) {
 	req := require.New(t)
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
 	defer cancel()
 
 	sig := signal.NewSignal()
 	cfg := &Config{}
-	duration := 10 * time.Millisecond
+	duration := 60 * time.Millisecond
 	tmpdir := t.TempDir()
 
 	challenges, err := genChallenges(32)
