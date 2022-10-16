@@ -71,6 +71,9 @@ func (s *Signal) mainInterruptHandler() {
 // shutdownChan.
 func (s *Signal) shutdown() {
 	select {
+	case <-s.quit:
+		// already shutting down
+		return
 	case <-s.ShutdownRequestedChan:
 	default:
 		close(s.ShutdownRequestedChan)

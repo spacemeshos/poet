@@ -116,7 +116,8 @@ func TestService_Recovery(t *testing.T) {
 		req.Fail("round execution ended instead of shutting down")
 	}
 
-	// Verify service state. should have no open or executing rounds.
+	// Verify service state. should have no open or executing rounds. Check after a delay to allow service to update state.
+	time.Sleep(100 * time.Millisecond)
 	s.openRoundMutex.Lock()
 	req.Nil(s.openRound)
 	s.openRoundMutex.Unlock()
