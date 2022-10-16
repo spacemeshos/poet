@@ -87,8 +87,8 @@ github.com/spacemeshos/api/release/go v1.4.1-0.20221011085707-0a5255087c72 h1:Ol
 github.com/spacemeshos/api/release/go v1.4.1-0.20221011085707-0a5255087c72/go.mod h1:L2UDWHM0oLkVK9hfj2vfw+0nBLpVH6uClvIQnq7qd8g=
 github.com/spacemeshos/go-scale v0.0.0-20220915084948-ecda42870b1b h1:l9KNi7JsSQe0VBu/SollXkqdkbC5MKtUR06cH1+Uojo=
 github.com/spacemeshos/go-scale v0.0.0-20220915084948-ecda42870b1b/go.mod h1:dQYRIhRcr2HCTNzqAbb/GjXyl6TITBJN4Yhw+I6wNfI=
-github.com/spacemeshos/merkle-tree v0.0.0-20220909175028-45e6d3500683 h1:HcqAAdw1n3jYo+oGfpJuTId7jKtT+dr6Bea2tUNQE+o=
-github.com/spacemeshos/merkle-tree v0.0.0-20220909175028-45e6d3500683/go.mod h1:0QvTbIu/NHTAFXDVggByTe5yI1nYmT52EsTFewjDNgU=
+github.com/spacemeshos/merkle-tree v0.0.0-20221016213004-baf152947da2 h1:TzdhqI2vmWzQ8wXbapXTipAc2qnwJarMwDvqU3gU9PI=
+github.com/spacemeshos/merkle-tree v0.0.0-20221016213004-baf152947da2/go.mod h1:z+uC5XKFY4RF/YPAl4NFCU9c0KHIORznPQFpZ8p84dY=
 github.com/spacemeshos/smutil v0.0.0-20220819180433-6aaadca3eb1d h1:09R53k+V+cPCwTH3AnvOJO2OmCb4dJlG6hfgqQlTm6w=
 github.com/spacemeshos/smutil v0.0.0-20220819180433-6aaadca3eb1d/go.mod h1:ZCb6K2K6Dz51qrYp04sZtf4kJex9lCwGBH5Npok9uy8=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
