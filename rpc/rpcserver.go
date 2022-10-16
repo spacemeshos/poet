@@ -11,7 +11,7 @@ import (
 	"github.com/spacemeshos/poet/service"
 )
 
-// rpcServer is a gRPC, RPC front end to poet
+// rpcServer is a gRPC, RPC front end to poet.
 type rpcServer struct {
 	s *service.Service
 	sync.Mutex

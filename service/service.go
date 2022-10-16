@@ -41,7 +41,7 @@ type Config struct {
 }
 
 // estimatedLeavesPerSecond is used to computed estimated height of the proving tree
-// in the epoch, which is used for cache estimation
+// in the epoch, which is used for cache estimation.
 const estimatedLeavesPerSecond = 1 << 17
 
 const serviceStateFileBaseName = "state.bin"
