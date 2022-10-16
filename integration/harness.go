@@ -12,12 +12,12 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/spacemeshos/poet/rpc/api"
+	_ "github.com/jessevdk/go-flags"
+	_ "github.com/syndtr/goleveldb/leveldb/table"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	_ "github.com/jessevdk/go-flags"
-	_ "github.com/syndtr/goleveldb/leveldb/table"
+	"github.com/spacemeshos/poet/rpc/api"
 )
 
 // Harness fully encapsulates an active poet server process to provide a unified

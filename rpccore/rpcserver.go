@@ -3,15 +3,16 @@ package rpccore
 import (
 	"time"
 
+	"golang.org/x/net/context"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/rpccore/apicore"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/signal"
 	"github.com/spacemeshos/poet/verifier"
-	"golang.org/x/net/context"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 var ErrNoProofExists = status.Error(codes.FailedPrecondition, "no computed proof exists")

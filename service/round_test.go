@@ -8,18 +8,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/signal"
-	"github.com/stretchr/testify/require"
 )
 
 // TestRound_Recovery test round recovery functionality.
 // The scenario proceeds as follows:
-// 	- Execute r1 as a reference round.
-//  - Execute r2, and request shutdown before completion.
-//  - Recover r2 execution, and request shutdown before completion.
-//  - Recover r2 execution again, and let it complete.
-//  - Compare r2 total execution time and execution results with r1.
+//   - Execute r1 as a reference round.
+//   - Execute r2, and request shutdown before completion.
+//   - Recover r2 execution, and request shutdown before completion.
+//   - Recover r2 execution again, and let it complete.
+//   - Compare r2 total execution time and execution results with r1.
 func TestRound_Recovery(t *testing.T) {
 	req := require.New(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

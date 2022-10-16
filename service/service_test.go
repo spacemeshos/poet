@@ -10,9 +10,10 @@ import (
 
 	"github.com/spacemeshos/go-scale"
 	"github.com/spacemeshos/merkle-tree"
+	"github.com/stretchr/testify/require"
+
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/signal"
-	"github.com/stretchr/testify/require"
 )
 
 type MockBroadcaster struct {

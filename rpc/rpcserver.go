@@ -4,10 +4,11 @@ import (
 	"fmt"
 	"sync"
 
+	"golang.org/x/net/context"
+
 	"github.com/spacemeshos/poet/broadcaster"
 	"github.com/spacemeshos/poet/rpc/api"
 	"github.com/spacemeshos/poet/service"
-	"golang.org/x/net/context"
 )
 
 // rpcServer is a gRPC, RPC front end to poet

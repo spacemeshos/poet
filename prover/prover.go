@@ -13,9 +13,10 @@ import (
 
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/merkle-tree/cache"
+	"github.com/spacemeshos/smutil/log"
+
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/signal"
-	"github.com/spacemeshos/smutil/log"
 )
 
 const (

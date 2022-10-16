@@ -12,12 +12,13 @@ import (
 
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/merkle-tree/cache"
+	"github.com/spacemeshos/smutil/log"
+	"github.com/syndtr/goleveldb/leveldb/opt"
+
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/signal"
-	"github.com/spacemeshos/smutil/log"
-	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
 type executionState struct {

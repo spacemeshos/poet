@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/nullstyle/go-xdr/xdr3"
+
 	"github.com/spacemeshos/poet/shared"
 )
 

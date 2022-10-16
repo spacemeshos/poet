@@ -4,9 +4,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/shared"
-	"github.com/stretchr/testify/require"
 )
 
 func TestGetProof(t *testing.T) {

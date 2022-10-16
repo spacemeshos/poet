@@ -15,13 +15,13 @@ import (
 
 	"github.com/spacemeshos/go-scale"
 	mshared "github.com/spacemeshos/merkle-tree/shared"
+	"github.com/spacemeshos/smutil/log"
 	"golang.org/x/crypto/ed25519"
 
 	"github.com/spacemeshos/poet/broadcaster"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/signal"
-	"github.com/spacemeshos/smutil/log"
 )
 
 type Config struct {
