@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -142,7 +141,7 @@ func NewService(sig *signal.Signal, cfg *Config, datadir string) (*Service, erro
 	s.sig = sig
 
 	if cfg.Reset {
-		entries, err := ioutil.ReadDir(datadir)
+		entries, err := os.ReadDir(datadir)
 		if err != nil {
 			return nil, err
 		}
@@ -290,7 +289,7 @@ func (s *Service) Started() bool {
 }
 
 func (s *Service) Recover() error {
-	entries, err := ioutil.ReadDir(s.datadir)
+	entries, err := os.ReadDir(s.datadir)
 	if err != nil {
 		return err
 	}

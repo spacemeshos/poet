@@ -3,7 +3,6 @@ package prover
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -244,7 +243,7 @@ func generateProof(
 }
 
 func getLayersFiles(datadir string) (map[uint]string, error) {
-	entries, err := ioutil.ReadDir(datadir)
+	entries, err := os.ReadDir(datadir)
 	if err != nil {
 		return nil, err
 	}

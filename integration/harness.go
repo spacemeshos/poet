@@ -80,12 +80,12 @@ func (h *Harness) TearDown(cleanup bool) error {
 	return nil
 }
 
-// StderrPipe returns an stderr reader for the server process
+// StderrPipe returns an stderr reader for the server process.
 func (h *Harness) StderrPipe() io.Reader {
 	return h.server.stderr
 }
 
-// StdoutPipe returns an stdout reader for the server process
+// StdoutPipe returns an stdout reader for the server process.
 func (h *Harness) StdoutPipe() io.Reader {
 	return h.server.stdout
 }

@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"path/filepath"
 	"testing"
 	"time"
@@ -117,7 +116,7 @@ func TestRound_State(t *testing.T) {
 
 	sig := signal.NewSignal()
 	cfg := &Config{}
-	tempdir, _ := ioutil.TempDir("", "poet-test")
+	tempdir := t.TempDir()
 
 	// Create a new round.
 	r := newRound(sig, cfg, tempdir, 0)

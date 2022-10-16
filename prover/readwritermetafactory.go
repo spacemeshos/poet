@@ -21,7 +21,7 @@ type ReadWriterMetaFactory struct {
 }
 
 // NewReadWriterMetaFactory returns a new ReadWriterMetaFactory. minMemoryLayer determines
-// the threshold in which lower layers caching is done on-disk, while from this layer up -- in-memory
+// the threshold in which lower layers caching is done on-disk, while from this layer up -- in-memory.
 func NewReadWriterMetaFactory(minMemoryLayer uint, datadir string) *ReadWriterMetaFactory {
 	return &ReadWriterMetaFactory{
 		minMemoryLayer: minMemoryLayer,
