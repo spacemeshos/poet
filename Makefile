@@ -5,7 +5,7 @@ BINARY := poet
 all: install build
 .PHONY: all
 
-test: get-gpu-setup
+test:
 	gotestsum -- -timeout 5m -p 1 -race ./...
 .PHONY: test
 
