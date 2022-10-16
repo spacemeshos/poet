@@ -76,6 +76,8 @@ func GenerateProofRecovery(
 	if err != nil {
 		return 0, nil, err
 	}
+	defer treeCache.Close()
+
 	return generateProof(sig, labelHashFunc, tree, treeCache, limit, nextLeafID, securityParam, persist)
 }
 
