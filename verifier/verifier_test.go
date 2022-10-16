@@ -1,7 +1,6 @@
 package verifier
 
 import (
-	"os"
 	"testing"
 	"time"
 
@@ -23,10 +22,6 @@ func testValidate(t *testing.T, minMemoryLayer uint) {
 }
 
 func TestValidate(t *testing.T) {
-	if os.Getenv("GOOS") == "windows" && os.Getenv("CI") != "" {
-		t.Skip("Skipping test in Windows on CI")
-	}
-
 	t.Run("Leaves", func(t *testing.T) {
 		testValidate(t, 0)
 	})
@@ -62,9 +57,6 @@ func TestValidateWrongMerkleValidationError(t *testing.T) {
 }
 
 func TestValidateWrongRoot(t *testing.T) {
-	if os.Getenv("GOOS") == "windows" && os.Getenv("CI") != "" {
-		t.Skip("Skipping test in Windows on CI")
-	}
 	r := require.New(t)
 
 	challenge := []byte("challenge")
@@ -84,9 +76,6 @@ func BadLabelHashFunc(data []byte) []byte {
 }
 
 func TestValidateFailLabelValidation(t *testing.T) {
-	if os.Getenv("GOOS") == "windows" && os.Getenv("CI") != "" {
-		t.Skip("Skipping test in Windows on CI")
-	}
 	r := require.New(t)
 
 	challenge := []byte("challenge")

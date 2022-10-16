@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -22,9 +21,6 @@ import (
 //   - Recover r2 execution again, and let it complete.
 //   - Compare r2 total execution time and execution results with r1.
 func TestRound_Recovery(t *testing.T) {
-	if os.Getenv("GOOS") == "windows" && os.Getenv("CI") != "" {
-		t.Skip("Skipping test in Windows on CI")
-	}
 	req := require.New(t)
 	ctx, cancel := context.WithTimeout(context.TODO(), 10*time.Second)
 	defer cancel()
@@ -116,9 +112,6 @@ func TestRound_Recovery(t *testing.T) {
 }
 
 func TestRound_State(t *testing.T) {
-	if os.Getenv("GOOS") == "windows" && os.Getenv("CI") != "" {
-		t.Skip("Skipping test in Windows on CI")
-	}
 	req := require.New(t)
 
 	sig := signal.NewSignal()
