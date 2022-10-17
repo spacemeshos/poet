@@ -209,7 +209,8 @@ func TestNewService(t *testing.T) {
 	cfg.PhaseShift = time.Second / 2
 	cfg.CycleGap = time.Second / 4
 
-	s, err := NewService(signal.NewSignal(), cfg, tempdir)
+	sig := signal.NewSignal()
+	s, err := NewService(sig, cfg, tempdir)
 	req.NoError(err)
 	proofBroadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
 	err = s.Start(proofBroadcaster)
@@ -279,7 +280,8 @@ func TestNewService(t *testing.T) {
 		req.Fail("proof message wasn't sent")
 	}
 
-	// This is so the service can cleanup before the test ends
+	// Request shutdown.
+	sig.RequestShutdown()
 	time.Sleep(100 * time.Millisecond)
 }
 

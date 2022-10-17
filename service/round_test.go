@@ -110,7 +110,8 @@ func TestRound_Recovery(t *testing.T) {
 	// TODO(dshulyak) how to test recovery consistency with time?
 	// mocking time won't help
 
-	// This is so the service can cleanup before the test ends
+	// Request shutdown.
+	sig.RequestShutdown()
 	time.Sleep(100 * time.Millisecond)
 }
 
