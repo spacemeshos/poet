@@ -109,6 +109,9 @@ func TestRound_Recovery(t *testing.T) {
 	t.Logf("recovery execution time diff: %f", diff)
 	// TODO(dshulyak) how to test recovery consistency with time?
 	// mocking time won't help
+
+	// This is so the service can cleanup before the test ends
+	time.Sleep(100 * time.Millisecond)
 }
 
 func TestRound_State(t *testing.T) {

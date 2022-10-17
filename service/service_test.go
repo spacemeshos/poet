@@ -183,6 +183,10 @@ func TestService_Recovery(t *testing.T) {
 		req.NoError(err, "round %d", i)
 		req.Equal(mtree.Root(), proof.Statement)
 	}
+
+	// Request shutdown.
+	sig.RequestShutdown()
+	time.Sleep(100 * time.Millisecond)
 }
 
 func contains(list [][]byte, item []byte) bool {
@@ -207,7 +211,6 @@ func TestNewService(t *testing.T) {
 
 	s, err := NewService(signal.NewSignal(), cfg, tempdir)
 	req.NoError(err)
-
 	proofBroadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
 	err = s.Start(proofBroadcaster)
 	req.NoError(err)
@@ -275,6 +278,9 @@ func TestNewService(t *testing.T) {
 	case <-time.After(100 * time.Millisecond):
 		req.Fail("proof message wasn't sent")
 	}
+
+	// This is so the service can cleanup before the test ends
+	time.Sleep(100 * time.Millisecond)
 }
 
 func genChallenges(num int) ([][]byte, error) {
