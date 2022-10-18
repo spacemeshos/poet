@@ -27,7 +27,7 @@ func TestRound_Recovery(t *testing.T) {
 
 	sig := signal.NewSignal()
 	cfg := &Config{}
-	duration := 90 * time.Millisecond
+	duration := 100 * time.Millisecond
 	tmpdir := t.TempDir()
 
 	challenges, err := genChallenges(32)
@@ -62,7 +62,7 @@ func TestRound_Recovery(t *testing.T) {
 	req.False(r2.isEmpty())
 
 	go func() {
-		time.Sleep(duration / 3)
+		time.Sleep(duration / 5)
 		sig.RequestShutdown()
 	}()
 
@@ -81,7 +81,7 @@ func TestRound_Recovery(t *testing.T) {
 	req.NoError(err)
 
 	go func() {
-		time.Sleep(duration / 3)
+		time.Sleep(duration / 5)
 		sig.RequestShutdown()
 	}()
 
