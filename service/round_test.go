@@ -27,7 +27,7 @@ func TestRound_Recovery(t *testing.T) {
 
 	sig := signal.NewSignal()
 	cfg := &Config{}
-	duration := 60 * time.Millisecond
+	duration := 90 * time.Millisecond
 	tmpdir := t.TempDir()
 
 	challenges, err := genChallenges(32)
