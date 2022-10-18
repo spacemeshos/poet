@@ -200,6 +200,9 @@ func TestHarness_CrashRecovery(t *testing.T) {
 	req.Equal(roundsID[1], info.ExecutingRoundsIds[0])
 	req.Equal(roundsID[2], info.OpenRoundId)
 	req.NoError(h.TearDown(true))
+
+	// leave some time for the server to shutdown.
+	time.Sleep(100 * time.Millisecond)
 }
 
 func newHarness(tb testing.TB, cfg *integration.ServerConfig) *integration.Harness {
