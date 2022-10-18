@@ -218,8 +218,6 @@ func TestNewService(t *testing.T) {
 
 	challengesCount := 8
 	challenges := make([]challenge, challengesCount)
-	info, err := s.Info()
-	req.NoError(err)
 
 	// Generate random challenges.
 	for i := 0; i < len(challenges); i++ {
@@ -228,11 +226,15 @@ func TestNewService(t *testing.T) {
 		req.NoError(err)
 	}
 
+	info, err := s.Info()
+	require.NoError(t, err)
+	currentRound := info.OpenRoundID
+
 	// Submit challenges.
 	for i := 0; i < len(challenges); i++ {
 		round, err := s.Submit(challenges[i].data)
 		req.NoError(err)
-		req.Equal(info.OpenRoundID, round.ID)
+		req.Equal(currentRound, round.ID)
 		challenges[i].round = round
 
 		// Verify that all submissions returned the same round instance.
@@ -244,7 +246,7 @@ func TestNewService(t *testing.T) {
 	// Verify that round is still open.
 	info, err = s.Info()
 	req.NoError(err)
-	req.Equal(info.OpenRoundID, info.OpenRoundID)
+	req.Equal(currentRound, info.OpenRoundID)
 
 	// Wait for round to start execution.
 	select {
