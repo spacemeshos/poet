@@ -309,7 +309,7 @@ func (s *Service) Recover() error {
 		if err != nil {
 			return fmt.Errorf("entry is not a uint32 %s", entry.Name())
 		}
-		r := newRound(s.sig, s.cfg, s.datadir, uint32(epoch))
+		r := newRound(s.sig, s.datadir, uint32(epoch))
 		state, err := r.state()
 		if err != nil {
 			return fmt.Errorf("invalid round state: %v", err)
@@ -441,7 +441,7 @@ func (s *Service) newRound(epoch uint32) {
 	if err := s.saveState(); err != nil {
 		panic(err)
 	}
-	r := newRound(s.sig, s.cfg, s.datadir, epoch)
+	r := newRound(s.sig, s.datadir, epoch)
 	if err := r.open(); err != nil {
 		panic(fmt.Errorf("failed to open round: %v", err))
 	}

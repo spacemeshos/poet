@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"crypto/rand"
+	"strconv"
 	"testing"
 	"time"
 
@@ -103,7 +104,10 @@ func TestHarness_CrashRecovery(t *testing.T) {
 
 	// Track rounds.
 	numRounds := 40
-	roundsID := make([]string, numRounds)
+	roundsID := make([]string, 0, numRounds)
+	for i := 0; i < numRounds; i++ {
+		roundsID = append(roundsID, strconv.Itoa(i))
+	}
 
 	numRoundChallenges := 2
 	roundsChallenges := make([][]challenge, numRounds)
@@ -123,13 +127,7 @@ func TestHarness_CrashRecovery(t *testing.T) {
 			res, err := h.Submit(ctx, &api.SubmitRequest{Challenge: roundChallenges[i].data})
 			req.NoError(err)
 			req.NotNil(res)
-
-			// Verify that all submissions returned the same round instance.
-			if roundsID[roundIndex] == "" {
-				roundsID[roundIndex] = res.RoundId
-			} else {
-				req.Equal(roundsID[roundIndex], res.RoundId)
-			}
+			req.Equalf(roundsID[roundIndex], res.RoundId, "round id mismatch for challenge %d", i)
 		}
 	}
 
@@ -174,9 +172,7 @@ func TestHarness_CrashRecovery(t *testing.T) {
 	req.Equal(roundsID[1], info.OpenRoundId)
 
 	// TODO: Wait until rounds 0 and 1 execution completes. listen to their proof broadcast and save it as a reference.
-
-	err = h.TearDown(false)
-	req.NoError(err)
+	req.NoError(h.TearDown(false))
 
 	// Create a new server harness instance.
 	h = newHarness(t, cfg)

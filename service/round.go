@@ -48,7 +48,6 @@ func (r *roundState) isExecuted() bool {
 }
 
 type round struct {
-	cfg     *Config
 	datadir string
 	ID      string
 
@@ -74,9 +73,8 @@ func (r *round) Epoch() uint32 {
 	return r.execution.Epoch
 }
 
-func newRound(sig *signal.Signal, cfg *Config, datadir string, epoch uint32) *round {
+func newRound(sig *signal.Signal, datadir string, epoch uint32) *round {
 	r := new(round)
-	r.cfg = cfg
 	r.ID = strconv.FormatUint(uint64(epoch), 10)
 	r.datadir = filepath.Join(datadir, r.ID)
 	r.openedChan = make(chan struct{})

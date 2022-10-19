@@ -6,10 +6,11 @@
 package signal
 
 import (
-	"log"
 	"os"
 	"os/signal"
 	"sync"
+
+	"github.com/spacemeshos/smutil/log"
 )
 
 type Signal struct {
@@ -52,15 +53,15 @@ func (s *Signal) mainInterruptHandler() {
 	for {
 		select {
 		case <-s.interruptChan:
-			log.Println("Received SIGINT (Ctrl+C)")
+			log.Info("Received SIGINT (Ctrl+C)")
 			s.shutdown()
 
 		case <-s.requestShutdownChan:
-			log.Println("Received shutdown request")
+			log.Info("Received shutdown request")
 			s.shutdown()
 
 		case <-s.quit:
-			log.Println("Gracefully shutting down...")
+			log.Info("Gracefully shutting down...")
 			close(s.shutdownChan)
 			return
 		}
@@ -77,7 +78,7 @@ func (s *Signal) shutdown() {
 	}
 
 	if s.NumBlocking() > 0 {
-		log.Println("Shutdown: tasks are blocking")
+		log.Info("Shutdown: tasks are blocking")
 		return
 	}
 

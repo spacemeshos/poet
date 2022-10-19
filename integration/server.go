@@ -164,13 +164,11 @@ func (s *server) shutdown(cleanup bool) error {
 		return err
 	}
 
-	if cleanup {
-		if err := s.cleanup(); err != nil {
-			return err
-		}
+	if !cleanup {
+		return nil
 	}
 
-	return nil
+	return s.cleanup()
 }
 
 // stop kills the server running process, since it doesn't support
