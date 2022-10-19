@@ -239,7 +239,7 @@ func (s *Service) Start(b Broadcaster) error {
 	s.openRoundMutex.Lock()
 	if s.openRound == nil {
 		s.newRound(uint32(epoch))
-		log.Info("Round %v opened", s.openRoundID())
+		log.Info("Round %v opened", s.openRound.ID)
 	}
 	s.openRoundMutex.Unlock()
 
