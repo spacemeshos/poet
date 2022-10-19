@@ -237,12 +237,11 @@ func (s *Service) Start(b Broadcaster) error {
 		epoch = d / s.cfg.EpochDuration
 	}
 	s.openRoundMutex.Lock()
-	noOpenRound := s.openRound == nil
-	s.openRoundMutex.Unlock()
-	if noOpenRound {
+	if s.openRound == nil {
 		s.newRound(uint32(epoch))
 		log.Info("Round %v opened", s.openRoundID())
 	}
+	s.openRoundMutex.Unlock()
 
 	go func() {
 		timer := time.NewTimer(0)
@@ -274,7 +273,9 @@ func (s *Service) Start(b Broadcaster) error {
 			open := time.Now()
 			// TODO(dshulyak) some time is wasted here to persist data on disk
 			// on my computer ~20ms
+			s.openRoundMutex.Lock()
 			s.newRound(s.prevRound.Epoch() + 1)
+			s.openRoundMutex.Unlock()
 			log.Info("Round %v opened. took %v", s.openRoundID(), time.Since(open))
 
 			go func(r *round) {
@@ -435,9 +436,6 @@ func (s *Service) Info() (*InfoResponse, error) {
 }
 
 func (s *Service) newRound(epoch uint32) {
-	s.openRoundMutex.Lock()
-	defer s.openRoundMutex.Unlock()
-
 	if err := s.saveState(); err != nil {
 		panic(err)
 	}
