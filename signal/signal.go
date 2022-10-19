@@ -71,9 +71,6 @@ func (s *Signal) mainInterruptHandler() {
 // shutdownChan.
 func (s *Signal) shutdown() {
 	select {
-	case <-s.quit:
-		// already shutting down
-		return
 	case <-s.ShutdownRequestedChan:
 	default:
 		close(s.ShutdownRequestedChan)
@@ -86,7 +83,12 @@ func (s *Signal) shutdown() {
 
 	// Signal the main interrupt handler to exit, and stop accept
 	// post-facto requests.
-	close(s.quit)
+	select {
+	case <-s.quit:
+	// already shutting down
+	default:
+		close(s.quit)
+	}
 }
 
 // RequestShutdown initiates a graceful shutdown from the application.
