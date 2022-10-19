@@ -71,7 +71,7 @@ func TestService_Recovery(t *testing.T) {
 		for i := 0; i < len(challengeGroups[groupIndex]); i++ {
 			round, err := s.Submit(challengesGroup[i].data)
 			req.NoError(err)
-			req.Equal(s.openRoundID(), round.ID)
+			req.Equal(strconv.Itoa(roundIndex), round.ID)
 
 			// Verify that all submissions returned the same round instance.
 			if rounds[roundIndex] == nil {
