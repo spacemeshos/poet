@@ -3,9 +3,6 @@ IMAGE ?= poet
 BINARY := poet
 PROJECT := poet
 
-all: install build
-.PHONY: all
-
 BUF_VERSION := 1.8.0
 PROTOC_VERSION = 21.8
 PROTOC_GEN_GO_VERSION = v1.28
@@ -58,6 +55,9 @@ protoc-plugins:
 	@go install github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway@$(PROTOC_GEN_GRPC_GATEWAY_VERSION)
 	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@$(PROTOC_GEN_OPENAPIV2_VERSION)
 .PHONY: protoc-plugins
+
+all: install build
+.PHONY: all
 
 test:
 	gotestsum -- -timeout 5m -p 1 ./...
