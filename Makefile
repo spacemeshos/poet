@@ -10,6 +10,8 @@ PROTOC_GEN_GRPC_VERSION = v1.2
 PROTOC_GEN_GRPC_GATEWAY_VERSION = v1.16.0
 PROTOC_GEN_OPENAPIV2_VERSION = v2.12.0
 
+# `go install` will put binaries in $(GOBIN), avoiding
+# messing up with global environment.
 export GOBIN := $(PWD)/bin
 export PATH := $(GOBIN):$(PATH)
 
@@ -38,8 +40,10 @@ $(BUF):
 		"https://github.com/bufbuild/buf/releases/download/v$(BUF_VERSION)/buf-$(UNAME_OS)-$(UNAME_ARCH)" -o $@
 	@chmod +x "$@"
 
+# If PROTOC_VERSION is changed, the binary will be re-downloaded.
 PROTOC_DIR := $(CACHE_BIN)/protoc/$(PROTOC_VERSION)
 PROTOC := $(PROTOC_DIR)/bin/protoc
+export PATH := $(dir $(PROTOC)):$(PATH)
 $(PROTOC):
 	@mkdir -p $(dir $@)
 	curl -sSL \
@@ -48,6 +52,7 @@ $(PROTOC):
 	@rm $(PROTOC_DIR)/protoc.zip
 	@chmod +x "$@"
 
+# Download protoc plugins
 protoc-plugins:
 	@go install google.golang.org/protobuf/cmd/protoc-gen-go@$(PROTOC_GEN_GO_VERSION)
 	@go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@$(PROTOC_GEN_GRPC_VERSION)
