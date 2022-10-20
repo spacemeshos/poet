@@ -85,7 +85,6 @@ func main() {
 		} else {
 			_, _ = fmt.Fprintln(os.Stderr, err)
 		}
-		fmt.Println("------------ main failed with:", err)
 		os.Exit(1)
 	}
 }
