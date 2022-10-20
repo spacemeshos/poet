@@ -17,5 +17,5 @@ plugins:
   - name: grpc-gateway
     out: release/proto/go
     opt: paths=source_relative
-  - name: swagger
-    out: release/proto/swagger
+  - name: openapiv2
+    out: release/proto/openapiv2

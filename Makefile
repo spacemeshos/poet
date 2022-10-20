@@ -5,14 +5,19 @@ PROJECT := poet
 
 BUF_VERSION := 1.8.0
 PROTOC_VERSION = 21.8
-PROTOC_GEN_GO_VERSION = v1.5.2
-PROTOC_GEN_GRPC_GATEWAY_VERSION = v2.12.0
+PROTOC_GEN_GO_VERSION = v1.28
+PROTOC_GEN_GRPC_VERSION = v1.2
+PROTOC_GEN_GRPC_GATEWAY_VERSION = v1.16.0
+PROTOC_GEN_OPENAPIV2_VERSION = v2.12.0
+
+export GOBIN := $(PWD)/bin
+export PATH := $(GOBIN):$(PATH)
 
 # The directories to store protoc builds
 # must be in sync with contents of buf.gen.yaml
 PROTOC_GO_BUILD_DIR := ./release/proto/go
-PROTOC_SWAGGER_BUILD_DIR := ./release/proto/swagger
-PROTOC_BUILD_DIRS := $(PROTOC_GO_BUILD_DIR) $(PROTOC_SWAGGER_BUILD_DIR)
+PROTOC_OPENAPI_BUILD_DIR := ./release/proto/openapiv2
+PROTOC_BUILD_DIRS := $(PROTOC_GO_BUILD_DIR) $(PROTOC_OPENAPI_BUILD_DIR)
 
 # Everything below this line is meant to be static, i.e. only adjust the above variables. ###
 
@@ -44,10 +49,11 @@ $(PROTOC):
 	@chmod +x "$@"
 
 protoc-plugins:
-	@go install github.com/golang/protobuf/protoc-gen-go@$(PROTOC_GEN_GO_VERSION)
-	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@$(PROTOC_GEN_GRPC_GATEWAY_VERSION)
+	@go install google.golang.org/protobuf/cmd/protoc-gen-go@$(PROTOC_GEN_GO_VERSION)
+	@go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@$(PROTOC_GEN_GRPC_VERSION)
+	@go install github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway@$(PROTOC_GEN_GRPC_GATEWAY_VERSION)
+	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@$(PROTOC_GEN_OPENAPIV2_VERSION)
 .PHONY: protoc-plugins
-
 
 ifdef TRAVIS_BRANCH
         BRANCH := $(TRAVIS_BRANCH)

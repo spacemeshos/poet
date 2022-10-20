@@ -7,3 +7,4 @@ poet
 *.test
 vendor/*/
 .vscode/
+bin/

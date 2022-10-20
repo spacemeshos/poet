@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/spacemeshos/poet/broadcaster"
-	"github.com/spacemeshos/poet/rpc/api"
+	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
 	"github.com/spacemeshos/poet/service"
 	"golang.org/x/net/context"
 )

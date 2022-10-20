@@ -15,6 +15,8 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version: 1.18
+      - name: install protoc plugins
+        run: make protoc-plugins
       - name: Lint protos
         run: make lint-protos
         continue-on-error: true

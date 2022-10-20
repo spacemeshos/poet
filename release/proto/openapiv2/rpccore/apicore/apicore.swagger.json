@@ -4,6 +4,14 @@
     "title": "rpccore/apicore/apicore.proto",
     "version": "version not set"
   },
+  "tags": [
+    {
+      "name": "PoetCoreProver"
+    },
+    {
+      "name": "PoetVerifier"
+    }
+  ],
   "consumes": [
     "application/json"
   ],
@@ -24,7 +32,7 @@
           "default": {
             "description": "An unexpected error response.",
             "schema": {
-              "$ref": "#/definitions/runtimeError"
+              "$ref": "#/definitions/rpcStatus"
             }
           }
         },
@@ -62,7 +70,7 @@
           "default": {
             "description": "An unexpected error response.",
             "schema": {
-              "$ref": "#/definitions/runtimeError"
+              "$ref": "#/definitions/rpcStatus"
             }
           }
         },
@@ -84,7 +92,7 @@
           "default": {
             "description": "An unexpected error response.",
             "schema": {
-              "$ref": "#/definitions/runtimeError"
+              "$ref": "#/definitions/rpcStatus"
             }
           }
         },
@@ -106,7 +114,7 @@
           "default": {
             "description": "An unexpected error response.",
             "schema": {
-              "$ref": "#/definitions/runtimeError"
+              "$ref": "#/definitions/rpcStatus"
             }
           }
         },
@@ -133,7 +141,7 @@
             "format": "byte"
           },
           {
-            "name": "p.provenLeaves",
+            "name": "p.proven_leaves",
             "in": "query",
             "required": false,
             "type": "array",
@@ -144,7 +152,7 @@
             "collectionFormat": "multi"
           },
           {
-            "name": "p.proofNodes",
+            "name": "p.proof_nodes",
             "in": "query",
             "required": false,
             "type": "array",
@@ -199,14 +207,14 @@
           "type": "string",
           "format": "byte"
         },
-        "provenLeaves": {
+        "proven_leaves": {
           "type": "array",
           "items": {
             "type": "string",
             "format": "byte"
           }
         },
-        "proofNodes": {
+        "proof_nodes": {
           "type": "array",
           "items": {
             "type": "string",
@@ -229,21 +237,15 @@
     "protobufAny": {
       "type": "object",
       "properties": {
-        "type_url": {
+        "@type": {
           "type": "string"
-        },
-        "value": {
-          "type": "string",
-          "format": "byte"
         }
-      }
+      },
+      "additionalProperties": {}
     },
-    "runtimeError": {
+    "rpcStatus": {
       "type": "object",
       "properties": {
-        "error": {
-          "type": "string"
-        },
         "code": {
           "type": "integer",
           "format": "int32"
