@@ -206,7 +206,7 @@ func TestNewService(t *testing.T) {
 	tempdir := t.TempDir()
 
 	cfg := new(Config)
-	cfg.Genesis = time.Now().Add(time.Second / 2).Format(time.RFC3339)
+	cfg.Genesis = time.Now().Add(2 * time.Second).Format(time.RFC3339)
 	cfg.EpochDuration = time.Second
 	cfg.PhaseShift = time.Second / 2
 	cfg.CycleGap = time.Second / 4
