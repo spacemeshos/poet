@@ -162,7 +162,7 @@ func TestHarness_CrashRecovery(t *testing.T) {
 	cancel()
 
 	// Wait until round iteration proceeds: a new round opened, previous round is executing.
-	ctx, cancel = context.WithDeadline(context.Background(), cfg.Genesis.Add(cfg.EpochDuration*time.Duration(2)))
+	ctx, cancel = context.WithDeadline(context.Background(), cfg.Genesis.Add(cfg.EpochDuration*2))
 	waitNewRound(h, ctx, roundsID[0])
 
 	// Submit challenges to open round (1).
@@ -188,7 +188,7 @@ func TestHarness_CrashRecovery(t *testing.T) {
 	cancel()
 
 	// Wait until round iteration proceeds: a new round opened, previous round is executing.
-	ctx, cancel = context.WithDeadline(context.Background(), cfg.Genesis.Add(cfg.EpochDuration*time.Duration(3)))
+	ctx, cancel = context.WithDeadline(context.Background(), cfg.Genesis.Add(cfg.EpochDuration*3))
 	defer cancel()
 	waitNewRound(h, ctx, roundsID[1])
 
