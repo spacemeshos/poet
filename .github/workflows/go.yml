@@ -10,6 +10,11 @@ jobs:
   verify_protos:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v3
+      - name: set up go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.18
       - name: Lint protos
         run: make lint-protos
         continue-on-error: true
