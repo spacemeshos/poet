@@ -30,15 +30,14 @@ type Harness struct {
 }
 
 // NewHarness creates and initializes a new instance of Harness.
-func NewHarness(cfg *ServerConfig) (*Harness, error) {
+func NewHarness(ctx context.Context, cfg *ServerConfig) (*Harness, error) {
 	server, err := newServer(cfg)
 	if err != nil {
 		return nil, err
 	}
 
 	if isListening(cfg.rpcListen) {
-		err = killProcess(cfg.rpcListen)
-		if err != nil {
+		if err := killProcess(cfg.rpcListen); err != nil {
 			return nil, err
 		}
 	}
@@ -50,7 +49,7 @@ func NewHarness(cfg *ServerConfig) (*Harness, error) {
 
 	// Verify the client connectivity.
 	// If failed, shutdown the server.
-	conn, err := connectClient(cfg.rpcListen)
+	conn, err := connectClient(ctx, cfg.rpcListen)
 	if err != nil {
 		_ = server.shutdown(true)
 		return nil, err
@@ -102,14 +101,11 @@ func (h *Harness) RESTListen() string {
 
 // connectClient attempts to establish a gRPC Client connection
 // to the provided target.
-func connectClient(target string) (*grpc.ClientConn, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+func connectClient(ctx context.Context, target string) (*grpc.ClientConn, error) {
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithBlock(),
 	}
-	defer cancel()
-
 	conn, err := grpc.DialContext(ctx, target, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to RPC server at %s: %v", target, err)
