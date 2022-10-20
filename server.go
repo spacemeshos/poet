@@ -8,6 +8,7 @@ import (
 	"time"
 
 	proxy "github.com/grpc-ecosystem/grpc-gateway/runtime"
+
 	"github.com/spacemeshos/smutil/log"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -15,10 +16,10 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/peer"
 
+	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
+	"github.com/spacemeshos/poet/release/proto/go/rpccore/apicore"
 	"github.com/spacemeshos/poet/rpc"
-	"github.com/spacemeshos/poet/rpc/api"
 	"github.com/spacemeshos/poet/rpccore"
-	"github.com/spacemeshos/poet/rpccore/apicore"
 	"github.com/spacemeshos/poet/service"
 	"github.com/spacemeshos/poet/signal"
 )

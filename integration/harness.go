@@ -18,7 +18,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/spacemeshos/poet/rpc/api"
+	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
 )
 
 // Harness fully encapsulates an active poet server process to provide a unified

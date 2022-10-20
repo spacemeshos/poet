@@ -1,4 +1,4 @@
-name: Go
+name: CI
 
 env:
   go-version: "1.19"
@@ -58,6 +58,12 @@ jobs:
         run: make install
       - name: lint
         run: make lint-github-action
+      - name: install protoc plugins
+        run: make protoc-plugins
+      - name: Lint protos
+        run: make lint-protos
+      - name: Verify if files built from .proto are up to date.
+        run: make check
 
   unittests:
     runs-on: ${{ matrix.os }}

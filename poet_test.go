@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/spacemeshos/poet/integration"
-	"github.com/spacemeshos/poet/rpc/api"
+	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
 )
 
 // harnessTestCase represents a test-case which utilizes an instance

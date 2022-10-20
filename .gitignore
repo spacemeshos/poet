@@ -9,3 +9,4 @@ vendor/*/
 bin
 *.out
 *.log
+.vscode/

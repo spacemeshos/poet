@@ -7,7 +7,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/spacemeshos/poet/broadcaster"
-	"github.com/spacemeshos/poet/rpc/api"
+	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
 	"github.com/spacemeshos/poet/service"
 )
 
