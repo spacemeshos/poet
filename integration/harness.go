@@ -13,6 +13,7 @@ import (
 	"time"
 
 	_ "github.com/jessevdk/go-flags"
+	"github.com/spacemeshos/smutil/log"
 	_ "github.com/syndtr/goleveldb/leveldb/table"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -69,7 +70,7 @@ func NewHarness(ctx context.Context, cfg *ServerConfig) (*Harness, error) {
 // directories are removed.
 func (h *Harness) TearDown(cleanup bool) error {
 	if err := h.conn.Close(); err != nil {
-		return fmt.Errorf("failed to close connection: %w", err)
+		log.Warning("failed to close connection: %v", err)
 	}
 
 	if err := h.server.shutdown(cleanup); err != nil {
