@@ -30,10 +30,7 @@ test-tidy:
 .PHONY: test-tidy
 
 test-fmt:
-	git diff --quiet || (echo "\033[0;31mWorking directory not clean!\033[0m" && git --no-pager diff && exit 1)
-	# We expect `go fmt` not to change anything, the test should fail otherwise
-	go fmt ./...
-	git diff --exit-code || (git --no-pager diff && git checkout . && exit 1)
+	if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then echo "Code needs reformatting. Please run 'make format'" && exit 1; fi
 .PHONY: test-fmt
 
 clear-test-cache:
