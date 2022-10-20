@@ -1,4 +1,4 @@
-name: Go
+name: CI
 
 on:
   push:
@@ -7,6 +7,14 @@ on:
     branches: ["develop"]
 
 jobs:
+  verify_protos:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Lint protos
+        run: make lint-protos
+        continue-on-error: true
+      - name: Verify if files built from .proto are up to date.
+        run: make check
   build:
     runs-on: ubuntu-latest
     steps:

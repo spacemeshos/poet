@@ -1,13 +1,9 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "api.proto",
+    "title": "rpc/api/api.proto",
     "version": "version not set"
   },
-  "schemes": [
-    "http",
-    "https"
-  ],
   "consumes": [
     "application/json"
   ],
@@ -17,12 +13,19 @@
   "paths": {
     "/v1/info": {
       "get": {
-        "operationId": "GetInfo",
+        "summary": "GetInfo returns general information concerning the service,\nincluding its identity pubkey.",
+        "operationId": "Poet_GetInfo",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/apiGetInfoResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -33,12 +36,19 @@
     },
     "/v1/start": {
       "post": {
-        "operationId": "Start",
+        "summary": "Start is used to start the service.",
+        "operationId": "Poet_Start",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/apiStartResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -59,12 +69,19 @@
     },
     "/v1/submit": {
       "post": {
-        "operationId": "Submit",
+        "summary": "Submit adds a challenge to the service's current open round,\nto be included its later generated proof.",
+        "operationId": "Poet_Submit",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/apiSubmitResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -85,12 +102,19 @@
     },
     "/v1/updategateway": {
       "post": {
-        "operationId": "UpdateGateway",
+        "summary": "UpdateGateway allows to update the list of gateway addresses (with additional broadcasting config),\nsimilar to the Start rpc, but after the service already started.",
+        "operationId": "Poet_UpdateGateway",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/apiUpdateGatewayResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/runtimeError"
             }
           }
         },
@@ -139,8 +163,7 @@
           }
         },
         "disableBroadcast": {
-          "type": "boolean",
-          "format": "boolean"
+          "type": "boolean"
         },
         "connAcksThreshold": {
           "type": "integer",
@@ -182,8 +205,7 @@
           }
         },
         "disableBroadcast": {
-          "type": "boolean",
-          "format": "boolean"
+          "type": "boolean"
         },
         "connAcksThreshold": {
           "type": "integer",
@@ -197,6 +219,39 @@
     },
     "apiUpdateGatewayResponse": {
       "type": "object"
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "type_url": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "runtimeError": {
+      "type": "object",
+      "properties": {
+        "error": {
+          "type": "string"
+        },
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
     }
   }
 }
