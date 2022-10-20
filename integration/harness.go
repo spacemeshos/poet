@@ -12,7 +12,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/spacemeshos/poet/rpc/api"
+	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 

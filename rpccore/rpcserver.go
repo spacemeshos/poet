@@ -5,7 +5,7 @@ import (
 
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/prover"
-	"github.com/spacemeshos/poet/rpccore/apicore"
+	"github.com/spacemeshos/poet/release/proto/go/rpccore/apicore"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/signal"
 	"github.com/spacemeshos/poet/verifier"
