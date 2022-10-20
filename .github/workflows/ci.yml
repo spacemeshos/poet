@@ -62,6 +62,7 @@ jobs:
         run: make protoc-plugins
       - name: Lint protos
         run: make lint-protos
+        continue-on-error: true
       - name: Verify if files built from .proto are up to date.
         run: make check
 
