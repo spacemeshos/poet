@@ -61,8 +61,9 @@ type Service struct {
 
 	// openRound is the round which is currently open for accepting challenges registration from miners.
 	// At any given time there is one single open round.
+	// openRoundMutex guards openRound, any access to it must be protected by this mutex.
 	openRound      *round
-	openRoundMutex sync.Mutex
+	openRoundMutex sync.RWMutex
 
 	// executingRounds are the rounds which are currently executing, hence generating a proof.
 	executingRounds map[string]*round
@@ -265,15 +266,14 @@ func (s *Service) Start(b Broadcaster) error {
 				}
 			}
 
+			s.openRoundMutex.Lock()
 			if s.openRound.isEmpty() && !s.cfg.ExecuteEmpty {
+				s.openRoundMutex.Unlock()
 				continue
 			}
 
 			s.prevRound = s.openRound
 			open := time.Now()
-			// TODO(dshulyak) some time is wasted here to persist data on disk
-			// on my computer ~20ms
-			s.openRoundMutex.Lock()
 			s.newRound(s.prevRound.Epoch() + 1)
 			s.openRoundMutex.Unlock()
 			log.Info("Round %v opened. took %v", s.openRoundID(), time.Since(open))
@@ -435,6 +435,7 @@ func (s *Service) Info() (*InfoResponse, error) {
 	return res, nil
 }
 
+// newRound creates a new round with the given epoch. This method MUST be guarded by a write lock on openRoundMutex.
 func (s *Service) newRound(epoch uint32) {
 	if err := s.saveState(); err != nil {
 		panic(err)
@@ -448,8 +449,8 @@ func (s *Service) newRound(epoch uint32) {
 }
 
 func (s *Service) openRoundID() string {
-	s.openRoundMutex.Lock()
-	defer s.openRoundMutex.Unlock()
+	s.openRoundMutex.RLock()
+	defer s.openRoundMutex.RUnlock()
 
 	return s.openRound.ID
 }
