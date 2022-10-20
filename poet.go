@@ -83,9 +83,9 @@ func main() {
 		// because it was already printed.
 		if e, ok := err.(*flags.Error); ok && e.Type == flags.ErrHelp {
 		} else {
-			fmt.Println("------------ main failed with:", err)
 			_, _ = fmt.Fprintln(os.Stderr, err)
 		}
+		fmt.Println("------------ main failed with:", err)
 		os.Exit(1)
 	}
 }
