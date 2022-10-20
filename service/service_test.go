@@ -100,7 +100,9 @@ func TestService_Recovery(t *testing.T) {
 
 	// Verify that round iteration proceeds: a new round opened, previous round is executing.
 	req.Contains(s.executingRounds, rounds[0].ID)
+	s.openRoundMutex.Lock()
 	rounds[1] = s.openRound
+	s.openRoundMutex.Unlock()
 
 	// Submit challenges to open round (1).
 	submitChallenges(1, 1)
