@@ -8,7 +8,7 @@ package signal
 import (
 	"os"
 	"os/signal"
-	"sync"
+	"sync/atomic"
 
 	"github.com/spacemeshos/smutil/log"
 )
@@ -29,9 +29,7 @@ type Signal struct {
 
 	ShutdownRequestedChan chan struct{}
 
-	blocking       map[int]bool
-	blockingNextID int
-	blockingMtx    sync.Mutex
+	blocking atomic.Int32
 }
 
 func NewSignal() *Signal {
@@ -41,7 +39,6 @@ func NewSignal() *Signal {
 	s.shutdownChan = make(chan struct{})
 	s.requestShutdownChan = make(chan struct{})
 	s.ShutdownRequestedChan = make(chan struct{})
-	s.blocking = make(map[int]bool)
 
 	signal.Notify(s.interruptChan, os.Interrupt)
 	go s.mainInterruptHandler()
@@ -113,38 +110,25 @@ func (s *Signal) ShutdownChannel() <-chan struct{} {
 }
 
 func (s *Signal) BlockShutdown() func() {
-	s.blockingMtx.Lock()
-
-	s.blocking[s.blockingNextID] = true
-	next := s.blockingNextID
-	s.blockingNextID++
-
-	s.blockingMtx.Unlock()
+	s.blocking.Add(1)
 
 	return func() {
-		s.unblockShutdown(next)
+		s.unblockShutdown()
 	}
 }
 
-func (s *Signal) unblockShutdown(id int) {
-	s.blockingMtx.Lock()
-	delete(s.blocking, id)
-	numBlocking := len(s.blocking)
-	s.blockingMtx.Unlock()
+func (s *Signal) unblockShutdown() {
+	s.blocking.Add(-1)
 
 	select {
 	case <-s.ShutdownRequestedChan:
-		if numBlocking == 0 {
+		if s.blocking.Load() == 0 {
 			s.shutdown()
 		}
 	default:
 	}
 }
 
-func (s *Signal) NumBlocking() int {
-	s.blockingMtx.Lock()
-	numBlocking := len(s.blocking)
-	s.blockingMtx.Unlock()
-
-	return numBlocking
+func (s *Signal) NumBlocking() int32 {
+	return s.blocking.Load()
 }
