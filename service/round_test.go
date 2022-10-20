@@ -61,7 +61,7 @@ func TestRound_Recovery(t *testing.T) {
 	}()
 
 	req.ErrorIs(r2.execute(time.Now().Add(duration), prover.LowestMerkleMinMemoryLayer), prover.ErrShutdownRequested)
-	require.NoError(t, r2.waitTeardown(context.TODO()))
+	require.NoError(t, r2.waitTeardown(context.Background()))
 
 	// Recover r2 execution, and request shutdown before completion.
 	sig = signal.NewSignal()
@@ -78,7 +78,7 @@ func TestRound_Recovery(t *testing.T) {
 	}()
 
 	req.ErrorIs(r2recovery1.recoverExecution(state.Execution, time.Now().Add(duration)), prover.ErrShutdownRequested)
-	require.NoError(t, r2recovery1.waitTeardown(context.TODO()))
+	require.NoError(t, r2recovery1.waitTeardown(context.Background()))
 
 	// Recover r2 execution again, and let it complete.
 	sig = signal.NewSignal()
@@ -173,9 +173,7 @@ func TestRound_State(t *testing.T) {
 	req.True(state.Execution.NumLeaves > 0)
 	req.True(state.Execution.ParkedNodes != nil)
 	req.True(state.Execution.NIP == nil)
-	ctx, cancel := context.WithTimeout(context.TODO(), time.Second)
-	defer cancel()
-	require.NoError(t, r.waitTeardown(ctx))
+	require.NoError(t, r.waitTeardown(context.Background()))
 
 	// Create a new round instance of the same round.
 	r = newRound(signal.NewSignal(), tempdir, 0)

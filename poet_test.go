@@ -38,7 +38,7 @@ func TestHarness(t *testing.T) {
 	r.NoError(err)
 	cfg.Genesis = time.Now()
 
-	h := newHarness(t, context.TODO(), cfg)
+	h := newHarness(t, context.Background(), cfg)
 	t.Cleanup(func() {
 		err := h.TearDown(true)
 		if assert.NoError(t, err, "failed to tear down harness") {
@@ -131,7 +131,7 @@ func TestHarness_CrashRecovery(t *testing.T) {
 		}
 	}
 
-	waitNewRound := func(h *integration.Harness, ctx context.Context, currentRoundId string) {
+	waitNewRound := func(ctx context.Context, h *integration.Harness, currentRoundId string) {
 		isOpenRound := func(val string) bool {
 			info, err := h.GetInfo(ctx, &api.GetInfoRequest{})
 			req.NoError(err)
@@ -163,7 +163,7 @@ func TestHarness_CrashRecovery(t *testing.T) {
 
 	// Wait until round iteration proceeds: a new round opened, previous round is executing.
 	ctx, cancel = context.WithDeadline(context.Background(), cfg.Genesis.Add(cfg.EpochDuration*2))
-	waitNewRound(h, ctx, roundsID[0])
+	waitNewRound(ctx, h, roundsID[0])
 
 	// Submit challenges to open round (1).
 	submitChallenges(h, 1)
@@ -190,7 +190,7 @@ func TestHarness_CrashRecovery(t *testing.T) {
 	// Wait until round iteration proceeds: a new round opened, previous round is executing.
 	ctx, cancel = context.WithDeadline(context.Background(), cfg.Genesis.Add(cfg.EpochDuration*3))
 	defer cancel()
-	waitNewRound(h, ctx, roundsID[1])
+	waitNewRound(ctx, h, roundsID[1])
 
 	// Submit challenges to open round (1).
 	submitChallenges(h, 2)

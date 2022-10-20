@@ -117,8 +117,8 @@ func (s *server) start() error {
 	if err != nil {
 		return fmt.Errorf("failed to capture server stderr: %s", err)
 	}
-	var errb bytes.Buffer
-	s.stderr = io.TeeReader(stderr, &errb)
+	var stderrBuf bytes.Buffer
+	s.stderr = io.TeeReader(stderr, &stderrBuf)
 
 	s.stdout, err = s.cmd.StdoutPipe()
 	if err != nil {
@@ -137,12 +137,12 @@ func (s *server) start() error {
 		if err != nil {
 			// Don't propagate 'signal: killed' error,
 			// since it's an expected behavior.
-			if !strings.Contains(err.Error(), "signal: killed") && errb.Len() > 0 {
+			if !strings.Contains(err.Error(), "signal: killed") && stderrBuf.Len() > 0 {
 				// make sure all of the input to the teereader was consumed so we can read it here.
 				// ignore output and error here, we just need to make sure it was all consumed.
 				_, _ = io.ReadAll(s.stderr)
 				select {
-				case s.errChan <- fmt.Errorf("%v | %v", err, errb.String()):
+				case s.errChan <- fmt.Errorf("%v | %v", err, stderrBuf.String()):
 					// we successfully sent the error to the channel
 				case <-s.quit:
 					// we were told to quit and no one is listening for the error so don't send the error
