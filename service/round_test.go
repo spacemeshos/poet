@@ -155,7 +155,8 @@ func TestRound_State(t *testing.T) {
 		sig.RequestShutdown()
 	}()
 
-	req.ErrorIs(r.execute(time.Now().Add(duration), prover.LowestMerkleMinMemoryLayer), prover.ErrShutdownRequested)
+	err = r.execute(time.Now().Add(duration), prover.LowestMerkleMinMemoryLayer)
+	req.ErrorIs(err, prover.ErrShutdownRequested, err.Error())
 	req.True(!r.isOpen())
 	req.True(!r.opened.IsZero())
 	req.True(!r.executionStarted.IsZero())

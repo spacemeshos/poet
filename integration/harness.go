@@ -68,12 +68,12 @@ func NewHarness(ctx context.Context, cfg *ServerConfig) (*Harness, error) {
 // The created process is killed, and the temporary
 // directories are removed.
 func (h *Harness) TearDown(cleanup bool) error {
-	if err := h.server.shutdown(cleanup); err != nil {
-		return err
+	if err := h.conn.Close(); err != nil {
+		return fmt.Errorf("failed to close connection: %w", err)
 	}
 
-	if err := h.conn.Close(); err != nil {
-		return err
+	if err := h.server.shutdown(cleanup); err != nil {
+		return fmt.Errorf("failed to shut down: %w", err)
 	}
 
 	return nil
