@@ -13,11 +13,6 @@ PROTOC_GEN_GRPC_VERSION = v1.2
 PROTOC_GEN_GRPC_GATEWAY_VERSION = v1.16.0
 PROTOC_GEN_OPENAPIV2_VERSION = v2.12.0
 
-# `go install` will put binaries in $(GOBIN), avoiding
-# messing up with global environment.
-export GOBIN := $(PWD)/bin
-export PATH := $(GOBIN):$(PATH)
-
 # The directories to store protoc builds
 # must be in sync with contents of buf.gen.yaml
 PROTOC_GO_BUILD_DIR := ./release/proto/go
@@ -47,6 +42,7 @@ $(BUF):
 PROTOC_DIR := $(CACHE_BIN)/protoc/$(PROTOC_VERSION)
 PROTOC := $(PROTOC_DIR)/bin/protoc
 export PATH := $(dir $(PROTOC)):$(PATH)
+
 $(PROTOC):
 	@mkdir -p $(dir $@)
 	curl -sSL \
