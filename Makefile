@@ -37,14 +37,15 @@ ifeq ($(OS),Windows_NT)
 	export PATH := $(BIN_DIR);$(PATH)
 	TMP_PROTOC := $(TEMP)/protoc-$(RANDOM)
 else
-  UNAME_OS := $(shell uname -s)
-  UNAME_ARCH := $(shell uname -m)
-  PROTOC_BUILD := $(shell echo ${UNAME_OS}-${UNAME_ARCH} | tr '[:upper:]' '[:lower:]' | sed 's/darwin/osx/' | sed 's/aarch64/aarch_64/')
+	SHELL := /bin/bash
 
-  BIN_DIR := $(abspath .)/bin
-  export PATH := $(BIN_DIR):$(PATH)
-  TMP_PROTOC := $(shell mktemp -d)
-  SHELL := /bin/bash
+	UNAME_OS := $(shell uname -s)
+	UNAME_ARCH := $(shell uname -m)
+	PROTOC_BUILD := $(shell echo ${UNAME_OS}-${UNAME_ARCH} | tr '[:upper:]' '[:lower:]' | sed 's/darwin/osx/' | sed 's/aarch64/aarch_64/')
+
+ 	BIN_DIR := $(abspath .)/bin
+ 	export PATH := $(BIN_DIR):$(PATH)
+ 	TMP_PROTOC := $(shell mktemp -d)
 endif
 
 # `go install` will put binaries in $(GOBIN), avoiding
