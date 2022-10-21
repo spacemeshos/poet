@@ -3,12 +3,17 @@ IMAGE ?= poet
 BINARY := poet
 PROJECT := poet
 
+GOLANGCI_LINT_VERSION := v1.50.0
+STATICCHECK_VERSION := v0.3.3
+GOTESTSUM_VERSION := v1.8.2
+GOSCALE_VERSION := v1.0.0
+
 BUF_VERSION := 1.8.0
 PROTOC_VERSION = 21.8
-PROTOC_GEN_GO_VERSION = v1.28
-PROTOC_GEN_GRPC_VERSION = v1.2
-PROTOC_GEN_GRPC_GATEWAY_VERSION = v1.16.0
-PROTOC_GEN_OPENAPIV2_VERSION = v2.12.0
+PROTOC_GEN_GO_VERSION := v1.28
+PROTOC_GEN_GRPC_VERSION := v1.2
+PROTOC_GEN_GRPC_GATEWAY_VERSION := v1.16.0
+PROTOC_GEN_OPENAPIV2_VERSION := v2.12.0
 
 # The directories to store protoc builds
 # must be in sync with contents of buf.gen.yaml
@@ -18,35 +23,45 @@ PROTOC_BUILD_DIRS := $(PROTOC_GO_BUILD_DIR) $(PROTOC_OPENAPI_BUILD_DIR)
 
 # Everything below this line is meant to be static, i.e. only adjust the above variables. ###
 
-UNAME_OS := $(shell uname -s)
-UNAME_ARCH := $(shell uname -m)
-# Buf will be cached to ~/.cache/buf-example.
-CACHE_BASE := $(HOME)/.cache/$(PROJECT)
-# This allows switching between i.e a Docker container and your local setup without overwriting.
-CACHE := $(CACHE_BASE)/$(UNAME_OS)/$(UNAME_ARCH)
-# The location where buf will be installed.
-CACHE_BIN := $(CACHE)/bin
+ifeq ($(OS),Windows_NT)
+	UNAME_OS := windows
+	ifeq ($(PROCESSOR_ARCHITECTURE),AMD64)
+		UNAME_ARCH := x86_64
+	endif
+	ifeq ($(PROCESSOR_ARCHITECTURE),ARM64)
+		UNAME_ARCH := aarch64
+	endif
+	PROTOC_BUILD := win64
 
-# If BUF_VERSION is changed, the binary will be re-downloaded.
-BUF := $(CACHE_BIN)/buf/$(BUF_VERSION)
-$(BUF):
-	@mkdir -p $(dir $@)
-	curl -sSL \
-		"https://github.com/bufbuild/buf/releases/download/v$(BUF_VERSION)/buf-$(UNAME_OS)-$(UNAME_ARCH)" -o $@
-	@chmod +x "$@"
+	BIN_DIR := $(abspath .)/bin
+	export PATH := $(BIN_DIR);$(PATH)
+else
+  UNAME_OS := $(shell uname -s)
+  UNAME_ARCH := $(shell uname -m)
+  PROTOC_BUILD := $(shell echo ${UNAME_OS}-${UNAME_ARCH} | tr '[:upper:]' '[:lower:]' | sed 's/darwin/osx/' | sed 's/aarch64/aarch_64/')
 
-# If PROTOC_VERSION is changed, the binary will be re-downloaded.
-PROTOC_DIR := $(CACHE_BIN)/protoc/$(PROTOC_VERSION)
-PROTOC := $(PROTOC_DIR)/bin/protoc
-export PATH := $(dir $(PROTOC)):$(PATH)
+  BIN_DIR := $(PWD)/bin
+  export PATH := $(BIN_DIR):$(PATH)
+endif
 
-$(PROTOC):
-	@mkdir -p $(dir $@)
-	curl -sSL \
-		https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-${UNAME_OS}-${UNAME_ARCH}.zip -o $(PROTOC_DIR)/protoc.zip
-	@unzip $(PROTOC_DIR)/protoc.zip -d $(PROTOC_DIR)
-	@rm $(PROTOC_DIR)/protoc.zip
-	@chmod +x "$@"
+# `go install` will put binaries in $(GOBIN), avoiding
+# messing up with global environment.
+export GOBIN := $(BIN_DIR)
+
+install-buf:
+	@mkdir -p $(BIN_DIR)
+	curl -sSL "https://github.com/bufbuild/buf/releases/download/v$(BUF_VERSION)/buf-$(UNAME_OS)-$(UNAME_ARCH)" -o $(BIN_DIR)/buf
+	@chmod +x $(BIN_DIR)/buf
+.PHONY: buf
+
+install-protoc: protoc-plugins
+	@mkdir -p $(BIN_DIR)
+	@$(eval TMP := $(shell mktemp -d))
+	curl -sSL https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-${PROTOC_BUILD}.zip -o $(TMP)/protoc.zip
+	@unzip $(TMP)/protoc.zip -d $(TMP)
+	@cp -f $(TMP)/bin/protoc $(BIN_DIR)/protoc
+	@chmod +x $(BIN_DIR)/protoc
+.PHONY: protoc
 
 # Download protoc plugins
 protoc-plugins:
@@ -64,11 +79,11 @@ test:
 .PHONY: test
 
 install:
-	go mod download
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.50.0
-	go install github.com/spacemeshos/go-scale/scalegen@v1.0.0
-	go install gotest.tools/gotestsum@v1.8.2
-	go install honnef.co/go/tools/cmd/staticcheck@latest
+	@go mod download
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s $(GOLANGCI_LINT_VERSION)
+	@go install honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
+	@go install gotest.tools/gotestsum@$(GOTESTSUM_VERSION)
+	@go install github.com/spacemeshos/go-scale/scalegen@$(GOSCALE_VERSION)
 .PHONY: install
 
 tidy:
@@ -84,7 +99,10 @@ test-tidy:
 .PHONY: test-tidy
 
 test-fmt:
-	if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then echo "Code needs reformatting. Please run 'make format'" && exit 1; fi
+	git diff --quiet || (echo "\033[0;31mWorking directory not clean!\033[0m" && git --no-pager diff && exit 1)
+	# We expect `go fmt` not to change anything, the test should fail otherwise
+	go fmt ./...
+	git diff --exit-code || (git --no-pager diff && git checkout . && exit 1)
 .PHONY: test-fmt
 
 clear-test-cache:
@@ -93,18 +111,23 @@ clear-test-cache:
 
 lint:
 	go vet ./...
-	./bin/golangci-lint run --config .golangci.yml
+	golangci-lint run --config .golangci.yml
 .PHONY: lint
 
 # Auto-fixes golangci-lint issues where possible.
 lint-fix:
-	./bin/golangci-lint run --config .golangci.yml --fix
+	golangci-lint run --config .golangci.yml --fix
 .PHONY: lint-fix
 
 lint-github-action:
 	go vet ./...
-	./bin/golangci-lint run --config .golangci.yml --out-format=github-actions
+	golangci-lint run --config .golangci.yml --out-format=github-actions
 .PHONY: lint-github-action
+
+# Lint .proto files
+lint-protos:
+	buf lint
+.PHONY: lint-protos
 
 cover:
 	go test -coverprofile=cover.out -timeout 0 -p 1 ./...
@@ -127,19 +150,14 @@ push:
 .PHONY: push
 
 # Rebuild .proto files
-generate: $(BUF) $(PROTOC)
+generate:
 	go generate ./...
-	$(BUF) generate
+	buf generate
 .PHONY: generate
 
-# Lint .proto files
-lint-protos: $(BUF) $(PROTOC)
-	$(BUF) lint
-.PHONY: lint-protos
-
 # Verify if files built from .proto are up to date.
-check: generate
-	@git add -N $(PROTOC_BUILD_DIRS)
-	@git diff --name-only --diff-filter=AM --exit-code $(PROTOC_BUILD_DIRS) \
+test-generate: generate
+	@git add -N .
+	@git diff --name-only --diff-filter=AM --exit-code . \
 	  || { echo "\nPlease rerun 'make generate' and commit changes.\n"; exit 1; }
 .PHONY: check
