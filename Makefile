@@ -43,8 +43,8 @@ else
   PROTOC_BUILD := $(shell echo ${UNAME_OS}-${UNAME_ARCH} | tr '[:upper:]' '[:lower:]' | sed 's/darwin/osx/' | sed 's/aarch64/aarch_64/')
 
   BIN_DIR := $(abspath .)/bin
-  export PATH := $(BIN_DIR):$(PATH)
-  echo $(PATH)
+  export PATH := "$(BIN_DIR):$(PATH)"
+  echo $(value PATH)
   TMP_PROTOC := $(shell mktemp -d)
 endif
 
