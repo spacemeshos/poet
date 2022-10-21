@@ -59,8 +59,8 @@ jobs:
         run: make install
       - name: lint
         run: make lint-github-action
-      - name: install protoc plugins
-        run: make protoc-plugins
+      - name: install protoc + plugins
+        run: make install-protoc
       - name: Lint protos
         run: make lint-protos
         continue-on-error: true
