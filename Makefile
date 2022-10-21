@@ -37,7 +37,7 @@ ifeq ($(OS),Windows_NT)
 	export PATH := $(BIN_DIR);$(PATH)
 	TMP_PROTOC := $(TEMP)/protoc-$(RANDOM)
 else
-	SHELL := /bin/bash
+	SHELL = /bin/bash
 
 	UNAME_OS := $(shell uname -s)
 	UNAME_ARCH := $(shell uname -m)
