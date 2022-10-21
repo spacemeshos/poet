@@ -30,7 +30,7 @@ jobs:
             ${{ runner.os }}-cache-go-${{ env.go-version }}-
       - name: fmt, tidy
         run: |
-          make install
+          make install install-buf
           make test-fmt
           make test-tidy
           make test-generate
