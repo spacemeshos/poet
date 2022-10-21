@@ -33,6 +33,7 @@ jobs:
           make install
           make test-fmt
           make test-tidy
+          make test-generate
       - name: staticcheck
         run: make staticcheck
 
@@ -63,8 +64,6 @@ jobs:
       - name: Lint protos
         run: make lint-protos
         continue-on-error: true
-      - name: Verify if files built from .proto are up to date.
-        run: make check
 
   unittests:
     runs-on: ${{ matrix.os }}

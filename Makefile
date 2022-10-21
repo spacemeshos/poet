@@ -71,7 +71,7 @@ protoc-plugins:
 	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@$(PROTOC_GEN_OPENAPIV2_VERSION)
 .PHONY: protoc-plugins
 
-all: install build
+all: build
 .PHONY: all
 
 test:
