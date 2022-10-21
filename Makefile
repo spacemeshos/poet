@@ -34,14 +34,17 @@ ifeq ($(OS),Windows_NT)
 	PROTOC_BUILD := win64
 
 	BIN_DIR := $(abspath .)/bin
-	export PATH := $(BIN_DIR);$(PATH)
+	export PATH := "$(BIN_DIR);$(PATH)"
+	TMP_PROTOC := $(TEMP)/protoc-$(RANDOM)
+	mkdir -p $(TMP_PROTOC)
 else
   UNAME_OS := $(shell uname -s)
   UNAME_ARCH := $(shell uname -m)
   PROTOC_BUILD := $(shell echo ${UNAME_OS}-${UNAME_ARCH} | tr '[:upper:]' '[:lower:]' | sed 's/darwin/osx/' | sed 's/aarch64/aarch_64/')
 
-  BIN_DIR := $(PWD)/bin
+  BIN_DIR := $(abspath .)/bin
   export PATH := $(BIN_DIR):$(PATH)
+  TMP_PROTOC := $(shell mktemp -d)
 endif
 
 # `go install` will put binaries in $(GOBIN), avoiding
@@ -56,10 +59,9 @@ install-buf:
 
 install-protoc: protoc-plugins
 	@mkdir -p $(BIN_DIR)
-	@$(eval TMP := $(shell mktemp -d))
-	curl -sSL https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-${PROTOC_BUILD}.zip -o $(TMP)/protoc.zip
-	@unzip $(TMP)/protoc.zip -d $(TMP)
-	@cp -f $(TMP)/bin/protoc $(BIN_DIR)/protoc
+	curl -sSL https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-${PROTOC_BUILD}.zip -o $(TMP_PROTOC)/protoc.zip
+	@unzip $(TMP_PROTOC)/protoc.zip -d $(TMP_PROTOC)
+	@cp -f $(TMP_PROTOC)/bin/protoc $(BIN_DIR)/protoc
 	@chmod +x $(BIN_DIR)/protoc
 .PHONY: protoc
 
