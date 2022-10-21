@@ -36,7 +36,7 @@ ifeq ($(OS),Windows_NT)
 	BIN_DIR := $(abspath .)/bin
 	export PATH := "$(BIN_DIR);$(PATH)"
 	TMP_PROTOC := $(TEMP)/protoc-$(RANDOM)
-	mkdir -p $(TMP_PROTOC)
+	mkdir $(TMP_PROTOC)
 else
   UNAME_OS := $(shell uname -s)
   UNAME_ARCH := $(shell uname -m)
@@ -44,6 +44,8 @@ else
 
   BIN_DIR := $(abspath .)/bin
   export PATH := $(BIN_DIR):$(PATH)
+  echo "PATH"
+  echo $(PATH)
   TMP_PROTOC := $(shell mktemp -d)
 endif
 
