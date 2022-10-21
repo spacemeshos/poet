@@ -34,7 +34,7 @@ ifeq ($(OS),Windows_NT)
 	PROTOC_BUILD := win64
 
 	BIN_DIR := $(abspath .)/bin
-	export PATH := "$(BIN_DIR);$(PATH)"
+	export PATH := $(BIN_DIR);$(PATH)
 	TMP_PROTOC := $(TEMP)/protoc-$(RANDOM)
 	mkdir $(TMP_PROTOC)
 else
@@ -43,8 +43,7 @@ else
   PROTOC_BUILD := $(shell echo ${UNAME_OS}-${UNAME_ARCH} | tr '[:upper:]' '[:lower:]' | sed 's/darwin/osx/' | sed 's/aarch64/aarch_64/')
 
   BIN_DIR := $(abspath .)/bin
-  export PATH := "$(BIN_DIR):$(PATH)"
-  echo $(value PATH)
+  export PATH := $(BIN_DIR):$(PATH)
   TMP_PROTOC := $(shell mktemp -d)
 endif
 
