@@ -37,8 +37,6 @@ ifeq ($(OS),Windows_NT)
 	export PATH := $(BIN_DIR);$(PATH)
 	TMP_PROTOC := $(TEMP)/protoc-$(RANDOM)
 else
-	SHELL = /bin/bash
-
 	UNAME_OS := $(shell uname -s)
 	UNAME_ARCH := $(shell uname -m)
 	PROTOC_BUILD := $(shell echo ${UNAME_OS}-${UNAME_ARCH} | tr '[:upper:]' '[:lower:]' | sed 's/darwin/osx/' | sed 's/aarch64/aarch_64/')
@@ -81,6 +79,10 @@ all: build
 .PHONY: all
 
 test:
+ifeq ($(UNAME_OS),darwin)
+	# Workaround for PATH not working on macOS
+	$(BIN_DIR)/gotestsum -- -timeout 5m -p 1 ./...
+endif
 	gotestsum -- -timeout 5m -p 1 ./...
 .PHONY: test
 
