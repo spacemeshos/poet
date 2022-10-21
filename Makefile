@@ -44,7 +44,6 @@ else
 
   BIN_DIR := $(abspath .)/bin
   export PATH := $(BIN_DIR):$(PATH)
-  echo "PATH"
   echo $(PATH)
   TMP_PROTOC := $(shell mktemp -d)
 endif
