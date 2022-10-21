@@ -36,7 +36,6 @@ ifeq ($(OS),Windows_NT)
 	BIN_DIR := $(abspath .)/bin
 	export PATH := $(BIN_DIR);$(PATH)
 	TMP_PROTOC := $(TEMP)/protoc-$(RANDOM)
-	mkdir $(TMP_PROTOC)
 else
   UNAME_OS := $(shell uname -s)
   UNAME_ARCH := $(shell uname -m)
@@ -45,6 +44,7 @@ else
   BIN_DIR := $(abspath .)/bin
   export PATH := $(BIN_DIR):$(PATH)
   TMP_PROTOC := $(shell mktemp -d)
+  SHELL := /bin/bash
 endif
 
 # `go install` will put binaries in $(GOBIN), avoiding
@@ -59,6 +59,9 @@ install-buf:
 
 install-protoc: protoc-plugins
 	@mkdir -p $(BIN_DIR)
+ifeq ($(OS),Windows_NT)
+	@mkdir -p $(TMP_PROTOC)
+endif
 	curl -sSL https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-${PROTOC_BUILD}.zip -o $(TMP_PROTOC)/protoc.zip
 	@unzip $(TMP_PROTOC)/protoc.zip -d $(TMP_PROTOC)
 	@cp -f $(TMP_PROTOC)/bin/protoc $(BIN_DIR)/protoc
