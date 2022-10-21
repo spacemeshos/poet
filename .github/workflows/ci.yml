@@ -30,7 +30,7 @@ jobs:
             ${{ runner.os }}-cache-go-${{ env.go-version }}-
       - name: fmt, tidy
         run: |
-          make install install-buf
+          make install
           make test-fmt
           make test-tidy
           make test-generate
@@ -59,8 +59,6 @@ jobs:
         run: make install
       - name: lint
         run: make lint-github-action
-      - name: install protoc + plugins
-        run: make install-protoc
       - name: Lint protos
         run: make lint-protos
         continue-on-error: true

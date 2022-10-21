@@ -78,7 +78,7 @@ test:
 	gotestsum -- -timeout 5m -p 1 ./...
 .PHONY: test
 
-install:
+install: install-buf install-protoc
 	@go mod download
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s $(GOLANGCI_LINT_VERSION)
 	@go install honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
