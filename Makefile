@@ -82,8 +82,9 @@ test:
 ifeq ($(UNAME_OS),Darwin)
 	# Workaround for PATH not working on macOS
 	$(BIN_DIR)/gotestsum -- -timeout 5m -p 1 ./...
-endif
+else
 	gotestsum -- -timeout 5m -p 1 ./...
+endif
 .PHONY: test
 
 install: install-buf install-protoc
