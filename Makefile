@@ -49,6 +49,7 @@ endif
 # `go install` will put binaries in $(GOBIN), avoiding
 # messing up with global environment.
 export GOBIN := $(BIN_DIR)
+GOTESTSUM := $(GOBIN)/gotestsum
 
 install-buf:
 	@mkdir -p $(BIN_DIR)
@@ -79,12 +80,7 @@ all: build
 .PHONY: all
 
 test:
-ifeq ($(UNAME_OS),Darwin)
-	# Workaround for PATH not working on macOS
-	$(BIN_DIR)/gotestsum -- -timeout 5m -p 1 ./...
-else
-	gotestsum -- -timeout 5m -p 1 ./...
-endif
+	$(GOTESTSUM) -- -timeout 5m -p 1 ./...
 .PHONY: test
 
 install: install-buf install-protoc
@@ -101,17 +97,17 @@ tidy:
 
 test-tidy:
 	# Working directory must be clean, or this test would be destructive
-	git diff --quiet || (echo "\033[0;31mWorking directory not clean!\033[0m" && git --no-pager diff && exit 1)
+	@git diff --quiet || (echo "\033[0;31mWorking directory not clean!\033[0m" && git --no-pager diff && exit 1)
 	# We expect `go mod tidy` not to change anything, the test should fail otherwise
-	make tidy
-	git diff --exit-code || (git --no-pager diff && git checkout . && exit 1)
+	@make tidy
+	@git diff --exit-code || (git --no-pager diff && git checkout . && exit 1)
 .PHONY: test-tidy
 
 test-fmt:
-	git diff --quiet || (echo "\033[0;31mWorking directory not clean!\033[0m" && git --no-pager diff && exit 1)
+	@git diff --quiet || (echo "\033[0;31mWorking directory not clean!\033[0m" && git --no-pager diff && exit 1)
 	# We expect `go fmt` not to change anything, the test should fail otherwise
-	go fmt ./...
-	git diff --exit-code || (git --no-pager diff && git checkout . && exit 1)
+	@go fmt ./...
+	@git diff --exit-code || (git --no-pager diff && git checkout . && exit 1)
 .PHONY: test-fmt
 
 clear-test-cache:
@@ -165,8 +161,8 @@ generate:
 .PHONY: generate
 
 # Verify if files built from .proto are up to date.
-test-generate: generate
-	@git add -N .
-	@git diff --name-only --diff-filter=AM --exit-code . \
-	  || { echo "\nPlease rerun 'make generate' and commit changes.\n"; exit 1; }
+test-generate:
+	@git diff --quiet || (echo "\033[0;31mWorking directory not clean!\033[0m" && git --no-pager diff && exit 1)
+	@make generate
+	@git diff --name-only --diff-filter=AM --exit-code . || { echo "\nPlease rerun 'make generate' and commit changes.\n"; exit 1; }
 .PHONY: check
