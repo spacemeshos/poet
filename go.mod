@@ -12,7 +12,7 @@ require (
 	github.com/spacemeshos/go-scale v1.0.0
 	github.com/spacemeshos/merkle-tree v0.0.0-20221019141051-1d2e1586ca5b
 	github.com/spacemeshos/smutil v0.0.0-20220819180433-6aaadca3eb1d
-	github.com/stretchr/testify v1.8.0
+	github.com/stretchr/testify v1.8.1
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	golang.org/x/crypto v0.0.0-20220919173607-35f4265a4bc0
 	golang.org/x/net v0.0.0-20220920203100-d0c6ba3f52d9
