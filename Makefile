@@ -2,6 +2,7 @@ ORG ?= spacemeshos
 IMAGE ?= poet
 BINARY := poet
 PROJECT := poet
+BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 
 GOLANGCI_LINT_VERSION := v1.50.0
 STATICCHECK_VERSION := v0.3.3
