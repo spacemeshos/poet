@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-// semanticAlphabet
+// semanticAlphabet is the alphabet of characters used for normalization.
 const semanticAlphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-"
 
 // These constants define the application version and follow the semantic

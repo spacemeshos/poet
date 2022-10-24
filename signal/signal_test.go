@@ -18,7 +18,7 @@ func TestSignal(t *testing.T) {
 
 	select {
 	case <-s.ShutdownChannel():
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(500 * time.Millisecond):
 		req.Fail("timeout")
 	}
 }
@@ -40,7 +40,7 @@ func TestSignal_Blocking(t *testing.T) {
 
 	select {
 	case <-s.ShutdownChannel():
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(500 * time.Millisecond):
 		req.Fail("timeout")
 	}
 }

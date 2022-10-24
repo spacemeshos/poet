@@ -12,12 +12,13 @@ import (
 
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/merkle-tree/cache"
+	"github.com/spacemeshos/smutil/log"
+	"github.com/syndtr/goleveldb/leveldb/opt"
+
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/signal"
-	"github.com/spacemeshos/smutil/log"
-	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
 type executionState struct {
@@ -47,7 +48,6 @@ func (r *roundState) isExecuted() bool {
 }
 
 type round struct {
-	cfg     *Config
 	datadir string
 	ID      string
 
@@ -73,9 +73,8 @@ func (r *round) Epoch() uint32 {
 	return r.execution.Epoch
 }
 
-func newRound(sig *signal.Signal, cfg *Config, datadir string, epoch uint32) *round {
+func newRound(sig *signal.Signal, datadir string, epoch uint32) *round {
 	r := new(round)
-	r.cfg = cfg
 	r.ID = strconv.FormatUint(uint64(epoch), 10)
 	r.datadir = filepath.Join(datadir, r.ID)
 	r.openedChan = make(chan struct{})

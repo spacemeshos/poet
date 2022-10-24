@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -15,13 +14,13 @@ import (
 
 	"github.com/spacemeshos/go-scale"
 	mshared "github.com/spacemeshos/merkle-tree/shared"
+	"github.com/spacemeshos/smutil/log"
 	"golang.org/x/crypto/ed25519"
 
 	"github.com/spacemeshos/poet/broadcaster"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/signal"
-	"github.com/spacemeshos/smutil/log"
 )
 
 type Config struct {
@@ -42,7 +41,7 @@ type Config struct {
 }
 
 // estimatedLeavesPerSecond is used to computed estimated height of the proving tree
-// in the epoch, which is used for cache estimation
+// in the epoch, which is used for cache estimation.
 const estimatedLeavesPerSecond = 1 << 17
 
 const serviceStateFileBaseName = "state.bin"
@@ -62,7 +61,9 @@ type Service struct {
 
 	// openRound is the round which is currently open for accepting challenges registration from miners.
 	// At any given time there is one single open round.
-	openRound *round
+	// openRoundMutex guards openRound, any access to it must be protected by this mutex.
+	openRound      *round
+	openRoundMutex sync.RWMutex
 
 	// executingRounds are the rounds which are currently executing, hence generating a proof.
 	executingRounds map[string]*round
@@ -142,7 +143,7 @@ func NewService(sig *signal.Signal, cfg *Config, datadir string) (*Service, erro
 	s.sig = sig
 
 	if cfg.Reset {
-		entries, err := ioutil.ReadDir(datadir)
+		entries, err := os.ReadDir(datadir)
 		if err != nil {
 			return nil, err
 		}
@@ -236,10 +237,12 @@ func (s *Service) Start(b Broadcaster) error {
 	if d := now.Sub(s.genesis); d > 0 {
 		epoch = d / s.cfg.EpochDuration
 	}
+	s.openRoundMutex.Lock()
 	if s.openRound == nil {
-		s.openRound = s.newRound(uint32(epoch))
+		s.newRound(uint32(epoch))
 		log.Info("Round %v opened", s.openRound.ID)
 	}
+	s.openRoundMutex.Unlock()
 
 	go func() {
 		timer := time.NewTimer(0)
@@ -250,27 +253,30 @@ func (s *Service) Start(b Broadcaster) error {
 				Add(s.cfg.EpochDuration * time.Duration(s.openRound.Epoch())).
 				Add(s.cfg.PhaseShift)
 			if d := time.Until(start); d > 0 {
-				log.Info("Round %v waiting for execution to start for %v", s.openRound.ID, d)
+				log.Info("Round %v waiting for execution to start for %v", s.openRoundID(), d)
 				timer.Reset(d)
 				select {
 				case <-timer.C:
 				case <-s.sig.ShutdownRequestedChan:
 					log.Info("Shutdown requested, service shutting down")
+					s.openRoundMutex.Lock()
 					s.openRound = nil
+					s.openRoundMutex.Unlock()
 					return
 				}
 			}
 
+			s.openRoundMutex.Lock()
 			if s.openRound.isEmpty() && !s.cfg.ExecuteEmpty {
+				s.openRoundMutex.Unlock()
 				continue
 			}
 
 			s.prevRound = s.openRound
 			open := time.Now()
-			// TODO(dshulyak) some time is wasted here to persist data on disk
-			// on my computer ~20ms
-			s.openRound = s.newRound(s.prevRound.Epoch() + 1)
-			log.Info("Round %v opened. took %v", s.openRound.ID, time.Since(open))
+			s.newRound(s.prevRound.Epoch() + 1)
+			s.openRoundMutex.Unlock()
+			log.Info("Round %v opened. took %v", s.openRoundID(), time.Since(open))
 
 			go func(r *round) {
 				if err := s.executeRound(r); err != nil {
@@ -290,7 +296,7 @@ func (s *Service) Started() bool {
 }
 
 func (s *Service) Recover() error {
-	entries, err := ioutil.ReadDir(s.datadir)
+	entries, err := os.ReadDir(s.datadir)
 	if err != nil {
 		return err
 	}
@@ -304,7 +310,7 @@ func (s *Service) Recover() error {
 		if err != nil {
 			return fmt.Errorf("entry is not a uint32 %s", entry.Name())
 		}
-		r := newRound(s.sig, s.cfg, s.datadir, uint32(epoch))
+		r := newRound(s.sig, s.datadir, uint32(epoch))
 		state, err := r.state()
 		if err != nil {
 			return fmt.Errorf("invalid round state: %v", err)
@@ -399,7 +405,9 @@ func (s *Service) Submit(data []byte) (*round, error) {
 		return nil, ErrNotStarted
 	}
 
+	s.openRoundMutex.Lock()
 	r := s.openRound
+	s.openRoundMutex.Unlock()
 	err := r.submit(data)
 	if err != nil {
 		return nil, err
@@ -414,7 +422,7 @@ func (s *Service) Info() (*InfoResponse, error) {
 	}
 
 	res := new(InfoResponse)
-	res.OpenRoundID = s.openRound.ID
+	res.OpenRoundID = s.openRoundID()
 
 	s.Lock()
 	ids := make([]string, 0, len(s.executingRounds))
@@ -427,15 +435,24 @@ func (s *Service) Info() (*InfoResponse, error) {
 	return res, nil
 }
 
-func (s *Service) newRound(epoch uint32) *round {
+// newRound creates a new round with the given epoch. This method MUST be guarded by a write lock on openRoundMutex.
+func (s *Service) newRound(epoch uint32) {
 	if err := s.saveState(); err != nil {
 		panic(err)
 	}
-	r := newRound(s.sig, s.cfg, s.datadir, epoch)
+	r := newRound(s.sig, s.datadir, epoch)
 	if err := r.open(); err != nil {
 		panic(fmt.Errorf("failed to open round: %v", err))
 	}
-	return r
+
+	s.openRound = r
+}
+
+func (s *Service) openRoundID() string {
+	s.openRoundMutex.RLock()
+	defer s.openRoundMutex.RUnlock()
+
+	return s.openRound.ID
 }
 
 func (s *Service) asyncError(err error) {

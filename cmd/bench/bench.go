@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/rand"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path"
@@ -59,7 +58,7 @@ func main() {
 
 	t1 := time.Now()
 	println("Computing dag...")
-	tempdir, _ := ioutil.TempDir("", "poet-test")
+	tempdir, _ := os.MkdirTemp("", "poet-test")
 	leafs, merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), end, securityParam, prover.LowestMerkleMinMemoryLayer)
 	if err != nil {
 		panic("failed to generate proof")

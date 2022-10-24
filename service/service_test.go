@@ -10,9 +10,10 @@ import (
 
 	"github.com/spacemeshos/go-scale"
 	"github.com/spacemeshos/merkle-tree"
+	"github.com/stretchr/testify/require"
+
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/signal"
-	"github.com/stretchr/testify/require"
 )
 
 type MockBroadcaster struct {
@@ -70,7 +71,7 @@ func TestService_Recovery(t *testing.T) {
 		for i := 0; i < len(challengeGroups[groupIndex]); i++ {
 			round, err := s.Submit(challengesGroup[i].data)
 			req.NoError(err)
-			req.Equal(s.openRound.ID, round.ID)
+			req.Equal(strconv.Itoa(roundIndex), round.ID)
 
 			// Verify that all submissions returned the same round instance.
 			if rounds[roundIndex] == nil {
@@ -88,7 +89,7 @@ func TestService_Recovery(t *testing.T) {
 	submitChallenges(0, 0)
 
 	// Verify that round is still open.
-	req.Equal(rounds[0].ID, s.openRound.ID)
+	req.Equal(rounds[0].ID, s.openRoundID())
 
 	// Wait for round 0 to start executing.
 	select {
@@ -99,7 +100,9 @@ func TestService_Recovery(t *testing.T) {
 
 	// Verify that round iteration proceeds: a new round opened, previous round is executing.
 	req.Contains(s.executingRounds, rounds[0].ID)
+	s.openRoundMutex.Lock()
 	rounds[1] = s.openRound
+	s.openRoundMutex.Unlock()
 
 	// Submit challenges to open round (1).
 	submitChallenges(1, 1)
@@ -115,8 +118,11 @@ func TestService_Recovery(t *testing.T) {
 		req.Fail("round execution ended instead of shutting down")
 	}
 
-	// Verify service state. should have no open or executing rounds.
-	req.Equal((*round)(nil), s.openRound)
+	// Verify service state. should have no open or executing rounds. Check after a delay to allow service to update state.
+	time.Sleep(100 * time.Millisecond)
+	s.openRoundMutex.Lock()
+	req.Nil(s.openRound)
+	s.openRoundMutex.Unlock()
 	req.Equal(len(s.executingRounds), 0)
 
 	// Create a new service instance.
@@ -131,9 +137,11 @@ func TestService_Recovery(t *testing.T) {
 	req.Equal(1, len(s.executingRounds))
 	first, ok := s.executingRounds["0"]
 	req.True(ok)
-	req.Equal(s.openRound.ID, "1")
+	req.Equal(s.openRoundID(), "1")
 	rounds[0] = first
+	s.openRoundMutex.Lock()
 	rounds[1] = s.openRound
+	s.openRoundMutex.Unlock()
 
 	select {
 	case <-rounds[1].executionStartedChan:
@@ -177,6 +185,10 @@ func TestService_Recovery(t *testing.T) {
 		req.NoError(err, "round %d", i)
 		req.Equal(mtree.Root(), proof.Statement)
 	}
+
+	// Request shutdown.
+	sig.RequestShutdown()
+	time.Sleep(100 * time.Millisecond)
 }
 
 func contains(list [][]byte, item []byte) bool {
@@ -194,22 +206,20 @@ func TestNewService(t *testing.T) {
 	tempdir := t.TempDir()
 
 	cfg := new(Config)
-	cfg.Genesis = time.Now().Add(time.Second / 2).Format(time.RFC3339)
+	cfg.Genesis = time.Now().Add(2 * time.Second).Format(time.RFC3339)
 	cfg.EpochDuration = time.Second
 	cfg.PhaseShift = time.Second / 2
 	cfg.CycleGap = time.Second / 4
 
-	s, err := NewService(signal.NewSignal(), cfg, tempdir)
+	sig := signal.NewSignal()
+	s, err := NewService(sig, cfg, tempdir)
 	req.NoError(err)
-
 	proofBroadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
 	err = s.Start(proofBroadcaster)
 	req.NoError(err)
 
 	challengesCount := 8
 	challenges := make([]challenge, challengesCount)
-	info, err := s.Info()
-	req.NoError(err)
 
 	// Generate random challenges.
 	for i := 0; i < len(challenges); i++ {
@@ -218,11 +228,15 @@ func TestNewService(t *testing.T) {
 		req.NoError(err)
 	}
 
+	info, err := s.Info()
+	require.NoError(t, err)
+	currentRound := info.OpenRoundID
+
 	// Submit challenges.
 	for i := 0; i < len(challenges); i++ {
 		round, err := s.Submit(challenges[i].data)
 		req.NoError(err)
-		req.Equal(info.OpenRoundID, round.ID)
+		req.Equal(currentRound, round.ID)
 		challenges[i].round = round
 
 		// Verify that all submissions returned the same round instance.
@@ -234,7 +248,7 @@ func TestNewService(t *testing.T) {
 	// Verify that round is still open.
 	info, err = s.Info()
 	req.NoError(err)
-	req.Equal(info.OpenRoundID, info.OpenRoundID)
+	req.Equal(currentRound, info.OpenRoundID)
 
 	// Wait for round to start execution.
 	select {
@@ -269,6 +283,10 @@ func TestNewService(t *testing.T) {
 	case <-time.After(100 * time.Millisecond):
 		req.Fail("proof message wasn't sent")
 	}
+
+	// Request shutdown.
+	sig.RequestShutdown()
+	time.Sleep(100 * time.Millisecond)
 }
 
 func genChallenges(num int) ([][]byte, error) {

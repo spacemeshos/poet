@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"github.com/spacemeshos/merkle-tree"
+
 	"github.com/spacemeshos/poet/shared"
 )
 

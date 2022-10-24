@@ -4,13 +4,15 @@ import (
 	"bufio"
 	"context"
 	"crypto/rand"
+	"strconv"
 	"testing"
 	"time"
 
-	"github.com/spacemeshos/poet/integration"
-	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/spacemeshos/poet/integration"
+	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
 )
 
 // harnessTestCase represents a test-case which utilizes an instance
@@ -36,7 +38,7 @@ func TestHarness(t *testing.T) {
 	r.NoError(err)
 	cfg.Genesis = time.Now()
 
-	h := newHarness(t, cfg)
+	h := newHarness(t, context.Background(), cfg)
 	t.Cleanup(func() {
 		err := h.TearDown(true)
 		if assert.NoError(t, err, "failed to tear down harness") {
@@ -91,18 +93,19 @@ func testSubmit(ctx context.Context, h *integration.Harness, assert *require.Ass
 
 func TestHarness_CrashRecovery(t *testing.T) {
 	req := require.New(t)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(30*time.Second))
-	defer cancel()
 
 	cfg, err := integration.DefaultConfig()
 	req.NoError(err)
-	cfg.Genesis = time.Now().Add(1 * time.Second)
+	cfg.Genesis = time.Now().Add(5 * time.Second)
 	cfg.Reset = true
 	cfg.DisableBroadcast = true
 
 	// Track rounds.
 	numRounds := 40
-	roundsID := make([]string, numRounds)
+	roundsID := make([]string, 0, numRounds)
+	for i := 0; i < numRounds; i++ {
+		roundsID = append(roundsID, strconv.Itoa(i))
+	}
 
 	numRoundChallenges := 2
 	roundsChallenges := make([][]challenge, numRounds)
@@ -117,23 +120,18 @@ func TestHarness_CrashRecovery(t *testing.T) {
 	}
 
 	submitChallenges := func(h *integration.Harness, roundIndex int) {
+		ctx, cancel := context.WithDeadline(context.Background(), cfg.Genesis.Add(cfg.EpochDuration*time.Duration(roundIndex)))
+		defer cancel()
 		roundChallenges := roundsChallenges[roundIndex]
 		for i := 0; i < len(roundChallenges); i++ {
 			res, err := h.Submit(ctx, &api.SubmitRequest{Challenge: roundChallenges[i].data})
 			req.NoError(err)
 			req.NotNil(res)
-
-			// Verify that all submissions returned the same round instance.
-			if roundsID[roundIndex] == "" {
-				roundsID[roundIndex] = res.RoundId
-			} else {
-				req.Equal(roundsID[roundIndex], res.RoundId)
-			}
+			req.Equalf(roundsID[roundIndex], res.RoundId, "round id mismatch for challenge %d", i)
 		}
 	}
 
-	waitNewRound := func(h *integration.Harness, currentRoundId string) {
-		timeout := time.After(cfg.EpochDuration)
+	waitNewRound := func(ctx context.Context, h *integration.Harness, currentRoundId string) {
 		isOpenRound := func(val string) bool {
 			info, err := h.GetInfo(ctx, &api.GetInfoRequest{})
 			req.NoError(err)
@@ -141,26 +139,31 @@ func TestHarness_CrashRecovery(t *testing.T) {
 		}
 		for isOpenRound(currentRoundId) {
 			select {
-			case <-timeout:
-				req.Fail("round iteration timeout")
+			case <-ctx.Done():
+				req.Fail("timeout")
 			case <-time.After(100 * time.Millisecond):
 			}
 		}
 	}
 
 	// Create a server harness instance.
-	h := newHarness(t, cfg)
+	ctx, cancel := context.WithDeadline(context.Background(), cfg.Genesis)
+	h := newHarness(t, ctx, cfg)
+	cancel()
 
 	// Submit challenges to open round (0).
 	submitChallenges(h, 0)
 
 	// Verify that round 0 is still open.
+	ctx, cancel = context.WithDeadline(context.Background(), cfg.Genesis.Add(cfg.EpochDuration))
 	info, err := h.GetInfo(ctx, &api.GetInfoRequest{})
 	req.NoError(err)
 	req.Equal(roundsID[0], info.OpenRoundId)
+	cancel()
 
 	// Wait until round iteration proceeds: a new round opened, previous round is executing.
-	waitNewRound(h, roundsID[0])
+	ctx, cancel = context.WithDeadline(context.Background(), cfg.Genesis.Add(cfg.EpochDuration*2))
+	waitNewRound(ctx, h, roundsID[0])
 
 	// Submit challenges to open round (1).
 	submitChallenges(h, 1)
@@ -172,22 +175,22 @@ func TestHarness_CrashRecovery(t *testing.T) {
 	req.Equal(roundsID[0], info.ExecutingRoundsIds[0])
 	req.Equal(roundsID[1], info.OpenRoundId)
 
-	// TODO: Wait until rounds 0 and 1 execution completes. listen to their proof broadcast and save it as a reference.
-
-	err = h.TearDown(false)
-	req.NoError(err)
+	// TODO(moshababo): Wait until rounds 0 and 1 execution completes. listen to their proof broadcast and save it as a reference.
+	req.NoError(h.TearDown(false))
 
 	// Create a new server harness instance.
-	h = newHarness(t, cfg)
+	h = newHarness(t, ctx, cfg)
 
 	// Verify that round 1 is still open.
 	info, err = h.GetInfo(ctx, &api.GetInfoRequest{})
 	req.NoError(err)
-
 	req.Equal(roundsID[1], info.OpenRoundId)
+	cancel()
 
 	// Wait until round iteration proceeds: a new round opened, previous round is executing.
-	waitNewRound(h, roundsID[1])
+	ctx, cancel = context.WithDeadline(context.Background(), cfg.Genesis.Add(cfg.EpochDuration*3))
+	defer cancel()
+	waitNewRound(ctx, h, roundsID[1])
 
 	// Submit challenges to open round (1).
 	submitChallenges(h, 2)
@@ -199,10 +202,13 @@ func TestHarness_CrashRecovery(t *testing.T) {
 	req.Equal(roundsID[1], info.ExecutingRoundsIds[0])
 	req.Equal(roundsID[2], info.OpenRoundId)
 	req.NoError(h.TearDown(true))
+
+	// leave some time for the server to shutdown.
+	time.Sleep(100 * time.Millisecond)
 }
 
-func newHarness(tb testing.TB, cfg *integration.ServerConfig) *integration.Harness {
-	h, err := integration.NewHarness(cfg)
+func newHarness(tb testing.TB, ctx context.Context, cfg *integration.ServerConfig) *integration.Harness {
+	h, err := integration.NewHarness(ctx, cfg)
 	require.NoError(tb, err)
 	require.NotNil(tb, h)
 

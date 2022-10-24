@@ -6,12 +6,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/verifier"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func BenchmarkProverAndVerifierBig(b *testing.B) {

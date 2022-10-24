@@ -3,7 +3,6 @@ package prover
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -13,9 +12,10 @@ import (
 
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/merkle-tree/cache"
+	"github.com/spacemeshos/smutil/log"
+
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/signal"
-	"github.com/spacemeshos/smutil/log"
 )
 
 const (
@@ -55,6 +55,8 @@ func GenerateProof(
 	if err != nil {
 		return 0, nil, err
 	}
+	defer treeCache.Close()
+
 	return generateProof(sig, labelHashFunc, tree, treeCache, limit, 0, securityParam, persist)
 }
 
@@ -74,6 +76,8 @@ func GenerateProofRecovery(
 	if err != nil {
 		return 0, nil, err
 	}
+	defer treeCache.Close()
+
 	return generateProof(sig, labelHashFunc, tree, treeCache, limit, nextLeafID, securityParam, persist)
 }
 
@@ -101,7 +105,8 @@ func makeProofTree(
 		cache.Combine(
 			cache.SpecificLayersPolicy(map[uint]bool{0: true}),
 			cache.MinHeightPolicy(MerkleMinCacheLayer)),
-		metaFactory.GetFactory())
+		metaFactory.GetFactory(),
+	)
 
 	tree, err := merkle.NewTreeBuilder().WithHashFunc(merkleHashFunc).WithCacheWriter(treeCache).Build()
 	if err != nil {
@@ -138,6 +143,8 @@ func makeRecoveryProofTree(
 		if err != nil {
 			return nil, nil, err
 		}
+		defer readWriter.Close()
+
 		width, err := readWriter.Width()
 		if err != nil {
 			return nil, nil, err
@@ -202,7 +209,7 @@ func generateProof(
 	leaves := nextLeafID
 	for leafID := nextLeafID; time.Until(end) > 0; leafID++ {
 		// Handle persistence.
-		if sig.ShutdownRequested {
+		if sig.ShutdownRequested() {
 			if err := persist(tree, treeCache, leafID); err != nil {
 				return 0, nil, err
 			}
@@ -243,7 +250,7 @@ func generateProof(
 }
 
 func getLayersFiles(datadir string) (map[uint]string, error) {
-	entries, err := ioutil.ReadDir(datadir)
+	entries, err := os.ReadDir(datadir)
 	if err != nil {
 		return nil, err
 	}

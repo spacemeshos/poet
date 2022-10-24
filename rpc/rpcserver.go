@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"sync"
 
+	"golang.org/x/net/context"
+
 	"github.com/spacemeshos/poet/broadcaster"
 	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
 	"github.com/spacemeshos/poet/service"
-	"golang.org/x/net/context"
 )
 
-// rpcServer is a gRPC, RPC front end to poet
+// rpcServer is a gRPC, RPC front end to poet.
 type rpcServer struct {
 	s *service.Service
 	sync.Mutex
