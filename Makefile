@@ -54,7 +54,7 @@ install-buf:
 	@mkdir -p $(BIN_DIR)
 	curl -sSL "https://github.com/bufbuild/buf/releases/download/v$(BUF_VERSION)/buf-$(UNAME_OS)-$(UNAME_ARCH)" -o $(BIN_DIR)/buf
 	@chmod +x $(BIN_DIR)/buf
-.PHONY: buf
+.PHONY: install-buf
 
 install-protoc: protoc-plugins
 	@mkdir -p $(BIN_DIR)
@@ -65,7 +65,7 @@ endif
 	@unzip $(TMP_PROTOC)/protoc.zip -d $(TMP_PROTOC)
 	@cp -f $(TMP_PROTOC)/bin/protoc $(BIN_DIR)/protoc
 	@chmod +x $(BIN_DIR)/protoc
-.PHONY: protoc
+.PHONY: install-protoc
 
 # Download protoc plugins
 protoc-plugins:
