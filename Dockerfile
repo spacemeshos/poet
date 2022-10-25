@@ -1,9 +1,13 @@
-FROM golang:alpine3.15 as build
-RUN apk add libc6-compat gcc musl-dev
+FROM golang:1.19-alpine as build
+RUN apk add libc6-compat gcc musl-dev make
 WORKDIR /build/
+
+COPY go.mod .
+COPY go.sum .
+RUN go mod download
+
 COPY . .
-RUN --mount=type=cache,target=/go/pkg/mod go mod download
-RUN --mount=type=cache,target=/root/.cache/go-build go build -o /build/poet
+RUN --mount=type=cache,id=build,target=/root/.cache/go-build make build
 
 FROM alpine
 COPY --from=build /build/poet /bin/poet
