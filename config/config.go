@@ -2,10 +2,12 @@
 // Copyright (c) 2015-2016 The Decred developers
 // Copyright (c) 2017-2019 The Spacemesh developers
 
-package main
+package config
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"net"
 	"os"
 	"os/user"
@@ -52,11 +54,11 @@ type coreServiceConfig struct {
 	MemoryLayers uint `long:"memory" description:"Number of top Merkle tree layers to cache in-memory"`
 }
 
-// config defines the configuration options for poet.
+// Config defines the configuration options for poet.
 //
 // See loadConfig for further details regarding the
 // configuration loading+parsing process.
-type config struct {
+type Config struct {
 	PoetDir         string `long:"poetdir" description:"The base directory that contains poet's data, logs, configuration file, etc."`
 	ConfigFile      string `short:"c" long:"configfile" description:"Path to configuration file"`
 	DataDir         string `short:"b" long:"datadir" description:"The directory to store poet's data within"`
@@ -78,16 +80,9 @@ type config struct {
 	Service     *service.Config    `group:"Service"`
 }
 
-// loadConfig initializes and parses the config using a config file and command
-// line options.
-//
-// The configuration proceeds as follows:
-//  1. Start with a default config with sane settings
-//  2. Pre-parse the command line to check for an alternative config file
-//  3. Load configuration file overwriting defaults with any specified options
-//  4. Parse CLI options and overwrite/add any specified options
-func loadConfig() (*config, error) {
-	defaultCfg := config{
+// DefaultConfig returns a config with default hardcoded values.
+func DefaultConfig() *Config {
+	return &Config{
 		PoetDir:         defaultPoetDir,
 		ConfigFile:      defaultConfigFile,
 		DataDir:         defaultDataDir,
@@ -112,19 +107,18 @@ func loadConfig() (*config, error) {
 			MemoryLayers: defaultMemoryLayers,
 		},
 	}
+}
 
-	// Pre-parse the command line options to pick up an alternative config
-	// file.
-	preCfg := defaultCfg
-	if _, err := flags.Parse(&preCfg); err != nil {
+// ParseFlags reads values from command line arguments.
+func ParseFlags(preCfg *Config) (*Config, error) {
+	if _, err := flags.Parse(preCfg); err != nil {
 		return nil, err
 	}
+	return preCfg, nil
+}
 
-	// If the config file path has not been modified by the user, then we'll
-	// use the default config file path. However, if the user has modified
-	// their poetdir, then we should assume they intend to use the config
-	// file within it.
-
+// ReadConfigFile reads values from a conf file.
+func ReadConfigFile(preCfg *Config) (*Config, error) {
 	preCfg.PoetDir = cleanAndExpandPath(preCfg.PoetDir)
 	preCfg.ConfigFile = cleanAndExpandPath(preCfg.ConfigFile)
 	if preCfg.PoetDir != defaultPoetDir {
@@ -138,23 +132,30 @@ func loadConfig() (*config, error) {
 	// Next, load any additional configuration options from the file.
 	var configFileError error
 	cfg := preCfg
-	if err := flags.IniParse(preCfg.ConfigFile, &cfg); err != nil {
+	if err := flags.IniParse(preCfg.ConfigFile, cfg); err != nil {
 		// If it's a parsing related error, then we'll return
-		// immediately, otherwise we can proceed as possibly the config
+		// immediately, otherwise we can proceed as possibly the Config
 		// file doesn't exist which is OK.
-		if _, ok := err.(*flags.IniError); ok {
+		var iniError *flags.IniError
+		if errors.As(err, &iniError) {
 			return nil, err
 		}
 
 		configFileError = err
 	}
 
-	// Finally, parse the remaining command line options again to ensure
-	// they take precedence.
-	if _, err := flags.Parse(&cfg); err != nil {
-		return nil, err
+	// Warn about missing Config file only after all other configuration is
+	// done. This prevents the warning on help messages and invalid
+	// options.
+	if configFileError != nil {
+		log.Warning("%v", configFileError)
 	}
 
+	return cfg, nil
+}
+
+// SetupConfig initializes filesystem and network infrastructure.
+func SetupConfig(cfg *Config) (*Config, error) {
 	// If the provided poet directory is not the default, we'll modify the
 	// path to all of the files and directories that will live within it.
 	if cfg.PoetDir != defaultPoetDir {
@@ -163,22 +164,17 @@ func loadConfig() (*config, error) {
 	}
 
 	// Create the poet directory if it doesn't already exist.
-	funcName := "loadConfig"
 	if err := os.MkdirAll(cfg.PoetDir, 0o700); err != nil {
 		// Show a nicer error message if it's because a symlink is
 		// linked to a directory that does not exist (probably because
 		// it's not mounted).
-		if e, ok := err.(*os.PathError); ok && os.IsExist(err) {
-			if link, lerr := os.Readlink(e.Path); lerr == nil {
-				str := "is symlink %s -> %s mounted?"
-				err = fmt.Errorf(str, e.Path, link)
+		var pathError *fs.PathError
+		if errors.As(err, &pathError) && os.IsExist(err) {
+			if link, lerr := os.Readlink(pathError.Path); lerr == nil {
+				err = fmt.Errorf("is symlink %s -> %s mounted?", pathError.Path, link)
 			}
 		}
-
-		str := "%s: Failed to create poet directory: %v"
-		err := fmt.Errorf(str, funcName, err)
-		fmt.Fprintln(os.Stderr, err)
-		return nil, err
+		return nil, fmt.Errorf("failed to create poet directory: %w", err)
 	}
 
 	// As soon as we're done parsing configuration options, ensure all paths
@@ -201,14 +197,7 @@ func loadConfig() (*config, error) {
 	}
 	cfg.RESTListener = addr
 
-	// Warn about missing config file only after all other configuration is
-	// done.  This prevents the warning on help messages and invalid
-	// options.  Note this should go directly before the return.
-	if configFileError != nil {
-		log.Warning("%v", configFileError)
-	}
-
-	return &cfg, nil
+	return cfg, nil
 }
 
 // cleanAndExpandPath expands environment variables and leading ~ in the

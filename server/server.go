@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"fmt"
@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/peer"
 
+	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
 	"github.com/spacemeshos/poet/release/proto/go/rpccore/apicore"
 	"github.com/spacemeshos/poet/rpc"
@@ -24,7 +25,7 @@ import (
 )
 
 // startServer starts the RPC server.
-func startServer() error {
+func StartServer(cfg *config.Config) error {
 	sig := signal.NewSignal()
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
