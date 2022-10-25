@@ -3,9 +3,10 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"github.com/spacemeshos/sha256-simd"
 	"testing"
 	"time"
+
+	"github.com/minio/sha256-simd"
 )
 
 func BenchmarkSha256(t *testing.B) {

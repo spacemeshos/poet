@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/spacemeshos/poet/rpc/api"
-	"google.golang.org/grpc"
 	"io"
 	"net"
 	"os"
@@ -13,6 +11,14 @@ import (
 	"path/filepath"
 	"runtime"
 	"time"
+
+	_ "github.com/jessevdk/go-flags"
+	"github.com/spacemeshos/smutil/log"
+	_ "github.com/syndtr/goleveldb/leveldb/table"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+
+	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
 )
 
 // Harness fully encapsulates an active poet server process to provide a unified
@@ -25,15 +31,14 @@ type Harness struct {
 }
 
 // NewHarness creates and initializes a new instance of Harness.
-func NewHarness(cfg *ServerConfig) (*Harness, error) {
+func NewHarness(ctx context.Context, cfg *ServerConfig) (*Harness, error) {
 	server, err := newServer(cfg)
 	if err != nil {
 		return nil, err
 	}
 
 	if isListening(cfg.rpcListen) {
-		err = killProcess(cfg.rpcListen)
-		if err != nil {
+		if err := killProcess(cfg.rpcListen); err != nil {
 			return nil, err
 		}
 	}
@@ -45,7 +50,7 @@ func NewHarness(cfg *ServerConfig) (*Harness, error) {
 
 	// Verify the client connectivity.
 	// If failed, shutdown the server.
-	conn, err := connectClient(cfg.rpcListen)
+	conn, err := connectClient(ctx, cfg.rpcListen)
 	if err != nil {
 		_ = server.shutdown(true)
 		return nil, err
@@ -64,23 +69,23 @@ func NewHarness(cfg *ServerConfig) (*Harness, error) {
 // The created process is killed, and the temporary
 // directories are removed.
 func (h *Harness) TearDown(cleanup bool) error {
-	if err := h.server.shutdown(cleanup); err != nil {
-		return err
+	if err := h.conn.Close(); err != nil {
+		log.Warning("failed to close connection: %v", err)
 	}
 
-	if err := h.conn.Close(); err != nil {
-		return err
+	if err := h.server.shutdown(cleanup); err != nil {
+		return fmt.Errorf("failed to shut down: %w", err)
 	}
 
 	return nil
 }
 
-// StderrPipe returns an stderr reader for the server process
+// StderrPipe returns an stderr reader for the server process.
 func (h *Harness) StderrPipe() io.Reader {
 	return h.server.stderr
 }
 
-// StdoutPipe returns an stdout reader for the server process
+// StdoutPipe returns an stdout reader for the server process.
 func (h *Harness) StdoutPipe() io.Reader {
 	return h.server.stdout
 }
@@ -97,14 +102,11 @@ func (h *Harness) RESTListen() string {
 
 // connectClient attempts to establish a gRPC Client connection
 // to the provided target.
-func connectClient(target string) (*grpc.ClientConn, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+func connectClient(ctx context.Context, target string) (*grpc.ClientConn, error) {
 	opts := []grpc.DialOption{
-		grpc.WithInsecure(),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithBlock(),
 	}
-	defer cancel()
-
 	conn, err := grpc.DialContext(ctx, target, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("unable to connect to RPC server at %s: %v", target, err)
@@ -116,7 +118,7 @@ func connectClient(target string) (*grpc.ClientConn, error) {
 // baseDir is the directory path of the temp directory for all the harness files.
 func baseDir() (string, error) {
 	baseDir := filepath.Join(os.TempDir(), "poet")
-	err := os.MkdirAll(baseDir, 0755)
+	err := os.MkdirAll(baseDir, 0o755)
 	return baseDir, err
 }
 

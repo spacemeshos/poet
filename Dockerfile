@@ -1,25 +1,14 @@
-FROM golang:1.11.9-alpine3.8 AS build_base
-RUN apk add bash make git curl unzip rsync libc6-compat gcc musl-dev
-WORKDIR /go/src/github.com/spacemeshos/poet
+FROM golang:1.19-alpine as build
+RUN apk add libc6-compat gcc musl-dev make
+WORKDIR /build/
 
-# Force the go compiler to use modules
-ENV GO111MODULE=on
-
-# We want to populate the module cache based on the go.{mod,sum} files.
 COPY go.mod .
 COPY go.sum .
-
-# Download dependencies
 RUN go mod download
 
-# This image builds th
-FROM build_base AS server_builder
-# Here we copy the rest of the source code
 COPY . .
+RUN --mount=type=cache,id=build,target=/root/.cache/go-build make build
 
-# And compile the project
-RUN go build
-
-FROM alpine AS spacemesh
-COPY --from=server_builder /go/src/github.com/spacemeshos/poet/poet /bin/poet
+FROM alpine
+COPY --from=build /build/poet /bin/poet
 ENTRYPOINT ["/bin/poet"]

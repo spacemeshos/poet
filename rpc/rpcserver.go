@@ -2,14 +2,16 @@ package rpc
 
 import (
 	"fmt"
-	"github.com/spacemeshos/poet/broadcaster"
-	"github.com/spacemeshos/poet/rpc/api"
-	"github.com/spacemeshos/poet/service"
-	"golang.org/x/net/context"
 	"sync"
+
+	"golang.org/x/net/context"
+
+	"github.com/spacemeshos/poet/broadcaster"
+	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
+	"github.com/spacemeshos/poet/service"
 )
 
-// rpcServer is a gRPC, RPC front end to poet
+// rpcServer is a gRPC, RPC front end to poet.
 type rpcServer struct {
 	s *service.Service
 	sync.Mutex
@@ -118,9 +120,7 @@ func (r *rpcServer) GetInfo(ctx context.Context, in *api.GetInfoRequest) (*api.G
 	out.OpenRoundId = info.OpenRoundID
 
 	ids := make([]string, len(info.ExecutingRoundsIds))
-	for i, id := range info.ExecutingRoundsIds {
-		ids[i] = id
-	}
+	copy(ids, info.ExecutingRoundsIds)
 	out.ExecutingRoundsIds = ids
 	out.ServicePubKey = r.s.PubKey
 

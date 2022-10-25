@@ -8,18 +8,20 @@ import (
 	"time"
 
 	proxy "github.com/grpc-ecosystem/grpc-gateway/runtime"
-	"github.com/spacemeshos/poet/config"
-	"github.com/spacemeshos/poet/rpc"
-	"github.com/spacemeshos/poet/rpc/api"
-	"github.com/spacemeshos/poet/rpccore"
-	"github.com/spacemeshos/poet/rpccore/apicore"
-	"github.com/spacemeshos/poet/service"
-	"github.com/spacemeshos/poet/signal"
 	"github.com/spacemeshos/smutil/log"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/peer"
+
+	"github.com/spacemeshos/poet/config"
+	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
+	"github.com/spacemeshos/poet/release/proto/go/rpccore/apicore"
+	"github.com/spacemeshos/poet/rpc"
+	"github.com/spacemeshos/poet/rpccore"
+	"github.com/spacemeshos/poet/service"
+	"github.com/spacemeshos/poet/signal"
 )
 
 // startServer starts the RPC server.
@@ -47,7 +49,7 @@ func StartServer(cfg *config.Config) error {
 	}
 
 	if _, err := os.Stat(cfg.DataDir); os.IsNotExist(err) {
-		if err := os.Mkdir(cfg.DataDir, 0700); err != nil {
+		if err := os.Mkdir(cfg.DataDir, 0o700); err != nil {
 			return err
 		}
 	}
@@ -82,13 +84,16 @@ func StartServer(cfg *config.Config) error {
 
 	go func() {
 		log.Info("RPC server listening on %s", lis.Addr())
-		grpcServer.Serve(lis)
+		err := grpcServer.Serve(lis)
+		if err != nil {
+			log.Error("failed to serve: %v", err)
+		}
 	}()
 
 	// Start the REST proxy for the gRPC server above.
 	mux := proxy.NewServeMux()
 	for _, r := range proxyRegstr {
-		err := r(ctx, mux, cfg.RPCListener.String(), []grpc.DialOption{grpc.WithInsecure()})
+		err := r(ctx, mux, cfg.RPCListener.String(), []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())})
 		if err != nil {
 			return err
 		}
@@ -127,7 +132,6 @@ func loggerInterceptor() func(ctx context.Context, req interface{}, info *grpc.U
 		}
 
 		resp, err := handler(ctx, req)
-
 		if err != nil {
 			log.Info("FAILURE %v | %v | %v", info.FullMethod, err, peer.Addr.String())
 		}

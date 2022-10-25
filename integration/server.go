@@ -4,12 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
+	"time"
 )
 
 // ServerConfig contains all the args and data required to launch a poet server
@@ -21,9 +20,10 @@ type ServerConfig struct {
 	dataDir   string
 	exe       string
 
-	N                int
-	InitialDuration  string
-	Duration         string
+	Genesis          time.Time
+	EpochDuration    time.Duration
+	PhaseShift       time.Duration
+	CycleGap         time.Duration
 	Reset            bool
 	DisableBroadcast bool
 	RESTListen       string
@@ -42,12 +42,15 @@ func DefaultConfig() (*ServerConfig, error) {
 	}
 
 	cfg := &ServerConfig{
-		logLevel:   "debug",
-		rpcListen:  "127.0.0.1:18550",
-		RESTListen: "127.0.0.1:18551",
-		baseDir:    baseDir,
-		dataDir:    filepath.Join(baseDir, "data"),
-		exe:        poetPath,
+		logLevel:      "debug",
+		rpcListen:     "127.0.0.1:18550",
+		RESTListen:    "127.0.0.1:18551",
+		baseDir:       baseDir,
+		dataDir:       filepath.Join(baseDir, "data"),
+		exe:           poetPath,
+		EpochDuration: 2 * time.Second,
+		PhaseShift:    time.Second / 2,
+		CycleGap:      time.Second / 4,
 	}
 
 	return cfg, nil
@@ -60,16 +63,11 @@ func (cfg *ServerConfig) genArgs() []string {
 	args = append(args, fmt.Sprintf("--datadir=%v", cfg.dataDir))
 	args = append(args, fmt.Sprintf("--rpclisten=%v", cfg.rpcListen))
 	args = append(args, fmt.Sprintf("--restlisten=%v", cfg.RESTListen))
+	args = append(args, fmt.Sprintf("--genesis-time=%s", cfg.Genesis.Format(time.RFC3339)))
+	args = append(args, fmt.Sprintf("--epoch-duration=%s", cfg.EpochDuration))
+	args = append(args, fmt.Sprintf("--phase-shift=%s", cfg.PhaseShift))
+	args = append(args, fmt.Sprintf("--cycle-gap=%s", cfg.CycleGap))
 
-	if cfg.N != 0 {
-		args = append(args, fmt.Sprintf("--n=%d", cfg.N))
-	}
-	if cfg.InitialDuration != "" {
-		args = append(args, fmt.Sprintf("--initialduration=%v", cfg.InitialDuration))
-	}
-	if cfg.Duration != "" {
-		args = append(args, fmt.Sprintf("--duration=%v", cfg.Duration))
-	}
 	if cfg.Reset {
 		args = append(args, "--reset")
 	}
@@ -91,7 +89,6 @@ type server struct {
 	processExit chan struct{}
 
 	quit chan struct{}
-	wg   sync.WaitGroup
 
 	errChan chan error
 
@@ -103,7 +100,7 @@ type server struct {
 func newServer(cfg *ServerConfig) (*server, error) {
 	return &server{
 		cfg:     cfg,
-		errChan: make(chan error),
+		errChan: make(chan error, 1),
 	}, nil
 }
 
@@ -120,8 +117,8 @@ func (s *server) start() error {
 	if err != nil {
 		return fmt.Errorf("failed to capture server stderr: %s", err)
 	}
-	var errb bytes.Buffer
-	s.stderr = io.TeeReader(stderr, &errb)
+	var stderrBuf bytes.Buffer
+	s.stderr = io.TeeReader(stderr, &stderrBuf)
 
 	s.stdout, err = s.cmd.StdoutPipe()
 	if err != nil {
@@ -135,20 +132,21 @@ func (s *server) start() error {
 	// Launch a new goroutine which that bubbles up any potential fatal
 	// process errors to errChan.
 	s.processExit = make(chan struct{})
-	s.wg.Add(1)
 	go func() {
-		defer s.wg.Done()
-
 		err := s.cmd.Wait()
-
 		if err != nil {
 			// Don't propagate 'signal: killed' error,
 			// since it's an expected behavior.
-			if !strings.Contains(err.Error(), "signal: killed") {
+			if !strings.Contains(err.Error(), "signal: killed") && stderrBuf.Len() > 0 {
 				// make sure all of the input to the teereader was consumed so we can read it here.
 				// ignore output and error here, we just need to make sure it was all consumed.
-				ioutil.ReadAll(s.stderr)
-				s.errChan <- fmt.Errorf("%v | %v", err, errb.String())
+				_, _ = io.ReadAll(s.stderr)
+				select {
+				case s.errChan <- fmt.Errorf("%v | %v", err, stderrBuf.String()):
+					// we successfully sent the error to the channel
+				case <-s.quit:
+					// we were told to quit and no one is listening for the error so don't send the error
+				}
 			}
 		}
 
@@ -166,13 +164,11 @@ func (s *server) shutdown(cleanup bool) error {
 		return err
 	}
 
-	if cleanup {
-		if err := s.cleanup(); err != nil {
-			return err
-		}
+	if !cleanup {
+		return nil
 	}
 
-	return nil
+	return s.cleanup()
 }
 
 // stop kills the server running process, since it doesn't support
@@ -188,8 +184,8 @@ func (s *server) stop() error {
 	}
 
 	close(s.quit)
-	s.wg.Wait()
 
+	<-s.processExit
 	s.quit = nil
 	s.processExit = nil
 	return nil

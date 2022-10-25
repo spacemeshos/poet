@@ -2,11 +2,12 @@ package prover
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+
 	"github.com/spacemeshos/merkle-tree/cache"
 	"github.com/spacemeshos/merkle-tree/cache/readwriters"
 	"github.com/spacemeshos/smutil/log"
-	"os"
-	"path/filepath"
 )
 
 // ReadWriterMetaFactory generates Merkle LayerFactory functions. The functions it creates generate file read-writers
@@ -20,7 +21,7 @@ type ReadWriterMetaFactory struct {
 }
 
 // NewReadWriterMetaFactory returns a new ReadWriterMetaFactory. minMemoryLayer determines
-// the threshold in which lower layers caching is done on-disk, while from this layer up -- in-memory
+// the threshold in which lower layers caching is done on-disk, while from this layer up -- in-memory.
 func NewReadWriterMetaFactory(minMemoryLayer uint, datadir string) *ReadWriterMetaFactory {
 	return &ReadWriterMetaFactory{
 		minMemoryLayer: minMemoryLayer,

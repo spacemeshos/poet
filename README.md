@@ -1,3 +1,4 @@
+# PoET
 
 ## Overview
 
@@ -5,54 +6,58 @@ This project implements the Proofs Sequential Work (PoSW) protocol construction 
 
 The executable package in this repository is the PoET service, which harness the core protocol in order to provide proving services to multiple clients, with amortized CPU cost. It is designed to be used by the Spacemesh network and is part of the broader Spacemesh protocol.
 
-For more information, visit the PoET [protocol specifications](https://github.com/spacemeshos/protocol/blob/master/mining/03-poet.md). 
+For more information, visit the PoET [protocol specification](https://github.com/spacemeshos/protocol/blob/master/poet.md).
 
 ## Build
 
 Since the project uses Go 1.11's Modules it's best to place the code **outside** your `$GOPATH`. Read [this](https://github.com/golang/go/wiki/Modules#how-to-install-and-activate-module-support) for alternatives.
 
-
-```
-$ git clone https://github.com/spacemeshos/poet.git
-$ cd poet
-$ go build
+```bash
+git clone https://github.com/spacemeshos/poet.git
+cd poet
+go build
 ```
 
 ## Run the service
 
-##### New round every 5 sec, disabled broadcasting
-```
-$ ./poet --initialduration=5s --duration=5s --disablebroadcast
+### New epoch every 60s, poet stops execution 5s before next round starts execution for next epoch, disabled broadcasting
+
+```bash
+./poet --genesis-time=2022-08-09T09:21:19+03:00 --epoch-duration=60s --cycle-gap=5s --disablebroadcast
 ```
 
-##### New round every 5 sec, broadcasting to a local Spacemesh gateway node
-```
-$ ./poet --initialduration=5s --duration=5s --gateway=localhost:9091 
+`--genesis-time` is set according to [RFC3339](https://www.rfc-editor.org/rfc/rfc3339).
+
+### Same as above but with broadcasting to a local Spacemesh gateway node
+
+```bash
+./poet --initialduration=5s --duration=5s --gateway=localhost:9091 
 ```
 
-##### Use the sample configuration file
-```
-$ ./poet --configfile=$PWD/sample-poet.conf
+### Use the sample configuration file
+
+```bash
+./poet --configfile=$PWD/sample-poet.conf
 ```
 
-##### Show the help message
-```
-$ ./poet --help
-```
+### Show the help message
 
-
+```bash
+./poet --help
+```
 
 ## Run the tests
-```
-$ go test ./...
+
+```bash
+go test ./...
 ```
 
-
-# Specifications
+## Specifications
 
 Section numbers in [Simple Proofs of Sequential Work](https://eprint.iacr.org/2018/183.pdf) are referenced by this spec.
 
-## Constants (See section 1.2)
+### Constants (See section 1.2)
+
 - t:int = 150. A statistical security parameter. (Note: is 150 needed for Fiat-Shamir or does 21 suffices?). Shared between prover and verifier
 
 - w:int = 256. A statistical security parameter. Shared between prover and verifiers
@@ -61,12 +66,12 @@ Section numbers in [Simple Proofs of Sequential Work](https://eprint.iacr.org/20
 
 Note: The constants are fixed and shared between the Prover and the Verifier. Values shown here are just an example and may be set differently for different POET server instances.
 
-
 ## Definitions (See section 4, 5.1 and 5.2)
 
 - x: {0,1}^w = rndBelow(2^w - 1) - verifier provided input statement (commitment)
 
 - N:int - number of iterations. N := 2^(n+1) - 1. Computed based on n.
+For the purposes of the implementation N is determined after running poet for a specific amount of time.  
 
 - m:int , 0 <= m <= n. Defines how much data should be stored by the prover.
 
@@ -87,12 +92,14 @@ Note: The constants are fixed and shared between the Prover and the Verifier. Va
 - verifyH(x,N,φ,γ,τ) ∈ {accept, reject} - function computed by verifier based on prover provided proof τ.
 
 ### Actors
+
 - Prover: The service providing proofs for verifiers
 - Verifier: A client using the prover by providing the input statement x, and verifying the prover provided proofs (by issuing random challenges or by verifying a non-interactive verifier provided proof for {PoSW^Hx(N), x}
 
 ## Base Protocol Test Use Cases
 
 ### User case 1 - Basic random challenges verification test
+
 1. Verifier generates random commitment x and sends it to the prover
 2. Prover computes PoSWH(x,N) by making N sequential queries to H and stores φP
 3. Prover sends φ to verifier
@@ -101,38 +108,46 @@ Note: The constants are fixed and shared between the Prover and the Verifier. Va
 6. Verifier computes verifyH() for τ and outputs accept
 
 ### Use case 2 - NIP Verification test
+
 1. Verifier generates random commitment x and sends it to the prover
 2. Prover computes PoSWH(x,N) by making N sequential queries to H and stores φP
 3. Prover creates NIP and sends it to the verifier
 4. Verifier computes verifyH() for NIP and outputs accept
 
 ### User case 3 - Memory requirements verification
+
 - Use case 1 with a test that prover doesn't use more than M memory
 
 ### User case 4 - Bad proof detection
+
 - Modify use case 1 where a random bit is changed in τ proof returned to the verifier by the prover
 - Verify that verifyH() outputs reject for the verifier
 
 ### User case 5 - Bad proof detection
+
 - Modify use case 2 where a random bit is changed in the NIP returned to the verifier by the prover
 - Verify that verifyH() outputs reject for the verifier
 
 ### Theoretical background and context
-- [1] https://eprint.iacr.org/2011/553.pdf
-- [2] https://eprint.iacr.org/2018/183.pdf
-- [3] https://spacemesh.io/whitepaper1/
-- [4] https://pdfs.semanticscholar.org/b904/6d002da153a6fe9b06d469da4efffdfcb9c6.pdf
+
+- [1] <https://eprint.iacr.org/2011/553.pdf>
+- [2] <https://eprint.iacr.org/2018/183.pdf>
+- [3] <https://spacemesh.io/whitepaper1/>
+- [4] <https://pdfs.semanticscholar.org/b904/6d002da153a6fe9b06d469da4efffdfcb9c6.pdf>
 
 ### Related work
-- [5] https://github.com/avive/proof-of-sequential-work
-- [6] https://github.com/avive/slow-time-functions
+
+- [5] <https://github.com/avive/proof-of-sequential-work>
+- [6] <https://github.com/avive/slow-time-functions>
 
 ### Implementation Guidelines
 
 #### DAG
+
 The core data structure used by the verifier.
 
 ##### DAG Definitions (See section 4)
+
 - We define n as the depth of the DAG. We set N = 2^(n+1) where n is the time param. e.g. for n=4, N = 31
 - We start with Bn - `the complete binary tree of depth n` where all edges go from leaves up the tree to the root. Bn has 2^n leaves and 2^n -1 internal nodes. We add edges to the n leaves in the following way:
 
@@ -146,7 +161,7 @@ The core data structure used by the verifier.
 - We say node u is a parent of node v if there's a direct edge from u to v in the DAG (based on its construction)
 - Each node has a label. The label li of node i (the node with id i) is defined as:
 
-```
+```latex
 li = Hx(i,lp1,...,lpd)` where `(p1,...,pd) = parents(i)
 ```
 
@@ -159,6 +174,7 @@ For example, the root node's label is `lε = Hx(bytes(""), l0, l1)` as it has 2 
 - As an example, to compute the input for Hx("001", label1, label2), encode the binary string to a utf-8 encoded bytes array and append to it the labels byte arrays.
 
 ##### Computing node parents ids
+
 Given a node i in a DAG(n), we need a way determine its set of parent nodes. For example, we use the set to compute its label. This can be implemented without having to store all DAG edges in storage.
 
 Note that with this binary string labeling scheme we get the following properties:
@@ -175,6 +191,7 @@ Note that with this binary string labeling scheme we get the following propertie
 - Note that leaf nodes parents are not all the siblings on the path to the root from the leaf. The parents are only the left siblings on that path. e.g. siblings with ids that end with a `0`.
 
 ##### DAG Construction (See section 4, Lemma 3)
+
 - Compute the label of each DAG node, and store only the labels of of the DAG from the root up to level m
 - Computing the labels of the DAG should use up to w * (n + 1) bits of RAM
 - The following is a possible algorithm that satisfies these requirements. However, any implementation that satisfies them (with equivalent or better computational complexity) is also acceptable.
@@ -192,25 +209,32 @@ Recursive computation of the labels of DAG(n):
 - Note that the reference Python code does not construct the DAG in this manner and keeps the whole DAG in memory. Please use the Python code as an example for simpler constructions such as binary strings, open and verify.
 
 ##### DAG Storage
+
 Please use a binary data file to store labels and not a key/value db. Labels can be stored in the order in which they are computed.
 
 Given a node id, the index of the label value in the data file can be computed by:
 
-     idx = sum of sizes of the subtrees under the left-siblings on path to root + node's own subtree.
+```latex
+idx = sum of sizes of the subtrees under the left-siblings on path to root + node's own subtree.
+```
 
 The size of a subtree under a node is simply `2^{height+1}-1` * the label size. e.g. 32 bytes.
 
 ### Data Types
 
 #### Commitment
+
 arbitrary length bytes. Verifier implementation should just use H(commitment) to create a commitment that is in range (0, 1)^w . So the actually commitment can be sha256(commitment) when w=256.
 
 #### Challenge
+
 A challenge is a list of t random binary strings in {0,1}^n. Each binary string is an identifier of a leaf node in the DAG.
 Note that the binary string should always be n bytes long, including trailing `0`s if any, e.g. `0010`.
 
 #### Proof (See section 5.2)
+
 A proof needs includes the following data:
+
 1. φ - the label of the root node.
 2. For each identifier i in a challenge (0 <= i < t), an ordered list of labels which includes:
    2.1 li - The label of the node i
@@ -233,6 +257,7 @@ a NIP is a proof created by computing openH for the challenge γ := (Hx(φ,1),..
 Hx(φ,i) output is `w bits` but each challenge identifier should be `n bits` long. To create an identifier from Hx(φ,i) we take `the leftmost t bits` - starting from the most significant bit. So, for example, for n == 3 and for Hx(φ,1) = 010011001101..., the identifier will be `010`.
 
 ### GetProof(challenge: Challenge) notes
+
 The verifier only stores up to m layers of the DAG (from the root at height 0, up to height m) and the labels of the n leaves.
 Generating a proof involves computing the labels of the siblings on the path from a leaf to the DAG root where some of these siblings are in DAG layers with height > m. These labels are not stored by the prover and need to be computed when a proof is generated. The following algorithm describes how to compute these siblings:
 
@@ -241,6 +266,7 @@ Generating a proof involves computing the labels of the siblings on the path fro
 2. Construct the DAG rooted at node n. When the label of a sibling on the path from node_id to the root is computed as part of the DAG construction, add it to the list of sibling labels on the path from node_id to the root
 
 ### Computing Hx(y,z) - Argument Packing
+
 When we hash 2 (or more) arguments to hash, for example Hx(φ,1).
 We need to agree on a canonical way to pack params across implementations and tests into 1 input bytes array.
 We define argument packing in the following way:

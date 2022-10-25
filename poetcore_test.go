@@ -3,33 +3,32 @@ package main
 import (
 	"crypto/rand"
 	"fmt"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/verifier"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"io/ioutil"
-	"testing"
-	"time"
 )
 
 func BenchmarkProverAndVerifierBig(b *testing.B) {
 	r := require.New(b)
-	tempdir, _ := ioutil.TempDir("", "poet-test")
+	tempdir := b.TempDir()
 
 	challenge := make([]byte, 32)
-	n := uint(33)
 
 	_, err := rand.Read(challenge)
 	r.NoError(err)
 
-	numLeaves := uint64(1) << n
 	securityParam := shared.T
 
 	b.Log("Computing dag...")
 	t1 := time.Now()
-	merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam, prover.LowestMerkleMinMemoryLayer)
+	numLeaves, merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(time.Second), securityParam, prover.LowestMerkleMinMemoryLayer)
 	r.NoError(err, "Failed to generate proof")
 
 	e := time.Since(t1)
@@ -44,14 +43,12 @@ func BenchmarkProverAndVerifierBig(b *testing.B) {
 }
 
 func TestNip(t *testing.T) {
-	tempdir, _ := ioutil.TempDir("", "poet-test")
+	tempdir := t.TempDir()
 	challenge := []byte("Spacemesh launched its mainnet")
-	const n = 15
 
-	numLeaves := uint64(1) << n
 	securityParam := shared.T
 
-	merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam, prover.LowestMerkleMinMemoryLayer)
+	numLeaves, merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(1*time.Second), securityParam, prover.LowestMerkleMinMemoryLayer)
 	assert.NoError(t, err)
 	fmt.Printf("Dag root label: %x\n", merkleProof.Root)
 
@@ -60,20 +57,15 @@ func TestNip(t *testing.T) {
 }
 
 func BenchmarkProofEx(t *testing.B) {
-	tempdir, _ := ioutil.TempDir("", "poet-test")
 	for j := 0; j < 10; j++ {
-
 		// generate random commitment
 		challenge := make([]byte, 32)
 		_, err := rand.Read(challenge)
 		assert.NoError(t, err)
 
-		const n = 15
-
-		numLeaves := uint64(1) << n
 		securityParam := shared.T
 
-		merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam, prover.LowestMerkleMinMemoryLayer)
+		numLeaves, merkleProof, err := prover.GenerateProofWithoutPersistency(t.TempDir(), hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(time.Second), securityParam, prover.LowestMerkleMinMemoryLayer)
 		assert.NoError(t, err)
 		fmt.Printf("Dag root label: %x\n", merkleProof.Root)
 

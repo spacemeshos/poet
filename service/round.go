@@ -1,29 +1,33 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
+	"sync"
+	"time"
+
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/merkle-tree/cache"
+	"github.com/spacemeshos/smutil/log"
+	"github.com/syndtr/goleveldb/leveldb/opt"
+
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/signal"
-	"github.com/spacemeshos/smutil/log"
-	"github.com/syndtr/goleveldb/leveldb/opt"
-	"os"
-	"path/filepath"
-	"sync"
-	"time"
 )
 
 type executionState struct {
-	NumLeaves     uint64
+	Epoch         uint32
 	SecurityParam uint8
 	Members       [][]byte
 	Statement     []byte
 	ParkedNodes   [][]byte
-	NextLeafID    uint64
+	NumLeaves     uint64
 	NIP           *shared.MerkleProof
 }
 
@@ -44,7 +48,6 @@ func (r *roundState) isExecuted() bool {
 }
 
 type round struct {
-	cfg     *Config
 	datadir string
 	ID      string
 
@@ -58,6 +61,7 @@ type round struct {
 	executionStartedChan chan struct{}
 	executionEndedChan   chan struct{}
 	broadcastedChan      chan struct{}
+	teardownChan         chan struct{}
 
 	stateCache *roundState
 
@@ -65,23 +69,26 @@ type round struct {
 	submitMtx sync.Mutex
 }
 
-func newRound(sig *signal.Signal, cfg *Config, datadir string, id string) *round {
+func (r *round) Epoch() uint32 {
+	return r.execution.Epoch
+}
+
+func newRound(sig *signal.Signal, datadir string, epoch uint32) *round {
 	r := new(round)
-	r.cfg = cfg
-	r.datadir = datadir
-	r.ID = id
+	r.ID = strconv.FormatUint(uint64(epoch), 10)
+	r.datadir = filepath.Join(datadir, r.ID)
 	r.openedChan = make(chan struct{})
 	r.executionStartedChan = make(chan struct{})
 	r.executionEndedChan = make(chan struct{})
 	r.broadcastedChan = make(chan struct{})
+	r.teardownChan = make(chan struct{})
 	r.sig = sig
 
-	dbPath := filepath.Join(datadir, "challengesDb")
 	wo := &opt.WriteOptions{Sync: true}
-	r.challengesDb = NewLevelDbStore(dbPath, wo, nil) // This creates the datadir if it doesn't exist already.
+	r.challengesDb = NewLevelDbStore(filepath.Join(r.datadir, "challengesDb"), wo, nil) // This creates the datadir if it doesn't exist already.
 
 	r.execution = new(executionState)
-	r.execution.NumLeaves = uint64(1) << r.cfg.N // TODO(noamnelke): configure tick count instead of height
+	r.execution.Epoch = epoch
 	r.execution.SecurityParam = shared.T
 
 	go func() {
@@ -97,7 +104,8 @@ func newRound(sig *signal.Signal, cfg *Config, datadir string, id string) *round
 			return
 		}
 
-		log.Info("Round %v torn down", r.ID)
+		log.Info("Round %v torn down (cleanup %v)", r.ID, cleanup)
+		close(r.teardownChan)
 	}()
 
 	return r
@@ -118,6 +126,15 @@ func (r *round) open() error {
 	return nil
 }
 
+func (r *round) waitTeardown(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-r.teardownChan:
+		return nil
+	}
+}
+
 func (r *round) isOpen() bool {
 	return !r.opened.IsZero() && r.executionStarted.IsZero()
 }
@@ -128,10 +145,8 @@ func (r *round) submit(challenge []byte) error {
 	}
 
 	r.submitMtx.Lock()
-	err := r.challengesDb.Put(challenge, nil)
-	r.submitMtx.Unlock()
-
-	return err
+	defer r.submitMtx.Unlock()
+	return r.challengesDb.Put(challenge, nil)
 }
 
 func (r *round) numChallenges() int {
@@ -152,7 +167,7 @@ func (r *round) isEmpty() bool {
 	return !iter.Next()
 }
 
-func (r *round) execute() error {
+func (r *round) execute(end time.Time, minMemoryLayer uint) error {
 	r.executionStarted = time.Now()
 	if err := r.saveState(); err != nil {
 		return err
@@ -172,19 +187,14 @@ func (r *round) execute() error {
 		return err
 	}
 
-	minMemoryLayer := int(r.cfg.N - r.cfg.MemoryLayers)
-	if minMemoryLayer < prover.LowestMerkleMinMemoryLayer {
-		minMemoryLayer = prover.LowestMerkleMinMemoryLayer
-	}
-
-	r.execution.NIP, err = prover.GenerateProof(
+	r.execution.NumLeaves, r.execution.NIP, err = prover.GenerateProof(
 		r.sig,
 		r.datadir,
 		hash.GenLabelHashFunc(r.execution.Statement),
 		hash.GenMerkleHashFunc(r.execution.Statement),
-		r.execution.NumLeaves,
+		end,
 		r.execution.SecurityParam,
-		uint(minMemoryLayer),
+		minMemoryLayer,
 		r.persistExecution,
 	)
 	if err != nil {
@@ -199,15 +209,15 @@ func (r *round) execute() error {
 	return nil
 }
 
-func (r *round) persistExecution(tree *merkle.Tree, treeCache *cache.Writer, nextLeafID uint64) error {
-	log.Info("Round %v: persisting execution state (done: %d, total: %d)", r.ID, nextLeafID, r.execution.NumLeaves)
+func (r *round) persistExecution(tree *merkle.Tree, treeCache *cache.Writer, numLeaves uint64) error {
+	log.Info("Round %v: persisting execution state (done: %d)", r.ID, numLeaves)
 
 	// Call GetReader() so that the cache would flush and validate structure.
 	if _, err := treeCache.GetReader(); err != nil {
 		return err
 	}
 
-	r.execution.NextLeafID = nextLeafID
+	r.execution.NumLeaves = numLeaves
 	r.execution.ParkedNodes = tree.GetParkedNodes()
 	if err := r.saveState(); err != nil {
 		return err
@@ -216,7 +226,7 @@ func (r *round) persistExecution(tree *merkle.Tree, treeCache *cache.Writer, nex
 	return nil
 }
 
-func (r *round) recoverExecution(state *executionState) error {
+func (r *round) recoverExecution(state *executionState, end time.Time) error {
 	r.executionStarted = r.stateCache.ExecutionStarted
 	close(r.executionStartedChan)
 
@@ -235,14 +245,14 @@ func (r *round) recoverExecution(state *executionState) error {
 	}
 
 	var err error
-	r.execution.NIP, err = prover.GenerateProofRecovery(
+	r.execution.NumLeaves, r.execution.NIP, err = prover.GenerateProofRecovery(
 		r.sig,
 		r.datadir,
 		hash.GenLabelHashFunc(state.Statement),
 		hash.GenMerkleHashFunc(state.Statement),
-		state.NumLeaves,
+		end,
 		state.SecurityParam,
-		state.NextLeafID,
+		state.NumLeaves,
 		state.ParkedNodes,
 		r.persistExecution,
 	)
@@ -280,7 +290,7 @@ func (r *round) proof(wait bool) (*PoetProof, error) {
 	}
 
 	return &PoetProof{
-		N:         r.cfg.N,
+		N:         uint(r.execution.NumLeaves),
 		Statement: r.execution.Statement,
 		Proof:     r.execution.NIP,
 	}, nil
@@ -297,14 +307,9 @@ func (r *round) state() (*roundState, error) {
 	if err := load(filename, s); err != nil {
 		return nil, err
 	}
-
-	if r.execution.NumLeaves != s.Execution.NumLeaves {
-		return nil, errors.New("NumLeaves config mismatch")
-	}
 	if r.execution.SecurityParam != s.Execution.SecurityParam {
 		return nil, errors.New("SecurityParam config mismatch")
 	}
-
 	r.stateCache = s
 
 	return s, nil
@@ -317,7 +322,6 @@ func (r *round) saveState() error {
 		ExecutionStarted: r.executionStarted,
 		Execution:        r.execution,
 	}
-
 	return persist(filename, v)
 }
 

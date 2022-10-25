@@ -10,9 +10,10 @@ import (
 	"runtime/pprof"
 
 	"github.com/jessevdk/go-flags"
+	"github.com/spacemeshos/smutil/log"
+	
 	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/server"
-	"github.com/spacemeshos/smutil/log"
 )
 
 // poetMain is the true entry point for poet. This function is required since
@@ -49,7 +50,7 @@ func poetMain() error {
 	}()
 
 	// Show version at startup.
-	log.Info("Version: %s, N: %d, dir: %v, datadir: %v", version(), cfg.Service.N, cfg.PoetDir, cfg.DataDir)
+	log.Info("Version: %s, dir: %v, datadir: %v, genesis: %v", version(), cfg.PoetDir, cfg.DataDir, cfg.Service.Genesis)
 
 	// Enable http profiling server if requested.
 	if cfg.Profile != "" {

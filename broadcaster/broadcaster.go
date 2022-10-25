@@ -4,13 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
+	"time"
+
 	pb "github.com/spacemeshos/api/release/go/spacemesh/v1"
 	"github.com/spacemeshos/smutil/log"
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
-	"sync"
-	"time"
 )
 
 const (
@@ -75,7 +77,7 @@ func New(gatewayAddresses []string, disableBroadcast bool, connTimeout time.Dura
 
 	// Extract successful connections and concatenate errors of non-successful ones.
 	var retErr error
-	var connections = make([]*grpc.ClientConn, 0)
+	connections := make([]*grpc.ClientConn, 0)
 	for i, err := range errs {
 		if err == nil {
 			connections = append(connections, connectionVals[i])
@@ -94,7 +96,6 @@ func New(gatewayAddresses []string, disableBroadcast bool, connTimeout time.Dura
 	if len(connections) < int(connAcksThreshold) {
 		for _, conn := range connections {
 			_ = conn.Close()
-
 		}
 		return nil, retErr
 	}
@@ -191,7 +192,7 @@ func (b *Broadcaster) BroadcastProof(msg []byte, roundID string, members [][]byt
 func newClientConn(target string, timeout time.Duration) (*grpc.ClientConn, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	opts := []grpc.DialOption{
-		grpc.WithInsecure(),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithBlock(),
 		// XXX: this is done to prevent routers from cleaning up our connections (e.g aws load balances..)
 		// TODO: these parameters work for now but we might need to revisit or add them as configuration
@@ -199,7 +200,8 @@ func newClientConn(target string, timeout time.Duration) (*grpc.ClientConn, erro
 			Time:                time.Minute,
 			Timeout:             time.Minute * 3,
 			PermitWithoutStream: true,
-		})}
+		}),
+	}
 	defer cancel()
 
 	conn, err := grpc.DialContext(ctx, target, opts...)

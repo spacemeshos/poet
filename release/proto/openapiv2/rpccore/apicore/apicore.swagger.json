@@ -1,12 +1,16 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "apicore.proto",
+    "title": "rpccore/apicore/apicore.proto",
     "version": "version not set"
   },
-  "schemes": [
-    "http",
-    "https"
+  "tags": [
+    {
+      "name": "PoetCoreProver"
+    },
+    {
+      "name": "PoetVerifier"
+    }
   ],
   "consumes": [
     "application/json"
@@ -17,12 +21,18 @@
   "paths": {
     "/v1/prover/compute": {
       "get": {
-        "operationId": "Compute",
+        "operationId": "PoetCoreProver_Compute",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/apicoreComputeResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
             }
           }
         },
@@ -49,12 +59,18 @@
     },
     "/v1/prover/getnip": {
       "get": {
-        "operationId": "GetNIP",
+        "operationId": "PoetCoreProver_GetNIP",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/apicoreGetNIPResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
             }
           }
         },
@@ -65,12 +81,18 @@
     },
     "/v1/prover/shutdown": {
       "get": {
-        "operationId": "Shutdown",
+        "operationId": "PoetCoreProver_Shutdown",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/apicoreShutdownResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
             }
           }
         },
@@ -81,12 +103,18 @@
     },
     "/v1/verifier/verifynip": {
       "get": {
-        "operationId": "VerifyNIP",
+        "operationId": "PoetVerifier_VerifyNIP",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
               "$ref": "#/definitions/apicoreVerifyNIPResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
             }
           }
         },
@@ -113,24 +141,26 @@
             "format": "byte"
           },
           {
-            "name": "p.provenLeaves",
+            "name": "p.proven_leaves",
             "in": "query",
             "required": false,
             "type": "array",
             "items": {
               "type": "string",
               "format": "byte"
-            }
+            },
+            "collectionFormat": "multi"
           },
           {
-            "name": "p.proofNodes",
+            "name": "p.proof_nodes",
             "in": "query",
             "required": false,
             "type": "array",
             "items": {
               "type": "string",
               "format": "byte"
-            }
+            },
+            "collectionFormat": "multi"
           }
         ],
         "tags": [
@@ -177,14 +207,14 @@
           "type": "string",
           "format": "byte"
         },
-        "provenLeaves": {
+        "proven_leaves": {
           "type": "array",
           "items": {
             "type": "string",
             "format": "byte"
           }
         },
-        "proofNodes": {
+        "proof_nodes": {
           "type": "array",
           "items": {
             "type": "string",
@@ -200,8 +230,34 @@
       "type": "object",
       "properties": {
         "verified": {
-          "type": "boolean",
-          "format": "boolean"
+          "type": "boolean"
+        }
+      }
+    },
+    "protobufAny": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "rpcStatus": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/protobufAny"
+          }
         }
       }
     }

@@ -3,10 +3,11 @@ package service
 import (
 	"bytes"
 	"fmt"
-	"github.com/nullstyle/go-xdr/xdr3"
-	"github.com/spacemeshos/poet/shared"
-	"io/ioutil"
 	"os"
+
+	xdr "github.com/nullstyle/go-xdr/xdr3"
+
+	"github.com/spacemeshos/poet/shared"
 )
 
 func persist(filename string, v interface{}) error {
@@ -16,17 +17,16 @@ func persist(filename string, v interface{}) error {
 		return fmt.Errorf("serialization failure: %v", err)
 	}
 
-	err = ioutil.WriteFile(filename, w.Bytes(), shared.OwnerReadWrite)
+	err = os.WriteFile(filename, w.Bytes(), shared.OwnerReadWrite)
 	if err != nil {
 		return fmt.Errorf("write to disk failure: %v", err)
 	}
 
 	return nil
-
 }
 
 func load(filename string, v interface{}) error {
-	data, err := ioutil.ReadFile(filename)
+	data, err := os.ReadFile(filename)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return fmt.Errorf("file is missing: %v", filename)

@@ -13,10 +13,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/btcsuite/btcutil"
 	"github.com/jessevdk/go-flags"
-	"github.com/spacemeshos/poet/service"
 	"github.com/spacemeshos/smutil/log"
+
+	"github.com/spacemeshos/poet/appdata"
+	"github.com/spacemeshos/poet/service"
 )
 
 const (
@@ -28,8 +29,6 @@ const (
 	defaultMaxLogFileSize           = 10
 	defaultRPCPort                  = 50002
 	defaultRESTPort                 = 8080
-	defaultN                        = 15
-	defaultInitialRoundDuration     = 35 * time.Second
 	defaultExecuteEmpty             = true
 	defaultMemoryLayers             = 26 // Up to (1 << 26) * 2 - 1 Merkle tree cache nodes (32 bytes each) will be held in-memory
 	defaultConnAcksThreshold        = 1
@@ -39,14 +38,17 @@ const (
 )
 
 var (
-	defaultPoetDir    = btcutil.AppDataDir("poet", false)
-	defaultConfigFile = filepath.Join(defaultPoetDir, defaultConfigFilename)
-	defaultDataDir    = filepath.Join(defaultPoetDir, defaultDataDirname)
-	defaultLogDir     = filepath.Join(defaultPoetDir, defaultLogDirname)
+	defaultPoetDir       = appdata.AppDataDir("poet", false)
+	defaultConfigFile    = filepath.Join(defaultPoetDir, defaultConfigFilename)
+	defaultDataDir       = filepath.Join(defaultPoetDir, defaultDataDirname)
+	defaultLogDir        = filepath.Join(defaultPoetDir, defaultLogDirname)
+	defaultGenesisTime   = time.Now().Format(time.RFC3339)
+	defaultEpochDuration = 30 * time.Second
+	defaultPhaseShift    = 5 * time.Second
+	defaultCycleGap      = 5 * time.Second
 )
 
 type coreServiceConfig struct {
-	N            int  `long:"n" description:"PoET time parameter"`
 	MemoryLayers uint `long:"memory" description:"Number of top Merkle tree layers to cache in-memory"`
 }
 
@@ -88,9 +90,11 @@ func DefaultConfig() *Config {
 		RawRPCListener:  fmt.Sprintf("localhost:%d", defaultRPCPort),
 		RawRESTListener: fmt.Sprintf("localhost:%d", defaultRESTPort),
 		Service: &service.Config{
-			N:                        defaultN,
+			Genesis:                  defaultGenesisTime,
+			EpochDuration:            defaultEpochDuration,
+			PhaseShift:               defaultPhaseShift,
+			CycleGap:                 defaultCycleGap,
 			MemoryLayers:             defaultMemoryLayers,
-			InitialRoundDuration:     defaultInitialRoundDuration,
 			ExecuteEmpty:             defaultExecuteEmpty,
 			ConnAcksThreshold:        defaultConnAcksThreshold,
 			BroadcastAcksThreshold:   defaultBroadcastAcksThreshold,
@@ -98,7 +102,6 @@ func DefaultConfig() *Config {
 			BroadcastRetriesInterval: defaultBroadcastRetriesInterval,
 		},
 		CoreService: &coreServiceConfig{
-			N:            defaultN,
 			MemoryLayers: defaultMemoryLayers,
 		},
 	}
@@ -153,9 +156,6 @@ func ReadConfigFile(preCfg *Config) (*Config, error) {
 
 // SetupConfig initializes filesystem and network infrastructure
 func SetupConfig(cfg *Config) (*Config, error) {
-	appName := filepath.Base(os.Args[0])
-	appName = strings.TrimSuffix(appName, filepath.Ext(appName))
-	usageMessage := fmt.Sprintf("Use %s -h to show usage", appName)
 	// If the provided poet directory is not the default, we'll modify the
 	// path to all of the files and directories that will live within it.
 	if cfg.PoetDir != defaultPoetDir {
@@ -165,7 +165,7 @@ func SetupConfig(cfg *Config) (*Config, error) {
 
 	// Create the poet directory if it doesn't already exist.
 	funcName := "loadConfig"
-	if err := os.MkdirAll(cfg.PoetDir, 0700); err != nil {
+	if err := os.MkdirAll(cfg.PoetDir, 0o700); err != nil {
 		// Show a nicer error message if it's because a symlink is
 		// linked to a directory that does not exist (probably because
 		// it's not mounted).
@@ -187,14 +187,6 @@ func SetupConfig(cfg *Config) (*Config, error) {
 	// to use them later on.
 	cfg.DataDir = cleanAndExpandPath(cfg.DataDir)
 	cfg.LogDir = cleanAndExpandPath(cfg.LogDir)
-
-	// Ensure that the user didn't attempt to specify non-positive values
-	// for the poet n parameter
-	if cfg.Service.N < 1 || cfg.CoreService.N < 1 {
-		fmt.Fprintln(os.Stderr, usageMessage)
-		err := fmt.Errorf("%s: n must be positive", funcName)
-		return nil, err
-	}
 
 	// Resolve the RPC listener
 	addr, err := net.ResolveTCPAddr("tcp", cfg.RawRPCListener)

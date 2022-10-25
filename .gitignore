@@ -6,3 +6,7 @@ poet
 *.pdf
 *.test
 vendor/*/
+bin
+*.out
+*.log
+.vscode/

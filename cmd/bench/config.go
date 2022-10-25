@@ -2,27 +2,29 @@ package main
 
 import (
 	"fmt"
-	"github.com/jessevdk/go-flags"
 	"os"
+	"time"
+
+	"github.com/jessevdk/go-flags"
 )
 
 const (
-	defaultN   = 10
-	defaultCPU = false
+	defaultDuration = 10 * time.Second
+	defaultCPU      = false
 )
 
 // config defines the configuration options for bench.
 type config struct {
-	N   uint `short:"n" description:"protocol n param (table size = 2^n)"`
-	CPU bool `short:"c" description:"whether to enable CPU profiling"`
+	Duration time.Duration `short:"duration" description:"benchmark duration"`
+	CPU      bool          `short:"c" description:"whether to enable CPU profiling"`
 }
 
 // loadConfig initializes and parses the config using command line options.
 func loadConfig() (*config, error) {
 	// Default config.
 	cfg := config{
-		N:   defaultN,
-		CPU: defaultCPU,
+		Duration: defaultDuration,
+		CPU:      defaultCPU,
 	}
 
 	// Parse command line options.
