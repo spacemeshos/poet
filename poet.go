@@ -11,7 +11,7 @@ import (
 
 	"github.com/jessevdk/go-flags"
 	"github.com/spacemeshos/smutil/log"
-	
+
 	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/server"
 )

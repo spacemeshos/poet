@@ -78,7 +78,7 @@ type Config struct {
 	Service     *service.Config    `group:"Service"`
 }
 
-// DefaultConfig returns a config with default hardcoded values
+// DefaultConfig returns a config with default hardcoded values.
 func DefaultConfig() *Config {
 	return &Config{
 		PoetDir:         defaultPoetDir,
@@ -107,7 +107,7 @@ func DefaultConfig() *Config {
 	}
 }
 
-// ParseFlags reads values from command line arguments
+// ParseFlags reads values from command line arguments.
 func ParseFlags(preCfg *Config) (*Config, error) {
 	if _, err := flags.Parse(preCfg); err != nil {
 		return nil, err
@@ -115,7 +115,7 @@ func ParseFlags(preCfg *Config) (*Config, error) {
 	return preCfg, nil
 }
 
-// ReadConfigFile reads values from a conf file
+// ReadConfigFile reads values from a conf file.
 func ReadConfigFile(preCfg *Config) (*Config, error) {
 	preCfg.PoetDir = cleanAndExpandPath(preCfg.PoetDir)
 	preCfg.ConfigFile = cleanAndExpandPath(preCfg.ConfigFile)
@@ -148,13 +148,13 @@ func ReadConfigFile(preCfg *Config) (*Config, error) {
 		log.Warning("%v", configFileError)
 	}
 
-	//TODO: move out of here
+	// TODO: move out of here
 	// Finally, parse the remaining command line options again to ensure
 	// they take precedence.
 	return ParseFlags(cfg)
 }
 
-// SetupConfig initializes filesystem and network infrastructure
+// SetupConfig initializes filesystem and network infrastructure.
 func SetupConfig(cfg *Config) (*Config, error) {
 	// If the provided poet directory is not the default, we'll modify the
 	// path to all of the files and directories that will live within it.
