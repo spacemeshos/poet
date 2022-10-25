@@ -1,5 +1,5 @@
 FROM golang:1.19-alpine as build
-RUN apk add libc6-compat gcc musl-dev
+RUN apk add libc6-compat gcc musl-dev make
 WORKDIR /build/
 
 COPY go.mod .
