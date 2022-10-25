@@ -20,8 +20,6 @@ import (
 // defers created in the top-level scope of a main method aren't executed if
 // os.Exit() is called.
 func poetMain() error {
-	// Use all processor cores.
-	runtime.GOMAXPROCS(runtime.NumCPU())
 	var err error
 	// Start with a default Config with sane settings
 	cfg := config.DefaultConfig()
@@ -36,8 +34,14 @@ func poetMain() error {
 	if err != nil {
 		return err
 	}
-	//
+
 	cfg, err = config.SetupConfig(cfg)
+	if err != nil {
+		return err
+	}
+	// Finally, parse the remaining command line options again to ensure
+	// they take precedence.
+	cfg, err = config.ParseFlags(cfg)
 	if err != nil {
 		return err
 	}
