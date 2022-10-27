@@ -7,7 +7,8 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/spacemeshos/poet/broadcaster"
-	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
+	rpcapi "github.com/spacemeshos/poet/release/proto/go/rpc/api"
+	"github.com/spacemeshos/poet/rpc/api"
 	"github.com/spacemeshos/poet/service"
 )
 
@@ -19,7 +20,7 @@ type rpcServer struct {
 
 // A compile time check to ensure that rpcService fully implements
 // the PoetServer gRPC rpc.
-var _ api.PoetServer = (*rpcServer)(nil)
+var _ rpcapi.PoetServer = (*rpcServer)(nil)
 
 // NewRPCServer creates and returns a new instance of the rpcServer.
 func NewRPCServer(service *service.Service) *rpcServer {
@@ -28,7 +29,7 @@ func NewRPCServer(service *service.Service) *rpcServer {
 	}
 }
 
-func (r *rpcServer) Start(ctx context.Context, in *api.StartRequest) (*api.StartResponse, error) {
+func (r *rpcServer) Start(ctx context.Context, in *rpcapi.StartRequest) (*rpcapi.StartResponse, error) {
 	r.Lock()
 	defer r.Unlock()
 
@@ -61,10 +62,10 @@ func (r *rpcServer) Start(ctx context.Context, in *api.StartRequest) (*api.Start
 	if err := r.s.Start(b); err != nil {
 		return nil, fmt.Errorf("failed to start service: %v", err)
 	}
-	return &api.StartResponse{}, nil
+	return &rpcapi.StartResponse{}, nil
 }
 
-func (r *rpcServer) UpdateGateway(ctx context.Context, in *api.UpdateGatewayRequest) (*api.UpdateGatewayResponse, error) {
+func (r *rpcServer) UpdateGateway(ctx context.Context, in *rpcapi.UpdateGatewayRequest) (*rpcapi.UpdateGatewayResponse, error) {
 	r.Lock()
 	defer r.Unlock()
 
@@ -96,27 +97,34 @@ func (r *rpcServer) UpdateGateway(ctx context.Context, in *api.UpdateGatewayRequ
 
 	r.s.SetBroadcaster(b)
 
-	return &api.UpdateGatewayResponse{}, nil
+	return &rpcapi.UpdateGatewayResponse{}, nil
 }
 
-func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.SubmitResponse, error) {
+func (r *rpcServer) Submit(ctx context.Context, in *rpcapi.SubmitRequest) (*rpcapi.SubmitResponse, error) {
+	_, err := api.FromSubmitRequest(in)
+	if err != nil {
+		// TODO(brozansk) return an error once migration to new API is complete
+		// return nil, err
+	}
+
 	round, err := r.s.Submit(in.Challenge)
 	if err != nil {
 		return nil, err
 	}
 
-	out := new(api.SubmitResponse)
+	out := new(rpcapi.SubmitResponse)
 	out.RoundId = round.ID
+	out.Hash = in.Challenge
 	return out, nil
 }
 
-func (r *rpcServer) GetInfo(ctx context.Context, in *api.GetInfoRequest) (*api.GetInfoResponse, error) {
+func (r *rpcServer) GetInfo(ctx context.Context, in *rpcapi.GetInfoRequest) (*rpcapi.GetInfoResponse, error) {
 	info, err := r.s.Info()
 	if err != nil {
 		return nil, err
 	}
 
-	out := new(api.GetInfoResponse)
+	out := new(rpcapi.GetInfoResponse)
 	out.OpenRoundId = info.OpenRoundID
 
 	ids := make([]string, len(info.ExecutingRoundsIds))

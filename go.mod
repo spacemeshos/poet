@@ -11,6 +11,7 @@ require (
 	github.com/spacemeshos/api/release/go v1.4.1-0.20221019140708-be44e0fa9cfc
 	github.com/spacemeshos/go-scale v1.0.0
 	github.com/spacemeshos/merkle-tree v0.0.0-20221019141051-1d2e1586ca5b
+	github.com/spacemeshos/post v0.0.0-20221027120329-e896aa763a95
 	github.com/spacemeshos/smutil v0.0.0-20220819180433-6aaadca3eb1d
 	github.com/stretchr/testify v1.8.1
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
@@ -29,10 +30,10 @@ require (
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.12.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.1.1 // indirect
-	github.com/kr/text v0.2.0 // indirect
 	github.com/onsi/ginkgo v1.16.5 // indirect
 	github.com/onsi/gomega v1.20.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/spacemeshos/bitstream v0.0.0-20221019141347-c47ad6b731c3 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.23.0 // indirect
