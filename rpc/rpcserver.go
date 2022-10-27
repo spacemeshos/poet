@@ -101,11 +101,8 @@ func (r *rpcServer) UpdateGateway(ctx context.Context, in *rpcapi.UpdateGatewayR
 }
 
 func (r *rpcServer) Submit(ctx context.Context, in *rpcapi.SubmitRequest) (*rpcapi.SubmitResponse, error) {
-	_, err := api.FromSubmitRequest(in)
-	if err != nil {
-		// TODO(brozansk) return an error once migration to new API is complete
-		// return nil, err
-	}
+	// TODO(brozansk) return an error once migration to new API is complete
+	api.FromSubmitRequest(in)
 
 	round, err := r.s.Submit(in.Challenge)
 	if err != nil {

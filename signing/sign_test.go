@@ -5,8 +5,9 @@ import (
 	"testing"
 
 	"github.com/spacemeshos/go-scale"
-	"github.com/spacemeshos/poet/signing"
 	"github.com/stretchr/testify/require"
+
+	"github.com/spacemeshos/poet/signing"
 )
 
 type Foo struct {
