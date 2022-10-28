@@ -64,10 +64,12 @@ func StartServer(cfg *config.Config) error {
 		proxyRegstr = append(proxyRegstr, apicore.RegisterPoetCoreProverHandlerFromEndpoint)
 		proxyRegstr = append(proxyRegstr, apicore.RegisterPoetVerifierHandlerFromEndpoint)
 	} else {
-		var b *broadcaster.Broadcaster
+		svc, err := service.NewService(sig, cfg.Service, cfg.DataDir)
+		if err != nil {
+			return err
+		}
 		if len(cfg.Service.GatewayAddresses) > 0 || cfg.Service.DisableBroadcast {
-			var err error
-			b, err = broadcaster.New(
+			broadcaster, err := broadcaster.New(
 				cfg.Service.GatewayAddresses,
 				cfg.Service.DisableBroadcast,
 				broadcaster.DefaultConnTimeout,
@@ -78,14 +80,7 @@ func StartServer(cfg *config.Config) error {
 			if err != nil {
 				return err
 			}
-		}
-
-		svc, err := service.NewService(sig, cfg.Service, cfg.DataDir)
-		if err != nil {
-			return err
-		}
-		if b != nil {
-			svc.Start(b)
+			svc.Start(broadcaster)
 		} else {
 			log.Info("Service not starting, waiting for start request")
 		}
