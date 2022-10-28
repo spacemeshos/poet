@@ -5,11 +5,12 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/spacemeshos/post/shared"
+	sharedPost "github.com/spacemeshos/post/shared"
 	"github.com/stretchr/testify/require"
 
 	rpcapi "github.com/spacemeshos/poet/release/proto/go/rpc/api"
 	"github.com/spacemeshos/poet/rpc/api"
+	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/signing"
 )
 
@@ -45,7 +46,7 @@ func randomBytes(t *testing.T, size int) []byte {
 func TestParsingRoundTrip(t *testing.T) {
 	t.Parallel()
 
-	testRoundTrip := func(t *testing.T, challenge api.Challenge) {
+	testRoundTrip := func(t *testing.T, challenge shared.Challenge) {
 		pubKey, privateKey, err := ed25519.GenerateKey(nil)
 		require.NoError(t, err)
 		signedData, err := signing.Sign(challenge, privateKey, pubKey)
@@ -65,16 +66,16 @@ func TestParsingRoundTrip(t *testing.T) {
 
 	t.Run("Initial ATX case", func(t *testing.T) {
 		t.Parallel()
-		challenge := api.Challenge{
+		challenge := shared.Challenge{
 			NodeID:           randomBytes(t, 32),
 			PositioningAtxId: randomBytes(t, 32),
 			PubLayerId:       randomBytes(t, 32),
-			InitialPost: &api.InitialPost{
-				Proof: shared.Proof{
+			InitialPost: &shared.InitialPost{
+				Proof: sharedPost.Proof{
 					Nonce:   rand.Uint32(),
 					Indices: randomBytes(t, 32),
 				},
-				Metadata: shared.ProofMetadata{
+				Metadata: sharedPost.ProofMetadata{
 					Commitment:    randomBytes(t, 32),
 					Challenge:     randomBytes(t, 32),
 					NumUnits:      rand.Uint32(),
@@ -91,7 +92,7 @@ func TestParsingRoundTrip(t *testing.T) {
 
 	t.Run("Previous ATX case", func(t *testing.T) {
 		t.Parallel()
-		challenge := api.Challenge{
+		challenge := shared.Challenge{
 			NodeID:           randomBytes(t, 32),
 			PositioningAtxId: randomBytes(t, 32),
 			PubLayerId:       randomBytes(t, 32),

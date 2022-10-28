@@ -3,9 +3,10 @@ package api
 import (
 	"errors"
 
-	"github.com/spacemeshos/post/shared"
+	sharedPost "github.com/spacemeshos/post/shared"
 
 	rpcapi "github.com/spacemeshos/poet/release/proto/go/rpc/api"
+	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/signing"
 )
 
@@ -14,23 +15,7 @@ var (
 	ErrInvalidPublicKey = errors.New("signer.Public() should return []byte")
 )
 
-//go:generate scalegen -types InitialPost,Challenge
-
-type InitialPost struct {
-	Proof    shared.Proof
-	Metadata shared.ProofMetadata
-}
-
-type Challenge struct {
-	NodeID           []byte
-	PositioningAtxId []byte
-	PubLayerId       []byte
-	// only one of InitialPost, previousATX is valid at the same time
-	InitialPost   *InitialPost
-	PreviousATXId []byte
-}
-
-func (d *Challenge) intoSubmitRequestData() (*rpcapi.SubmitRequest_Data, error) {
+func intoSubmitRequestData(d *shared.Challenge) (*rpcapi.SubmitRequest_Data, error) {
 	data := &rpcapi.SubmitRequest_Data{
 		NodeId:           d.NodeID,
 		PositioningAtxId: d.PositioningAtxId,
@@ -66,8 +51,8 @@ func (d *Challenge) intoSubmitRequestData() (*rpcapi.SubmitRequest_Data, error) 
 	return data, nil
 }
 
-func IntoSubmitRequest(d signing.Signed[Challenge]) (*rpcapi.SubmitRequest, error) {
-	data, err := (*d.Data()).intoSubmitRequestData()
+func IntoSubmitRequest(d signing.Signed[shared.Challenge]) (*rpcapi.SubmitRequest, error) {
+	data, err := intoSubmitRequestData(d.Data())
 	if err != nil {
 		return nil, err
 	}
@@ -82,22 +67,22 @@ func IntoSubmitRequest(d signing.Signed[Challenge]) (*rpcapi.SubmitRequest, erro
 
 // FromSubmitRequest constructs SignedSubmitRequestData from a probobuf message
 // It verifies signature of the data.
-func FromSubmitRequest(r *rpcapi.SubmitRequest) (signing.Signed[Challenge], error) {
+func FromSubmitRequest(r *rpcapi.SubmitRequest) (signing.Signed[shared.Challenge], error) {
 	// Construct data
-	data := Challenge{
+	data := shared.Challenge{
 		NodeID:           r.GetData().GetNodeId(),
 		PositioningAtxId: r.GetData().GetPositioningAtxId(),
 		PubLayerId:       r.GetData().GetPubLayerId(),
 	}
 
 	if initialPost := r.Data.GetInitialPost(); initialPost != nil {
-		data.InitialPost = &InitialPost{
-			Proof: shared.Proof{
+		data.InitialPost = &shared.InitialPost{
+			Proof: sharedPost.Proof{
 				Nonce:   initialPost.GetProof().GetNonce(),
 				Indices: initialPost.GetProof().GetIndices(),
 			},
 
-			Metadata: shared.ProofMetadata{
+			Metadata: sharedPost.ProofMetadata{
 				Commitment:    initialPost.GetMetadata().GetCommitment(),
 				Challenge:     initialPost.GetMetadata().GetChallenge(),
 				NumUnits:      initialPost.GetMetadata().GetNumUnits(),
