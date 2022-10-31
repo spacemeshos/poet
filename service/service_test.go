@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"fmt"
 	"strconv"
@@ -11,9 +12,9 @@ import (
 	"github.com/spacemeshos/go-scale"
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/spacemeshos/poet/prover"
-	"github.com/spacemeshos/poet/signal"
 )
 
 type MockBroadcaster struct {
@@ -32,7 +33,8 @@ type challenge struct {
 
 func TestService_Recovery(t *testing.T) {
 	req := require.New(t)
-	sig := signal.NewSignal()
+	ctx, stop := context.WithCancel(context.Background())
+	serverGroup, ctx := errgroup.WithContext(ctx)
 	broadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
 	cfg := &Config{
 		Genesis:       time.Now().Add(time.Second).Format(time.RFC3339),
@@ -43,9 +45,9 @@ func TestService_Recovery(t *testing.T) {
 
 	tempdir := t.TempDir()
 	// Create a new service instance.
-	s, err := NewService(sig, cfg, tempdir)
+	s, err := NewService(serverGroup, cfg, tempdir)
 	req.NoError(err)
-	err = s.Start(broadcaster)
+	err = s.Start(ctx, broadcaster)
 	req.NoError(err)
 
 	// Track the service rounds.
@@ -108,7 +110,8 @@ func TestService_Recovery(t *testing.T) {
 	submitChallenges(1, 1)
 
 	// Request shutdown.
-	sig.RequestShutdown()
+	stop()
+	req.NoError(serverGroup.Wait())
 
 	// Verify shutdown error is received.
 	select {
@@ -126,11 +129,12 @@ func TestService_Recovery(t *testing.T) {
 	req.Equal(len(s.executingRounds), 0)
 
 	// Create a new service instance.
-	sig = signal.NewSignal()
-	s, err = NewService(sig, cfg, tempdir)
+	ctx, stop = context.WithCancel(context.Background())
+	serverGroup, ctx = errgroup.WithContext(ctx)
+	s, err = NewService(serverGroup, cfg, tempdir)
 	req.NoError(err)
 
-	err = s.Start(broadcaster)
+	err = s.Start(ctx, broadcaster)
 	req.NoError(err)
 
 	// Service instance should recover 2 rounds: round 1 in executing state, and round 2 in open state.
@@ -187,8 +191,8 @@ func TestService_Recovery(t *testing.T) {
 	}
 
 	// Request shutdown.
-	sig.RequestShutdown()
-	time.Sleep(100 * time.Millisecond)
+	stop()
+	req.NoError(serverGroup.Wait())
 }
 
 func contains(list [][]byte, item []byte) bool {
@@ -211,11 +215,12 @@ func TestNewService(t *testing.T) {
 	cfg.PhaseShift = time.Second / 2
 	cfg.CycleGap = time.Second / 4
 
-	sig := signal.NewSignal()
-	s, err := NewService(sig, cfg, tempdir)
+	ctx, stop := context.WithCancel(context.Background())
+	serverGroup, ctx := errgroup.WithContext(ctx)
+	s, err := NewService(serverGroup, cfg, tempdir)
 	req.NoError(err)
 	proofBroadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
-	err = s.Start(proofBroadcaster)
+	err = s.Start(ctx, proofBroadcaster)
 	req.NoError(err)
 
 	challengesCount := 8
@@ -285,8 +290,8 @@ func TestNewService(t *testing.T) {
 	}
 
 	// Request shutdown.
-	sig.RequestShutdown()
-	time.Sleep(100 * time.Millisecond)
+	stop()
+	req.NoError(serverGroup.Wait())
 }
 
 func genChallenges(num int) ([][]byte, error) {

@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/spacemeshos/poet/prover"
-	"github.com/spacemeshos/poet/signal"
 )
 
 // TestRound_Recovery test round recovery functionality.
@@ -22,7 +22,9 @@ import (
 func TestRound_Recovery(t *testing.T) {
 	req := require.New(t)
 
-	sig := signal.NewSignal()
+	ctx, stop := context.WithCancel(context.Background())
+	serverGroup, ctx := errgroup.WithContext(ctx)
+
 	duration := 500 * time.Millisecond
 	tmpdir := t.TempDir()
 
@@ -30,7 +32,7 @@ func TestRound_Recovery(t *testing.T) {
 	req.NoError(err)
 
 	// Execute r1 as a reference round.
-	r1 := newRound(sig, tmpdir, 0)
+	r1 := newRound(ctx, serverGroup, tmpdir, 0)
 	req.NoError(r1.open())
 	req.Equal(0, r1.numChallenges())
 	req.True(r1.isEmpty())
@@ -41,10 +43,10 @@ func TestRound_Recovery(t *testing.T) {
 	req.Equal(len(challenges), r1.numChallenges())
 	req.False(r1.isEmpty())
 
-	req.NoError(r1.execute(time.Now().Add(duration), prover.LowestMerkleMinMemoryLayer))
+	req.NoError(r1.execute(ctx, time.Now().Add(duration), prover.LowestMerkleMinMemoryLayer))
 
 	// Execute r2, and request shutdown before completion.
-	r2 := newRound(sig, tmpdir, 1)
+	r2 := newRound(ctx, serverGroup, tmpdir, 1)
 	req.NoError(r2.open())
 	req.Equal(0, r2.numChallenges())
 	req.True(r2.isEmpty())
@@ -57,15 +59,17 @@ func TestRound_Recovery(t *testing.T) {
 
 	go func() {
 		time.Sleep(duration / 10)
-		sig.RequestShutdown()
+		stop()
 	}()
 
-	req.ErrorIs(r2.execute(time.Now().Add(duration), prover.LowestMerkleMinMemoryLayer), prover.ErrShutdownRequested)
+	req.ErrorIs(r2.execute(ctx, time.Now().Add(duration), prover.LowestMerkleMinMemoryLayer), prover.ErrShutdownRequested)
 	require.NoError(t, r2.waitTeardown(context.Background()))
+	require.NoError(t, serverGroup.Wait())
 
 	// Recover r2 execution, and request shutdown before completion.
-	sig = signal.NewSignal()
-	r2recovery1 := newRound(sig, tmpdir, 1)
+	ctx, stop = context.WithCancel(context.Background())
+	serverGroup, ctx = errgroup.WithContext(ctx)
+	r2recovery1 := newRound(ctx, serverGroup, tmpdir, 1)
 	req.Equal(len(challenges), r2recovery1.numChallenges())
 	req.False(r2recovery1.isEmpty())
 
@@ -74,35 +78,38 @@ func TestRound_Recovery(t *testing.T) {
 
 	go func() {
 		time.Sleep(duration / 5)
-		sig.RequestShutdown()
+		stop()
 	}()
 
-	req.ErrorIs(r2recovery1.recoverExecution(state.Execution, time.Now().Add(duration)), prover.ErrShutdownRequested)
+	req.ErrorIs(r2recovery1.recoverExecution(ctx, state.Execution, time.Now().Add(duration)), prover.ErrShutdownRequested)
 	require.NoError(t, r2recovery1.waitTeardown(context.Background()))
+	require.NoError(t, serverGroup.Wait())
 
 	// Recover r2 execution again, and let it complete.
-	sig = signal.NewSignal()
-	r2recovery2 := newRound(sig, tmpdir, 1)
+	ctx, stop = context.WithCancel(context.Background())
+	serverGroup, ctx = errgroup.WithContext(ctx)
+	r2recovery2 := newRound(ctx, serverGroup, tmpdir, 1)
 	req.Equal(len(challenges), r2recovery2.numChallenges())
 	req.False(r2recovery2.isEmpty())
 	state, err = r2recovery2.state()
 	req.NoError(err)
 
-	req.NoError(r2recovery2.recoverExecution(state.Execution, time.Now().Add(duration)))
+	req.NoError(r2recovery2.recoverExecution(ctx, state.Execution, time.Now().Add(duration)))
 
 	// Request shutdown.
-	sig.RequestShutdown()
-	time.Sleep(100 * time.Millisecond)
+	stop()
+	require.NoError(t, serverGroup.Wait())
 }
 
 func TestRound_State(t *testing.T) {
 	req := require.New(t)
 
-	sig := signal.NewSignal()
+	ctx, stop := context.WithCancel(context.Background())
+	serverGroup, ctx := errgroup.WithContext(ctx)
 	tempdir := t.TempDir()
 
 	// Create a new round.
-	r := newRound(sig, tempdir, 0)
+	r := newRound(ctx, serverGroup, tempdir, 0)
 	req.True(!r.isOpen())
 	req.True(r.opened.IsZero())
 	req.True(r.executionStarted.IsZero())
@@ -152,10 +159,10 @@ func TestRound_State(t *testing.T) {
 	duration := 100 * time.Millisecond
 	go func() {
 		time.Sleep(duration / 5)
-		sig.RequestShutdown()
+		stop()
 	}()
 
-	req.ErrorIs(r.execute(time.Now().Add(duration), prover.LowestMerkleMinMemoryLayer), prover.ErrShutdownRequested)
+	req.ErrorIs(r.execute(ctx, time.Now().Add(duration), prover.LowestMerkleMinMemoryLayer), prover.ErrShutdownRequested)
 	req.True(!r.isOpen())
 	req.True(!r.opened.IsZero())
 	req.True(!r.executionStarted.IsZero())
@@ -173,10 +180,13 @@ func TestRound_State(t *testing.T) {
 	req.True(state.Execution.NumLeaves > 0)
 	req.True(state.Execution.ParkedNodes != nil)
 	req.True(state.Execution.NIP == nil)
-	require.NoError(t, r.waitTeardown(context.Background()))
+	req.NoError(r.waitTeardown(context.Background()))
+	req.NoError(serverGroup.Wait())
 
 	// Create a new round instance of the same round.
-	r = newRound(signal.NewSignal(), tempdir, 0)
+	ctx, stop = context.WithCancel(context.Background())
+	serverGroup, ctx = errgroup.WithContext(ctx)
+	r = newRound(ctx, serverGroup, tempdir, 0)
 	req.True(!r.isOpen())
 	req.True(r.opened.IsZero())
 	req.True(r.executionStarted.IsZero())
@@ -191,7 +201,7 @@ func TestRound_State(t *testing.T) {
 	req.Equal(prevState, state)
 
 	// Recover execution.
-	req.NoError(r.recoverExecution(state.Execution, time.Now().Add(100*time.Microsecond)))
+	req.NoError(r.recoverExecution(ctx, state.Execution, time.Now().Add(100*time.Microsecond)))
 
 	req.True(!r.executionStarted.IsZero())
 	proof, err := r.proof(false)
@@ -215,4 +225,7 @@ func TestRound_State(t *testing.T) {
 	state, err = r.state()
 	req.EqualError(err, fmt.Sprintf("file is missing: %v", filepath.Join(r.datadir, roundStateFileBaseName)))
 	req.Nil(state)
+
+	stop()
+	req.NoError(serverGroup.Wait())
 }

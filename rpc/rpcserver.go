@@ -2,6 +2,8 @@ package rpc
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
 	"sync"
 
 	"golang.org/x/net/context"
@@ -15,6 +17,7 @@ import (
 type rpcServer struct {
 	s *service.Service
 	sync.Mutex
+	stop context.CancelFunc
 }
 
 // A compile time check to ensure that rpcService fully implements
@@ -58,7 +61,9 @@ func (r *rpcServer) Start(ctx context.Context, in *api.StartRequest) (*api.Start
 		return nil, err
 	}
 
-	if err := r.s.Start(b); err != nil {
+	serviceCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	r.stop = stop
+	if err := r.s.Start(serviceCtx, b); err != nil {
 		return nil, fmt.Errorf("failed to start service: %v", err)
 	}
 	return &api.StartResponse{}, nil
