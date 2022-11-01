@@ -139,14 +139,19 @@ func (r *round) isOpen() bool {
 	return !r.opened.IsZero() && r.executionStarted.IsZero()
 }
 
-func (r *round) submit(challenge []byte) error {
+func (r *round) submit(key, challenge []byte) error {
 	if !r.isOpen() {
 		return errors.New("round is not open")
 	}
 
 	r.submitMtx.Lock()
 	defer r.submitMtx.Unlock()
-	return r.challengesDb.Put(challenge, nil)
+	if has, err := r.challengesDb.Has(key); err != nil {
+		return err
+	} else if has {
+		return fmt.Errorf("A challenge has already been submitted for %X", key)
+	}
+	return r.challengesDb.Put(key, challenge)
 }
 
 func (r *round) numChallenges() int {
@@ -335,12 +340,12 @@ func (r *round) calcMembersAndStatement() ([][]byte, []byte, error) {
 	iter := r.challengesDb.Iterator()
 	defer iter.Release()
 	for iter.Next() {
-		key := iter.Key()
-		keyCopy := make([]byte, len(key))
-		copy(keyCopy, key)
+		challenge := iter.Value()
+		challengeCopy := make([]byte, len(challenge))
+		copy(challengeCopy, challenge)
 
-		members = append(members, keyCopy)
-		if err := mtree.AddLeaf(keyCopy); err != nil {
+		members = append(members, challengeCopy)
+		if err := mtree.AddLeaf(challengeCopy); err != nil {
 			return nil, nil, err
 		}
 	}

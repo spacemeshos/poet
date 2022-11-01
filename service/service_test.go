@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"fmt"
 	"strconv"
@@ -68,9 +69,10 @@ func TestService_Recovery(t *testing.T) {
 	submittedChallenges := make(map[int][]challenge)
 	submitChallenges := func(roundIndex int, groupIndex int) {
 		challengesGroup := challengeGroups[groupIndex]
-		for i := 0; i < len(challengeGroups[groupIndex]); i++ {
-			round, err := s.Submit(challengesGroup[i].data)
+		for _, challenge := range challengeGroups[groupIndex] {
+			round, hash, err := s.Submit(context.Background(), challenge.data, nil)
 			req.NoError(err)
+			req.Equal(hash, challenge.data)
 			req.Equal(strconv.Itoa(roundIndex), round.ID)
 
 			// Verify that all submissions returned the same round instance.
@@ -234,8 +236,9 @@ func TestNewService(t *testing.T) {
 
 	// Submit challenges.
 	for i := 0; i < len(challenges); i++ {
-		round, err := s.Submit(challenges[i].data)
+		round, hash, err := s.Submit(context.Background(), challenges[i].data, nil)
 		req.NoError(err)
+		req.Equal(hash, challenges[i].data)
 		req.Equal(currentRound, round.ID)
 		challenges[i].round = round
 

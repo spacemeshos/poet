@@ -10,6 +10,8 @@ import (
 	rpcapi "github.com/spacemeshos/poet/release/proto/go/rpc/api"
 	"github.com/spacemeshos/poet/rpc/api"
 	"github.com/spacemeshos/poet/service"
+	"github.com/spacemeshos/poet/shared"
+	"github.com/spacemeshos/poet/signing"
 )
 
 // rpcServer is a gRPC, RPC front end to poet.
@@ -101,17 +103,26 @@ func (r *rpcServer) UpdateGateway(ctx context.Context, in *rpcapi.UpdateGatewayR
 }
 
 func (r *rpcServer) Submit(ctx context.Context, in *rpcapi.SubmitRequest) (*rpcapi.SubmitResponse, error) {
-	// TODO(brozansk) return an error once migration to new API is complete
-	api.FromSubmitRequest(in)
+	// Temporarily support both the old and new challenge submission API.
+	// TODO(brozansk) remove support for data []byte after go-spacemesh is updated to
+	// use the new API.
+	var challenge signing.Signed[shared.Challenge]
+	if in.Data != nil {
+		signed, err := api.FromSubmitRequest(in)
+		if err != nil {
+			return nil, err
+		}
+		challenge = signed
+	}
 
-	round, err := r.s.Submit(in.Challenge)
+	round, hash, err := r.s.Submit(ctx, in.Challenge, challenge)
 	if err != nil {
 		return nil, err
 	}
 
 	out := new(rpcapi.SubmitResponse)
 	out.RoundId = round.ID
-	out.Hash = in.Challenge
+	out.Hash = hash
 	return out, nil
 }
 

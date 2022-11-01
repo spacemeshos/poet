@@ -36,7 +36,7 @@ func TestRound_Recovery(t *testing.T) {
 	req.True(r1.isEmpty())
 
 	for _, ch := range challenges {
-		req.NoError(r1.submit(ch))
+		req.NoError(r1.submit(ch, ch))
 	}
 	req.Equal(len(challenges), r1.numChallenges())
 	req.False(r1.isEmpty())
@@ -50,7 +50,7 @@ func TestRound_Recovery(t *testing.T) {
 	req.True(r2.isEmpty())
 
 	for _, ch := range challenges {
-		req.NoError(r2.submit(ch))
+		req.NoError(r2.submit(ch, ch))
 	}
 	req.Equal(len(challenges), r2.numChallenges())
 	req.False(r2.isEmpty())
@@ -117,7 +117,7 @@ func TestRound_State(t *testing.T) {
 	challenges, err := genChallenges(32)
 	req.NoError(err)
 
-	req.EqualError(r.submit(challenges[0]), "round is not open")
+	req.EqualError(r.submit(challenges[0], challenges[0]), "round is not open")
 
 	// Open the round.
 	req.NoError(r.open())
@@ -128,7 +128,7 @@ func TestRound_State(t *testing.T) {
 	req.True(r.isEmpty())
 
 	for _, ch := range challenges {
-		req.NoError(r.submit(ch))
+		req.NoError(r.submit(ch, ch))
 	}
 	req.Equal(len(challenges), r.numChallenges())
 	req.False(r.isEmpty())

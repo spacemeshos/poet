@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -20,6 +21,7 @@ import (
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/signal"
+	"github.com/spacemeshos/poet/signing"
 )
 
 type Config struct {
@@ -352,20 +354,40 @@ func (s *Service) executeRound(r *round) error {
 	return nil
 }
 
-func (s *Service) Submit(data []byte) (*round, error) {
+// Temporarily support both the old and new challenge submission API.
+// TODO(brozansk) remove support for data []byte after go-spacemesh is updated to
+// use the new API.
+func (s *Service) Submit(ctx context.Context, challenge []byte, signedChallenge signing.Signed[shared.Challenge]) (*round, []byte, error) {
 	if !s.Started() {
-		return nil, ErrNotStarted
+		return nil, nil, ErrNotStarted
 	}
 
-	s.openRoundMutex.Lock()
-	r := s.openRound
-	s.openRoundMutex.Unlock()
-	err := r.submit(data)
-	if err != nil {
-		return nil, err
-	}
+	// TODO(brozansk) Remove support for `challenge []byte` eventually
+	if signedChallenge != nil {
+		log.Debug("Using the new challenge submission API")
+		// TODO(brozansk) validate challenge
+		// TODO(brozansk) calculate sequence number
+		// TODO(brozansk) calculate hash
 
-	return r, nil
+		s.openRoundMutex.Lock()
+		r := s.openRound
+		err := r.submit(signedChallenge.Data().NodeID, challenge)
+		s.openRoundMutex.Unlock()
+		if err != nil {
+			return nil, nil, err
+		}
+		return r, []byte("TODO(brozansk) calculate hash"), nil
+	} else {
+		log.Debug("Using the old challenge submission API")
+		s.openRoundMutex.Lock()
+		r := s.openRound
+		err := r.submit(challenge, challenge)
+		s.openRoundMutex.Unlock()
+		if err != nil {
+			return nil, nil, err
+		}
+		return r, challenge, nil
+	}
 }
 
 func (s *Service) Info() (*InfoResponse, error) {
