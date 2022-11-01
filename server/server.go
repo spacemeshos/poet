@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/peer"
 
+	"github.com/spacemeshos/poet/broadcaster"
 	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
 	"github.com/spacemeshos/poet/release/proto/go/rpccore/apicore"
@@ -66,6 +67,22 @@ func StartServer(cfg *config.Config) error {
 		svc, err := service.NewService(sig, cfg.Service, cfg.DataDir)
 		if err != nil {
 			return err
+		}
+		if len(cfg.Service.GatewayAddresses) > 0 || cfg.Service.DisableBroadcast {
+			broadcaster, err := broadcaster.New(
+				cfg.Service.GatewayAddresses,
+				cfg.Service.DisableBroadcast,
+				broadcaster.DefaultConnTimeout,
+				cfg.Service.ConnAcksThreshold,
+				broadcaster.DefaultBroadcastTimeout,
+				cfg.Service.BroadcastAcksThreshold,
+			)
+			if err != nil {
+				return err
+			}
+			svc.Start(broadcaster)
+		} else {
+			log.Info("Service not starting, waiting for start request")
 		}
 
 		rpcServer := rpc.NewRPCServer(svc)

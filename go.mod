@@ -8,16 +8,16 @@ require (
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/minio/sha256-simd v1.0.0
 	github.com/nullstyle/go-xdr v0.0.0-20180726165426-f4c839f75077
-	github.com/spacemeshos/api/release/go v1.4.1-0.20221019140708-be44e0fa9cfc
-	github.com/spacemeshos/go-scale v1.0.0
+	github.com/spacemeshos/api/release/go v1.4.1-0.20221028113025-bf0316e21db9
+	github.com/spacemeshos/go-scale v1.1.0
 	github.com/spacemeshos/merkle-tree v0.0.0-20221019141051-1d2e1586ca5b
 	github.com/spacemeshos/post v0.0.0-20221027120329-e896aa763a95
 	github.com/spacemeshos/smutil v0.0.0-20220819180433-6aaadca3eb1d
 	github.com/stretchr/testify v1.8.1
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
-	golang.org/x/crypto v0.0.0-20220919173607-35f4265a4bc0
-	golang.org/x/net v0.0.0-20220920203100-d0c6ba3f52d9
-	google.golang.org/genproto v0.0.0-20221014213838-99cd37c6964a
+	golang.org/x/crypto v0.1.0
+	golang.org/x/net v0.1.0
+	google.golang.org/genproto v0.0.0-20221027153422-115e99e71e1c
 	google.golang.org/grpc v1.50.1
 	google.golang.org/protobuf v1.28.1
 )
@@ -37,8 +37,8 @@ require (
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.23.0 // indirect
-	golang.org/x/sys v0.0.0-20220919091848-fb04ddd9f9c8 // indirect
-	golang.org/x/text v0.3.8 // indirect
+	golang.org/x/sys v0.1.0 // indirect
+	golang.org/x/text v0.4.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

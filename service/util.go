@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 
@@ -9,6 +10,8 @@ import (
 
 	"github.com/spacemeshos/poet/shared"
 )
+
+var ErrFileIsMissing = errors.New("file is missing")
 
 func persist(filename string, v interface{}) error {
 	var w bytes.Buffer
@@ -29,7 +32,7 @@ func load(filename string, v interface{}) error {
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("file is missing: %v", filename)
+			return fmt.Errorf("%w: %v", ErrFileIsMissing, filename)
 		}
 
 		return fmt.Errorf("failed to read file: %v", err)
