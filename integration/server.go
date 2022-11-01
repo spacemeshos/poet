@@ -27,6 +27,7 @@ type ServerConfig struct {
 	Reset            bool
 	DisableBroadcast bool
 	RESTListen       string
+	GatewayAddresses []string
 }
 
 // DefaultConfig returns a newConfig with all default values.
@@ -67,6 +68,10 @@ func (cfg *ServerConfig) genArgs() []string {
 	args = append(args, fmt.Sprintf("--epoch-duration=%s", cfg.EpochDuration))
 	args = append(args, fmt.Sprintf("--phase-shift=%s", cfg.PhaseShift))
 	args = append(args, fmt.Sprintf("--cycle-gap=%s", cfg.CycleGap))
+
+	for _, address := range cfg.GatewayAddresses {
+		args = append(args, fmt.Sprintf("--gateway=%s", address))
+	}
 
 	if cfg.Reset {
 		args = append(args, "--reset")

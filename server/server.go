@@ -17,6 +17,7 @@ import (
 
 	"github.com/spacemeshos/poet/broadcaster"
 	"github.com/spacemeshos/poet/config"
+	"github.com/spacemeshos/poet/gateway"
 	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
 	"github.com/spacemeshos/poet/release/proto/go/rpccore/apicore"
 	"github.com/spacemeshos/poet/rpc"
@@ -68,7 +69,7 @@ func StartServer(cfg *config.Config) error {
 		if err != nil {
 			return err
 		}
-		if len(cfg.Service.GatewayAddresses) > 0 || cfg.Service.DisableBroadcast {
+		if len(cfg.Service.GatewayAddresses) > 0 {
 			broadcaster, err := broadcaster.New(
 				cfg.Service.GatewayAddresses,
 				cfg.Service.DisableBroadcast,
@@ -80,7 +81,16 @@ func StartServer(cfg *config.Config) error {
 			if err != nil {
 				return err
 			}
-			svc.Start(broadcaster)
+			gateways, errs := gateway.Connect(ctx, cfg.Service.GatewayAddresses)
+			for _, err := range errs {
+				log.With().Warning("failed to connect to gateway grpc server", log.Err(err))
+			}
+			atxProvider, err := service.CreateAtxProvider(gateways)
+			if err != nil {
+				return fmt.Errorf("failed to create ATX provider: %w", err)
+			}
+
+			svc.Start(broadcaster, atxProvider)
 		} else {
 			log.Info("Service not starting, waiting for start request")
 		}

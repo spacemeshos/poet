@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/spacemeshos/smutil/log"
 	"golang.org/x/net/context"
 
 	"github.com/spacemeshos/poet/broadcaster"
+	"github.com/spacemeshos/poet/gateway"
 	rpcapi "github.com/spacemeshos/poet/release/proto/go/rpc/api"
 	"github.com/spacemeshos/poet/rpc/api"
 	"github.com/spacemeshos/poet/service"
@@ -61,8 +63,17 @@ func (r *rpcServer) Start(ctx context.Context, in *rpcapi.StartRequest) (*rpcapi
 		return nil, err
 	}
 
-	if err := r.s.Start(b); err != nil {
-		return nil, fmt.Errorf("failed to start service: %v", err)
+	gateways, errs := gateway.Connect(ctx, in.GatewayAddresses)
+	for _, err := range errs {
+		log.With().Warning("failed to connect to gateway grpc server", log.Err(err))
+	}
+	atxProvider, err := service.CreateAtxProvider(gateways)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create ATX provider: %w", err)
+	}
+
+	if err := r.s.Start(b, atxProvider); err != nil {
+		return nil, fmt.Errorf("failed to start service: %w", err)
 	}
 	return &rpcapi.StartResponse{}, nil
 }
@@ -97,7 +108,17 @@ func (r *rpcServer) UpdateGateway(ctx context.Context, in *rpcapi.UpdateGatewayR
 		return nil, err
 	}
 
+	gateways, errs := gateway.Connect(ctx, in.GatewayAddresses)
+	for _, err := range errs {
+		log.With().Warning("failed to connect to gateway grpc server", log.Err(err))
+	}
+	atxProvider, err := service.CreateAtxProvider(gateways)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create ATX provider: %w", err)
+	}
+
 	r.s.SetBroadcaster(b)
+	r.s.SetAtxProvider(atxProvider)
 
 	return &rpcapi.UpdateGatewayResponse{}, nil
 }

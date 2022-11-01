@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
 	"errors"
 	"fmt"
 	"os"
@@ -15,13 +16,16 @@ import (
 
 	"github.com/spacemeshos/go-scale"
 	mshared "github.com/spacemeshos/merkle-tree/shared"
+	postShared "github.com/spacemeshos/post/shared"
 	"github.com/spacemeshos/smutil/log"
-	"golang.org/x/crypto/ed25519"
+	"google.golang.org/grpc"
 
+	"github.com/spacemeshos/poet/gateway/activation"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/signal"
 	"github.com/spacemeshos/poet/signing"
+	"github.com/spacemeshos/poet/types"
 )
 
 type Config struct {
@@ -46,6 +50,8 @@ type Config struct {
 const estimatedLeavesPerSecond = 1 << 17
 
 const serviceStateFileBaseName = "state.bin"
+
+const AtxCacheSize = 1024
 
 type serviceState struct {
 	PrivKey []byte
@@ -75,6 +81,8 @@ type Service struct {
 	privKey ed25519.PrivateKey
 	// holds Broadcaster interface
 	broadcaster atomic.Value
+	atxProvider atomic.Value // holds types.AtxProvider
+	postConfig  types.PostConfig
 
 	errChan chan error
 	sig     *signal.Signal
@@ -172,12 +180,13 @@ func NewService(sig *signal.Signal, cfg *Config, datadir string) (*Service, erro
 	return s, nil
 }
 
-func (s *Service) Start(b Broadcaster) error {
+func (s *Service) Start(b Broadcaster, atxProvider types.AtxProvider) error {
 	if !atomic.CompareAndSwapInt32(&s.started, 0, 1) {
 		return ErrAlreadyStarted
 	}
 
 	s.SetBroadcaster(b)
+	s.SetAtxProvider(atxProvider)
 
 	if s.cfg.NoRecovery {
 		log.Info("Recovery is disabled")
@@ -326,6 +335,10 @@ func (s *Service) SetBroadcaster(b Broadcaster) {
 	}
 }
 
+func (s *Service) SetAtxProvider(provider types.AtxProvider) {
+	s.atxProvider.Store(provider)
+}
+
 func (s *Service) executeRound(r *round) error {
 	s.Lock()
 	s.executingRounds[r.ID] = r
@@ -365,7 +378,12 @@ func (s *Service) Submit(ctx context.Context, challenge []byte, signedChallenge 
 	// TODO(brozansk) Remove support for `challenge []byte` eventually
 	if signedChallenge != nil {
 		log.Debug("Using the new challenge submission API")
-		// TODO(brozansk) validate challenge
+		// SAFETY: it will never panic as `s.atxProvider` is set in Start
+		atxProvider := s.atxProvider.Load().(types.AtxProvider)
+		dummyVerifier := func(*postShared.Proof, *postShared.ProofMetadata) error { return nil }
+		if err := validateChallenge(ctx, signedChallenge.Data(), atxProvider, &s.postConfig, dummyVerifier); err != nil {
+			return nil, nil, err
+		}
 		// TODO(brozansk) calculate sequence number
 		// TODO(brozansk) calculate hash
 
@@ -472,4 +490,19 @@ func serializeProofMsg(servicePubKey []byte, roundID string, execution *executio
 	}
 
 	return dataBuf.Bytes(), nil
+}
+
+// CreateAtxProvider creates ATX provider connected to provided gateways.
+// The provider caches ATXes and round-robins between gateways if
+// fetching new ATX failed.
+func CreateAtxProvider(gateways []*grpc.ClientConn) (types.AtxProvider, error) {
+	if len(gateways) == 0 {
+		return nil, fmt.Errorf("need at least one gateway")
+	}
+	activationSvcClients := make([]types.AtxProvider, 0, len(gateways))
+	for _, target := range gateways {
+		client := activation.NewClient(target)
+		activationSvcClients = append(activationSvcClients, client)
+	}
+	return activation.NewCachedAtxProvider(AtxCacheSize, activation.NewRoundRobinAtxProvider(activationSvcClients))
 }

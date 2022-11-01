@@ -6,18 +6,20 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/golang/protobuf v1.5.2
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
+	github.com/hashicorp/golang-lru v0.5.4
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/minio/sha256-simd v1.0.0
 	github.com/nullstyle/go-xdr v0.0.0-20180726165426-f4c839f75077
-	github.com/spacemeshos/api/release/go v1.4.1-0.20221028113025-bf0316e21db9
+	github.com/spacemeshos/api/release/go v1.4.1-0.20221101124810-c9fd7137aabc
 	github.com/spacemeshos/go-scale v1.1.0
 	github.com/spacemeshos/merkle-tree v0.0.0-20221019141051-1d2e1586ca5b
-	github.com/spacemeshos/post v0.0.0-20221027120329-e896aa763a95
+	github.com/spacemeshos/post v0.0.0-20221028220902-534f3f813233
 	github.com/spacemeshos/smutil v0.0.0-20220819180433-6aaadca3eb1d
 	github.com/stretchr/testify v1.8.1
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	golang.org/x/crypto v0.1.0
 	golang.org/x/net v0.1.0
+	golang.org/x/sync v0.1.0
 	google.golang.org/genproto v0.0.0-20221027153422-115e99e71e1c
 	google.golang.org/grpc v1.50.1
 	google.golang.org/protobuf v1.28.1

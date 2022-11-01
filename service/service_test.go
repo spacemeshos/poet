@@ -9,12 +9,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/spacemeshos/go-scale"
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/stretchr/testify/require"
 
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/signal"
+	"github.com/spacemeshos/poet/types/mock_types"
 )
 
 type MockBroadcaster struct {
@@ -42,11 +44,14 @@ func TestService_Recovery(t *testing.T) {
 		CycleGap:      time.Second / 4,
 	}
 
+	ctrl := gomock.NewController(t)
+	atxProvider := mock_types.NewMockAtxProvider(ctrl)
+
 	tempdir := t.TempDir()
 	// Create a new service instance.
 	s, err := NewService(sig, cfg, tempdir)
 	req.NoError(err)
-	err = s.Start(broadcaster)
+	err = s.Start(broadcaster, atxProvider)
 	req.NoError(err)
 
 	// Track the service rounds.
@@ -132,7 +137,7 @@ func TestService_Recovery(t *testing.T) {
 	s, err = NewService(sig, cfg, tempdir)
 	req.NoError(err)
 
-	err = s.Start(broadcaster)
+	err = s.Start(broadcaster, atxProvider)
 	req.NoError(err)
 
 	// Service instance should recover 2 rounds: round 1 in executing state, and round 2 in open state.
@@ -217,7 +222,9 @@ func TestNewService(t *testing.T) {
 	s, err := NewService(sig, cfg, tempdir)
 	req.NoError(err)
 	proofBroadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
-	err = s.Start(proofBroadcaster)
+	ctrl := gomock.NewController(t)
+	atxProvider := mock_types.NewMockAtxProvider(ctrl)
+	err = s.Start(proofBroadcaster, atxProvider)
 	req.NoError(err)
 
 	challengesCount := 8
