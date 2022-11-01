@@ -17,7 +17,6 @@ import (
 	"github.com/spacemeshos/smutil/log"
 	"golang.org/x/crypto/ed25519"
 
-	"github.com/spacemeshos/poet/broadcaster"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/signal"
@@ -70,9 +69,10 @@ type Service struct {
 
 	prevRound *round
 
-	PubKey      ed25519.PublicKey
-	privKey     ed25519.PrivateKey
-	broadcaster Broadcaster
+	PubKey  ed25519.PublicKey
+	privKey ed25519.PrivateKey
+	// holds Broadcaster interface
+	broadcaster atomic.Value
 
 	errChan chan error
 	sig     *signal.Signal
@@ -121,8 +121,6 @@ type PoetProofMessage struct {
 }
 
 func NewService(sig *signal.Signal, cfg *Config, datadir string) (*Service, error) {
-	s := new(Service)
-	s.cfg = cfg
 	genesis, err := time.Parse(time.RFC3339, cfg.Genesis)
 	if err != nil {
 		return nil, err
@@ -133,14 +131,7 @@ func NewService(sig *signal.Signal, cfg *Config, datadir string) (*Service, erro
 	if minMemoryLayer < prover.LowestMerkleMinMemoryLayer {
 		minMemoryLayer = prover.LowestMerkleMinMemoryLayer
 	}
-	log.Info("starting poet service. min memory layer: %v. genesis: %s", minMemoryLayer, cfg.Genesis)
-
-	s.minMemoryLayer = uint(minMemoryLayer)
-	s.genesis = genesis
-	s.datadir = datadir
-	s.executingRounds = make(map[string]*round)
-	s.errChan = make(chan error, 10)
-	s.sig = sig
+	log.Info("creating poet service. min memory layer: %v. genesis: %s", minMemoryLayer, cfg.Genesis)
 
 	if cfg.Reset {
 		entries, err := os.ReadDir(datadir)
@@ -148,76 +139,35 @@ func NewService(sig *signal.Signal, cfg *Config, datadir string) (*Service, erro
 			return nil, err
 		}
 		for _, entry := range entries {
-			if err := os.RemoveAll(filepath.Join(s.datadir, entry.Name())); err != nil {
+			if err := os.RemoveAll(filepath.Join(datadir, entry.Name())); err != nil {
 				return nil, err
 			}
 		}
 	}
 
-	state, err := s.state()
+	state, err := state(datadir)
 	if err != nil {
-		if !strings.Contains(err.Error(), "file is missing") {
+		if !errors.Is(err, ErrFileIsMissing) {
 			return nil, err
 		}
-		state = s.initialState()
+		state = initialState()
 	}
 
-	s.privKey = ed25519.NewKeyFromSeed(state.PrivKey[:32])
-	s.PubKey = state.PrivKey[32:]
-
+	privateKey := ed25519.NewKeyFromSeed(state.PrivKey[:32])
+	s := &Service{
+		cfg:             cfg,
+		minMemoryLayer:  uint(minMemoryLayer),
+		genesis:         genesis,
+		datadir:         datadir,
+		executingRounds: make(map[string]*round),
+		errChan:         make(chan error, 10),
+		sig:             sig,
+		privKey:         privateKey,
+		PubKey:          privateKey.Public().(ed25519.PublicKey),
+	}
 	log.Info("Service public key: %x", s.PubKey)
 
-	if len(cfg.GatewayAddresses) > 0 || cfg.DisableBroadcast {
-		b, err := broadcaster.New(
-			cfg.GatewayAddresses,
-			cfg.DisableBroadcast,
-			broadcaster.DefaultConnTimeout,
-			cfg.ConnAcksThreshold,
-			broadcaster.DefaultBroadcastTimeout,
-			cfg.BroadcastAcksThreshold,
-		)
-		if err != nil {
-			return nil, err
-		}
-		if err := s.Start(b); err != nil {
-			return nil, fmt.Errorf("failed to start service: %v", err)
-		}
-	} else {
-		log.Info("Service not starting, waiting for start request")
-	}
-
 	return s, nil
-}
-
-func (s *Service) initialState() *serviceState {
-	_, priv, err := ed25519.GenerateKey(nil)
-	if err != nil {
-		panic(fmt.Errorf("failed to generate key: %v", err))
-	}
-
-	return &serviceState{
-		PrivKey: priv,
-	}
-}
-
-func (s *Service) saveState() error {
-	filename := filepath.Join(s.datadir, serviceStateFileBaseName)
-	v := &serviceState{
-		PrivKey: s.privKey,
-	}
-
-	return persist(filename, v)
-}
-
-func (s *Service) state() (*serviceState, error) {
-	filename := filepath.Join(s.datadir, roundStateFileBaseName)
-	v := &serviceState{}
-
-	if err := load(filename, v); err != nil {
-		return nil, err
-	}
-
-	return v, nil
 }
 
 func (s *Service) Start(b Broadcaster) error {
@@ -283,11 +233,12 @@ func (s *Service) Start(b Broadcaster) error {
 					s.asyncError(fmt.Errorf("round %v execution error: %v", r.ID, err))
 					return
 				}
-				broadcastProof(s, r, r.execution, s.broadcaster)
+				broadcastProof(s, r, r.execution, s.getBroadcaster())
 			}(s.prevRound)
 		}
 	}()
 
+	log.Info("Service started")
 	return nil
 }
 
@@ -318,7 +269,7 @@ func (s *Service) Recover() error {
 
 		if state.isExecuted() {
 			log.Info("Recovery: found round %v in executed state. broadcasting...", r.ID)
-			go broadcastProof(s, r, state.Execution, s.broadcaster)
+			go broadcastProof(s, r, state.Execution, s.getBroadcaster())
 			continue
 		}
 
@@ -356,18 +307,19 @@ func (s *Service) Recover() error {
 			}
 
 			log.Info("Recovery: round %v execution ended, phi=%x", r.ID, r.execution.NIP.Root)
-			broadcastProof(s, r, r.execution, s.broadcaster)
+			broadcastProof(s, r, r.execution, s.getBroadcaster())
 		}(r, state)
 	}
 
 	return nil
 }
 
-func (s *Service) SetBroadcaster(b Broadcaster) {
-	initial := s.broadcaster == nil
-	s.broadcaster = b
+func (s *Service) getBroadcaster() Broadcaster {
+	return s.broadcaster.Load().(Broadcaster)
+}
 
-	if !initial {
+func (s *Service) SetBroadcaster(b Broadcaster) {
+	if s.broadcaster.Swap(b) != nil {
 		log.Info("Service broadcaster updated")
 	}
 }
@@ -437,7 +389,7 @@ func (s *Service) Info() (*InfoResponse, error) {
 
 // newRound creates a new round with the given epoch. This method MUST be guarded by a write lock on openRoundMutex.
 func (s *Service) newRound(epoch uint32) {
-	if err := s.saveState(); err != nil {
+	if err := saveState(s.datadir, s.privKey); err != nil {
 		panic(err)
 	}
 	r := newRound(s.sig, s.datadir, epoch)
