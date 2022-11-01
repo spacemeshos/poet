@@ -51,14 +51,16 @@ func (r *rpcServer) Start(ctx context.Context, in *rpcapi.StartRequest) (*rpcapi
 		broadcastAcks = 1
 	}
 
+	connCtx, cancel := context.WithTimeout(ctx, broadcaster.DefaultConnTimeout)
 	b, err := broadcaster.New(
+		connCtx,
 		in.GatewayAddresses,
 		in.DisableBroadcast,
-		broadcaster.DefaultConnTimeout,
 		uint(connAcks),
 		broadcaster.DefaultBroadcastTimeout,
 		uint(broadcastAcks),
 	)
+	cancel()
 	if err != nil {
 		return nil, err
 	}
@@ -96,14 +98,16 @@ func (r *rpcServer) UpdateGateway(ctx context.Context, in *rpcapi.UpdateGatewayR
 		broadcastAcks = 1
 	}
 
+	connCtx, cancel := context.WithTimeout(ctx, broadcaster.DefaultConnTimeout)
 	b, err := broadcaster.New(
+		connCtx,
 		in.GatewayAddresses,
 		in.DisableBroadcast,
-		broadcaster.DefaultConnTimeout,
 		uint(connAcks),
 		broadcaster.DefaultBroadcastTimeout,
 		uint(broadcastAcks),
 	)
+	cancel()
 	if err != nil {
 		return nil, err
 	}

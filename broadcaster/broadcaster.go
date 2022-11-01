@@ -11,8 +11,8 @@ import (
 	"github.com/spacemeshos/smutil/log"
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/keepalive"
+
+	"github.com/spacemeshos/poet/gateway"
 )
 
 const (
@@ -34,7 +34,7 @@ type Broadcaster struct {
 // connAcksThreshold set the lower-bound of required successful gRPC connections to the nodes. If not met, an error will be returned.
 // broadcastTimeout set the timeout per proof broadcast.
 // broadcastAcksThreshold set the lower-bound of required successful proof broadcasts. If not met, a warning will be logged.
-func New(gatewayAddresses []string, disableBroadcast bool, connTimeout time.Duration, connAcksThreshold uint, broadcastTimeout time.Duration, broadcastAcksThreshold uint) (*Broadcaster, error) {
+func New(ctx context.Context, gatewayAddresses []string, disableBroadcast bool, connAcksThreshold uint, broadcastTimeout time.Duration, broadcastAcksThreshold uint) (*Broadcaster, error) {
 	if disableBroadcast {
 		log.Info("Broadcast is disabled")
 		return &Broadcaster{}, nil
@@ -56,35 +56,11 @@ func New(gatewayAddresses []string, disableBroadcast bool, connTimeout time.Dura
 		return nil, fmt.Errorf("the successful connections threshold (%d) must be greater than the successful broadcast threshold (%d)", connAcksThreshold, broadcastAcksThreshold)
 	}
 
-	connectionVals := make([]*grpc.ClientConn, len(gatewayAddresses))
-	errs := make([]error, len(gatewayAddresses))
-
 	log.Info("Attempting to connect to Spacemesh gateway nodes at %v", gatewayAddresses)
-	var wg sync.WaitGroup
-	wg.Add(len(gatewayAddresses))
-	for i, address := range gatewayAddresses {
-		i := i
-		address := address
-		go func() {
-			defer wg.Done()
-			connectionVals[i], errs[i] = newClientConn(address, connTimeout)
-			if errs[i] == nil {
-				log.Info("Successfully connected to Spacemesh gateway node at \"%v\"", address)
-			}
-		}()
-	}
-	wg.Wait()
-
-	// Extract successful connections and concatenate errors of non-successful ones.
+	connections, errs := gateway.Connect(ctx, gatewayAddresses)
+	// concatenate errors of non-successful ones.
 	var retErr error
-	connections := make([]*grpc.ClientConn, 0)
-	for i, err := range errs {
-		if err == nil {
-			connections = append(connections, connectionVals[i])
-			continue
-		}
-
-		err := fmt.Errorf("failed to connect to Spacemesh gateway node at \"%v\": %v", gatewayAddresses[i], err)
+	for _, err := range errs {
 		if retErr == nil {
 			retErr = err
 		} else {
@@ -185,29 +161,4 @@ func (b *Broadcaster) BroadcastProof(msg []byte, roundID string, members [][]byt
 
 	log.Info("Round %v proof broadcast completed successfully after %v, num of members: %d, proof size: %d", roundID, elapsed, len(members), len(msg))
 	return nil
-}
-
-// newClientConn returns a new gRPC client
-// connection to the specified target.
-func newClientConn(target string, timeout time.Duration) (*grpc.ClientConn, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	opts := []grpc.DialOption{
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
-		// XXX: this is done to prevent routers from cleaning up our connections (e.g aws load balances..)
-		// TODO: these parameters work for now but we might need to revisit or add them as configuration
-		grpc.WithKeepaliveParams(keepalive.ClientParameters{
-			Time:                time.Minute,
-			Timeout:             time.Minute * 3,
-			PermitWithoutStream: true,
-		}),
-	}
-	defer cancel()
-
-	conn, err := grpc.DialContext(ctx, target, opts...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect to rpc server: %v", err)
-	}
-
-	return conn, nil
 }

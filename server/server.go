@@ -70,14 +70,16 @@ func StartServer(cfg *config.Config) error {
 			return err
 		}
 		if len(cfg.Service.GatewayAddresses) > 0 {
+			connCtx, cancel := context.WithTimeout(ctx, broadcaster.DefaultConnTimeout)
 			broadcaster, err := broadcaster.New(
+				connCtx,
 				cfg.Service.GatewayAddresses,
 				cfg.Service.DisableBroadcast,
-				broadcaster.DefaultConnTimeout,
 				cfg.Service.ConnAcksThreshold,
 				broadcaster.DefaultBroadcastTimeout,
 				cfg.Service.BroadcastAcksThreshold,
 			)
+			cancel()
 			if err != nil {
 				return err
 			}

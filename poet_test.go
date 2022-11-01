@@ -90,7 +90,7 @@ func TestHarness(t *testing.T) {
 	r.EqualError(err, "rpc error: code = Unknown desc = service not started")
 
 	_, err = h.Start(ctx, &api.StartRequest{GatewayAddresses: []string{"666"}})
-	r.EqualError(err, "rpc error: code = Unknown desc = failed to connect to Spacemesh gateway node at \"666\": failed to connect to rpc server: context deadline exceeded")
+	r.EqualError(err, "rpc error: code = DeadlineExceeded desc = failed to connect to gateway grpc server 666 (context deadline exceeded)")
 
 	_, err = h.Start(ctx, &api.StartRequest{DisableBroadcast: true, GatewayAddresses: []string{gatewaySvcAddress}})
 	r.NoError(err)
