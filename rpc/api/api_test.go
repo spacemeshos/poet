@@ -69,7 +69,7 @@ func TestParsingRoundTrip(t *testing.T) {
 		challenge := shared.Challenge{
 			NodeID:           randomBytes(t, 32),
 			PositioningAtxId: randomBytes(t, 32),
-			PubLayerId:       randomBytes(t, 32),
+			PubLayerId:       shared.LayerID(rand.Uint32()),
 			InitialPost: &shared.InitialPost{
 				Proof: sharedPost.Proof{
 					Nonce:   rand.Uint32(),
@@ -95,7 +95,7 @@ func TestParsingRoundTrip(t *testing.T) {
 		challenge := shared.Challenge{
 			NodeID:           randomBytes(t, 32),
 			PositioningAtxId: randomBytes(t, 32),
-			PubLayerId:       randomBytes(t, 32),
+			PubLayerId:       shared.LayerID(rand.Uint32()),
 			InitialPost:      nil,
 			PreviousATXId:    randomBytes(t, 32),
 		}

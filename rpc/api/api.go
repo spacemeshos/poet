@@ -19,7 +19,7 @@ func intoSubmitRequestData(d *shared.Challenge) (*rpcapi.SubmitRequest_Data, err
 	data := &rpcapi.SubmitRequest_Data{
 		NodeId:           d.NodeID,
 		PositioningAtxId: d.PositioningAtxId,
-		PubLayerId:       d.PubLayerId,
+		PubLayerId:       uint32(d.PubLayerId),
 	}
 
 	if d.InitialPost != nil {
@@ -72,7 +72,7 @@ func FromSubmitRequest(r *rpcapi.SubmitRequest) (signing.Signed[shared.Challenge
 	data := shared.Challenge{
 		NodeID:           r.GetData().GetNodeId(),
 		PositioningAtxId: r.GetData().GetPositioningAtxId(),
-		PubLayerId:       r.GetData().GetPubLayerId(),
+		PubLayerId:       shared.LayerID(r.GetData().GetPubLayerId()),
 	}
 
 	if initialPost := r.Data.GetInitialPost(); initialPost != nil {

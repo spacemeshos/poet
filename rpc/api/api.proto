@@ -91,7 +91,7 @@ message SubmitRequest {
         }
         bytes node_id = 1;
         bytes positioning_atx_id = 2;
-        bytes pub_layer_id = 3;
+        uint32 pub_layer_id = 3;
         oneof prev {
             InitialPost initial_post = 4;
             bytes prev_atx_id = 5;

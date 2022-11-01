@@ -59,7 +59,7 @@ func (t *Challenge) EncodeScale(enc *scale.Encoder) (total int, err error) {
 		total += n
 	}
 	{
-		n, err := scale.EncodeByteSlice(enc, t.PubLayerId)
+		n, err := scale.EncodeCompact32(enc, uint32(t.PubLayerId))
 		if err != nil {
 			return total, err
 		}
@@ -100,12 +100,12 @@ func (t *Challenge) DecodeScale(dec *scale.Decoder) (total int, err error) {
 		t.PositioningAtxId = field
 	}
 	{
-		field, n, err := scale.DecodeByteSlice(dec)
+		field, n, err := scale.DecodeCompact32(dec)
 		if err != nil {
 			return total, err
 		}
 		total += n
-		t.PubLayerId = field
+		t.PubLayerId = LayerID(field)
 	}
 	{
 		field, n, err := scale.DecodeOption[InitialPost](dec)

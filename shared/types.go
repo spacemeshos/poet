@@ -11,11 +11,13 @@ type InitialPost struct {
 	Metadata shared.ProofMetadata
 }
 
+type LayerID uint32
+
 type Challenge struct {
 	NodeID           []byte
-	PositioningAtxId []byte
-	PubLayerId       []byte
+	PositioningAtxId ATXID
+	PubLayerId       LayerID
 	// only one of InitialPost, previousATX is valid at the same time
 	InitialPost   *InitialPost
-	PreviousATXId []byte
+	PreviousATXId ATXID
 }

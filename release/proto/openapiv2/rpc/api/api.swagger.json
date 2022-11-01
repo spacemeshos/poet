@@ -209,8 +209,8 @@
           "format": "byte"
         },
         "pubLayerId": {
-          "type": "string",
-          "format": "byte"
+          "type": "integer",
+          "format": "int64"
         },
         "initialPost": {
           "$ref": "#/definitions/DataInitialPost"
