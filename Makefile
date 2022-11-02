@@ -55,13 +55,13 @@ GOTESTSUM := $(GOBIN)/gotestsum
 BUILD_DEPS := $(BIN_DIR)/libgpu-setup.so
 export CGO_LDFLAGS := -L$(BIN_DIR)  -Wl,-rpath,$(BIN_DIR)
 
-# We depend on post submodule. It's only needed to access
-# makefile fetching libgpu-setup.so so there is no must
+# We depend on post submodule Makefile.Inc fetching
+# libgpu-setup.so so there is no must
 # to keep it in sync with Go's dependency on post package.
-post:
-	git submodule update --init -- $@
+post/Makefile.Inc:
+	git submodule update --init -- post
 
-$(BIN_DIR)/libgpu-setup.so: post
+$(BIN_DIR)/libgpu-setup.so: post/Makefile.Inc
 	BIN_DIR=$(abspath $(dir $@))/ make -f post/Makefile.Inc get-gpu-setup
 
 $(BIN_DIR)/mockgen:
