@@ -100,6 +100,7 @@ func connect(ctx context.Context, gateways []string) ([]*grpc.ClientConn, []erro
 			if err != nil {
 				errorsChan <- fmt.Errorf("failed to connect to gateway grpc server %s (%w)", target, err)
 			} else {
+				log.With().Info("Successfully connected to gateway node", log.String("target", conn.Target()))
 				connsChan <- conn
 			}
 			return nil
