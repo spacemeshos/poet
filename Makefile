@@ -171,7 +171,7 @@ push:
 .PHONY: push
 
 # Rebuild .proto files
-generate: $(BIN_DIR)/mockgen
+generate: $(BIN_DIR)/mockgen $(BUILD_DEPS)
 	go generate ./...
 	buf generate
 .PHONY: generate
