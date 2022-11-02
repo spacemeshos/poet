@@ -52,6 +52,18 @@ endif
 export GOBIN := $(BIN_DIR)
 GOTESTSUM := $(GOBIN)/gotestsum
 
+BUILD_DEPS := $(BIN_DIR)/libgpu-setup.so
+export CGO_LDFLAGS := -L$(BIN_DIR)  -Wl,-rpath,$(BIN_DIR)
+
+# We depend on post submodule. It's only needed to access
+# makefile fetching libgpu-setup.so so there is no must
+# to keep it in sync with Go's dependency on post package.
+post:
+	git submodule update --init -- $@
+
+$(BIN_DIR)/libgpu-setup.so: post
+	BIN_DIR=$(abspath $(dir $@))/ make -f post/Makefile.Inc get-gpu-setup
+
 install-buf:
 	@mkdir -p $(BIN_DIR)
 	curl -sSL "https://github.com/bufbuild/buf/releases/download/v$(BUF_VERSION)/buf-$(UNAME_OS)-$(UNAME_ARCH)" -o $(BIN_DIR)/buf
@@ -80,7 +92,7 @@ protoc-plugins:
 all: build
 .PHONY: all
 
-test:
+test: $(BUILD_DEPS)
 	$(GOTESTSUM) -- -timeout 5m -p 1 ./...
 .PHONY: test
 
@@ -135,7 +147,7 @@ lint-protos:
 	buf lint
 .PHONY: lint-protos
 
-cover:
+cover: $(BUILD_DEPS)
 	go test -coverprofile=cover.out -timeout 0 -p 1 ./...
 .PHONY: cover
 
@@ -143,7 +155,7 @@ staticcheck:
 	staticcheck ./...
 .PHONY: staticcheck
 
-build:
+build: $(BUILD_DEPS)
 	go build -o $(BINARY)
 .PHONY: build
 

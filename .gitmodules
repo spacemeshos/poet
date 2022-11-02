@@ -1,0 +1,4 @@
+[submodule "post"]
+	path = post
+	url = git@github.com:spacemeshos/post.git
+	branch = develop
