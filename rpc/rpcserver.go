@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
@@ -8,6 +9,7 @@ import (
 
 	"github.com/spacemeshos/poet/gateway"
 	"github.com/spacemeshos/poet/gateway/broadcaster"
+	"github.com/spacemeshos/poet/gateway/smesher"
 	rpcapi "github.com/spacemeshos/poet/release/proto/go/rpc/api"
 	"github.com/spacemeshos/poet/rpc/api"
 	"github.com/spacemeshos/poet/service"
@@ -58,6 +60,10 @@ func (r *rpcServer) Start(ctx context.Context, in *rpcapi.StartRequest) (*rpcapi
 	if len(gtwManager.Connections()) < connAcks {
 		return nil, err
 	}
+	postConfig := smesher.FetchPostConfig(ctx, gtwManager.Connections())
+	if postConfig == nil {
+		return nil, errors.New("failed to fetch post config from gateways")
+	}
 	b, err := broadcaster.New(
 		r.gtwManager.Connections(),
 		in.DisableBroadcast,
@@ -78,7 +84,7 @@ func (r *rpcServer) Start(ctx context.Context, in *rpcapi.StartRequest) (*rpcapi
 	// The temporary manager is nil-ed to avoid closing connections in defer.
 	r.gtwManager.Close()
 	r.gtwManager, gtwManager = gtwManager, nil
-	if err := r.s.Start(b, atxProvider); err != nil {
+	if err := r.s.Start(b, atxProvider, postConfig); err != nil {
 		return nil, fmt.Errorf("failed to start service: %w", err)
 	}
 	return &rpcapi.StartResponse{}, nil
@@ -107,7 +113,10 @@ func (r *rpcServer) UpdateGateway(ctx context.Context, in *rpcapi.UpdateGatewayR
 	if len(gtwManager.Connections()) < connAcks {
 		return nil, err
 	}
-
+	postConfig := smesher.FetchPostConfig(ctx, gtwManager.Connections())
+	if postConfig == nil {
+		return nil, errors.New("failed to fetch post config from gateways")
+	}
 	b, err := broadcaster.New(
 		gtwManager.Connections(),
 		in.DisableBroadcast,
@@ -130,6 +139,7 @@ func (r *rpcServer) UpdateGateway(ctx context.Context, in *rpcapi.UpdateGatewayR
 	r.gtwManager, gtwManager = gtwManager, nil
 	r.s.SetBroadcaster(b)
 	r.s.SetAtxProvider(atxProvider)
+	r.s.SetPostConfig(postConfig)
 
 	return &rpcapi.UpdateGatewayResponse{}, nil
 }

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -18,6 +19,7 @@ import (
 	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/gateway"
 	"github.com/spacemeshos/poet/gateway/broadcaster"
+	"github.com/spacemeshos/poet/gateway/smesher"
 	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
 	"github.com/spacemeshos/poet/release/proto/go/rpccore/apicore"
 	"github.com/spacemeshos/poet/rpc"
@@ -71,6 +73,10 @@ func StartServer(cfg *config.Config) error {
 		}
 		gtwManager, _ := gateway.NewGatewayManager(ctx, cfg.Service.GatewayAddresses)
 		if len(gtwManager.Connections()) > 0 {
+			postConfig := smesher.FetchPostConfig(ctx, gtwManager.Connections())
+			if postConfig == nil {
+				return errors.New("failed to fetch post config from gateways")
+			}
 			broadcaster, err := broadcaster.New(
 				gtwManager.Connections(),
 				cfg.Service.DisableBroadcast,
@@ -88,7 +94,7 @@ func StartServer(cfg *config.Config) error {
 				return fmt.Errorf("failed to create ATX provider: %w", err)
 			}
 
-			svc.Start(broadcaster, atxProvider)
+			svc.Start(broadcaster, atxProvider, postConfig)
 		} else {
 			log.Info("Service not starting, waiting for start request")
 		}

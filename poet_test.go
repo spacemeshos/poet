@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang/protobuf/ptypes/empty"
 	v1 "github.com/spacemeshos/api/release/go/spacemesh/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -33,11 +34,19 @@ var testCases = []*harnessTestCase{
 	{name: "submit", test: testSubmit},
 }
 
+type postConfigService struct {
+	v1.UnimplementedSmesherServiceServer
+}
+
+func (s *postConfigService) PostConfig(context.Context, *empty.Empty) (*v1.PostConfigResponse, error) {
+	return &v1.PostConfigResponse{}, nil
+}
+
 func spawnMockGateway(t *testing.T) (target string) {
 	t.Helper()
 	server := gateway.NewMockGrpcServer(t)
 	v1.RegisterActivationServiceServer(server.Server, &v1.UnimplementedActivationServiceServer{})
-
+	v1.RegisterSmesherServiceServer(server.Server, &postConfigService{})
 	go func() { require.NoError(t, server.Serve()) }()
 	t.Cleanup(server.Stop)
 

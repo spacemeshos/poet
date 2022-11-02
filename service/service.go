@@ -79,10 +79,11 @@ type Service struct {
 
 	PubKey  ed25519.PublicKey
 	privKey ed25519.PrivateKey
-	// holds Broadcaster interface
-	broadcaster atomic.Value
+
+	broadcaster atomic.Value // holds Broadcaster interface
 	atxProvider atomic.Value // holds types.AtxProvider
-	postConfig  types.PostConfig
+
+	postConfig atomic.Pointer[types.PostConfig]
 
 	errChan chan error
 	sig     *signal.Signal
@@ -180,13 +181,14 @@ func NewService(sig *signal.Signal, cfg *Config, datadir string) (*Service, erro
 	return s, nil
 }
 
-func (s *Service) Start(b Broadcaster, atxProvider types.AtxProvider) error {
+func (s *Service) Start(b Broadcaster, atxProvider types.AtxProvider, postConfig *types.PostConfig) error {
 	if !atomic.CompareAndSwapInt32(&s.started, 0, 1) {
 		return ErrAlreadyStarted
 	}
 
 	s.SetBroadcaster(b)
 	s.SetAtxProvider(atxProvider)
+	s.SetPostConfig(postConfig)
 
 	if s.cfg.NoRecovery {
 		log.Info("Recovery is disabled")
@@ -339,6 +341,10 @@ func (s *Service) SetAtxProvider(provider types.AtxProvider) {
 	s.atxProvider.Store(provider)
 }
 
+func (s *Service) SetPostConfig(config *types.PostConfig) {
+	s.postConfig.Store(config)
+}
+
 func (s *Service) executeRound(r *round) error {
 	s.Lock()
 	s.executingRounds[r.ID] = r
@@ -381,7 +387,7 @@ func (s *Service) Submit(ctx context.Context, challenge []byte, signedChallenge 
 		// SAFETY: it will never panic as `s.atxProvider` is set in Start
 		atxProvider := s.atxProvider.Load().(types.AtxProvider)
 		dummyVerifier := func(*postShared.Proof, *postShared.ProofMetadata) error { return nil }
-		if err := validateChallenge(ctx, signedChallenge.Data(), atxProvider, &s.postConfig, dummyVerifier); err != nil {
+		if err := validateChallenge(ctx, signedChallenge.Data(), atxProvider, s.postConfig.Load(), dummyVerifier); err != nil {
 			return nil, nil, err
 		}
 		// TODO(brozansk) calculate sequence number

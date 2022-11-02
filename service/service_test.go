@@ -16,6 +16,7 @@ import (
 
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/signal"
+	"github.com/spacemeshos/poet/types"
 	"github.com/spacemeshos/poet/types/mock_types"
 )
 
@@ -51,7 +52,7 @@ func TestService_Recovery(t *testing.T) {
 	// Create a new service instance.
 	s, err := NewService(sig, cfg, tempdir)
 	req.NoError(err)
-	err = s.Start(broadcaster, atxProvider)
+	err = s.Start(broadcaster, atxProvider, &types.PostConfig{})
 	req.NoError(err)
 
 	// Track the service rounds.
@@ -137,7 +138,7 @@ func TestService_Recovery(t *testing.T) {
 	s, err = NewService(sig, cfg, tempdir)
 	req.NoError(err)
 
-	err = s.Start(broadcaster, atxProvider)
+	err = s.Start(broadcaster, atxProvider, &types.PostConfig{})
 	req.NoError(err)
 
 	// Service instance should recover 2 rounds: round 1 in executing state, and round 2 in open state.
@@ -224,7 +225,7 @@ func TestNewService(t *testing.T) {
 	proofBroadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
 	ctrl := gomock.NewController(t)
 	atxProvider := mock_types.NewMockAtxProvider(ctrl)
-	err = s.Start(proofBroadcaster, atxProvider)
+	err = s.Start(proofBroadcaster, atxProvider, &types.PostConfig{})
 	req.NoError(err)
 
 	challengesCount := 8
