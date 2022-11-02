@@ -15,9 +15,9 @@ import (
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/peer"
 
-	"github.com/spacemeshos/poet/broadcaster"
 	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/gateway"
+	"github.com/spacemeshos/poet/gateway/broadcaster"
 	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
 	"github.com/spacemeshos/poet/release/proto/go/rpccore/apicore"
 	"github.com/spacemeshos/poet/rpc"
