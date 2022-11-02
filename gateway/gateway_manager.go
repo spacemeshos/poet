@@ -5,15 +5,75 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/spacemeshos/smutil/log"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 )
 
+const DefaultConnTimeout = 10 * time.Second
+
+type ConnectingErrors struct {
+	errors []error
+}
+
+func (e *ConnectingErrors) Error() string {
+	// concatenate errors
+	err := ""
+	for _, e := range e.errors {
+		if err == "" {
+			err = e.Error()
+		} else {
+			err = fmt.Sprintf("%v | %v", err, e)
+		}
+	}
+	return err
+}
+
+func (e *ConnectingErrors) Is(target error) bool {
+	_, ok := target.(*ConnectingErrors)
+	return ok
+}
+
+// GatewayManager aggregates GRPC connections to gateways.
+// Its Close() must be called when the connections are no longer needed.
+type GatewayManager struct {
+	connections []*grpc.ClientConn
+}
+
+func (m *GatewayManager) Connections() []*grpc.ClientConn {
+	if m == nil {
+		return []*grpc.ClientConn{}
+	}
+	return m.connections
+}
+
+func (m *GatewayManager) Close() {
+	if m == nil {
+		return
+	}
+	for _, conn := range m.connections {
+		conn.Close()
+	}
+}
+
+// NewGatewayManager creates a GatewayManager connected to `gateways`.
+// Close() must be called when the connections are no longer needed.
+func NewGatewayManager(ctx context.Context, gateways []string) (*GatewayManager, error) {
+	ctx, cancel := context.WithTimeout(ctx, DefaultConnTimeout)
+	defer cancel()
+	connections, errs := connect(ctx, gateways)
+
+	return &GatewayManager{
+		connections: connections,
+	}, &ConnectingErrors{errors: errs}
+}
+
 // Connect tries to connect to gateways at provided addresses.
 // Returns list of connections and errors for connection failures.
-func Connect(ctx context.Context, gateways []string) ([]*grpc.ClientConn, []error) {
+func connect(ctx context.Context, gateways []string) ([]*grpc.ClientConn, []error) {
+	log.Info("Attempting to connect to Spacemesh gateway nodes at %v", gateways)
 	connections := make([]*grpc.ClientConn, 0, len(gateways))
 	errors := make([]error, 0)
 

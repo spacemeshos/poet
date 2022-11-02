@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/spacemeshos/smutil/log"
 	"golang.org/x/net/context"
 
 	"github.com/spacemeshos/poet/broadcaster"
@@ -18,7 +17,8 @@ import (
 
 // rpcServer is a gRPC, RPC front end to poet.
 type rpcServer struct {
-	s *service.Service
+	s          *service.Service
+	gtwManager *gateway.GatewayManager
 	sync.Mutex
 }
 
@@ -27,10 +27,12 @@ type rpcServer struct {
 var _ rpcapi.PoetServer = (*rpcServer)(nil)
 
 // NewRPCServer creates and returns a new instance of the rpcServer.
-func NewRPCServer(service *service.Service) *rpcServer {
-	return &rpcServer{
-		s: service,
+func NewRPCServer(service *service.Service, gtwManager *gateway.GatewayManager) *rpcServer {
+	server := &rpcServer{
+		s:          service,
+		gtwManager: gtwManager,
 	}
+	return server
 }
 
 func (r *rpcServer) Start(ctx context.Context, in *rpcapi.StartRequest) (*rpcapi.StartResponse, error) {
@@ -41,7 +43,7 @@ func (r *rpcServer) Start(ctx context.Context, in *rpcapi.StartRequest) (*rpcapi
 		return nil, service.ErrAlreadyStarted
 	}
 
-	connAcks := in.ConnAcksThreshold
+	connAcks := int(in.ConnAcksThreshold)
 	if connAcks < 1 {
 		connAcks = 1
 	}
@@ -51,29 +53,31 @@ func (r *rpcServer) Start(ctx context.Context, in *rpcapi.StartRequest) (*rpcapi
 		broadcastAcks = 1
 	}
 
-	connCtx, cancel := context.WithTimeout(ctx, broadcaster.DefaultConnTimeout)
+	gtwManager, err := gateway.NewGatewayManager(ctx, in.GatewayAddresses)
+	defer gtwManager.Close() // nolint:staticcheck // SA5001 (need to Close() even in case of an error)
+	if len(gtwManager.Connections()) < connAcks {
+		return nil, err
+	}
 	b, err := broadcaster.New(
-		connCtx,
-		in.GatewayAddresses,
+		r.gtwManager.Connections(),
 		in.DisableBroadcast,
 		uint(connAcks),
 		broadcaster.DefaultBroadcastTimeout,
 		uint(broadcastAcks),
 	)
-	cancel()
 	if err != nil {
 		return nil, err
 	}
 
-	gateways, errs := gateway.Connect(ctx, in.GatewayAddresses)
-	for _, err := range errs {
-		log.With().Warning("failed to connect to gateway grpc server", log.Err(err))
-	}
-	atxProvider, err := service.CreateAtxProvider(gateways)
+	atxProvider, err := service.CreateAtxProvider(gtwManager.Connections())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create ATX provider: %w", err)
 	}
 
+	// Close the old connections and save the new manager.
+	// The temporary manager is nil-ed to avoid closing connections in defer.
+	r.gtwManager.Close()
+	r.gtwManager, gtwManager = gtwManager, nil
 	if err := r.s.Start(b, atxProvider); err != nil {
 		return nil, fmt.Errorf("failed to start service: %w", err)
 	}
@@ -88,7 +92,7 @@ func (r *rpcServer) UpdateGateway(ctx context.Context, in *rpcapi.UpdateGatewayR
 		return nil, service.ErrNotStarted
 	}
 
-	connAcks := in.ConnAcksThreshold
+	connAcks := int(in.ConnAcksThreshold)
 	if connAcks < 1 {
 		connAcks = 1
 	}
@@ -98,29 +102,32 @@ func (r *rpcServer) UpdateGateway(ctx context.Context, in *rpcapi.UpdateGatewayR
 		broadcastAcks = 1
 	}
 
-	connCtx, cancel := context.WithTimeout(ctx, broadcaster.DefaultConnTimeout)
+	gtwManager, err := gateway.NewGatewayManager(ctx, in.GatewayAddresses)
+	defer gtwManager.Close() // nolint:staticcheck // SA5001 (need to Close() even in case of an error)
+	if len(gtwManager.Connections()) < connAcks {
+		return nil, err
+	}
+
 	b, err := broadcaster.New(
-		connCtx,
-		in.GatewayAddresses,
+		gtwManager.Connections(),
 		in.DisableBroadcast,
 		uint(connAcks),
 		broadcaster.DefaultBroadcastTimeout,
 		uint(broadcastAcks),
 	)
-	cancel()
 	if err != nil {
 		return nil, err
 	}
 
-	gateways, errs := gateway.Connect(ctx, in.GatewayAddresses)
-	for _, err := range errs {
-		log.With().Warning("failed to connect to gateway grpc server", log.Err(err))
-	}
-	atxProvider, err := service.CreateAtxProvider(gateways)
+	atxProvider, err := service.CreateAtxProvider(gtwManager.Connections())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create ATX provider: %w", err)
 	}
 
+	// Close the old connections and save the new manager.
+	// The temporary manager is nil-ed to avoid closing connections in defer.
+	r.gtwManager.Close()
+	r.gtwManager, gtwManager = gtwManager, nil
 	r.s.SetBroadcaster(b)
 	r.s.SetAtxProvider(atxProvider)
 

@@ -69,26 +69,22 @@ func StartServer(cfg *config.Config) error {
 		if err != nil {
 			return err
 		}
-		if len(cfg.Service.GatewayAddresses) > 0 {
-			connCtx, cancel := context.WithTimeout(ctx, broadcaster.DefaultConnTimeout)
+		gtwManager, _ := gateway.NewGatewayManager(ctx, cfg.Service.GatewayAddresses)
+		if len(gtwManager.Connections()) > 0 {
 			broadcaster, err := broadcaster.New(
-				connCtx,
-				cfg.Service.GatewayAddresses,
+				gtwManager.Connections(),
 				cfg.Service.DisableBroadcast,
 				cfg.Service.ConnAcksThreshold,
 				broadcaster.DefaultBroadcastTimeout,
 				cfg.Service.BroadcastAcksThreshold,
 			)
-			cancel()
 			if err != nil {
+				gtwManager.Close()
 				return err
 			}
-			gateways, errs := gateway.Connect(ctx, cfg.Service.GatewayAddresses)
-			for _, err := range errs {
-				log.With().Warning("failed to connect to gateway grpc server", log.Err(err))
-			}
-			atxProvider, err := service.CreateAtxProvider(gateways)
+			atxProvider, err := service.CreateAtxProvider(gtwManager.Connections())
 			if err != nil {
+				gtwManager.Close()
 				return fmt.Errorf("failed to create ATX provider: %w", err)
 			}
 
@@ -97,7 +93,7 @@ func StartServer(cfg *config.Config) error {
 			log.Info("Service not starting, waiting for start request")
 		}
 
-		rpcServer := rpc.NewRPCServer(svc)
+		rpcServer := rpc.NewRPCServer(svc, gtwManager)
 		grpcServer = grpc.NewServer(options...)
 
 		api.RegisterPoetServer(grpcServer, rpcServer)

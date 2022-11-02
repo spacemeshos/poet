@@ -4,18 +4,15 @@ import (
 	"bufio"
 	"context"
 	"crypto/rand"
-	"fmt"
-	"net"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
 	v1 "github.com/spacemeshos/api/release/go/spacemesh/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
 
+	"github.com/spacemeshos/poet/gateway"
 	"github.com/spacemeshos/poet/integration"
 	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
 )
@@ -36,38 +33,21 @@ var testCases = []*harnessTestCase{
 	{name: "submit", test: testSubmit},
 }
 
-type mockGateway struct {
-	port uint16
-	*grpc.Server
-}
-
-func spawnMockGateway(t *testing.T) mockGateway {
+func spawnMockGateway(t *testing.T) (target string) {
 	t.Helper()
-	lis, err := net.Listen("tcp", ":0")
-	require.NoError(t, err)
+	server := gateway.NewMockGrpcServer(t)
+	v1.RegisterActivationServiceServer(server.Server, &v1.UnimplementedActivationServiceServer{})
 
-	port, err := strconv.ParseUint(strings.TrimPrefix(lis.Addr().String(), "[::]:"), 10, 16)
-	require.NoError(t, err)
+	go func() { require.NoError(t, server.Serve()) }()
+	t.Cleanup(server.Stop)
 
-	s := grpc.NewServer()
-	v1.RegisterActivationServiceServer(s, &v1.UnimplementedActivationServiceServer{})
-	go func() {
-		err := s.Serve(lis)
-		require.NoError(t, err)
-	}()
-
-	t.Cleanup(s.Stop)
-	return mockGateway{
-		Server: s,
-		port:   uint16(port),
-	}
+	return server.Target()
 }
 
 func TestHarness(t *testing.T) {
 	r := require.New(t)
 
-	gatewaySvc := spawnMockGateway(t)
-	gatewaySvcAddress := fmt.Sprintf("localhost:%d", gatewaySvc.port)
+	target := spawnMockGateway(t)
 
 	cfg, err := integration.DefaultConfig()
 	r.NoError(err)
@@ -90,9 +70,9 @@ func TestHarness(t *testing.T) {
 	r.EqualError(err, "rpc error: code = Unknown desc = service not started")
 
 	_, err = h.Start(ctx, &api.StartRequest{GatewayAddresses: []string{"666"}})
-	r.EqualError(err, "rpc error: code = DeadlineExceeded desc = failed to connect to gateway grpc server 666 (context deadline exceeded)")
+	r.EqualError(err, "rpc error: code = Unknown desc = failed to connect to gateway grpc server 666 (context deadline exceeded)")
 
-	_, err = h.Start(ctx, &api.StartRequest{DisableBroadcast: true, GatewayAddresses: []string{gatewaySvcAddress}})
+	_, err = h.Start(ctx, &api.StartRequest{DisableBroadcast: true, GatewayAddresses: []string{target}})
 	r.NoError(err)
 
 	_, err = h.Start(ctx, &api.StartRequest{DisableBroadcast: true})
@@ -129,15 +109,14 @@ func testSubmit(ctx context.Context, h *integration.Harness, assert *require.Ass
 func TestHarness_CrashRecovery(t *testing.T) {
 	req := require.New(t)
 
-	gatewaySvc := spawnMockGateway(t)
-	gatewaySvcAddress := fmt.Sprintf("localhost:%d", gatewaySvc.port)
+	target := spawnMockGateway(t)
 
 	cfg, err := integration.DefaultConfig()
 	req.NoError(err)
 	cfg.Genesis = time.Now().Add(5 * time.Second)
 	cfg.Reset = true
 	cfg.DisableBroadcast = true
-	cfg.GatewayAddresses = []string{gatewaySvcAddress}
+	cfg.GatewayAddresses = []string{target}
 
 	// Track rounds.
 	numRounds := 40
