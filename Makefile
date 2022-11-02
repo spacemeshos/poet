@@ -64,6 +64,9 @@ post:
 $(BIN_DIR)/libgpu-setup.so: post
 	BIN_DIR=$(abspath $(dir $@))/ make -f post/Makefile.Inc get-gpu-setup
 
+$(BIN_DIR)/mockgen:
+	go install github.com/golang/mock/mockgen@v1.6.0
+
 install-buf:
 	@mkdir -p $(BIN_DIR)
 	curl -sSL "https://github.com/bufbuild/buf/releases/download/v$(BUF_VERSION)/buf-$(UNAME_OS)-$(UNAME_ARCH)" -o $(BIN_DIR)/buf
@@ -168,7 +171,7 @@ push:
 .PHONY: push
 
 # Rebuild .proto files
-generate:
+generate: $(BIN_DIR)/mockgen
 	go generate ./...
 	buf generate
 .PHONY: generate
