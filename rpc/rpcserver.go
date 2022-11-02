@@ -56,6 +56,7 @@ func (r *rpcServer) Start(ctx context.Context, in *rpcapi.StartRequest) (*rpcapi
 	}
 
 	gtwManager, err := gateway.NewGatewayManager(ctx, in.GatewayAddresses)
+	//lint:ignore SA5001 (need to Close() even in case of an error)
 	defer gtwManager.Close() // nolint:staticcheck // SA5001 (need to Close() even in case of an error)
 	if len(gtwManager.Connections()) < connAcks {
 		return nil, err
@@ -109,7 +110,8 @@ func (r *rpcServer) UpdateGateway(ctx context.Context, in *rpcapi.UpdateGatewayR
 	}
 
 	gtwManager, err := gateway.NewGatewayManager(ctx, in.GatewayAddresses)
-	defer gtwManager.Close() // nolint:staticcheck // SA5001 (need to Close() even in case of an error)
+	//lint:ignore SA5001 (need to Close() even in case of an error)
+	defer gtwManager.Close() // nolint:staticcheck
 	if len(gtwManager.Connections()) < connAcks {
 		return nil, err
 	}

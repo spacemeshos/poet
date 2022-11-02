@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/spacemeshos/poet/shared"
-	"github.com/spacemeshos/poet/signing"
 	"github.com/spacemeshos/poet/types"
 	"github.com/spacemeshos/poet/types/mock_types"
 )
@@ -19,28 +18,6 @@ var errInvalidPostProof = errors.New("invalid post proof")
 
 func acceptProof(*postShared.Proof, *postShared.ProofMetadata) error { return nil }
 func denyProof(*postShared.Proof, *postShared.ProofMetadata) error   { return errInvalidPostProof }
-
-type signedChallengeMock struct {
-	data func() *shared.Challenge
-}
-
-func (m *signedChallengeMock) Data() *shared.Challenge {
-	return m.data()
-}
-
-func (m *signedChallengeMock) PubKey() []byte {
-	return []byte{}
-}
-
-func (m *signedChallengeMock) Signature() []byte {
-	return []byte{}
-}
-
-func newMockSignedChallenge(t *testing.T, dataFn func() *shared.Challenge) signing.Signed[shared.Challenge] {
-	return &signedChallengeMock{
-		data: dataFn,
-	}
-}
 
 func createChallengeWithInitialPost(postConfig *types.PostConfig, overrides ...func(*shared.Challenge)) *shared.Challenge {
 	challenge := shared.Challenge{

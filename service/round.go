@@ -149,7 +149,7 @@ func (r *round) submit(key, challenge []byte) error {
 	if has, err := r.challengesDb.Has(key); err != nil {
 		return err
 	} else if has {
-		return fmt.Errorf("A challenge has already been submitted for %X", key)
+		return fmt.Errorf("a challenge has already been submitted for %X", key)
 	}
 	return r.challengesDb.Put(key, challenge)
 }
