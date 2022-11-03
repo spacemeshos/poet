@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/spacemeshos/poet/prover"
 )
@@ -23,7 +22,6 @@ func TestRound_Recovery(t *testing.T) {
 	req := require.New(t)
 
 	ctx, stop := context.WithCancel(context.Background())
-	serverGroup, ctx := errgroup.WithContext(ctx)
 
 	duration := 500 * time.Millisecond
 	tmpdir := t.TempDir()
@@ -32,7 +30,7 @@ func TestRound_Recovery(t *testing.T) {
 	req.NoError(err)
 
 	// Execute r1 as a reference round.
-	r1 := newRound(ctx, serverGroup, tmpdir, 0)
+	r1 := newRound(ctx, tmpdir, 0)
 	req.NoError(r1.open())
 	req.Equal(0, r1.numChallenges())
 	req.True(r1.isEmpty())
@@ -46,7 +44,7 @@ func TestRound_Recovery(t *testing.T) {
 	req.NoError(r1.execute(ctx, time.Now().Add(duration), prover.LowestMerkleMinMemoryLayer))
 
 	// Execute r2, and request shutdown before completion.
-	r2 := newRound(ctx, serverGroup, tmpdir, 1)
+	r2 := newRound(ctx, tmpdir, 1)
 	req.NoError(r2.open())
 	req.Equal(0, r2.numChallenges())
 	req.True(r2.isEmpty())
@@ -64,12 +62,10 @@ func TestRound_Recovery(t *testing.T) {
 
 	req.ErrorIs(r2.execute(ctx, time.Now().Add(duration), prover.LowestMerkleMinMemoryLayer), prover.ErrShutdownRequested)
 	require.NoError(t, r2.waitTeardown(context.Background()))
-	require.NoError(t, serverGroup.Wait())
 
 	// Recover r2 execution, and request shutdown before completion.
 	ctx, stop = context.WithCancel(context.Background())
-	serverGroup, ctx = errgroup.WithContext(ctx)
-	r2recovery1 := newRound(ctx, serverGroup, tmpdir, 1)
+	r2recovery1 := newRound(ctx, tmpdir, 1)
 	req.Equal(len(challenges), r2recovery1.numChallenges())
 	req.False(r2recovery1.isEmpty())
 
@@ -83,12 +79,10 @@ func TestRound_Recovery(t *testing.T) {
 
 	req.ErrorIs(r2recovery1.recoverExecution(ctx, state.Execution, time.Now().Add(duration)), prover.ErrShutdownRequested)
 	require.NoError(t, r2recovery1.waitTeardown(context.Background()))
-	require.NoError(t, serverGroup.Wait())
 
 	// Recover r2 execution again, and let it complete.
 	ctx, stop = context.WithCancel(context.Background())
-	serverGroup, ctx = errgroup.WithContext(ctx)
-	r2recovery2 := newRound(ctx, serverGroup, tmpdir, 1)
+	r2recovery2 := newRound(ctx, tmpdir, 1)
 	req.Equal(len(challenges), r2recovery2.numChallenges())
 	req.False(r2recovery2.isEmpty())
 	state, err = r2recovery2.state()
@@ -98,18 +92,17 @@ func TestRound_Recovery(t *testing.T) {
 
 	// Request shutdown.
 	stop()
-	require.NoError(t, serverGroup.Wait())
+	require.NoError(t, r2recovery2.waitTeardown(context.Background()))
 }
 
 func TestRound_State(t *testing.T) {
 	req := require.New(t)
 
 	ctx, stop := context.WithCancel(context.Background())
-	serverGroup, ctx := errgroup.WithContext(ctx)
 	tempdir := t.TempDir()
 
 	// Create a new round.
-	r := newRound(ctx, serverGroup, tempdir, 0)
+	r := newRound(ctx, tempdir, 0)
 	req.True(!r.isOpen())
 	req.True(r.opened.IsZero())
 	req.True(r.executionStarted.IsZero())
@@ -181,12 +174,10 @@ func TestRound_State(t *testing.T) {
 	req.True(state.Execution.ParkedNodes != nil)
 	req.True(state.Execution.NIP == nil)
 	req.NoError(r.waitTeardown(context.Background()))
-	req.NoError(serverGroup.Wait())
 
 	// Create a new round instance of the same round.
 	ctx, stop = context.WithCancel(context.Background())
-	serverGroup, ctx = errgroup.WithContext(ctx)
-	r = newRound(ctx, serverGroup, tempdir, 0)
+	r = newRound(ctx, tempdir, 0)
 	req.True(!r.isOpen())
 	req.True(r.opened.IsZero())
 	req.True(r.executionStarted.IsZero())
@@ -219,7 +210,7 @@ func TestRound_State(t *testing.T) {
 
 	// Trigger cleanup.
 	r.broadcasted()
-	time.Sleep(1 * time.Second)
+	req.NoError(r.waitTeardown(context.Background()))
 
 	// Verify cleanup.
 	state, err = r.state()
@@ -227,5 +218,4 @@ func TestRound_State(t *testing.T) {
 	req.Nil(state)
 
 	stop()
-	req.NoError(serverGroup.Wait())
 }

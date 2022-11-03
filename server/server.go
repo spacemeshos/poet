@@ -63,7 +63,8 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 		proxyRegstr = append(proxyRegstr, apicore.RegisterPoetCoreProverHandlerFromEndpoint)
 		proxyRegstr = append(proxyRegstr, apicore.RegisterPoetVerifierHandlerFromEndpoint)
 	} else {
-		svc, err := service.NewService(serverGroup, cfg.Service, cfg.DataDir)
+		svc, err := service.NewService(cfg.Service, cfg.DataDir)
+		defer svc.Shutdown()
 		if err != nil {
 			return err
 		}
@@ -79,7 +80,9 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 			if err != nil {
 				return err
 			}
-			svc.Start(ctx, broadcaster)
+			if err := svc.Start(broadcaster); err != nil {
+				return err
+			}
 		} else {
 			log.Info("Service not starting, waiting for start request")
 		}
@@ -112,12 +115,16 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 		}
 	}
 
+	server := &http.Server{Addr: cfg.RESTListener.String(), Handler: mux}
 	serverGroup.Go(func() error {
 		log.Info("REST proxy start listening on %s", cfg.RESTListener.String())
-		return http.ListenAndServe(cfg.RESTListener.String(), mux)
+		return server.ListenAndServe()
 	})
 
 	// Wait for the server to shut down gracefully
+	<-ctx.Done()
+	grpcServer.GracefulStop()
+	server.Shutdown(ctx)
 	return serverGroup.Wait()
 }
 

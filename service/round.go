@@ -14,7 +14,6 @@ import (
 	"github.com/spacemeshos/merkle-tree/cache"
 	"github.com/spacemeshos/smutil/log"
 	"github.com/syndtr/goleveldb/leveldb/opt"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/prover"
@@ -72,7 +71,7 @@ func (r *round) Epoch() uint32 {
 	return r.execution.Epoch
 }
 
-func newRound(ctx context.Context, serverGroup *errgroup.Group, datadir string, epoch uint32) *round {
+func newRound(ctx context.Context, datadir string, epoch uint32) *round {
 	r := new(round)
 	r.ID = strconv.FormatUint(uint64(epoch), 10)
 	r.datadir = filepath.Join(datadir, r.ID)
@@ -89,7 +88,7 @@ func newRound(ctx context.Context, serverGroup *errgroup.Group, datadir string, 
 	r.execution.Epoch = epoch
 	r.execution.SecurityParam = shared.T
 
-	serverGroup.Go(func() error {
+	go func() {
 		defer close(r.teardownChan)
 		var cleanup bool
 		select {
@@ -100,12 +99,11 @@ func newRound(ctx context.Context, serverGroup *errgroup.Group, datadir string, 
 
 		if err := r.teardown(cleanup); err != nil {
 			log.Error("Round %v tear down error: %v", r.ID, err)
-			return nil // swallow error
+			return
 		}
 
 		log.Info("Round %v torn down (cleanup %v)", r.ID, cleanup)
-		return nil
-	})
+	}()
 
 	return r
 }

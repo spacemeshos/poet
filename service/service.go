@@ -52,7 +52,9 @@ type serviceState struct {
 // Service orchestrates rounds functionality; each responsible for accepting challenges,
 // generating a proof from their hash digest, and broadcasting the result to the Spacemesh network.
 type Service struct {
-	serverGroup    *errgroup.Group
+	runningGroup *errgroup.Group
+	stop         context.CancelFunc
+
 	cfg            *Config
 	datadir        string
 	genesis        time.Time
@@ -118,7 +120,7 @@ type PoetProofMessage struct {
 	Signature     []byte
 }
 
-func NewService(serverGroup *errgroup.Group, cfg *Config, datadir string) (*Service, error) {
+func NewService(cfg *Config, datadir string) (*Service, error) {
 	genesis, err := time.Parse(time.RFC3339, cfg.Genesis)
 	if err != nil {
 		return nil, err
@@ -153,7 +155,6 @@ func NewService(serverGroup *errgroup.Group, cfg *Config, datadir string) (*Serv
 
 	privateKey := ed25519.NewKeyFromSeed(state.PrivKey[:32])
 	s := &Service{
-		serverGroup:     serverGroup,
 		cfg:             cfg,
 		minMemoryLayer:  uint(minMemoryLayer),
 		genesis:         genesis,
@@ -168,10 +169,69 @@ func NewService(serverGroup *errgroup.Group, cfg *Config, datadir string) (*Serv
 	return s, nil
 }
 
-func (s *Service) Start(ctx context.Context, b Broadcaster) error {
+func (s *Service) loop(ctx context.Context) {
+	executingRounds, _ := errgroup.WithContext(ctx)
+	defer executingRounds.Wait()
+
+	timer := time.NewTimer(0)
+	<-timer.C
+	defer timer.Stop()
+	for {
+		start := s.genesis.
+			Add(s.cfg.EpochDuration * time.Duration(s.openRound.Epoch())).
+			Add(s.cfg.PhaseShift)
+		if d := time.Until(start); d > 0 {
+			log.Info("Round %v waiting for execution to start for %v", s.openRoundID(), d)
+			timer.Reset(d)
+			select {
+			case <-timer.C:
+			case <-ctx.Done():
+				log.Info("service shutting down")
+				s.openRoundMutex.Lock()
+				s.openRound = nil
+				s.openRoundMutex.Unlock()
+				return
+			}
+		}
+
+		s.openRoundMutex.Lock()
+		if s.openRound.isEmpty() && !s.cfg.ExecuteEmpty {
+			s.openRoundMutex.Unlock()
+			continue
+		}
+
+		prevRound := s.openRound
+		open := time.Now()
+		s.newRound(ctx, prevRound.Epoch()+1)
+		s.openRoundMutex.Unlock()
+		log.Info("Round %v opened. took %v", s.openRoundID(), time.Since(open))
+
+		executingRounds.Go(func() error {
+			round := prevRound
+			if err := s.executeRound(ctx, round); err != nil {
+				s.asyncError(fmt.Errorf("round %v execution error: %v", round.ID, err))
+				return nil
+			}
+			broadcastProof(s, round, round.execution, s.getBroadcaster())
+			return nil
+		})
+	}
+}
+
+func (s *Service) Start(b Broadcaster) error {
+	s.Lock()
 	if !s.started.CompareAndSwap(false, true) {
+		s.Unlock()
 		return ErrAlreadyStarted
 	}
+
+	// Create a context for the running Service.
+	// This context will be canceled when Service is stopped.
+	ctx, stop := context.WithCancel(context.Background())
+	runningGroup, _ := errgroup.WithContext(ctx)
+	s.stop = stop
+	s.runningGroup = runningGroup
+	s.Unlock()
 
 	s.SetBroadcaster(b)
 
@@ -192,55 +252,26 @@ func (s *Service) Start(ctx context.Context, b Broadcaster) error {
 	}
 	s.openRoundMutex.Unlock()
 
-	s.serverGroup.Go(func() error {
-		defer s.started.Store(false)
-		timer := time.NewTimer(0)
-		<-timer.C
-		defer timer.Stop()
-		for {
-			start := s.genesis.
-				Add(s.cfg.EpochDuration * time.Duration(s.openRound.Epoch())).
-				Add(s.cfg.PhaseShift)
-			if d := time.Until(start); d > 0 {
-				log.Info("Round %v waiting for execution to start for %v", s.openRoundID(), d)
-				timer.Reset(d)
-				select {
-				case <-timer.C:
-				case <-ctx.Done():
-					log.Info("service shutting down")
-					s.openRoundMutex.Lock()
-					s.openRound = nil
-					s.openRoundMutex.Unlock()
-					return nil
-				}
-			}
-
-			s.openRoundMutex.Lock()
-			if s.openRound.isEmpty() && !s.cfg.ExecuteEmpty {
-				s.openRoundMutex.Unlock()
-				continue
-			}
-
-			prevRound := s.openRound
-			open := time.Now()
-			s.newRound(ctx, prevRound.Epoch()+1)
-			s.openRoundMutex.Unlock()
-			log.Info("Round %v opened. took %v", s.openRoundID(), time.Since(open))
-
-			s.serverGroup.Go(func() error {
-				round := prevRound
-				if err := s.executeRound(ctx, round); err != nil {
-					s.asyncError(fmt.Errorf("round %v execution error: %v", round.ID, err))
-					return nil
-				}
-				broadcastProof(s, round, round.execution, s.getBroadcaster())
-				return nil
-			})
-		}
+	s.runningGroup.Go(func() error {
+		s.loop(ctx)
+		return nil
 	})
-
-	log.Info("Service started")
 	return nil
+}
+
+// Shutdown gracefully stops running Service and waits
+// for all processing to stop.
+func (s *Service) Shutdown() error {
+	log.Info("requested service shutdown")
+	if !s.Started() {
+		s.Unlock()
+		return ErrNotStarted
+	}
+	s.stop()
+	err := s.runningGroup.Wait()
+	s.started.Store(false)
+	log.Info("service shutdown complete")
+	return err
 }
 
 func (s *Service) Started() bool {
@@ -262,7 +293,7 @@ func (s *Service) Recover(ctx context.Context) error {
 		if err != nil {
 			return fmt.Errorf("entry is not a uint32 %s", entry.Name())
 		}
-		r := newRound(ctx, s.serverGroup, s.datadir, uint32(epoch))
+		r := newRound(ctx, s.datadir, uint32(epoch))
 		state, err := r.state()
 		if err != nil {
 			return fmt.Errorf("invalid round state: %v", err)
@@ -290,7 +321,7 @@ func (s *Service) Recover(ctx context.Context) error {
 		s.Lock()
 		s.executingRounds[r.ID] = r
 		s.Unlock()
-		s.serverGroup.Go(func() error {
+		s.runningGroup.Go(func() error {
 			r, rs := r, state
 			defer func() {
 				s.Lock()
@@ -377,7 +408,9 @@ func (s *Service) Info() (*InfoResponse, error) {
 	}
 
 	res := new(InfoResponse)
-	res.OpenRoundID = s.openRoundID()
+	if id := s.openRoundID(); id != nil {
+		res.OpenRoundID = *id
+	}
 
 	s.Lock()
 	ids := make([]string, 0, len(s.executingRounds))
@@ -395,7 +428,7 @@ func (s *Service) newRound(ctx context.Context, epoch uint32) {
 	if err := saveState(s.datadir, s.privKey); err != nil {
 		panic(err)
 	}
-	r := newRound(ctx, s.serverGroup, s.datadir, epoch)
+	r := newRound(ctx, s.datadir, epoch)
 	if err := r.open(); err != nil {
 		panic(fmt.Errorf("failed to open round: %v", err))
 	}
@@ -403,11 +436,13 @@ func (s *Service) newRound(ctx context.Context, epoch uint32) {
 	s.openRound = r
 }
 
-func (s *Service) openRoundID() string {
+func (s *Service) openRoundID() *string {
 	s.openRoundMutex.RLock()
 	defer s.openRoundMutex.RUnlock()
-
-	return s.openRound.ID
+	if s.openRound != nil {
+		return &s.openRound.ID
+	}
+	return nil
 }
 
 func (s *Service) asyncError(err error) {
