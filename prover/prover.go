@@ -81,6 +81,7 @@ func GenerateProofRecovery(
 // GenerateProofWithoutPersistency calls GenerateProof with disabled persistency functionality
 // and potential soft/hard-shutdown recovery.
 func GenerateProofWithoutPersistency(
+	ctx context.Context,
 	datadir string,
 	labelHashFunc func(data []byte) []byte,
 	merkleHashFunc func(lChild, rChild []byte) []byte,
@@ -88,7 +89,7 @@ func GenerateProofWithoutPersistency(
 	securityParam uint8,
 	minMemoryLayer uint,
 ) (uint64, *shared.MerkleProof, error) {
-	return GenerateProof(context.TODO(), datadir, labelHashFunc, merkleHashFunc, limit, securityParam, minMemoryLayer, persist)
+	return GenerateProof(ctx, datadir, labelHashFunc, merkleHashFunc, limit, securityParam, minMemoryLayer, persist)
 }
 
 func makeProofTree(

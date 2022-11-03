@@ -133,7 +133,7 @@ func TestService_Recovery(t *testing.T) {
 	req.NoError(err)
 
 	// Service instance should recover 2 rounds: round 1 in executing state, and round 2 in open state.
-	req.Eventually(func() bool { s.Lock(); defer s.Unlock(); return 1 == len(s.executingRounds) }, time.Second, time.Millisecond)
+	req.Eventually(func() bool { s.Lock(); defer s.Unlock(); return len(s.executingRounds) == 1 }, time.Second, time.Millisecond)
 	s.Lock()
 	first, ok := s.executingRounds["0"]
 	s.Unlock()
