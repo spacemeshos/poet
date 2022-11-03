@@ -14,7 +14,6 @@ type InitialPost struct {
 type LayerID uint32
 
 type Challenge struct {
-	NodeID           []byte
 	PositioningAtxId ATXID
 	PubLayerId       LayerID
 	// only one of InitialPost, previousATX is valid at the same time

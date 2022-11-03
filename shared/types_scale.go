@@ -45,13 +45,6 @@ func (t *InitialPost) DecodeScale(dec *scale.Decoder) (total int, err error) {
 
 func (t *Challenge) EncodeScale(enc *scale.Encoder) (total int, err error) {
 	{
-		n, err := scale.EncodeByteSlice(enc, t.NodeID)
-		if err != nil {
-			return total, err
-		}
-		total += n
-	}
-	{
 		n, err := scale.EncodeByteSlice(enc, t.PositioningAtxId)
 		if err != nil {
 			return total, err
@@ -83,14 +76,6 @@ func (t *Challenge) EncodeScale(enc *scale.Encoder) (total int, err error) {
 }
 
 func (t *Challenge) DecodeScale(dec *scale.Decoder) (total int, err error) {
-	{
-		field, n, err := scale.DecodeByteSlice(dec)
-		if err != nil {
-			return total, err
-		}
-		total += n
-		t.NodeID = field
-	}
 	{
 		field, n, err := scale.DecodeByteSlice(dec)
 		if err != nil {
