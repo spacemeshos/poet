@@ -264,7 +264,6 @@ func (s *Service) Start(b Broadcaster) error {
 func (s *Service) Shutdown() error {
 	log.Info("requested service shutdown")
 	if !s.Started() {
-		s.Unlock()
 		return ErrNotStarted
 	}
 	s.stop()
