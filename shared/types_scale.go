@@ -22,6 +22,13 @@ func (t *InitialPost) EncodeScale(enc *scale.Encoder) (total int, err error) {
 		}
 		total += n
 	}
+	{
+		n, err := scale.EncodeByteSlice(enc, t.CommitmentAtxId)
+		if err != nil {
+			return total, err
+		}
+		total += n
+	}
 	return total, nil
 }
 
@@ -39,6 +46,14 @@ func (t *InitialPost) DecodeScale(dec *scale.Decoder) (total int, err error) {
 			return total, err
 		}
 		total += n
+	}
+	{
+		field, n, err := scale.DecodeByteSlice(dec)
+		if err != nil {
+			return total, err
+		}
+		total += n
+		t.CommitmentAtxId = field
 	}
 	return total, nil
 }

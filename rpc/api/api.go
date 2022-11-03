@@ -37,6 +37,7 @@ func intoSubmitRequestData(d *shared.Challenge) (*rpcapi.SubmitRequest_Data, err
 					K1:            d.InitialPost.Metadata.K1,
 					K2:            d.InitialPost.Metadata.K2,
 				},
+				CommitmentAtxId: d.InitialPost.CommitmentAtxId,
 			},
 		}
 	} else if d.PreviousATXId != nil {
@@ -88,6 +89,7 @@ func FromSubmitRequest(r *rpcapi.SubmitRequest) (signing.Signed[shared.Challenge
 				K1:            initialPost.GetMetadata().GetK1(),
 				K2:            initialPost.GetMetadata().GetK2(),
 			},
+			CommitmentAtxId: initialPost.GetCommitmentAtxId(),
 		}
 	} else if prevAtx := r.Data.GetPrevAtxId(); prevAtx != nil {
 		data.PreviousATXId = prevAtx

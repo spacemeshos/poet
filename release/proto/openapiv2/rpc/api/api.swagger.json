@@ -148,6 +148,10 @@
         },
         "metadata": {
           "$ref": "#/definitions/InitialPostMetadata"
+        },
+        "commitmentAtxId": {
+          "type": "string",
+          "format": "byte"
         }
       }
     },

@@ -88,6 +88,7 @@ message SubmitRequest {
             }
             Proof proof = 1;
             Metadata metadata = 2;
+            bytes commitment_atx_id = 3;
         }
         bytes positioning_atx_id = 1;
         uint32 pub_layer_id = 2;

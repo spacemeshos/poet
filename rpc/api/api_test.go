@@ -99,6 +99,7 @@ func TestParsingRoundTrip(t *testing.T) {
 					K1:            rand.Uint32(),
 					K2:            rand.Uint32(),
 				},
+				CommitmentAtxId: randomBytes(t, 32),
 			},
 			PreviousATXId: nil,
 		}
