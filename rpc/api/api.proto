@@ -88,20 +88,19 @@ message SubmitRequest {
             }
             Proof proof = 1;
             Metadata metadata = 2;
+            bytes commitment_atx_id = 3;
         }
-        bytes node_id = 1;
-        bytes positioning_atx_id = 2;
-        uint32 pub_layer_id = 3;
+        bytes positioning_atx_id = 1;
+        uint32 pub_layer_id = 2;
         oneof prev {
-            InitialPost initial_post = 4;
-            bytes prev_atx_id = 5;
+            InitialPost initial_post = 3;
+            bytes prev_atx_id = 4;
         }
     }
 
     Data data = 2;
-    bytes pubkey = 3;
     // signature contains the signature of `data`
-    bytes signature = 4;
+    bytes signature = 3;
 }
 
 message SubmitResponse {

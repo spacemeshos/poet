@@ -7,14 +7,14 @@ type ATXID []byte
 //go:generate scalegen -types InitialPost,Challenge
 
 type InitialPost struct {
-	Proof    shared.Proof
-	Metadata shared.ProofMetadata
+	Proof           shared.Proof
+	Metadata        shared.ProofMetadata
+	CommitmentAtxId ATXID
 }
 
 type LayerID uint32
 
 type Challenge struct {
-	NodeID           []byte
 	PositioningAtxId ATXID
 	PubLayerId       LayerID
 	// only one of InitialPost, previousATX is valid at the same time

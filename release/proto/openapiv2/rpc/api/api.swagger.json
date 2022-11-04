@@ -148,6 +148,10 @@
         },
         "metadata": {
           "$ref": "#/definitions/InitialPostMetadata"
+        },
+        "commitmentAtxId": {
+          "type": "string",
+          "format": "byte"
         }
       }
     },
@@ -200,10 +204,6 @@
     "SubmitRequestData": {
       "type": "object",
       "properties": {
-        "nodeId": {
-          "type": "string",
-          "format": "byte"
-        },
         "positioningAtxId": {
           "type": "string",
           "format": "byte"
@@ -274,10 +274,6 @@
         },
         "data": {
           "$ref": "#/definitions/SubmitRequestData"
-        },
-        "pubkey": {
-          "type": "string",
-          "format": "byte"
         },
         "signature": {
           "type": "string",

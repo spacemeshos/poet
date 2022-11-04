@@ -17,7 +17,6 @@ var (
 
 func intoSubmitRequestData(d *shared.Challenge) (*rpcapi.SubmitRequest_Data, error) {
 	data := &rpcapi.SubmitRequest_Data{
-		NodeId:           d.NodeID,
 		PositioningAtxId: d.PositioningAtxId,
 		PubLayerId:       uint32(d.PubLayerId),
 	}
@@ -38,6 +37,7 @@ func intoSubmitRequestData(d *shared.Challenge) (*rpcapi.SubmitRequest_Data, err
 					K1:            d.InitialPost.Metadata.K1,
 					K2:            d.InitialPost.Metadata.K2,
 				},
+				CommitmentAtxId: d.InitialPost.CommitmentAtxId,
 			},
 		}
 	} else if d.PreviousATXId != nil {
@@ -58,7 +58,6 @@ func IntoSubmitRequest(d signing.Signed[shared.Challenge]) (*rpcapi.SubmitReques
 	}
 	request := &rpcapi.SubmitRequest{
 		Data:      data,
-		Pubkey:    d.PubKey(),
 		Signature: d.Signature(),
 	}
 
@@ -70,7 +69,6 @@ func IntoSubmitRequest(d signing.Signed[shared.Challenge]) (*rpcapi.SubmitReques
 func FromSubmitRequest(r *rpcapi.SubmitRequest) (signing.Signed[shared.Challenge], error) {
 	// Construct data
 	data := shared.Challenge{
-		NodeID:           r.GetData().GetNodeId(),
 		PositioningAtxId: r.GetData().GetPositioningAtxId(),
 		PubLayerId:       shared.LayerID(r.GetData().GetPubLayerId()),
 	}
@@ -91,11 +89,12 @@ func FromSubmitRequest(r *rpcapi.SubmitRequest) (signing.Signed[shared.Challenge
 				K1:            initialPost.GetMetadata().GetK1(),
 				K2:            initialPost.GetMetadata().GetK2(),
 			},
+			CommitmentAtxId: initialPost.GetCommitmentAtxId(),
 		}
 	} else if prevAtx := r.Data.GetPrevAtxId(); prevAtx != nil {
 		data.PreviousATXId = prevAtx
 	} else {
 		return nil, ErrOneOfNotSet
 	}
-	return signing.NewFromScaleEncodable(data, r.Signature, r.Pubkey)
+	return signing.NewFromScaleEncodable(data, r.Signature)
 }

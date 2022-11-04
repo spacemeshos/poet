@@ -1,14 +1,27 @@
 package signing_test
 
 import (
-	"crypto/ed25519"
 	"testing"
 
+	"github.com/spacemeshos/ed25519"
 	"github.com/spacemeshos/go-scale"
 	"github.com/stretchr/testify/require"
 
 	"github.com/spacemeshos/poet/signing"
 )
+
+type signer struct {
+	privKey ed25519.PrivateKey
+	pubKey  ed25519.PublicKey
+}
+
+func (s *signer) Sign(data []byte) []byte {
+	return ed25519.Sign2(s.privKey, data)
+}
+
+func (s *signer) PublicKey() []byte {
+	return s.pubKey
+}
 
 type Foo struct {
 	s string
@@ -22,16 +35,21 @@ func TestSignAndVerify(t *testing.T) {
 	t.Parallel()
 	require := require.New(t)
 	data := Foo{s: "sign me"}
+	pubKey, privKey, err := ed25519.GenerateKey(nil)
+	require.NoError(err)
+	signer := signer{
+		privKey: privKey,
+		pubKey:  pubKey,
+	}
 
 	// Sign
-	pubKey, privateKey, err := ed25519.GenerateKey(nil)
 	require.NoError(err)
-	signed, err := signing.Sign(data, privateKey, pubKey)
+	signed, err := signing.Sign(data, &signer)
 	require.NoError(err)
 	require.EqualValues(data, *signed.Data())
 
 	// Create Signed from a signed data
-	signed2, err := signing.NewFromScaleEncodable(*signed.Data(), signed.Signature(), signed.PubKey())
+	signed2, err := signing.NewFromScaleEncodable(*signed.Data(), signed.Signature())
 	require.NoError(err)
 	require.EqualValues(signed2.Data(), signed.Data())
 }
@@ -41,18 +59,6 @@ func TestInvalidSignature(t *testing.T) {
 	require := require.New(t)
 	data := Foo{s: "sign me"}
 
-	pubKey, _, err := ed25519.GenerateKey(nil)
-	require.NoError(err)
-
-	_, err = signing.NewFromScaleEncodable(data, []byte{}, pubKey)
+	_, err := signing.NewFromScaleEncodable(data, []byte{})
 	require.ErrorIs(err, signing.ErrSignatureInvalid)
-}
-
-func TestInvalidPubkey(t *testing.T) {
-	t.Parallel()
-	require := require.New(t)
-	data := Foo{s: "sign me"}
-
-	_, err := signing.NewFromScaleEncodable(data, []byte{}, []byte{})
-	require.ErrorIs(err, signing.ErrInvalidPubkeyLen)
 }

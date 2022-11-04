@@ -1,10 +1,10 @@
 package api_test
 
 import (
-	"crypto/ed25519"
 	"math/rand"
 	"testing"
 
+	"github.com/spacemeshos/ed25519"
 	sharedPost "github.com/spacemeshos/post/shared"
 	"github.com/stretchr/testify/require"
 
@@ -27,7 +27,6 @@ func TestSignatureVerification(t *testing.T) {
 				PrevAtxId: []byte{},
 			},
 		},
-		Pubkey:    make([]byte, ed25519.PublicKeySize),
 		Signature: make([]byte, ed25519.SignatureSize),
 	}
 	_, err := api.FromSubmitRequest(&request)
@@ -43,13 +42,30 @@ func randomBytes(t *testing.T, size int) []byte {
 	return result
 }
 
+type signer struct {
+	privKey ed25519.PrivateKey
+	pubKey  ed25519.PublicKey
+}
+
+func (s *signer) Sign(data []byte) []byte {
+	return ed25519.Sign2(s.privKey, data)
+}
+
+func (s *signer) PublicKey() []byte {
+	return s.pubKey
+}
+
 func TestParsingRoundTrip(t *testing.T) {
 	t.Parallel()
 
 	testRoundTrip := func(t *testing.T, challenge shared.Challenge) {
-		pubKey, privateKey, err := ed25519.GenerateKey(nil)
+		pubKey, privKey, err := ed25519.GenerateKey(nil)
 		require.NoError(t, err)
-		signedData, err := signing.Sign(challenge, privateKey, pubKey)
+		signer := signer{
+			privKey: privKey,
+			pubKey:  pubKey,
+		}
+		signedData, err := signing.Sign(challenge, &signer)
 		require.NoError(t, err)
 		require.EqualValues(t, signedData.PubKey(), pubKey)
 
@@ -67,7 +83,6 @@ func TestParsingRoundTrip(t *testing.T) {
 	t.Run("Initial ATX case", func(t *testing.T) {
 		t.Parallel()
 		challenge := shared.Challenge{
-			NodeID:           randomBytes(t, 32),
 			PositioningAtxId: randomBytes(t, 32),
 			PubLayerId:       shared.LayerID(rand.Uint32()),
 			InitialPost: &shared.InitialPost{
@@ -84,6 +99,7 @@ func TestParsingRoundTrip(t *testing.T) {
 					K1:            rand.Uint32(),
 					K2:            rand.Uint32(),
 				},
+				CommitmentAtxId: randomBytes(t, 32),
 			},
 			PreviousATXId: nil,
 		}
@@ -93,7 +109,6 @@ func TestParsingRoundTrip(t *testing.T) {
 	t.Run("Previous ATX case", func(t *testing.T) {
 		t.Parallel()
 		challenge := shared.Challenge{
-			NodeID:           randomBytes(t, 32),
 			PositioningAtxId: randomBytes(t, 32),
 			PubLayerId:       shared.LayerID(rand.Uint32()),
 			InitialPost:      nil,
