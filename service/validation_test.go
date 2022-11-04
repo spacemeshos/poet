@@ -19,7 +19,7 @@ var errInvalidPostProof = errors.New("invalid post proof")
 func acceptProof(*postShared.Proof, *postShared.ProofMetadata) error { return nil }
 func denyProof(*postShared.Proof, *postShared.ProofMetadata) error   { return errInvalidPostProof }
 
-func createChallengeWithInitialPost(postConfig *types.PostConfig, overrides ...func(*shared.Challenge)) *shared.Challenge {
+func createChallengeWithInitialPost(postConfig *types.PostConfig, overrides ...func(*shared.Challenge)) *signedChallengeMock {
 	challenge := shared.Challenge{
 		PositioningAtxId: []byte("positioning-atx"),
 		PubLayerId:       0,
@@ -37,7 +37,27 @@ func createChallengeWithInitialPost(postConfig *types.PostConfig, overrides ...f
 	for _, o := range overrides {
 		o(&challenge)
 	}
-	return &challenge
+	return &signedChallengeMock{
+		challenge: challenge,
+		nodeID:    []byte{},
+	}
+}
+
+type signedChallengeMock struct {
+	challenge shared.Challenge
+	nodeID    []byte
+}
+
+func (d *signedChallengeMock) Data() *shared.Challenge {
+	return &d.challenge
+}
+
+func (d *signedChallengeMock) PubKey() []byte {
+	return d.nodeID
+}
+
+func (d *signedChallengeMock) Signature() []byte {
+	panic("unimplemented")
 }
 
 // Test challenge validation for challenges carrying an initial Post challenge.
@@ -120,11 +140,13 @@ func Test_ChallengeValidation_NonInitial(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		t.Parallel()
 		ctrl := gomock.NewController(t)
-		challenge := shared.Challenge{
-			PositioningAtxId: posAtxId,
-			PubLayerId:       10,
-			PreviousATXId:    prevAtxId,
-			NodeID:           nodeId,
+		challenge := signedChallengeMock{
+			challenge: shared.Challenge{
+				PositioningAtxId: posAtxId,
+				PubLayerId:       10,
+				PreviousATXId:    prevAtxId,
+			},
+			nodeID: nodeId,
 		}
 
 		atxs := mock_types.NewMockAtxProvider(ctrl)
@@ -136,11 +158,13 @@ func Test_ChallengeValidation_NonInitial(t *testing.T) {
 	t.Run("NodeID doesn't match previous ATX NodeID", func(t *testing.T) {
 		t.Parallel()
 		ctrl := gomock.NewController(t)
-		challenge := shared.Challenge{
-			PositioningAtxId: posAtxId,
-			PubLayerId:       10,
-			PreviousATXId:    prevAtxId,
-			NodeID:           nodeId,
+		challenge := signedChallengeMock{
+			challenge: shared.Challenge{
+				PositioningAtxId: posAtxId,
+				PubLayerId:       10,
+				PreviousATXId:    prevAtxId,
+			},
+			nodeID: nodeId,
 		}
 
 		atxs := mock_types.NewMockAtxProvider(ctrl)
@@ -152,11 +176,13 @@ func Test_ChallengeValidation_NonInitial(t *testing.T) {
 	t.Run("previous ATX unavailable", func(t *testing.T) {
 		t.Parallel()
 		ctrl := gomock.NewController(t)
-		challenge := shared.Challenge{
-			PositioningAtxId: posAtxId,
-			PubLayerId:       10,
-			PreviousATXId:    prevAtxId,
-			NodeID:           nodeId,
+		challenge := signedChallengeMock{
+			challenge: shared.Challenge{
+				PositioningAtxId: posAtxId,
+				PubLayerId:       10,
+				PreviousATXId:    prevAtxId,
+			},
+			nodeID: nodeId,
 		}
 
 		atxs := mock_types.NewMockAtxProvider(ctrl)
@@ -168,11 +194,13 @@ func Test_ChallengeValidation_NonInitial(t *testing.T) {
 	t.Run("positioning ATX unavailable", func(t *testing.T) {
 		t.Parallel()
 		ctrl := gomock.NewController(t)
-		challenge := shared.Challenge{
-			PositioningAtxId: posAtxId,
-			PubLayerId:       10,
-			PreviousATXId:    prevAtxId,
-			NodeID:           nodeId,
+		challenge := signedChallengeMock{
+			challenge: shared.Challenge{
+				PositioningAtxId: posAtxId,
+				PubLayerId:       10,
+				PreviousATXId:    prevAtxId,
+			},
+			nodeID: nodeId,
 		}
 
 		atxs := mock_types.NewMockAtxProvider(ctrl)
@@ -184,11 +212,13 @@ func Test_ChallengeValidation_NonInitial(t *testing.T) {
 	t.Run("publayerID != previousATX.publayerID + 1", func(t *testing.T) {
 		t.Parallel()
 		ctrl := gomock.NewController(t)
-		challenge := shared.Challenge{
-			PositioningAtxId: posAtxId,
-			PubLayerId:       10,
-			PreviousATXId:    prevAtxId,
-			NodeID:           nodeId,
+		challenge := signedChallengeMock{
+			challenge: shared.Challenge{
+				PositioningAtxId: posAtxId,
+				PubLayerId:       10,
+				PreviousATXId:    prevAtxId,
+			},
+			nodeID: nodeId,
 		}
 
 		atxs := mock_types.NewMockAtxProvider(ctrl)
@@ -200,11 +230,13 @@ func Test_ChallengeValidation_NonInitial(t *testing.T) {
 	t.Run("publayerID != positioningATX.publayerID + 1", func(t *testing.T) {
 		t.Parallel()
 		ctrl := gomock.NewController(t)
-		challenge := shared.Challenge{
-			PositioningAtxId: posAtxId,
-			PubLayerId:       10,
-			PreviousATXId:    prevAtxId,
-			NodeID:           nodeId,
+		challenge := signedChallengeMock{
+			challenge: shared.Challenge{
+				PositioningAtxId: posAtxId,
+				PubLayerId:       10,
+				PreviousATXId:    prevAtxId,
+			},
+			nodeID: nodeId,
 		}
 
 		atxs := mock_types.NewMockAtxProvider(ctrl)

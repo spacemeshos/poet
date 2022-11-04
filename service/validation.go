@@ -8,6 +8,7 @@ import (
 	postShared "github.com/spacemeshos/post/shared"
 
 	"github.com/spacemeshos/poet/shared"
+	"github.com/spacemeshos/poet/signing"
 	"github.com/spacemeshos/poet/types"
 )
 
@@ -16,7 +17,9 @@ import (
 // - initial post metadata against PostConfig
 // - initial post proof using the provided proof verifier function
 // - if previous ATX's node ID matches the node ID in the challenge.
-func validateChallenge(ctx context.Context, challenge *shared.Challenge, atxs types.AtxProvider, postConfig *types.PostConfig, proofVerifier func(*postShared.Proof, *postShared.ProofMetadata) error) error {
+func validateChallenge(ctx context.Context, signedChallenge signing.Signed[shared.Challenge], atxs types.AtxProvider, postConfig *types.PostConfig, proofVerifier func(*postShared.Proof, *postShared.ProofMetadata) error) error {
+	challenge := signedChallenge.Data()
+	nodeID := signedChallenge.PubKey()
 	if initialPost := challenge.InitialPost; initialPost != nil {
 		meta := &initialPost.Metadata
 		if meta.BitsPerLabel != postConfig.BitsPerLabel {
@@ -42,8 +45,8 @@ func validateChallenge(ctx context.Context, challenge *shared.Challenge, atxs ty
 		if err != nil {
 			return fmt.Errorf("validation: failed to fetch previous ATX (%w)", err)
 		}
-		if !bytes.Equal(challenge.NodeID, atx.NodeID) {
-			return fmt.Errorf("validation: NodeID mismtach: challenge: %X, previous ATX: %X", challenge.NodeID, atx.NodeID)
+		if !bytes.Equal(nodeID, atx.NodeID) {
+			return fmt.Errorf("validation: NodeID mismatch: challenge: %X, previous ATX: %X", nodeID, atx.NodeID)
 		}
 		if challenge.PubLayerId != atx.PubLayerID+1 {
 			return fmt.Errorf("validation: Publayer ID mismatch: challenge publayer ID: %d, previous ATX publayer ID: %d", challenge.PubLayerId, atx.PubLayerID)

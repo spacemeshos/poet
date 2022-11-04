@@ -386,7 +386,7 @@ func (s *Service) Submit(ctx context.Context, challenge []byte, signedChallenge 
 		log.Debug("Using the new challenge submission API")
 		// SAFETY: it will never panic as `s.atxProvider` is set in Start
 		atxProvider := s.atxProvider.Load().(types.AtxProvider)
-		if err := validateChallenge(ctx, signedChallenge.Data(), atxProvider, s.postConfig.Load(), verifying.Verify); err != nil {
+		if err := validateChallenge(ctx, signedChallenge, atxProvider, s.postConfig.Load(), verifying.Verify); err != nil {
 			return nil, nil, err
 		}
 		// TODO(brozansk) calculate sequence number
@@ -394,7 +394,7 @@ func (s *Service) Submit(ctx context.Context, challenge []byte, signedChallenge 
 
 		s.openRoundMutex.Lock()
 		r := s.openRound
-		err := r.submit(signedChallenge.Data().NodeID, challenge)
+		err := r.submit(signedChallenge.PubKey(), challenge)
 		s.openRoundMutex.Unlock()
 		if err != nil {
 			return nil, nil, err
