@@ -1,6 +1,7 @@
 package prover
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -15,7 +16,6 @@ import (
 	"github.com/spacemeshos/smutil/log"
 
 	"github.com/spacemeshos/poet/shared"
-	"github.com/spacemeshos/poet/signal"
 )
 
 const (
@@ -34,15 +34,12 @@ var ErrShutdownRequested = errors.New("shutdown requested")
 
 type persistFunc func(tree *merkle.Tree, treeCache *cache.Writer, nextLeafId uint64) error
 
-var (
-	sig                 = signal.NewSignal()
-	persist persistFunc = func(tree *merkle.Tree, treeCache *cache.Writer, nextLeafId uint64) error { return nil }
-)
+var persist persistFunc = func(tree *merkle.Tree, treeCache *cache.Writer, nextLeafId uint64) error { return nil }
 
 // GenerateProof computes the PoET DAG, uses Fiat-Shamir to derive a challenge from the Merkle root and generates a Merkle
 // proof using the challenge and the DAG.
 func GenerateProof(
-	sig *signal.Signal,
+	ctx context.Context,
 	datadir string,
 	labelHashFunc func(data []byte) []byte,
 	merkleHashFunc func(lChild, rChild []byte) []byte,
@@ -57,12 +54,12 @@ func GenerateProof(
 	}
 	defer treeCache.Close()
 
-	return generateProof(sig, labelHashFunc, tree, treeCache, limit, 0, securityParam, persist)
+	return generateProof(ctx, labelHashFunc, tree, treeCache, limit, 0, securityParam, persist)
 }
 
 // GenerateProofRecovery recovers proof generation, from a given 'nextLeafID' and for a given 'parkedNodes' snapshot.
 func GenerateProofRecovery(
-	sig *signal.Signal,
+	ctx context.Context,
 	datadir string,
 	labelHashFunc func(data []byte) []byte,
 	merkleHashFunc func(lChild, rChild []byte) []byte,
@@ -78,12 +75,13 @@ func GenerateProofRecovery(
 	}
 	defer treeCache.Close()
 
-	return generateProof(sig, labelHashFunc, tree, treeCache, limit, nextLeafID, securityParam, persist)
+	return generateProof(ctx, labelHashFunc, tree, treeCache, limit, nextLeafID, securityParam, persist)
 }
 
 // GenerateProofWithoutPersistency calls GenerateProof with disabled persistency functionality
 // and potential soft/hard-shutdown recovery.
 func GenerateProofWithoutPersistency(
+	ctx context.Context,
 	datadir string,
 	labelHashFunc func(data []byte) []byte,
 	merkleHashFunc func(lChild, rChild []byte) []byte,
@@ -91,7 +89,7 @@ func GenerateProofWithoutPersistency(
 	securityParam uint8,
 	minMemoryLayer uint,
 ) (uint64, *shared.MerkleProof, error) {
-	return GenerateProof(sig, datadir, labelHashFunc, merkleHashFunc, limit, securityParam, minMemoryLayer, persist)
+	return GenerateProof(ctx, datadir, labelHashFunc, merkleHashFunc, limit, securityParam, minMemoryLayer, persist)
 }
 
 func makeProofTree(
@@ -193,7 +191,7 @@ func makeRecoveryProofTree(
 }
 
 func generateProof(
-	sig *signal.Signal,
+	ctx context.Context,
 	labelHashFunc func(data []byte) []byte,
 	tree *merkle.Tree,
 	treeCache *cache.Writer,
@@ -202,19 +200,20 @@ func generateProof(
 	securityParam uint8,
 	persist persistFunc,
 ) (uint64, *shared.MerkleProof, error) {
-	unblock := sig.BlockShutdown()
-	defer unblock()
-
 	makeLabel := shared.MakeLabelFunc()
 	leaves := nextLeafID
 	for leafID := nextLeafID; time.Until(end) > 0; leafID++ {
 		// Handle persistence.
-		if sig.ShutdownRequested() {
+		select {
+		case <-ctx.Done():
 			if err := persist(tree, treeCache, leafID); err != nil {
 				return 0, nil, err
 			}
 			return 0, nil, ErrShutdownRequested
-		} else if leafID != 0 && leafID%hardShutdownCheckpointRate == 0 {
+		default:
+		}
+
+		if leafID != 0 && leafID%hardShutdownCheckpointRate == 0 {
 			if err := persist(tree, treeCache, leafID); err != nil {
 				return 0, nil, err
 			}
