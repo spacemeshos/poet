@@ -11,6 +11,7 @@ import (
 	"github.com/spacemeshos/go-scale"
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/spacemeshos/poet/prover"
 )
@@ -199,6 +200,33 @@ func contains(list [][]byte, item []byte) bool {
 	}
 
 	return false
+}
+
+func TestConcurrentServiceStartAndShutdown(t *testing.T) {
+	t.Parallel()
+	req := require.New(t)
+
+	cfg := Config{
+		Genesis:       time.Now().Add(2 * time.Second).Format(time.RFC3339),
+		EpochDuration: time.Second,
+		PhaseShift:    time.Second / 2,
+		CycleGap:      time.Second / 4,
+	}
+	var eg errgroup.Group
+	for i := 0; i < 100; i += 1 {
+		eg.Go(func() error {
+			s, err := NewService(&cfg, t.TempDir())
+			req.NoError(err)
+			eg.Go(func() error {
+				proofBroadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
+				req.NoError(s.Start(proofBroadcaster))
+				return nil
+			})
+			req.Eventually(func() bool { return s.Shutdown() == nil }, time.Second, time.Millisecond*10)
+			return nil
+		})
+	}
+	eg.Wait()
 }
 
 func TestNewService(t *testing.T) {

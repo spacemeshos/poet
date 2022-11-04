@@ -51,8 +51,11 @@ type serviceState struct {
 
 // Service orchestrates rounds functionality; each responsible for accepting challenges,
 // generating a proof from their hash digest, and broadcasting the result to the Spacemesh network.
+//
+// Service is single-use, meaning it can be started with `Start()` and then stopped with `Shutdown()`
+// but it cannot be restarted. A new instance of `Service` must be created.
 type Service struct {
-	runningGroup *errgroup.Group
+	runningGroup errgroup.Group
 	stop         context.CancelFunc
 
 	cfg            *Config
@@ -68,7 +71,8 @@ type Service struct {
 	openRoundMutex sync.RWMutex
 
 	// executingRounds are the rounds which are currently executing, hence generating a proof.
-	executingRounds map[string]*round
+	executingRounds      map[string]*round
+	executingRoundsMutex sync.RWMutex
 
 	PubKey  ed25519.PublicKey
 	privKey ed25519.PrivateKey
@@ -170,7 +174,7 @@ func NewService(cfg *Config, datadir string) (*Service, error) {
 }
 
 func (s *Service) loop(ctx context.Context) {
-	executingRounds, _ := errgroup.WithContext(ctx)
+	var executingRounds errgroup.Group
 	defer executingRounds.Wait()
 
 	timer := time.NewTimer(0)
@@ -220,24 +224,21 @@ func (s *Service) loop(ctx context.Context) {
 
 func (s *Service) Start(b Broadcaster) error {
 	s.Lock()
-	if !s.started.CompareAndSwap(false, true) {
-		s.Unlock()
+	defer s.Unlock()
+	if s.Started() {
 		return ErrAlreadyStarted
 	}
 
 	// Create a context for the running Service.
 	// This context will be canceled when Service is stopped.
 	ctx, stop := context.WithCancel(context.Background())
-	runningGroup, _ := errgroup.WithContext(ctx)
 	s.stop = stop
-	s.runningGroup = runningGroup
-	s.Unlock()
 
 	s.SetBroadcaster(b)
 
 	if s.cfg.NoRecovery {
 		log.Info("Recovery is disabled")
-	} else if err := s.Recover(ctx); err != nil {
+	} else if err := s.recover(ctx); err != nil {
 		return fmt.Errorf("failed to recover: %v", err)
 	}
 	now := time.Now()
@@ -256,6 +257,7 @@ func (s *Service) Start(b Broadcaster) error {
 		s.loop(ctx)
 		return nil
 	})
+	s.started.Store(true)
 	return nil
 }
 
@@ -277,7 +279,7 @@ func (s *Service) Started() bool {
 	return s.started.Load()
 }
 
-func (s *Service) Recover(ctx context.Context) error {
+func (s *Service) recover(ctx context.Context) error {
 	entries, err := os.ReadDir(s.datadir)
 	if err != nil {
 		return err
@@ -317,15 +319,15 @@ func (s *Service) Recover(ctx context.Context) error {
 		}
 
 		log.Info("Recovery: found round %v in executing state. recovering execution...", r.ID)
-		s.Lock()
+		s.executingRoundsMutex.Lock()
 		s.executingRounds[r.ID] = r
-		s.Unlock()
+		s.executingRoundsMutex.Unlock()
 		s.runningGroup.Go(func() error {
 			r, rs := r, state
 			defer func() {
-				s.Lock()
+				s.executingRoundsMutex.Lock()
 				delete(s.executingRounds, r.ID)
-				s.Unlock()
+				s.executingRoundsMutex.Unlock()
 			}()
 
 			end := s.genesis.
@@ -335,7 +337,7 @@ func (s *Service) Recover(ctx context.Context) error {
 
 			if err = r.recoverExecution(ctx, rs.Execution, end); err != nil {
 				s.asyncError(fmt.Errorf("recovery: round %v execution failure: %v", r.ID, err))
-				return err
+				return nil
 			}
 
 			log.Info("Recovery: round %v execution ended, phi=%x", r.ID, r.execution.NIP.Root)
@@ -358,14 +360,14 @@ func (s *Service) SetBroadcaster(b Broadcaster) {
 }
 
 func (s *Service) executeRound(ctx context.Context, r *round) error {
-	s.Lock()
+	s.executingRoundsMutex.Lock()
 	s.executingRounds[r.ID] = r
-	s.Unlock()
+	s.executingRoundsMutex.Unlock()
 
 	defer func() {
-		s.Lock()
+		s.executingRoundsMutex.Lock()
 		delete(s.executingRounds, r.ID)
-		s.Unlock()
+		s.executingRoundsMutex.Unlock()
 	}()
 
 	start := time.Now()
@@ -411,12 +413,12 @@ func (s *Service) Info() (*InfoResponse, error) {
 		res.OpenRoundID = *id
 	}
 
-	s.Lock()
+	s.executingRoundsMutex.RLock()
 	ids := make([]string, 0, len(s.executingRounds))
 	for id := range s.executingRounds {
 		ids = append(ids, id)
 	}
-	s.Unlock()
+	s.executingRoundsMutex.RUnlock()
 	res.ExecutingRoundsIds = ids
 
 	return res, nil
