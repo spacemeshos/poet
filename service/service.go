@@ -408,20 +408,17 @@ func (s *Service) Info() (*InfoResponse, error) {
 		return nil, ErrNotStarted
 	}
 
-	res := new(InfoResponse)
-	if id := s.openRoundID(); id != nil {
-		res.OpenRoundID = *id
-	}
-
 	s.executingRoundsMutex.RLock()
 	ids := make([]string, 0, len(s.executingRounds))
 	for id := range s.executingRounds {
 		ids = append(ids, id)
 	}
 	s.executingRoundsMutex.RUnlock()
-	res.ExecutingRoundsIds = ids
 
-	return res, nil
+	return &InfoResponse{
+		OpenRoundID:        s.openRoundID(),
+		ExecutingRoundsIds: ids,
+	}, nil
 }
 
 // newRound creates a new round with the given epoch. This method MUST be guarded by a write lock on openRoundMutex.
@@ -437,13 +434,10 @@ func (s *Service) newRound(ctx context.Context, epoch uint32) {
 	s.openRound = r
 }
 
-func (s *Service) openRoundID() *string {
+func (s *Service) openRoundID() string {
 	s.openRoundMutex.RLock()
 	defer s.openRoundMutex.RUnlock()
-	if s.openRound != nil {
-		return &s.openRound.ID
-	}
-	return nil
+	return s.openRound.ID
 }
 
 func (s *Service) asyncError(err error) {

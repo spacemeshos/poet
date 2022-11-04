@@ -88,7 +88,7 @@ func TestService_Recovery(t *testing.T) {
 	submitChallenges(0, 0)
 
 	// Verify that round is still open.
-	req.Equal(rounds[0].ID, *s.openRoundID())
+	req.Equal(rounds[0].ID, s.openRoundID())
 
 	// Wait for round 0 to start executing.
 	select {
@@ -139,8 +139,7 @@ func TestService_Recovery(t *testing.T) {
 	first, ok := s.executingRounds["0"]
 	s.Unlock()
 	req.True(ok)
-	req.NotNil(s.openRoundID())
-	req.Equal(*s.openRoundID(), "1")
+	req.Equal(s.openRoundID(), "1")
 	rounds[0] = first
 	s.openRoundMutex.Lock()
 	rounds[1] = s.openRound
