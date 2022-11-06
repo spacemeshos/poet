@@ -221,7 +221,7 @@ func TestConcurrentServiceStartAndShutdown(t *testing.T) {
 				req.NoError(s.Start(proofBroadcaster))
 				return nil
 			})
-			req.Eventually(func() bool { return s.Shutdown() == nil }, time.Second, time.Millisecond*10)
+			req.Eventually(func() bool { return s.Shutdown() == nil }, 3*time.Second, time.Millisecond*10)
 			return nil
 		})
 	}
