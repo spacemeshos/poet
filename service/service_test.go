@@ -206,13 +206,13 @@ func TestConcurrentServiceStartAndShutdown(t *testing.T) {
 	req := require.New(t)
 
 	cfg := Config{
-		Genesis:       time.Now().Add(2 * time.Second).Format(time.RFC3339),
+		Genesis:       time.Now().Add(10 * time.Second).Format(time.RFC3339),
 		EpochDuration: time.Second,
 		PhaseShift:    time.Second / 2,
 		CycleGap:      time.Second / 4,
 	}
 	var eg errgroup.Group
-	for i := 0; i < 100; i += 1 {
+	for i := 0; i < 10; i += 1 {
 		eg.Go(func() error {
 			s, err := NewService(&cfg, t.TempDir())
 			req.NoError(err)
