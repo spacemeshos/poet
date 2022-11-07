@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"fmt"
 	"testing"
@@ -28,7 +29,7 @@ func BenchmarkProverAndVerifierBig(b *testing.B) {
 
 	b.Log("Computing dag...")
 	t1 := time.Now()
-	numLeaves, merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(time.Second), securityParam, prover.LowestMerkleMinMemoryLayer)
+	numLeaves, merkleProof, err := prover.GenerateProofWithoutPersistency(context.Background(), tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(time.Second), securityParam, prover.LowestMerkleMinMemoryLayer)
 	r.NoError(err, "Failed to generate proof")
 
 	e := time.Since(t1)
@@ -48,7 +49,7 @@ func TestNip(t *testing.T) {
 
 	securityParam := shared.T
 
-	numLeaves, merkleProof, err := prover.GenerateProofWithoutPersistency(tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(1*time.Second), securityParam, prover.LowestMerkleMinMemoryLayer)
+	numLeaves, merkleProof, err := prover.GenerateProofWithoutPersistency(context.Background(), tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(1*time.Second), securityParam, prover.LowestMerkleMinMemoryLayer)
 	assert.NoError(t, err)
 	fmt.Printf("Dag root label: %x\n", merkleProof.Root)
 
@@ -65,7 +66,7 @@ func BenchmarkProofEx(t *testing.B) {
 
 		securityParam := shared.T
 
-		numLeaves, merkleProof, err := prover.GenerateProofWithoutPersistency(t.TempDir(), hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(time.Second), securityParam, prover.LowestMerkleMinMemoryLayer)
+		numLeaves, merkleProof, err := prover.GenerateProofWithoutPersistency(context.Background(), t.TempDir(), hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(time.Second), securityParam, prover.LowestMerkleMinMemoryLayer)
 		assert.NoError(t, err)
 		fmt.Printf("Dag root label: %x\n", merkleProof.Root)
 

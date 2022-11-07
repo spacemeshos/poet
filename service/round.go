@@ -18,7 +18,6 @@ import (
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
-	"github.com/spacemeshos/poet/signal"
 )
 
 type executionState struct {
@@ -65,7 +64,6 @@ type round struct {
 
 	stateCache *roundState
 
-	sig       *signal.Signal
 	submitMtx sync.Mutex
 }
 
@@ -73,7 +71,7 @@ func (r *round) Epoch() uint32 {
 	return r.execution.Epoch
 }
 
-func newRound(sig *signal.Signal, datadir string, epoch uint32) *round {
+func newRound(ctx context.Context, datadir string, epoch uint32) *round {
 	r := new(round)
 	r.ID = strconv.FormatUint(uint64(epoch), 10)
 	r.datadir = filepath.Join(datadir, r.ID)
@@ -82,7 +80,6 @@ func newRound(sig *signal.Signal, datadir string, epoch uint32) *round {
 	r.executionEndedChan = make(chan struct{})
 	r.broadcastedChan = make(chan struct{})
 	r.teardownChan = make(chan struct{})
-	r.sig = sig
 
 	wo := &opt.WriteOptions{Sync: true}
 	r.challengesDb = NewLevelDbStore(filepath.Join(r.datadir, "challengesDb"), wo, nil) // This creates the datadir if it doesn't exist already.
@@ -92,9 +89,10 @@ func newRound(sig *signal.Signal, datadir string, epoch uint32) *round {
 	r.execution.SecurityParam = shared.T
 
 	go func() {
+		defer close(r.teardownChan)
 		var cleanup bool
 		select {
-		case <-sig.ShutdownRequestedChan:
+		case <-ctx.Done():
 		case <-r.broadcastedChan:
 			cleanup = true
 		}
@@ -105,7 +103,6 @@ func newRound(sig *signal.Signal, datadir string, epoch uint32) *round {
 		}
 
 		log.Info("Round %v torn down (cleanup %v)", r.ID, cleanup)
-		close(r.teardownChan)
 	}()
 
 	return r
@@ -167,7 +164,7 @@ func (r *round) isEmpty() bool {
 	return !iter.Next()
 }
 
-func (r *round) execute(end time.Time, minMemoryLayer uint) error {
+func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer uint) error {
 	r.executionStarted = time.Now()
 	if err := r.saveState(); err != nil {
 		return err
@@ -188,7 +185,7 @@ func (r *round) execute(end time.Time, minMemoryLayer uint) error {
 	}
 
 	r.execution.NumLeaves, r.execution.NIP, err = prover.GenerateProof(
-		r.sig,
+		ctx,
 		r.datadir,
 		hash.GenLabelHashFunc(r.execution.Statement),
 		hash.GenMerkleHashFunc(r.execution.Statement),
@@ -226,7 +223,7 @@ func (r *round) persistExecution(tree *merkle.Tree, treeCache *cache.Writer, num
 	return nil
 }
 
-func (r *round) recoverExecution(state *executionState, end time.Time) error {
+func (r *round) recoverExecution(ctx context.Context, state *executionState, end time.Time) error {
 	r.executionStarted = r.stateCache.ExecutionStarted
 	close(r.executionStartedChan)
 
@@ -246,7 +243,7 @@ func (r *round) recoverExecution(state *executionState, end time.Time) error {
 
 	var err error
 	r.execution.NumLeaves, r.execution.NIP, err = prover.GenerateProofRecovery(
-		r.sig,
+		ctx,
 		r.datadir,
 		hash.GenLabelHashFunc(state.Statement),
 		hash.GenMerkleHashFunc(state.Statement),

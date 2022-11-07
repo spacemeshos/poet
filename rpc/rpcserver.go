@@ -58,10 +58,10 @@ func (r *rpcServer) Start(ctx context.Context, in *rpcapi.StartRequest) (*rpcapi
 	if err != nil {
 		return nil, err
 	}
-
 	if err := r.s.Start(b); err != nil {
 		return nil, fmt.Errorf("failed to start service: %v", err)
 	}
+
 	return &rpcapi.StartResponse{}, nil
 }
 
