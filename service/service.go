@@ -177,38 +177,38 @@ func (s *Service) loop(ctx context.Context) {
 	var executingRounds errgroup.Group
 	defer executingRounds.Wait()
 
-	timer := time.NewTimer(0)
-	<-timer.C
-	defer timer.Stop()
 	for {
-		start := s.genesis.
-			Add(s.cfg.EpochDuration * time.Duration(s.openRound.Epoch())).
-			Add(s.cfg.PhaseShift)
-		if d := time.Until(start); d > 0 {
-			log.Info("Round %v waiting for execution to start for %v", s.openRoundID(), d)
-			timer.Reset(d)
-			select {
-			case <-timer.C:
-			case <-ctx.Done():
-				log.Info("service shutting down")
-				s.openRoundMutex.Lock()
-				s.openRound = nil
-				s.openRoundMutex.Unlock()
-				return
-			}
+		s.openRoundMutex.RLock()
+		epoch := s.openRound.Epoch()
+		s.openRoundMutex.RUnlock()
+
+		start := s.genesis.Add(s.cfg.EpochDuration * time.Duration(epoch)).Add(s.cfg.PhaseShift)
+		waitTime := time.Until(start)
+		if waitTime > 0 {
+			log.Info("Round %v waiting for execution to start for %v", s.openRoundID(), waitTime)
+		}
+		select {
+		case <-time.After(waitTime):
+		case <-ctx.Done():
+			log.Info("service shutting down")
+			s.openRoundMutex.Lock()
+			s.openRound = nil
+			s.openRoundMutex.Unlock()
+			return
 		}
 
 		s.openRoundMutex.Lock()
 		if s.openRound.isEmpty() && !s.cfg.ExecuteEmpty {
+			// FIXME Poet enters a busy loop
+			// See https://github.com/spacemeshos/poet/issues/142
+			log.With().Info("Not executing an empty round", log.String("ID", s.openRound.ID))
 			s.openRoundMutex.Unlock()
 			continue
 		}
 
 		prevRound := s.openRound
-		open := time.Now()
 		s.newRound(ctx, prevRound.Epoch()+1)
 		s.openRoundMutex.Unlock()
-		log.Info("Round %v opened. took %v", s.openRoundID(), time.Since(open))
 
 		executingRounds.Go(func() error {
 			round := prevRound
@@ -249,7 +249,6 @@ func (s *Service) Start(b Broadcaster) error {
 	s.openRoundMutex.Lock()
 	if s.openRound == nil {
 		s.newRound(ctx, uint32(epoch))
-		log.Info("Round %v opened", s.openRound.ID)
 	}
 	s.openRoundMutex.Unlock()
 
@@ -280,12 +279,14 @@ func (s *Service) Started() bool {
 }
 
 func (s *Service) recover(ctx context.Context) error {
+	log.With().Info("Recovering service state", log.String("datadir", s.datadir))
 	entries, err := os.ReadDir(s.datadir)
 	if err != nil {
 		return err
 	}
 
 	for _, entry := range entries {
+		log.Info("Recovering entry %s", entry.Name())
 		if !entry.IsDir() {
 			continue
 		}
@@ -432,6 +433,7 @@ func (s *Service) newRound(ctx context.Context, epoch uint32) {
 	}
 
 	s.openRound = r
+	log.With().Info("Round opened", log.String("ID", s.openRound.ID))
 }
 
 func (s *Service) openRoundID() string {
