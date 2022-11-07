@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"os/signal"
 	"runtime"
 	"runtime/pprof"
 
@@ -83,7 +85,9 @@ func poetMain() error {
 		defer pprof.StopCPUProfile()
 	}
 
-	if err := server.StartServer(cfg); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
+	if err := server.StartServer(ctx, cfg); err != nil {
 		log.Error("failed to start server: %v", err)
 		return err
 	}

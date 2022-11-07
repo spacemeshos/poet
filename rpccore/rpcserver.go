@@ -11,7 +11,6 @@ import (
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/release/proto/go/rpccore/apicore"
 	"github.com/spacemeshos/poet/shared"
-	"github.com/spacemeshos/poet/signal"
 	"github.com/spacemeshos/poet/verifier"
 )
 
@@ -19,7 +18,7 @@ var ErrNoProofExists = status.Error(codes.FailedPrecondition, "no computed proof
 
 // RPCServer is a gRPC, RPC front end to poet core.
 type RPCServer struct {
-	sig     *signal.Signal
+	stop    context.CancelFunc
 	datadir string
 	proof   *shared.MerkleProof
 }
@@ -32,9 +31,9 @@ var (
 )
 
 // NewRPCServer creates and returns a new instance of the RPCServer.
-func NewRPCServer(sig *signal.Signal, datadir string) *RPCServer {
+func NewRPCServer(stop context.CancelFunc, datadir string) *RPCServer {
 	return &RPCServer{
-		sig:     sig,
+		stop:    stop,
 		datadir: datadir,
 	}
 }
@@ -44,7 +43,7 @@ func (r *RPCServer) Compute(ctx context.Context, in *apicore.ComputeRequest) (*a
 	// TODO(dshulyak) if this is actually will be used change N to Duration for clarity
 	end := time.Now().Add(time.Duration(in.D.N))
 	securityParam := shared.T
-	_, proof, err := prover.GenerateProofWithoutPersistency(r.datadir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), end, securityParam, prover.LowestMerkleMinMemoryLayer)
+	_, proof, err := prover.GenerateProofWithoutPersistency(ctx, r.datadir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), end, securityParam, prover.LowestMerkleMinMemoryLayer)
 	if err != nil {
 		return nil, status.Error(codes.Unknown, err.Error())
 	}
@@ -66,7 +65,7 @@ func (r *RPCServer) GetNIP(ctx context.Context, in *apicore.GetNIPRequest) (*api
 }
 
 func (r *RPCServer) Shutdown(context.Context, *apicore.ShutdownRequest) (*apicore.ShutdownResponse, error) {
-	r.sig.RequestShutdown()
+	r.stop()
 	return &apicore.ShutdownResponse{}, nil
 }
 

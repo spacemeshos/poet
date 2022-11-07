@@ -13,9 +13,9 @@ import (
 	"github.com/spacemeshos/go-scale"
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/spacemeshos/poet/prover"
-	"github.com/spacemeshos/poet/signal"
 	"github.com/spacemeshos/poet/types"
 	"github.com/spacemeshos/poet/types/mock_types"
 )
@@ -36,7 +36,6 @@ type challenge struct {
 
 func TestService_Recovery(t *testing.T) {
 	req := require.New(t)
-	sig := signal.NewSignal()
 	broadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
 	cfg := &Config{
 		Genesis:       time.Now().Add(time.Second).Format(time.RFC3339),
@@ -50,7 +49,7 @@ func TestService_Recovery(t *testing.T) {
 
 	tempdir := t.TempDir()
 	// Create a new service instance.
-	s, err := NewService(sig, cfg, tempdir)
+	s, err := NewService(cfg, tempdir)
 	req.NoError(err)
 	err = s.Start(broadcaster, atxProvider, &types.PostConfig{})
 	req.NoError(err)
@@ -107,7 +106,9 @@ func TestService_Recovery(t *testing.T) {
 	}
 
 	// Verify that round iteration proceeds: a new round opened, previous round is executing.
+	s.Lock()
 	req.Contains(s.executingRounds, rounds[0].ID)
+	s.Unlock()
 	s.openRoundMutex.Lock()
 	rounds[1] = s.openRound
 	s.openRoundMutex.Unlock()
@@ -115,8 +116,7 @@ func TestService_Recovery(t *testing.T) {
 	// Submit challenges to open round (1).
 	submitChallenges(1, 1)
 
-	// Request shutdown.
-	sig.RequestShutdown()
+	req.NoError(s.Shutdown())
 
 	// Verify shutdown error is received.
 	select {
@@ -131,19 +131,21 @@ func TestService_Recovery(t *testing.T) {
 	s.openRoundMutex.Lock()
 	req.Nil(s.openRound)
 	s.openRoundMutex.Unlock()
+	s.Lock()
 	req.Equal(len(s.executingRounds), 0)
-
+	s.Unlock()
 	// Create a new service instance.
-	sig = signal.NewSignal()
-	s, err = NewService(sig, cfg, tempdir)
+	s, err = NewService(cfg, tempdir)
 	req.NoError(err)
 
 	err = s.Start(broadcaster, atxProvider, &types.PostConfig{})
 	req.NoError(err)
 
 	// Service instance should recover 2 rounds: round 1 in executing state, and round 2 in open state.
-	req.Equal(1, len(s.executingRounds))
+	req.Eventually(func() bool { s.Lock(); defer s.Unlock(); return len(s.executingRounds) == 1 }, time.Second, time.Millisecond)
+	s.Lock()
 	first, ok := s.executingRounds["0"]
+	s.Unlock()
 	req.True(ok)
 	req.Equal(s.openRoundID(), "1")
 	rounds[0] = first
@@ -194,9 +196,7 @@ func TestService_Recovery(t *testing.T) {
 		req.Equal(mtree.Root(), proof.Statement)
 	}
 
-	// Request shutdown.
-	sig.RequestShutdown()
-	time.Sleep(100 * time.Millisecond)
+	req.NoError(s.Shutdown())
 }
 
 func contains(list [][]byte, item []byte) bool {
@@ -209,6 +209,37 @@ func contains(list [][]byte, item []byte) bool {
 	return false
 }
 
+func TestConcurrentServiceStartAndShutdown(t *testing.T) {
+	t.Parallel()
+	req := require.New(t)
+
+	cfg := Config{
+		Genesis:       time.Now().Add(2 * time.Second).Format(time.RFC3339),
+		EpochDuration: time.Second,
+		PhaseShift:    time.Second / 2,
+		CycleGap:      time.Second / 4,
+	}
+	ctrl := gomock.NewController(t)
+	atxProvider := mock_types.NewMockAtxProvider(ctrl)
+
+	for i := 0; i < 100; i += 1 {
+		t.Run(fmt.Sprintf("iteration %d", i), func(t *testing.T) {
+			t.Parallel()
+			s, err := NewService(&cfg, t.TempDir())
+			req.NoError(err)
+
+			var eg errgroup.Group
+			eg.Go(func() error {
+				proofBroadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
+				req.NoError(s.Start(proofBroadcaster, atxProvider, &types.PostConfig{}))
+				return nil
+			})
+			req.Eventually(func() bool { return s.Shutdown() == nil }, time.Second, time.Millisecond*10)
+			eg.Wait()
+		})
+	}
+}
+
 func TestNewService(t *testing.T) {
 	req := require.New(t)
 	tempdir := t.TempDir()
@@ -219,8 +250,7 @@ func TestNewService(t *testing.T) {
 	cfg.PhaseShift = time.Second / 2
 	cfg.CycleGap = time.Second / 4
 
-	sig := signal.NewSignal()
-	s, err := NewService(sig, cfg, tempdir)
+	s, err := NewService(cfg, tempdir)
 	req.NoError(err)
 	proofBroadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
 	ctrl := gomock.NewController(t)
@@ -295,9 +325,7 @@ func TestNewService(t *testing.T) {
 		req.Fail("proof message wasn't sent")
 	}
 
-	// Request shutdown.
-	sig.RequestShutdown()
-	time.Sleep(100 * time.Millisecond)
+	req.NoError(s.Shutdown())
 }
 
 func genChallenges(num int) ([][]byte, error) {

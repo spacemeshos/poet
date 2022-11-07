@@ -11,6 +11,7 @@ import (
 	proxy "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/spacemeshos/smutil/log"
 	"golang.org/x/net/context"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
@@ -25,15 +26,13 @@ import (
 	"github.com/spacemeshos/poet/rpc"
 	"github.com/spacemeshos/poet/rpccore"
 	"github.com/spacemeshos/poet/service"
-	"github.com/spacemeshos/poet/signal"
 )
 
 // startServer starts the RPC server.
-func StartServer(cfg *config.Config) error {
-	sig := signal.NewSignal()
-	ctx := context.Background()
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+func StartServer(ctx context.Context, cfg *config.Config) error {
+	ctx, stop := context.WithCancel(ctx)
+	defer stop()
+	serverGroup, ctx := errgroup.WithContext(ctx)
 
 	// Initialize and register the implementation of gRPC interface
 	var grpcServer *grpc.Server
@@ -59,7 +58,7 @@ func StartServer(cfg *config.Config) error {
 	}
 
 	if cfg.CoreServiceMode {
-		rpcServer := rpccore.NewRPCServer(sig, cfg.DataDir)
+		rpcServer := rpccore.NewRPCServer(stop, cfg.DataDir)
 		grpcServer = grpc.NewServer(options...)
 
 		apicore.RegisterPoetCoreProverServer(grpcServer, rpcServer)
@@ -67,7 +66,8 @@ func StartServer(cfg *config.Config) error {
 		proxyRegstr = append(proxyRegstr, apicore.RegisterPoetCoreProverHandlerFromEndpoint)
 		proxyRegstr = append(proxyRegstr, apicore.RegisterPoetVerifierHandlerFromEndpoint)
 	} else {
-		svc, err := service.NewService(sig, cfg.Service, cfg.DataDir)
+		svc, err := service.NewService(cfg.Service, cfg.DataDir)
+		defer svc.Shutdown()
 		if err != nil {
 			return err
 		}
@@ -94,7 +94,9 @@ func StartServer(cfg *config.Config) error {
 				return fmt.Errorf("failed to create ATX provider: %w", err)
 			}
 
-			svc.Start(broadcaster, atxProvider, postConfig)
+			if err := svc.Start(broadcaster, atxProvider, postConfig); err != nil {
+				return err
+			}
 		} else {
 			log.Info("Service not starting, waiting for start request")
 		}
@@ -113,13 +115,10 @@ func StartServer(cfg *config.Config) error {
 	}
 	defer lis.Close()
 
-	go func() {
+	serverGroup.Go(func() error {
 		log.Info("RPC server listening on %s", lis.Addr())
-		err := grpcServer.Serve(lis)
-		if err != nil {
-			log.Error("failed to serve: %v", err)
-		}
-	}()
+		return grpcServer.Serve(lis)
+	})
 
 	// Start the REST proxy for the gRPC server above.
 	mux := proxy.NewServeMux()
@@ -130,16 +129,17 @@ func StartServer(cfg *config.Config) error {
 		}
 	}
 
-	go func() {
+	server := &http.Server{Addr: cfg.RESTListener.String(), Handler: mux}
+	serverGroup.Go(func() error {
 		log.Info("REST proxy start listening on %s", cfg.RESTListener.String())
-		err := http.ListenAndServe(cfg.RESTListener.String(), mux)
-		log.Error("REST proxy failed listening: %s\n", err)
-	}()
+		return server.ListenAndServe()
+	})
 
-	// Wait for shutdown signal from either a graceful server stop or from
-	// the interrupt handler.
-	<-sig.ShutdownChannel()
-	return nil
+	// Wait for the server to shut down gracefully
+	<-ctx.Done()
+	grpcServer.GracefulStop()
+	server.Shutdown(ctx)
+	return serverGroup.Wait()
 }
 
 // loggerInterceptor returns UnaryServerInterceptor handler to log all RPC server incoming requests.
