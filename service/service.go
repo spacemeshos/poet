@@ -184,11 +184,12 @@ func (s *Service) loop(ctx context.Context) {
 
 		start := s.genesis.Add(s.cfg.EpochDuration * time.Duration(epoch)).Add(s.cfg.PhaseShift)
 		waitTime := time.Until(start)
+		timer := time.After(waitTime)
 		if waitTime > 0 {
 			log.Info("Round %v waiting for execution to start for %v", s.openRoundID(), waitTime)
 		}
 		select {
-		case <-time.After(waitTime):
+		case <-timer:
 		case <-ctx.Done():
 			log.Info("service shutting down")
 			s.openRoundMutex.Lock()
