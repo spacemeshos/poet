@@ -15,7 +15,7 @@ import (
 
 	"github.com/spacemeshos/go-scale"
 	mshared "github.com/spacemeshos/merkle-tree/shared"
-	"github.com/spacemeshos/post/verifying"
+	sharedPost "github.com/spacemeshos/post/shared"
 	"github.com/spacemeshos/smutil/log"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -422,7 +422,11 @@ func (s *Service) Submit(ctx context.Context, challenge []byte, signedChallenge 
 		log.Debug("Using the new challenge submission API")
 		// SAFETY: it will never panic as `s.atxProvider` is set in Start
 		atxProvider := s.atxProvider.Load().(types.AtxProvider)
-		if err := validateChallenge(ctx, signedChallenge, atxProvider, s.postConfig.Load(), verifying.Verify); err != nil {
+		verifier := func(*sharedPost.Proof, *sharedPost.ProofMetadata) error {
+			log.Info("Dummy verifier of Post Proof. OK")
+			return nil
+		}
+		if err := validateChallenge(ctx, signedChallenge, atxProvider, s.postConfig.Load(), verifier); err != nil {
 			return nil, nil, err
 		}
 		// TODO(brozansk) calculate sequence number
