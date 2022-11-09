@@ -218,6 +218,7 @@ func TestConcurrentServiceStartAndShutdown(t *testing.T) {
 		EpochDuration: time.Second,
 		PhaseShift:    time.Second / 2,
 		CycleGap:      time.Second / 4,
+		ExecuteEmpty:  true,
 	}
 	ctrl := gomock.NewController(t)
 	atxProvider := mock_types.NewMockAtxProvider(ctrl)
@@ -245,7 +246,8 @@ func TestNewService(t *testing.T) {
 	tempdir := t.TempDir()
 
 	cfg := new(Config)
-	cfg.Genesis = time.Now().Add(2 * time.Second).Format(time.RFC3339)
+	cfg.ExecuteEmpty = true
+	cfg.Genesis = time.Now().Add(time.Second).Format(time.RFC3339)
 	cfg.EpochDuration = time.Second
 	cfg.PhaseShift = time.Second / 2
 	cfg.CycleGap = time.Second / 4
