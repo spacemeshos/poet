@@ -9,8 +9,8 @@ require (
 	github.com/minio/sha256-simd v1.0.0
 	github.com/nullstyle/go-xdr v0.0.0-20180726165426-f4c839f75077
 	github.com/spacemeshos/api/release/go v1.5.1
-	github.com/spacemeshos/ed25519 v0.0.0-20221025075941-ae6f3a8a6218
-	github.com/spacemeshos/go-scale v1.1.0
+	github.com/spacemeshos/ed25519 v0.1.0
+	github.com/spacemeshos/go-scale v1.1.1
 	github.com/spacemeshos/merkle-tree v0.1.0
 	github.com/spacemeshos/post v0.0.0-20221027120329-e896aa763a95
 	github.com/spacemeshos/smutil v0.0.0-20220819180433-6aaadca3eb1d
