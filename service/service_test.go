@@ -210,6 +210,7 @@ func TestConcurrentServiceStartAndShutdown(t *testing.T) {
 		EpochDuration: time.Second,
 		PhaseShift:    time.Second / 2,
 		CycleGap:      time.Second / 4,
+		ExecuteEmpty:  true,
 	}
 
 	for i := 0; i < 100; i += 1 {

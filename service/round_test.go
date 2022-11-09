@@ -55,11 +55,7 @@ func TestRound_Recovery(t *testing.T) {
 	req.Equal(len(challenges), r2.numChallenges())
 	req.False(r2.isEmpty())
 
-	go func() {
-		time.Sleep(duration / 10)
-		stop()
-	}()
-
+	stop()
 	req.ErrorIs(r2.execute(ctx, time.Now().Add(duration), prover.LowestMerkleMinMemoryLayer), prover.ErrShutdownRequested)
 	require.NoError(t, r2.waitTeardown(context.Background()))
 
@@ -72,11 +68,7 @@ func TestRound_Recovery(t *testing.T) {
 	state, err := r2recovery1.state()
 	req.NoError(err)
 
-	go func() {
-		time.Sleep(duration / 5)
-		stop()
-	}()
-
+	stop()
 	req.ErrorIs(r2recovery1.recoverExecution(ctx, state.Execution, time.Now().Add(duration)), prover.ErrShutdownRequested)
 	require.NoError(t, r2recovery1.waitTeardown(context.Background()))
 
@@ -130,7 +122,7 @@ func TestRound_State(t *testing.T) {
 	for _, ch := range challenges {
 		req.NoError(r.submit(ch))
 	}
-	req.Equal(len(challenges), r.numChallenges())
+	req.Len(challenges, r.numChallenges())
 	req.False(r.isEmpty())
 
 	req.Nil(r.stateCache)
@@ -140,48 +132,47 @@ func TestRound_State(t *testing.T) {
 	req.Equal(state, r.stateCache)
 
 	req.True(state.isOpen())
-	req.True(!state.isExecuted())
+	req.False(state.isExecuted())
 	req.NotNil(state.Execution)
-	req.True(state.Execution.SecurityParam != 0)
-	req.True(state.Execution.Statement == nil)
-	req.True(state.Execution.NumLeaves == 0)
-	req.True(state.Execution.ParkedNodes == nil)
-	req.True(state.Execution.NIP == nil)
+	req.NotZero(state.Execution.SecurityParam)
+	req.Nil(state.Execution.Statement)
+	req.Zero(state.Execution.NumLeaves)
+	req.Nil(state.Execution.ParkedNodes)
+	req.Nil(state.Execution.NIP)
 
 	// Execute the round, and request shutdown before completion.
-	duration := 100 * time.Millisecond
+	duration := time.Hour
 	go func() {
-		time.Sleep(duration / 5)
+		time.Sleep(time.Millisecond * 100)
 		stop()
 	}()
-
 	req.ErrorIs(r.execute(ctx, time.Now().Add(duration), prover.LowestMerkleMinMemoryLayer), prover.ErrShutdownRequested)
-	req.True(!r.isOpen())
-	req.True(!r.opened.IsZero())
-	req.True(!r.executionStarted.IsZero())
+	req.False(r.isOpen())
+	req.False(r.opened.IsZero())
+	req.False(r.executionStarted.IsZero())
 	_, err = r.proof(false)
 	req.EqualError(err, "round is executing") // TODO: support an explicit "crashed" state?
 
 	state, err = r.state()
 	req.NoError(err)
 	req.NotNil(state)
-	req.True(!state.isOpen())
-	req.True(!state.isExecuted())
+	req.False(state.isOpen())
+	req.False(state.isExecuted())
 	req.NotNil(state.Execution)
-	req.True(state.Execution.SecurityParam != 0)
-	req.True(len(state.Execution.Statement) == 32)
-	req.True(state.Execution.NumLeaves > 0)
-	req.True(state.Execution.ParkedNodes != nil)
-	req.True(state.Execution.NIP == nil)
+	req.NotZero(state.Execution.SecurityParam)
+	req.Len(state.Execution.Statement, 32)
+	req.Greater(state.Execution.NumLeaves, uint64(0))
+	req.NotNil(state.Execution.ParkedNodes)
+	req.Nil(state.Execution.NIP)
 	req.NoError(r.waitTeardown(context.Background()))
 
 	// Create a new round instance of the same round.
 	ctx, stop = context.WithCancel(context.Background())
 	r = newRound(ctx, tempdir, 0)
-	req.True(!r.isOpen())
+	req.False(r.isOpen())
 	req.True(r.opened.IsZero())
 	req.True(r.executionStarted.IsZero())
-	req.Equal(len(challenges), r.numChallenges())
+	req.Len(challenges, r.numChallenges())
 	req.False(r.isEmpty())
 	_, err = r.proof(false)
 	req.EqualError(err, "round wasn't open")
@@ -194,7 +185,7 @@ func TestRound_State(t *testing.T) {
 	// Recover execution.
 	req.NoError(r.recoverExecution(ctx, state.Execution, time.Now().Add(100*time.Microsecond)))
 
-	req.True(!r.executionStarted.IsZero())
+	req.False(r.executionStarted.IsZero())
 	proof, err := r.proof(false)
 	req.NoError(err)
 
@@ -204,7 +195,7 @@ func TestRound_State(t *testing.T) {
 	// Verify round execution state.
 	state, err = r.state()
 	req.NoError(err)
-	req.True(!state.isOpen())
+	req.False(state.isOpen())
 	req.True(state.isExecuted())
 	req.Equal(r.execution, state.Execution)
 

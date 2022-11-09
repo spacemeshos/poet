@@ -207,7 +207,7 @@ func generateProof(
 		select {
 		case <-ctx.Done():
 			if err := persist(tree, treeCache, leafID); err != nil {
-				return 0, nil, err
+				return 0, nil, fmt.Errorf("%w: error happened during persisting: %v", ErrShutdownRequested, err)
 			}
 			return 0, nil, ErrShutdownRequested
 		default:
