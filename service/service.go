@@ -264,10 +264,10 @@ func (s *Service) Start(b Broadcaster) error {
 // Shutdown gracefully stops running Service and waits
 // for all processing to stop.
 func (s *Service) Shutdown() error {
-	log.Info("requested service shutdown")
 	if !s.Started() {
 		return ErrNotStarted
 	}
+	log.Info("service shutting down")
 	s.stop()
 	err := s.runningGroup.Wait()
 	s.started.Store(false)

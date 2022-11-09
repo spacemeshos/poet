@@ -69,11 +69,43 @@ message UpdateGatewayResponse {
 }
 
 message SubmitRequest {
+    // deprecated, to be removed once go-spacemesh moves to the new API.
     bytes challenge = 1;
+    message Data {
+        message InitialPost {
+            message Proof {
+                uint32 nonce = 1;
+                bytes indices = 2;
+            }
+            message Metadata {
+                bytes commitment = 1;
+                bytes challenge = 2;
+                uint32 num_units = 3;
+                uint32 bits_per_label = 4;
+                uint64 labels_per_unit = 5;
+                uint32 k1 = 6;
+                uint32 k2 = 7;
+            }
+            Proof proof = 1;
+            Metadata metadata = 2;
+            bytes commitment_atx_id = 3;
+        }
+        bytes positioning_atx_id = 1;
+        uint32 pub_layer_id = 2;
+        oneof prev {
+            InitialPost initial_post = 3;
+            bytes prev_atx_id = 4;
+        }
+    }
+
+    Data data = 2;
+    // signature contains the signature of `data`
+    bytes signature = 3;
 }
 
 message SubmitResponse {
     string roundId = 1;
+    bytes hash = 2;
 }
 
 message GetInfoRequest {

@@ -134,7 +134,7 @@ func loggerInterceptor() func(ctx context.Context, req interface{}, info *grpc.U
 		peer, _ := peer.FromContext(ctx)
 
 		if submitReq, ok := req.(*api.SubmitRequest); ok {
-			log.Info("%v | %x | %v", info.FullMethod, submitReq.Challenge, peer.Addr.String())
+			log.Info("%v | %s | %v", info.FullMethod, submitReq.String(), peer.Addr.String())
 		} else {
 			maxDispLen := 50
 			reqStr := fmt.Sprintf("%v", req)
