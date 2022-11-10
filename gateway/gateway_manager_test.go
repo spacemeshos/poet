@@ -6,13 +6,14 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 )
 
 func TestConnecting(t *testing.T) {
 	gtw := NewMockGrpcServer(t)
-	go func() {
-		require.NoError(t, gtw.Serve())
-	}()
+	var eg errgroup.Group
+	eg.Go(gtw.Serve)
+	t.Cleanup(func() { require.NoError(t, eg.Wait()) })
 	t.Cleanup(gtw.Stop)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)

@@ -11,7 +11,7 @@ import (
 
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/types"
-	"github.com/spacemeshos/poet/types/mock_types"
+	"github.com/spacemeshos/poet/types/mocks"
 )
 
 var errInvalidPostProof = errors.New("invalid post proof")
@@ -77,7 +77,7 @@ func Test_ChallengeValidation_Initial(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
 		t.Parallel()
 		ctrl := gomock.NewController(t)
-		require.NoError(validateChallenge(context.Background(), createChallengeWithInitialPost(&postConfig), mock_types.NewMockAtxProvider(ctrl), &postConfig, acceptProof))
+		require.NoError(validateChallenge(context.Background(), createChallengeWithInitialPost(&postConfig), mocks.NewMockAtxProvider(ctrl), &postConfig, acceptProof))
 	})
 	t.Run("invalid post proof", func(t *testing.T) {
 		t.Parallel()
@@ -85,7 +85,7 @@ func Test_ChallengeValidation_Initial(t *testing.T) {
 		challenge := createChallengeWithInitialPost(&postConfig)
 
 		require.ErrorIs(
-			validateChallenge(context.Background(), challenge, mock_types.NewMockAtxProvider(ctrl), &postConfig, denyProof),
+			validateChallenge(context.Background(), challenge, mocks.NewMockAtxProvider(ctrl), &postConfig, denyProof),
 			errInvalidPostProof,
 		)
 	})
@@ -93,37 +93,37 @@ func Test_ChallengeValidation_Initial(t *testing.T) {
 		t.Parallel()
 		ctrl := gomock.NewController(t)
 		challenge := createChallengeWithInitialPost(&postConfig, func(c *shared.Challenge) { c.InitialPost.Metadata.NumUnits = 0 })
-		require.ErrorContains(validateChallenge(context.Background(), challenge, mock_types.NewMockAtxProvider(ctrl), &postConfig, acceptProof), "NumUnits")
+		require.ErrorContains(validateChallenge(context.Background(), challenge, mocks.NewMockAtxProvider(ctrl), &postConfig, acceptProof), "NumUnits")
 	})
 	t.Run("invalid post metadata (NumUnits > MaxNumUnits)", func(t *testing.T) {
 		t.Parallel()
 		ctrl := gomock.NewController(t)
 		challenge := createChallengeWithInitialPost(&postConfig, func(c *shared.Challenge) { c.InitialPost.Metadata.NumUnits = postConfig.MaxNumUnits + 1 })
-		require.ErrorContains(validateChallenge(context.Background(), challenge, mock_types.NewMockAtxProvider(ctrl), &postConfig, acceptProof), "NumUnits")
+		require.ErrorContains(validateChallenge(context.Background(), challenge, mocks.NewMockAtxProvider(ctrl), &postConfig, acceptProof), "NumUnits")
 	})
 	t.Run("invalid post metadata (BitsPerLabel)", func(t *testing.T) {
 		t.Parallel()
 		ctrl := gomock.NewController(t)
 		challenge := createChallengeWithInitialPost(&postConfig, func(c *shared.Challenge) { c.InitialPost.Metadata.BitsPerLabel = postConfig.BitsPerLabel + 1 })
-		require.ErrorContains(validateChallenge(context.Background(), challenge, mock_types.NewMockAtxProvider(ctrl), &postConfig, acceptProof), "BitsPerLabel")
+		require.ErrorContains(validateChallenge(context.Background(), challenge, mocks.NewMockAtxProvider(ctrl), &postConfig, acceptProof), "BitsPerLabel")
 	})
 	t.Run("invalid post metadata (LabelsPerUnit)", func(t *testing.T) {
 		t.Parallel()
 		ctrl := gomock.NewController(t)
 		challenge := createChallengeWithInitialPost(&postConfig, func(c *shared.Challenge) { c.InitialPost.Metadata.LabelsPerUnit = postConfig.LabelsPerUnit + 1 })
-		require.ErrorContains(validateChallenge(context.Background(), challenge, mock_types.NewMockAtxProvider(ctrl), &postConfig, acceptProof), "LabelsPerUnit")
+		require.ErrorContains(validateChallenge(context.Background(), challenge, mocks.NewMockAtxProvider(ctrl), &postConfig, acceptProof), "LabelsPerUnit")
 	})
 	t.Run("invalid post metadata (K1)", func(t *testing.T) {
 		t.Parallel()
 		ctrl := gomock.NewController(t)
 		challenge := createChallengeWithInitialPost(&postConfig, func(c *shared.Challenge) { c.InitialPost.Metadata.K1 = postConfig.K1 + 1 })
-		require.ErrorContains(validateChallenge(context.Background(), challenge, mock_types.NewMockAtxProvider(ctrl), &postConfig, acceptProof), "K1")
+		require.ErrorContains(validateChallenge(context.Background(), challenge, mocks.NewMockAtxProvider(ctrl), &postConfig, acceptProof), "K1")
 	})
 	t.Run("invalid post metadata (K2)", func(t *testing.T) {
 		t.Parallel()
 		ctrl := gomock.NewController(t)
 		challenge := createChallengeWithInitialPost(&postConfig, func(c *shared.Challenge) { c.InitialPost.Metadata.K2 = postConfig.K2 + 1 })
-		require.ErrorContains(validateChallenge(context.Background(), challenge, mock_types.NewMockAtxProvider(ctrl), &postConfig, acceptProof), "K2")
+		require.ErrorContains(validateChallenge(context.Background(), challenge, mocks.NewMockAtxProvider(ctrl), &postConfig, acceptProof), "K2")
 	})
 }
 
@@ -149,7 +149,7 @@ func Test_ChallengeValidation_NonInitial(t *testing.T) {
 			nodeID: nodeId,
 		}
 
-		atxs := mock_types.NewMockAtxProvider(ctrl)
+		atxs := mocks.NewMockAtxProvider(ctrl)
 		atxs.EXPECT().Get(gomock.Any(), prevAtxId).AnyTimes().Return(&types.ATX{NodeID: nodeId, PubLayerID: 9}, nil)
 		atxs.EXPECT().Get(gomock.Any(), posAtxId).AnyTimes().Return(&types.ATX{NodeID: posAtxnodeId, PubLayerID: 9}, nil)
 
@@ -167,7 +167,7 @@ func Test_ChallengeValidation_NonInitial(t *testing.T) {
 			nodeID: nodeId,
 		}
 
-		atxs := mock_types.NewMockAtxProvider(ctrl)
+		atxs := mocks.NewMockAtxProvider(ctrl)
 		atxs.EXPECT().Get(gomock.Any(), prevAtxId).AnyTimes().Return(&types.ATX{NodeID: []byte("other"), PubLayerID: 9}, nil)
 		atxs.EXPECT().Get(gomock.Any(), posAtxId).AnyTimes().Return(&types.ATX{NodeID: posAtxnodeId, PubLayerID: 9}, nil)
 
@@ -185,7 +185,7 @@ func Test_ChallengeValidation_NonInitial(t *testing.T) {
 			nodeID: nodeId,
 		}
 
-		atxs := mock_types.NewMockAtxProvider(ctrl)
+		atxs := mocks.NewMockAtxProvider(ctrl)
 		atxs.EXPECT().Get(gomock.Any(), prevAtxId).AnyTimes().Return(nil, errors.New("fail"))
 		atxs.EXPECT().Get(gomock.Any(), posAtxId).AnyTimes().Return(&types.ATX{NodeID: posAtxnodeId, PubLayerID: 9}, nil)
 
@@ -203,7 +203,7 @@ func Test_ChallengeValidation_NonInitial(t *testing.T) {
 			nodeID: nodeId,
 		}
 
-		atxs := mock_types.NewMockAtxProvider(ctrl)
+		atxs := mocks.NewMockAtxProvider(ctrl)
 		atxs.EXPECT().Get(gomock.Any(), prevAtxId).AnyTimes().Return(&types.ATX{NodeID: nodeId, PubLayerID: 9}, nil)
 		atxs.EXPECT().Get(gomock.Any(), posAtxId).AnyTimes().Return(nil, errors.New("fail"))
 
@@ -221,7 +221,7 @@ func Test_ChallengeValidation_NonInitial(t *testing.T) {
 			nodeID: nodeId,
 		}
 
-		atxs := mock_types.NewMockAtxProvider(ctrl)
+		atxs := mocks.NewMockAtxProvider(ctrl)
 		atxs.EXPECT().Get(gomock.Any(), prevAtxId).AnyTimes().Return(&types.ATX{NodeID: nodeId, PubLayerID: 0}, nil)
 		atxs.EXPECT().Get(gomock.Any(), posAtxId).AnyTimes().Return(&types.ATX{NodeID: posAtxnodeId, PubLayerID: 9}, nil)
 
@@ -239,7 +239,7 @@ func Test_ChallengeValidation_NonInitial(t *testing.T) {
 			nodeID: nodeId,
 		}
 
-		atxs := mock_types.NewMockAtxProvider(ctrl)
+		atxs := mocks.NewMockAtxProvider(ctrl)
 		atxs.EXPECT().Get(gomock.Any(), prevAtxId).AnyTimes().Return(&types.ATX{NodeID: nodeId, PubLayerID: 9}, nil)
 		atxs.EXPECT().Get(gomock.Any(), posAtxId).AnyTimes().Return(&types.ATX{NodeID: posAtxnodeId, PubLayerID: 0}, nil)
 

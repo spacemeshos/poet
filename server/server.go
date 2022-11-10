@@ -71,7 +71,7 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 		if err != nil {
 			return err
 		}
-		gtwManager, _ := gateway.NewGatewayManager(ctx, cfg.Service.GatewayAddresses)
+		gtwManager, _ := gateway.NewManager(ctx, cfg.Service.GatewayAddresses)
 		if len(gtwManager.Connections()) > 0 {
 			postConfig := smesher.FetchPostConfig(ctx, gtwManager.Connections())
 			if postConfig == nil {
@@ -101,7 +101,7 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 			log.Info("Service not starting, waiting for start request")
 		}
 
-		rpcServer := rpc.NewRPCServer(svc, gtwManager)
+		rpcServer := rpc.NewServer(svc, gtwManager)
 		grpcServer = grpc.NewServer(options...)
 
 		api.RegisterPoetServer(grpcServer, rpcServer)

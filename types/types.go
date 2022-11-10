@@ -12,7 +12,7 @@ type ATX struct {
 	PubLayerID shared.LayerID
 }
 
-//go:generate mockgen -destination mock_types/atx_provider.go . AtxProvider
+//go:generate mockgen -package mocks -destination mocks/atx_provider.go . AtxProvider
 type AtxProvider interface {
 	Get(context.Context, shared.ATXID) (*ATX, error)
 }

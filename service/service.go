@@ -412,12 +412,13 @@ func (s *Service) executeRound(ctx context.Context, r *round) error {
 // Temporarily support both the old and new challenge submission API.
 // TODO(brozansk) remove support for data []byte after go-spacemesh is updated to
 // use the new API.
+// (https://github.com/spacemeshos/poet/issues/147).
 func (s *Service) Submit(ctx context.Context, challenge []byte, signedChallenge signing.Signed[shared.Challenge]) (*round, []byte, error) {
 	if !s.Started() {
 		return nil, nil, ErrNotStarted
 	}
 
-	// TODO(brozansk) Remove support for `challenge []byte` eventually
+	// TODO(brozansk) Remove support for `challenge []byte` eventually (https://github.com/spacemeshos/poet/issues/147)
 	if signedChallenge != nil {
 		log.Debug("Using the new challenge submission API")
 		// SAFETY: it will never panic as `s.atxProvider` is set in Start
@@ -425,8 +426,15 @@ func (s *Service) Submit(ctx context.Context, challenge []byte, signedChallenge 
 		if err := validateChallenge(ctx, signedChallenge, atxProvider, s.postConfig.Load(), verifying.Verify); err != nil {
 			return nil, nil, err
 		}
-		// TODO(brozansk) calculate sequence number
-		// TODO(brozansk) calculate hash
+
+		var sequence uint64
+		if id := signedChallenge.Data().PreviousATXId; id != nil {
+			atx, _ := atxProvider.Get(ctx, id) // Won't fail as challenge is already validated
+			sequence = atx.Sequence + 1
+		}
+		log.Debug("Calculated sequence: %d", sequence)
+
+		// TODO(brozansk) calculate hash (https://github.com/spacemeshos/poet/issues/148)
 
 		s.openRoundMutex.Lock()
 		r := s.openRound

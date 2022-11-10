@@ -17,7 +17,7 @@ import (
 
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/types"
-	"github.com/spacemeshos/poet/types/mock_types"
+	"github.com/spacemeshos/poet/types/mocks"
 )
 
 type MockBroadcaster struct {
@@ -45,7 +45,7 @@ func TestService_Recovery(t *testing.T) {
 	}
 
 	ctrl := gomock.NewController(t)
-	atxProvider := mock_types.NewMockAtxProvider(ctrl)
+	atxProvider := mocks.NewMockAtxProvider(ctrl)
 
 	tempdir := t.TempDir()
 	// Create a new service instance.
@@ -221,7 +221,7 @@ func TestConcurrentServiceStartAndShutdown(t *testing.T) {
 		ExecuteEmpty:  true,
 	}
 	ctrl := gomock.NewController(t)
-	atxProvider := mock_types.NewMockAtxProvider(ctrl)
+	atxProvider := mocks.NewMockAtxProvider(ctrl)
 
 	for i := 0; i < 100; i += 1 {
 		t.Run(fmt.Sprintf("iteration %d", i), func(t *testing.T) {
@@ -256,7 +256,7 @@ func TestNewService(t *testing.T) {
 	req.NoError(err)
 	proofBroadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
 	ctrl := gomock.NewController(t)
-	atxProvider := mock_types.NewMockAtxProvider(ctrl)
+	atxProvider := mocks.NewMockAtxProvider(ctrl)
 	err = s.Start(proofBroadcaster, atxProvider, &types.PostConfig{})
 	req.NoError(err)
 

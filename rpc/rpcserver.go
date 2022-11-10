@@ -20,7 +20,7 @@ import (
 // rpcServer is a gRPC, RPC front end to poet.
 type rpcServer struct {
 	s          *service.Service
-	gtwManager *gateway.GatewayManager
+	gtwManager *gateway.Manager
 	sync.Mutex
 }
 
@@ -28,8 +28,8 @@ type rpcServer struct {
 // the PoetServer gRPC rpc.
 var _ rpcapi.PoetServer = (*rpcServer)(nil)
 
-// NewRPCServer creates and returns a new instance of the rpcServer.
-func NewRPCServer(service *service.Service, gtwManager *gateway.GatewayManager) *rpcServer {
+// NewServer creates and returns a new instance of the rpcServer.
+func NewServer(service *service.Service, gtwManager *gateway.Manager) *rpcServer {
 	server := &rpcServer{
 		s:          service,
 		gtwManager: gtwManager,
@@ -55,7 +55,7 @@ func (r *rpcServer) Start(ctx context.Context, in *rpcapi.StartRequest) (*rpcapi
 		broadcastAcks = 1
 	}
 
-	gtwManager, err := gateway.NewGatewayManager(ctx, in.GatewayAddresses)
+	gtwManager, err := gateway.NewManager(ctx, in.GatewayAddresses)
 	//lint:ignore SA5001 (need to Close() even in case of an error)
 	defer gtwManager.Close() // nolint:staticcheck // SA5001 (need to Close() even in case of an error)
 	if len(gtwManager.Connections()) < connAcks {
@@ -110,7 +110,7 @@ func (r *rpcServer) UpdateGateway(ctx context.Context, in *rpcapi.UpdateGatewayR
 		broadcastAcks = 1
 	}
 
-	gtwManager, err := gateway.NewGatewayManager(ctx, in.GatewayAddresses)
+	gtwManager, err := gateway.NewManager(ctx, in.GatewayAddresses)
 	//lint:ignore SA5001 (need to Close() even in case of an error)
 	defer gtwManager.Close() // nolint:staticcheck
 	if len(gtwManager.Connections()) < connAcks {

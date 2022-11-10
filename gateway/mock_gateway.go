@@ -16,7 +16,9 @@ import (
 // ```
 // gtw := NewMockGrpcServer(t)
 // <register required GRPC services>
-// go func() { require.NoError(t, gtw.Serve()) }()
+// var eg errgroup.Group
+// eg.Go(gtw.Serve)
+// t.Cleanup(func() { require.NoError(t, eg.Wait()) })
 // t.Cleanup(gtw.Stop)
 // ```
 // .

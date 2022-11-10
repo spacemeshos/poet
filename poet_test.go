@@ -12,6 +12,7 @@ import (
 	v1 "github.com/spacemeshos/api/release/go/spacemesh/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/spacemeshos/poet/gateway"
 	"github.com/spacemeshos/poet/integration"
@@ -47,7 +48,11 @@ func spawnMockGateway(t *testing.T) (target string) {
 	server := gateway.NewMockGrpcServer(t)
 	v1.RegisterActivationServiceServer(server.Server, &v1.UnimplementedActivationServiceServer{})
 	v1.RegisterSmesherServiceServer(server.Server, &postConfigService{})
-	go func() { require.NoError(t, server.Serve()) }()
+
+	var eg errgroup.Group
+	t.Cleanup(func() { require.NoError(t, eg.Wait()) })
+
+	eg.Go(server.Serve)
 	t.Cleanup(server.Stop)
 
 	return server.Target()

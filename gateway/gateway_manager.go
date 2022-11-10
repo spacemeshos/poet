@@ -36,20 +36,20 @@ func (e *ConnectingErrors) Is(target error) bool {
 	return ok
 }
 
-// GatewayManager aggregates GRPC connections to gateways.
+// Manager aggregates GRPC connections to gateways.
 // Its Close() must be called when the connections are no longer needed.
-type GatewayManager struct {
+type Manager struct {
 	connections []*grpc.ClientConn
 }
 
-func (m *GatewayManager) Connections() []*grpc.ClientConn {
+func (m *Manager) Connections() []*grpc.ClientConn {
 	if m == nil {
 		return []*grpc.ClientConn{}
 	}
 	return m.connections
 }
 
-func (m *GatewayManager) Close() {
+func (m *Manager) Close() {
 	if m == nil {
 		return
 	}
@@ -58,14 +58,14 @@ func (m *GatewayManager) Close() {
 	}
 }
 
-// NewGatewayManager creates a GatewayManager connected to `gateways`.
+// NewManager creates a gateway manager connected to `gateways`.
 // Close() must be called when the connections are no longer needed.
-func NewGatewayManager(ctx context.Context, gateways []string) (*GatewayManager, error) {
+func NewManager(ctx context.Context, gateways []string) (*Manager, error) {
 	ctx, cancel := context.WithTimeout(ctx, DefaultConnTimeout)
 	defer cancel()
 	connections, errs := connect(ctx, gateways)
 
-	return &GatewayManager{
+	return &Manager{
 		connections: connections,
 	}, &ConnectingErrors{errors: errs}
 }

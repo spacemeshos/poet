@@ -10,7 +10,7 @@ import (
 	"github.com/spacemeshos/poet/gateway/activation"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/types"
-	"github.com/spacemeshos/poet/types/mock_types"
+	"github.com/spacemeshos/poet/types/mocks"
 )
 
 func TestRoundRobinProvider(t *testing.T) {
@@ -23,9 +23,9 @@ func TestRoundRobinProvider(t *testing.T) {
 		PubLayerID: 99,
 	}
 
-	providerWithoutAtxId := mock_types.NewMockAtxProvider(ctrl)
+	providerWithoutAtxId := mocks.NewMockAtxProvider(ctrl)
 	providerWithoutAtxId.EXPECT().Get(gomock.Any(), shared.ATXID("test")).Return(nil, activation.ErrAtxNotFound)
-	providerWithAtxId := mock_types.NewMockAtxProvider(ctrl)
+	providerWithAtxId := mocks.NewMockAtxProvider(ctrl)
 	providerWithAtxId.EXPECT().Get(gomock.Any(), shared.ATXID("test")).Times(2).Return(&atx, nil)
 
 	rrProvider := activation.NewRoundRobinAtxProvider([]types.AtxProvider{providerWithoutAtxId, providerWithAtxId})
@@ -51,7 +51,7 @@ func TestCachedProvider(t *testing.T) {
 	t.Run("caching", func(t *testing.T) {
 		t.Parallel()
 		ctrl := gomock.NewController(t)
-		provider := mock_types.NewMockAtxProvider(ctrl)
+		provider := mocks.NewMockAtxProvider(ctrl)
 		provider.EXPECT().Get(gomock.Any(), shared.ATXID("test")).Return(&atx, nil)
 
 		rrProvider, err := activation.NewCachedAtxProvider(1, provider)
@@ -68,7 +68,7 @@ func TestCachedProvider(t *testing.T) {
 	t.Run("eviction", func(t *testing.T) {
 		t.Parallel()
 		ctrl := gomock.NewController(t)
-		provider := mock_types.NewMockAtxProvider(ctrl)
+		provider := mocks.NewMockAtxProvider(ctrl)
 		provider.EXPECT().Get(gomock.Any(), shared.ATXID("test")).Times(2).Return(&atx, nil)
 		provider.EXPECT().Get(gomock.Any(), shared.ATXID("evict")).Return(&atx, nil)
 
