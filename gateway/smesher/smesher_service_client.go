@@ -2,7 +2,6 @@ package smesher
 
 import (
 	"context"
-	"errors"
 
 	v1 "github.com/spacemeshos/api/release/go/spacemesh/v1"
 	"github.com/spacemeshos/smutil/log"
@@ -20,9 +19,6 @@ func (c *smesherServiceClient) GetPostConfig(ctx context.Context) (*types.PostCo
 	resp, err := c.client.PostConfig(ctx, &emptypb.Empty{})
 	if err != nil {
 		return nil, err
-	}
-	if resp == nil {
-		return nil, errors.New("post config not found")
 	}
 	return &types.PostConfig{
 		MinNumUnits:   resp.MinNumUnits,
@@ -45,12 +41,11 @@ func FetchPostConfig(ctx context.Context, gateways []*grpc.ClientConn) *types.Po
 		client := newClient(gtw)
 		if cfg, err := client.GetPostConfig(ctx); err == nil {
 			return cfg
-		} else {
-			if ctx.Err() != nil {
-				return nil
-			}
-			log.With().Debug("failed to fetch post config", log.String("gateway", gtw.Target()))
 		}
+		if ctx.Err() != nil {
+			return nil
+		}
+		log.With().Debug("failed to fetch post config", log.String("gateway", gtw.Target()))
 	}
 	return nil
 }

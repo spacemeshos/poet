@@ -39,9 +39,9 @@ func TestFetchPostConfig(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
 	defer cancel()
-	gtwManager, _ := gateway.NewManager(ctx, []string{gtwFailing.Target(), gtwOK.Target(), "i-dont-exist"})
+	gtwManager, err := gateway.NewManager(ctx, []string{gtwFailing.Target(), gtwOK.Target(), "i-dont-exist"}, 2)
+	require.NoError(t, err)
 	t.Cleanup(gtwManager.Close)
-	require.Len(t, gtwManager.Connections(), 2)
 
 	// Act
 	postConfig := smesher.FetchPostConfig(context.Background(), gtwManager.Connections())

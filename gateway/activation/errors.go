@@ -1,6 +1,7 @@
 package activation
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/spacemeshos/poet/shared"
@@ -21,8 +22,8 @@ func (e *AtxNotFoundError) Error() string {
 }
 
 func (e *AtxNotFoundError) Is(target error) bool {
-	_, ok := target.(*AtxNotFoundError)
-	return ok
+	other, ok := target.(*AtxNotFoundError)
+	return ok && bytes.Equal(other.id, e.id)
 }
 
 // TransportError means there was a problem communicating
@@ -39,8 +40,3 @@ func (e *TransportError) Error() string {
 }
 
 func (e *TransportError) Unwrap() error { return e.source }
-
-func (e *TransportError) Is(target error) bool {
-	_, ok := target.(*TransportError)
-	return ok
-}

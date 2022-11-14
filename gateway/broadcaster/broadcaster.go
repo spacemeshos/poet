@@ -26,29 +26,19 @@ type Broadcaster struct {
 // New instantiate a new Broadcaster for a given list of gateway nodes addresses.
 // disableBroadcast allows to create a disabled Broadcaster instance.
 // connTimeout set the timeout per gRPC connection attempt to a node.
-// connAcksThreshold set the lower-bound of required successful gRPC connections to the nodes. If not met, an error will be returned.
 // broadcastTimeout set the timeout per proof broadcast.
 // broadcastAcksThreshold set the lower-bound of required successful proof broadcasts. If not met, a warning will be logged.
-func New(connections []*grpc.ClientConn, disableBroadcast bool, connAcksThreshold uint, broadcastTimeout time.Duration, broadcastAcksThreshold uint) (*Broadcaster, error) {
+func New(connections []*grpc.ClientConn, disableBroadcast bool, broadcastTimeout time.Duration, broadcastAcksThreshold uint) (*Broadcaster, error) {
 	if disableBroadcast {
 		log.Info("Broadcast is disabled")
 		return &Broadcaster{}, nil
 	}
 
-	if len(connections) == 0 {
-		return nil, errors.New("number of gateway connections must be greater than 0")
-	}
-	if connAcksThreshold < 1 {
-		return nil, errors.New("successful connections threshold must be greater than 0")
-	}
 	if broadcastAcksThreshold < 1 {
 		return nil, errors.New("successful broadcast threshold must be greater than 0")
 	}
-	if len(connections) < int(connAcksThreshold) {
-		return nil, fmt.Errorf("number of gateway connections (%d) must be greater than the successful connections threshold (%d)", len(connections), connAcksThreshold)
-	}
-	if connAcksThreshold < broadcastAcksThreshold {
-		return nil, fmt.Errorf("the successful connections threshold (%d) must be greater than the successful broadcast threshold (%d)", connAcksThreshold, broadcastAcksThreshold)
+	if len(connections) < int(broadcastAcksThreshold) {
+		return nil, fmt.Errorf("number of gateway connections (%d) must be greater or equal than the successful broadcast threshold (%d)", len(connections), broadcastAcksThreshold)
 	}
 
 	clients := make([]pb.GatewayServiceClient, len(connections))

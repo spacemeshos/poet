@@ -60,14 +60,20 @@ func (m *Manager) Close() {
 
 // NewManager creates a gateway manager connected to `gateways`.
 // Close() must be called when the connections are no longer needed.
-func NewManager(ctx context.Context, gateways []string) (*Manager, error) {
+func NewManager(ctx context.Context, gateways []string, minSuccesfullConns uint) (*Manager, error) {
 	ctx, cancel := context.WithTimeout(ctx, DefaultConnTimeout)
 	defer cancel()
 	connections, errs := connect(ctx, gateways)
+	if len(connections) < int(minSuccesfullConns) {
+		for _, conn := range connections {
+			conn.Close()
+		}
+		return nil, &ConnectingErrors{errors: errs}
+	}
 
 	return &Manager{
 		connections: connections,
-	}, &ConnectingErrors{errors: errs}
+	}, nil
 }
 
 // Connect tries to connect to gateways at provided addresses.
@@ -85,6 +91,7 @@ func connect(ctx context.Context, gateways []string) ([]*grpc.ClientConn, []erro
 		grpc.WithBlock(),
 		// XXX: this is done to prevent routers from cleaning up our connections (e.g aws load balances..)
 		// TODO: these parameters work for now but we might need to revisit or add them as configuration
+		// Tracked by: https://github.com/spacemeshos/poet/issues/154
 		grpc.WithKeepaliveParams(keepalive.ClientParameters{
 			Time:                time.Minute,
 			Timeout:             time.Minute * 3,

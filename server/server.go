@@ -71,8 +71,8 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 		if err != nil {
 			return err
 		}
-		gtwManager, _ := gateway.NewManager(ctx, cfg.Service.GatewayAddresses)
-		if len(gtwManager.Connections()) > 0 {
+		gtwManager, err := gateway.NewManager(ctx, cfg.Service.GatewayAddresses, cfg.Service.ConnAcksThreshold)
+		if err == nil {
 			postConfig := smesher.FetchPostConfig(ctx, gtwManager.Connections())
 			if postConfig == nil {
 				return errors.New("failed to fetch post config from gateways")
@@ -80,7 +80,6 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 			broadcaster, err := broadcaster.New(
 				gtwManager.Connections(),
 				cfg.Service.DisableBroadcast,
-				cfg.Service.ConnAcksThreshold,
 				broadcaster.DefaultBroadcastTimeout,
 				cfg.Service.BroadcastAcksThreshold,
 			)
@@ -98,7 +97,7 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 				return err
 			}
 		} else {
-			log.Info("Service not starting, waiting for start request")
+			log.With().Info("Service not starting, waiting for start request", log.Err(err))
 		}
 
 		rpcServer := rpc.NewServer(svc, gtwManager)

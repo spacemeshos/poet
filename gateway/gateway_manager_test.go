@@ -10,16 +10,29 @@ import (
 )
 
 func TestConnecting(t *testing.T) {
+	t.Parallel()
+	req := require.New(t)
 	gtw := NewMockGrpcServer(t)
 	var eg errgroup.Group
 	eg.Go(gtw.Serve)
 	t.Cleanup(func() { require.NoError(t, eg.Wait()) })
 	t.Cleanup(gtw.Stop)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
-	defer cancel()
-	// Try to connect. one should succeed, one should fail
-	conns, errors := connect(ctx, []string{gtw.Target(), "wrong-address"})
-	require.Len(t, conns, 1)
-	require.Len(t, errors, 1)
+	t.Run("min successful connections met", func(t *testing.T) {
+		t.Parallel()
+		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
+		defer cancel()
+		mgr, err := NewManager(ctx, []string{gtw.Target(), "wrong-address"}, 1)
+		req.NoError(err)
+		t.Cleanup(mgr.Close)
+		req.Len(mgr.Connections(), 1)
+	})
+	t.Run("min successful not connections met", func(t *testing.T) {
+		t.Parallel()
+		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
+		defer cancel()
+		mgr, err := NewManager(ctx, []string{gtw.Target(), "wrong-address"}, 2)
+		req.Error(err)
+		req.Nil(mgr)
+	})
 }

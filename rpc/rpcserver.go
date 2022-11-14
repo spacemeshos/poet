@@ -45,7 +45,7 @@ func (r *rpcServer) Start(ctx context.Context, in *rpcapi.StartRequest) (*rpcapi
 		return nil, service.ErrAlreadyStarted
 	}
 
-	connAcks := int(in.ConnAcksThreshold)
+	connAcks := uint(in.ConnAcksThreshold)
 	if connAcks < 1 {
 		connAcks = 1
 	}
@@ -55,12 +55,11 @@ func (r *rpcServer) Start(ctx context.Context, in *rpcapi.StartRequest) (*rpcapi
 		broadcastAcks = 1
 	}
 
-	gtwManager, err := gateway.NewManager(ctx, in.GatewayAddresses)
-	//lint:ignore SA5001 (need to Close() even in case of an error)
-	defer gtwManager.Close() // nolint:staticcheck // SA5001 (need to Close() even in case of an error)
-	if len(gtwManager.Connections()) < connAcks {
+	gtwManager, err := gateway.NewManager(ctx, in.GatewayAddresses, connAcks)
+	if err != nil {
 		return nil, err
 	}
+	defer gtwManager.Close()
 	postConfig := smesher.FetchPostConfig(ctx, gtwManager.Connections())
 	if postConfig == nil {
 		return nil, errors.New("failed to fetch post config from gateways")
@@ -68,7 +67,6 @@ func (r *rpcServer) Start(ctx context.Context, in *rpcapi.StartRequest) (*rpcapi
 	b, err := broadcaster.New(
 		r.gtwManager.Connections(),
 		in.DisableBroadcast,
-		uint(connAcks),
 		broadcaster.DefaultBroadcastTimeout,
 		uint(broadcastAcks),
 	)
@@ -100,7 +98,7 @@ func (r *rpcServer) UpdateGateway(ctx context.Context, in *rpcapi.UpdateGatewayR
 		return nil, service.ErrNotStarted
 	}
 
-	connAcks := int(in.ConnAcksThreshold)
+	connAcks := uint(in.ConnAcksThreshold)
 	if connAcks < 1 {
 		connAcks = 1
 	}
@@ -110,12 +108,11 @@ func (r *rpcServer) UpdateGateway(ctx context.Context, in *rpcapi.UpdateGatewayR
 		broadcastAcks = 1
 	}
 
-	gtwManager, err := gateway.NewManager(ctx, in.GatewayAddresses)
-	//lint:ignore SA5001 (need to Close() even in case of an error)
-	defer gtwManager.Close() // nolint:staticcheck
-	if len(gtwManager.Connections()) < connAcks {
+	gtwManager, err := gateway.NewManager(ctx, in.GatewayAddresses, connAcks)
+	if err != nil {
 		return nil, err
 	}
+	defer gtwManager.Close()
 	postConfig := smesher.FetchPostConfig(ctx, gtwManager.Connections())
 	if postConfig == nil {
 		return nil, errors.New("failed to fetch post config from gateways")
@@ -123,7 +120,6 @@ func (r *rpcServer) UpdateGateway(ctx context.Context, in *rpcapi.UpdateGatewayR
 	b, err := broadcaster.New(
 		gtwManager.Connections(),
 		in.DisableBroadcast,
-		uint(connAcks),
 		broadcaster.DefaultBroadcastTimeout,
 		uint(broadcastAcks),
 	)

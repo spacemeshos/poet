@@ -52,8 +52,9 @@ endif
 export GOBIN := $(BIN_DIR)
 GOTESTSUM := $(GOBIN)/gotestsum
 
-BUILD_DEPS := $(BIN_DIR)/libgpu-setup.so
+BUILD_DEPS := $(BIN_DIR)/api.h
 export CGO_LDFLAGS := -L$(BIN_DIR)  -Wl,-rpath,$(BIN_DIR)
+export CPATH := $(BIN_DIR)
 
 # We depend on post submodule Makefile.Inc fetching
 # libgpu-setup.so so there is no must
@@ -61,7 +62,7 @@ export CGO_LDFLAGS := -L$(BIN_DIR)  -Wl,-rpath,$(BIN_DIR)
 post/Makefile.Inc:
 	git submodule update --init -- post
 
-$(BIN_DIR)/libgpu-setup.so: post/Makefile.Inc
+$(BIN_DIR)/api.h: post/Makefile.Inc
 	BIN_DIR=$(abspath $(dir $@))/ make -f post/Makefile.Inc get-gpu-setup
 
 $(BIN_DIR)/mockgen:

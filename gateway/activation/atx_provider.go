@@ -19,12 +19,11 @@ type roundRobinAtxProvider struct {
 }
 
 func (a *roundRobinAtxProvider) Get(ctx context.Context, id shared.ATXID) (*types.ATX, error) {
-	retries := 0
-
-	for ; retries < len(a.services); func() { retries += 1; a.lastUsedSvc = (a.lastUsedSvc + 1) % len(a.services) }() {
+	for retries := 0; retries < len(a.services); retries++ {
 		if atx, err := a.services[a.lastUsedSvc].Get(ctx, id); err == nil {
 			return atx, nil
 		}
+		a.lastUsedSvc = (a.lastUsedSvc + 1) % len(a.services)
 	}
 
 	return nil, &AtxNotFoundError{id}
