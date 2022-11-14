@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	proxy "github.com/grpc-ecosystem/grpc-gateway/runtime"
+	proxy "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/spacemeshos/smutil/log"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
