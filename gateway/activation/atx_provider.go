@@ -45,8 +45,8 @@ type cachingAtxProvider struct {
 }
 
 func (a *cachingAtxProvider) Get(ctx context.Context, id shared.ATXID) (*types.ATX, error) {
-	logger := a.log.WithFields(log.ByteString("id", id))
-	if atx, ok := a.cache.Get(string(id)); ok {
+	logger := a.log.WithFields(log.ByteString("id", id[:]))
+	if atx, ok := a.cache.Get(id); ok {
 		logger.Debug("retrieved ATX from the cache")
 		// SAFETY: type assertion will never panic as we insert only `*ATX` values.
 		return atx.(*types.ATX), nil
@@ -55,7 +55,7 @@ func (a *cachingAtxProvider) Get(ctx context.Context, id shared.ATXID) (*types.A
 	logger.Debug("fetching ATX from gateways")
 	atx, err := a.fetcher.Get(ctx, id)
 	if err == nil {
-		a.cache.Add(string(id), atx)
+		a.cache.Add(id, atx)
 	}
 	return atx, err
 }

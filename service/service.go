@@ -21,6 +21,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/spacemeshos/poet/gateway/activation"
+	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/signing"
@@ -428,22 +429,38 @@ func (s *Service) Submit(ctx context.Context, challenge []byte, signedChallenge 
 		}
 
 		var sequence uint64
+		var previousATXId shared.ATXID
 		if id := signedChallenge.Data().PreviousATXId; id != nil {
-			atx, _ := atxProvider.Get(ctx, id) // Won't fail as challenge is already validated
+			atx, _ := atxProvider.Get(ctx, *id) // Won't fail as challenge is already validated
 			sequence = atx.Sequence + 1
+			previousATXId = *id
 		}
 		log.Debug("Calculated sequence: %d", sequence)
 
-		// TODO(brozansk) calculate hash (https://github.com/spacemeshos/poet/issues/148)
+		var commitmentAtxId *shared.ATXID
+		var initialPostIndices []byte
+		if signedChallenge.Data().InitialPost != nil {
+			commitmentAtxId = &signedChallenge.Data().InitialPost.CommitmentAtxId
+			initialPostIndices = signedChallenge.Data().InitialPost.Proof.Indices
+		}
+		nipostChallenge := types.NIPostChallenge{
+			Sequence:           sequence,
+			PrevATXID:          previousATXId,
+			PubLayerID:         uint32(signedChallenge.Data().PubLayerId),
+			PositioningATX:     signedChallenge.Data().PositioningAtxId,
+			CommitmentATX:      commitmentAtxId,
+			InitialPostIndices: initialPostIndices,
+		}
+		hash := hash.Hash(&nipostChallenge)
 
 		s.openRoundMutex.Lock()
 		r := s.openRound
-		err := r.submit(signedChallenge.PubKey(), challenge)
+		err := r.submit(signedChallenge.PubKey(), hash)
 		s.openRoundMutex.Unlock()
 		if err != nil {
 			return nil, nil, err
 		}
-		return r, []byte("TODO(brozansk) calculate hash"), nil
+		return r, hash, nil
 	} else {
 		log.Debug("Using the old challenge submission API")
 		s.openRoundMutex.Lock()

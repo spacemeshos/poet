@@ -41,7 +41,10 @@ func validateChallenge(ctx context.Context, signedChallenge signing.Signed[share
 	}
 	// Verify against previous ATX
 	{
-		atx, err := atxs.Get(ctx, challenge.PreviousATXId)
+		if challenge.PreviousATXId == nil {
+			return fmt.Errorf("missing previous ATX ID")
+		}
+		atx, err := atxs.Get(ctx, *challenge.PreviousATXId)
 		if err != nil {
 			return fmt.Errorf("validation: failed to fetch previous ATX (%w)", err)
 		}

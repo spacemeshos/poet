@@ -17,7 +17,7 @@ type grpcAtxServiceClient struct {
 
 func (c *grpcAtxServiceClient) Get(ctx context.Context, id shared.ATXID) (*types.ATX, error) {
 	resp, err := c.client.Get(ctx, &v1.GetRequest{
-		Id: id,
+		Id: id[:],
 	})
 	if err != nil {
 		return nil, &TransportError{

@@ -17,7 +17,7 @@ var (
 
 func intoSubmitRequestData(d *shared.Challenge) (*rpcapi.SubmitRequest_Data, error) {
 	data := &rpcapi.SubmitRequest_Data{
-		PositioningAtxId: d.PositioningAtxId,
+		PositioningAtxId: d.PositioningAtxId[:],
 		PubLayerId:       uint32(d.PubLayerId),
 	}
 
@@ -37,12 +37,12 @@ func intoSubmitRequestData(d *shared.Challenge) (*rpcapi.SubmitRequest_Data, err
 					K1:            d.InitialPost.Metadata.K1,
 					K2:            d.InitialPost.Metadata.K2,
 				},
-				CommitmentAtxId: d.InitialPost.CommitmentAtxId,
+				CommitmentAtxId: d.InitialPost.CommitmentAtxId[:],
 			},
 		}
 	} else if d.PreviousATXId != nil {
 		data.Prev = &rpcapi.SubmitRequest_Data_PrevAtxId{
-			PrevAtxId: d.PreviousATXId,
+			PrevAtxId: d.PreviousATXId[:],
 		}
 	} else {
 		return nil, ErrOneOfNotSet
@@ -69,9 +69,10 @@ func IntoSubmitRequest(d signing.Signed[shared.Challenge]) (*rpcapi.SubmitReques
 func FromSubmitRequest(r *rpcapi.SubmitRequest) (signing.Signed[shared.Challenge], error) {
 	// Construct data
 	data := shared.Challenge{
-		PositioningAtxId: r.GetData().GetPositioningAtxId(),
-		PubLayerId:       shared.LayerID(r.GetData().GetPubLayerId()),
+		// PositioningAtxId: r.GetData().GetPositioningAtxId(),
+		PubLayerId: shared.LayerID(r.GetData().GetPubLayerId()),
 	}
+	copy(data.PositioningAtxId[:0], r.GetData().GetPositioningAtxId())
 
 	if initialPost := r.Data.GetInitialPost(); initialPost != nil {
 		data.InitialPost = &shared.InitialPost{
@@ -89,10 +90,12 @@ func FromSubmitRequest(r *rpcapi.SubmitRequest) (signing.Signed[shared.Challenge
 				K1:            initialPost.GetMetadata().GetK1(),
 				K2:            initialPost.GetMetadata().GetK2(),
 			},
-			CommitmentAtxId: initialPost.GetCommitmentAtxId(),
+			// CommitmentAtxId: initialPost.GetCommitmentAtxId(),
 		}
+		copy(data.InitialPost.CommitmentAtxId[:0], r.GetData().GetPositioningAtxId())
 	} else if prevAtx := r.Data.GetPrevAtxId(); prevAtx != nil {
-		data.PreviousATXId = prevAtx
+		// data.PreviousATXId = prevAtx
+		copy(data.PreviousATXId[:0], r.GetData().GetPositioningAtxId())
 	} else {
 		return nil, ErrOneOfNotSet
 	}

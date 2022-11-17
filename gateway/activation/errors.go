@@ -23,7 +23,7 @@ func (e *AtxNotFoundError) Error() string {
 
 func (e *AtxNotFoundError) Is(target error) bool {
 	other, ok := target.(*AtxNotFoundError)
-	return ok && bytes.Equal(other.id, e.id)
+	return ok && bytes.Equal(other.id[:], e.id[:])
 }
 
 // TransportError means there was a problem communicating
