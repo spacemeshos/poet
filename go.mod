@@ -3,7 +3,7 @@ module github.com/spacemeshos/poet
 go 1.19
 
 require (
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.13.0
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.14.0
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/minio/sha256-simd v1.0.0
 	github.com/nullstyle/go-xdr v0.0.0-20180726165426-f4c839f75077
@@ -18,7 +18,7 @@ require (
 	golang.org/x/crypto v0.2.0
 	golang.org/x/net v0.2.0
 	golang.org/x/sync v0.1.0
-	google.golang.org/genproto v0.0.0-20221027153422-115e99e71e1c
+	google.golang.org/genproto v0.0.0-20221114212237-e4508ebdbee1
 	google.golang.org/grpc v1.50.1
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.2.0
 	google.golang.org/protobuf v1.28.1
