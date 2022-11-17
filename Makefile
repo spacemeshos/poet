@@ -129,7 +129,7 @@ lint-fix:
 	golangci-lint run --config .golangci.yml --fix
 .PHONY: lint-fix
 
-lint-github-action:
+lint-github-action: get-libs
 	go vet ./...
 	golangci-lint run --config .golangci.yml --out-format=github-actions
 .PHONY: lint-github-action

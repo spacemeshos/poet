@@ -15,6 +15,6 @@ RUN --mount=type=cache,id=build,target=/root/.cache/go-build make build
 FROM ubuntu:22.04
 
 COPY --from=build /build/poet /bin/poet
-COPY --from=build /build/bin/libgpu-setup.so /lib/
+COPY --from=build /build/build/libgpu-setup.so /lib/
 
 ENTRYPOINT ["/bin/poet"]
