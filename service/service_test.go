@@ -16,7 +16,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/spacemeshos/poet/prover"
-	"github.com/spacemeshos/poet/types"
 	"github.com/spacemeshos/poet/types/mocks"
 )
 
@@ -45,13 +44,13 @@ func TestService_Recovery(t *testing.T) {
 	}
 
 	ctrl := gomock.NewController(t)
-	atxProvider := mocks.NewMockAtxProvider(ctrl)
+	verifier := mocks.NewMockChallengeVerifier(ctrl)
 
 	tempdir := t.TempDir()
 	// Create a new service instance.
 	s, err := NewService(cfg, tempdir)
 	req.NoError(err)
-	err = s.Start(broadcaster, atxProvider, &types.PostConfig{})
+	err = s.Start(broadcaster, verifier)
 	req.NoError(err)
 
 	// Track the service rounds.
@@ -138,7 +137,7 @@ func TestService_Recovery(t *testing.T) {
 	s, err = NewService(cfg, tempdir)
 	req.NoError(err)
 
-	err = s.Start(broadcaster, atxProvider, &types.PostConfig{})
+	err = s.Start(broadcaster, verifier)
 	req.NoError(err)
 
 	// Service instance should recover 2 rounds: round 1 in executing state, and round 2 in open state.
@@ -221,7 +220,7 @@ func TestConcurrentServiceStartAndShutdown(t *testing.T) {
 		ExecuteEmpty:  true,
 	}
 	ctrl := gomock.NewController(t)
-	atxProvider := mocks.NewMockAtxProvider(ctrl)
+	verifier := mocks.NewMockChallengeVerifier(ctrl)
 
 	for i := 0; i < 100; i += 1 {
 		t.Run(fmt.Sprintf("iteration %d", i), func(t *testing.T) {
@@ -232,7 +231,7 @@ func TestConcurrentServiceStartAndShutdown(t *testing.T) {
 			var eg errgroup.Group
 			eg.Go(func() error {
 				proofBroadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
-				req.NoError(s.Start(proofBroadcaster, atxProvider, &types.PostConfig{}))
+				req.NoError(s.Start(proofBroadcaster, verifier))
 				return nil
 			})
 			req.Eventually(func() bool { return s.Shutdown() == nil }, time.Second, time.Millisecond*10)
@@ -256,8 +255,8 @@ func TestNewService(t *testing.T) {
 	req.NoError(err)
 	proofBroadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
 	ctrl := gomock.NewController(t)
-	atxProvider := mocks.NewMockAtxProvider(ctrl)
-	err = s.Start(proofBroadcaster, atxProvider, &types.PostConfig{})
+	verifier := mocks.NewMockChallengeVerifier(ctrl)
+	err = s.Start(proofBroadcaster, verifier)
 	req.NoError(err)
 
 	challengesCount := 8

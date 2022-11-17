@@ -8,8 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/ptypes/empty"
-	v1 "github.com/spacemeshos/api/release/go/spacemesh/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
@@ -35,19 +33,9 @@ var testCases = []*harnessTestCase{
 	{name: "submit", test: testSubmit},
 }
 
-type postConfigService struct {
-	v1.UnimplementedSmesherServiceServer
-}
-
-func (s *postConfigService) PostConfig(context.Context, *empty.Empty) (*v1.PostConfigResponse, error) {
-	return &v1.PostConfigResponse{}, nil
-}
-
 func spawnMockGateway(t *testing.T) (target string) {
 	t.Helper()
 	server := gateway.NewMockGrpcServer(t)
-	v1.RegisterActivationServiceServer(server.Server, &v1.UnimplementedActivationServiceServer{})
-	v1.RegisterSmesherServiceServer(server.Server, &postConfigService{})
 
 	var eg errgroup.Group
 	t.Cleanup(func() { require.NoError(t, eg.Wait()) })
@@ -81,7 +69,7 @@ func TestHarness(t *testing.T) {
 
 	ctx := context.Background()
 	_, err = h.Submit(ctx, &api.SubmitRequest{Challenge: []byte("this is a commitment")})
-	r.EqualError(err, "rpc error: code = Unknown desc = service not started")
+	r.EqualError(err, "rpc error: code = FailedPrecondition desc = cannot submit a challenge because poet service is not started")
 
 	_, err = h.Start(ctx, &api.StartRequest{GatewayAddresses: []string{"666"}})
 	r.EqualError(err, "rpc error: code = Unknown desc = failed to connect to gateway grpc server 666 (context deadline exceeded)")

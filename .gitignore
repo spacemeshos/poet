@@ -7,8 +7,6 @@ poet
 *.test
 vendor/*/
 bin
-build
 *.out
 *.log
-*.zip
 .vscode/

@@ -140,87 +140,6 @@
     }
   },
   "definitions": {
-    "DataInitialPost": {
-      "type": "object",
-      "properties": {
-        "proof": {
-          "$ref": "#/definitions/InitialPostProof"
-        },
-        "metadata": {
-          "$ref": "#/definitions/InitialPostMetadata"
-        },
-        "commitmentAtxId": {
-          "type": "string",
-          "format": "byte"
-        }
-      }
-    },
-    "InitialPostMetadata": {
-      "type": "object",
-      "properties": {
-        "commitment": {
-          "type": "string",
-          "format": "byte"
-        },
-        "challenge": {
-          "type": "string",
-          "format": "byte"
-        },
-        "numUnits": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "bitsPerLabel": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "labelsPerUnit": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "k1": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "k2": {
-          "type": "integer",
-          "format": "int64"
-        }
-      }
-    },
-    "InitialPostProof": {
-      "type": "object",
-      "properties": {
-        "nonce": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "indices": {
-          "type": "string",
-          "format": "byte"
-        }
-      }
-    },
-    "SubmitRequestData": {
-      "type": "object",
-      "properties": {
-        "positioningAtxId": {
-          "type": "string",
-          "format": "byte"
-        },
-        "pubLayerId": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "initialPost": {
-          "$ref": "#/definitions/DataInitialPost"
-        },
-        "prevAtxId": {
-          "type": "string",
-          "format": "byte"
-        }
-      }
-    },
     "apiGetInfoResponse": {
       "type": "object",
       "properties": {
@@ -269,11 +188,7 @@
       "properties": {
         "challenge": {
           "type": "string",
-          "format": "byte",
-          "description": "deprecated, to be removed once go-spacemesh moves to the new API."
-        },
-        "data": {
-          "$ref": "#/definitions/SubmitRequestData"
+          "format": "byte"
         },
         "signature": {
           "type": "string",

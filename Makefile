@@ -42,15 +42,11 @@ else
  	TMP_PROTOC := $(shell mktemp -d)
 endif
 
-include Makefile-gpu.Inc
-
 # `go install` will put binaries in $(GOBIN), avoiding
 # messing up with global environment.
 export GOBIN := $(BIN_DIR)
 GOTESTSUM := $(GOBIN)/gotestsum
 
-get-libs: get-gpu-setup
-.PHONY: get-libs
 
 $(BIN_DIR)/mockgen:
 	go install github.com/golang/mock/mockgen@v1.6.0
@@ -84,7 +80,7 @@ protoc-plugins:
 all: build
 .PHONY: all
 
-test: get-libs
+test:
 	CGO_LDFLAGS="$(CGO_TEST_LDFLAGS)" $(GOTESTSUM) -- -timeout 5m -p 1 ./...
 .PHONY: test
 
@@ -139,7 +135,7 @@ lint-protos:
 	buf lint
 .PHONY: lint-protos
 
-cover: get-libs
+cover:
 	CGO_LDFLAGS="$(CGO_TEST_LDFLAGS)" go test -coverprofile=cover.out -timeout 0 -p 1 ./...
 .PHONY: cover
 
@@ -147,7 +143,7 @@ staticcheck:
 	staticcheck ./...
 .PHONY: staticcheck
 
-build: get-libs
+build:
 	go build -o $(BINARY)
 .PHONY: build
 
@@ -160,7 +156,7 @@ push:
 .PHONY: push
 
 # Rebuild .proto files
-generate: $(BIN_DIR)/mockgen get-libs
+generate: $(BIN_DIR)/mockgen
 	CGO_LDFLAGS="$(CGO_TEST_LDFLAGS)" go generate ./...
 	buf generate
 .PHONY: generate

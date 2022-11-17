@@ -97,3 +97,24 @@ func NewFromScaleEncodable[T any, Encodable encodable[T]](data T, signature []by
 		signature: signature,
 	}, nil
 }
+
+func NewFromBytes(data []byte, signature []byte) (Signed[[]byte], error) {
+	if len(signature) != ed25519.SignatureSize {
+		return nil, ErrSignatureInvalid
+	}
+
+	// Verify the signature
+	pubkey, err := ed25519.ExtractPublicKey(data, signature)
+	if err != nil {
+		return nil, err
+	}
+	if !ed25519.Verify2(pubkey, data, signature) {
+		return nil, ErrSignatureInvalid
+	}
+
+	return &signedData[[]byte]{
+		data:      data,
+		pubkey:    pubkey,
+		signature: signature,
+	}, nil
+}

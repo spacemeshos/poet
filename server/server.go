@@ -1,15 +1,16 @@
 package server
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	proxy "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/spacemeshos/smutil/log"
+	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -20,7 +21,7 @@ import (
 	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/gateway"
 	"github.com/spacemeshos/poet/gateway/broadcaster"
-	"github.com/spacemeshos/poet/gateway/smesher"
+	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
 	"github.com/spacemeshos/poet/release/proto/go/rpccore/apicore"
 	"github.com/spacemeshos/poet/rpc"
@@ -73,10 +74,6 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 		}
 		gtwManager, err := gateway.NewManager(ctx, cfg.Service.GatewayAddresses, cfg.Service.ConnAcksThreshold)
 		if err == nil {
-			postConfig := smesher.FetchPostConfig(ctx, gtwManager.Connections())
-			if postConfig == nil {
-				return errors.New("failed to fetch post config from gateways")
-			}
 			broadcaster, err := broadcaster.New(
 				gtwManager.Connections(),
 				cfg.Service.DisableBroadcast,
@@ -87,13 +84,13 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 				gtwManager.Close()
 				return err
 			}
-			atxProvider, err := service.CreateAtxProvider(gtwManager.Connections())
+			verifier, err := service.CreateChallengeVerifier(gtwManager.Connections())
 			if err != nil {
 				gtwManager.Close()
 				return fmt.Errorf("failed to create ATX provider: %w", err)
 			}
 
-			if err := svc.Start(broadcaster, atxProvider, postConfig); err != nil {
+			if err := svc.Start(broadcaster, verifier); err != nil {
 				return err
 			}
 		} else {
@@ -146,24 +143,16 @@ func loggerInterceptor() func(ctx context.Context, req interface{}, info *grpc.U
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		peer, _ := peer.FromContext(ctx)
 
-		if submitReq, ok := req.(*api.SubmitRequest); ok {
-			log.Info("%v | %s | %v", info.FullMethod, submitReq.String(), peer.Addr.String())
-		} else {
-			maxDispLen := 50
-			reqStr := fmt.Sprintf("%v", req)
+		logger := log.AppLog.WithName(info.FullMethod).WithFields(log.Field(zap.Stringer("request_id", uuid.New())))
+		ctx = logging.NewContext(ctx, logger)
 
-			var reqDispStr string
-			if len(reqStr) > maxDispLen {
-				reqDispStr = reqStr[:maxDispLen] + "..."
-			} else {
-				reqDispStr = reqStr
-			}
-			log.Info("%v | %v | %v", info.FullMethod, reqDispStr, peer.Addr.String())
+		if msg, ok := req.(fmt.Stringer); ok {
+			logger.With().Debug("new GRPC", log.Field(zap.Stringer("from", peer.Addr)), log.Field(zap.Stringer("message", msg)))
 		}
 
 		resp, err := handler(ctx, req)
 		if err != nil {
-			log.Info("FAILURE %v | %v | %v", info.FullMethod, err, peer.Addr.String())
+			logger.With().Info("FAILURE", log.Err(err))
 		}
 		return resp, err
 	}

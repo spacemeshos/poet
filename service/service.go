@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -15,12 +16,12 @@ import (
 
 	"github.com/spacemeshos/go-scale"
 	mshared "github.com/spacemeshos/merkle-tree/shared"
-	"github.com/spacemeshos/post/verifying"
 	"github.com/spacemeshos/smutil/log"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
-	"github.com/spacemeshos/poet/gateway/activation"
+	"github.com/spacemeshos/poet/gateway/challenge_verifier"
+	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/signing"
@@ -30,6 +31,7 @@ import (
 type Config struct {
 	Genesis                  string        `long:"genesis-time" description:"Genesis timestamp"`
 	EpochDuration            time.Duration `long:"epoch-duration" description:"Epoch duration"`
+	LayersPerEpoch           uint          `long:"layers" description:"Number of layers per epoch"`
 	PhaseShift               time.Duration `long:"phase-shift"`
 	CycleGap                 time.Duration `long:"cycle-gap"`
 	MemoryLayers             uint          `long:"memory" description:"Number of top Merkle tree layers to cache in-memory"`
@@ -50,7 +52,7 @@ const estimatedLeavesPerSecond = 1 << 17
 
 const serviceStateFileBaseName = "state.bin"
 
-const AtxCacheSize = 1024
+const ChallengeVerifierCacheSize = 1024
 
 type serviceState struct {
 	PrivKey []byte
@@ -84,10 +86,8 @@ type Service struct {
 	PubKey  ed25519.PublicKey
 	privKey ed25519.PrivateKey
 
-	broadcaster atomic.Value // holds Broadcaster interface
-	atxProvider atomic.Value // holds types.AtxProvider
-
-	postConfig atomic.Pointer[types.PostConfig]
+	broadcaster       atomic.Value // holds Broadcaster interface
+	challengeVerifier atomic.Value // holds types.challengeVerifier
 
 	errChan chan error
 	sync.Mutex
@@ -233,7 +233,7 @@ func (s *Service) loop(ctx context.Context) {
 	}
 }
 
-func (s *Service) Start(b Broadcaster, atxProvider types.AtxProvider, postConfig *types.PostConfig) error {
+func (s *Service) Start(b Broadcaster, atxProvider types.ChallengeVerifier) error {
 	s.Lock()
 	defer s.Unlock()
 	if s.Started() {
@@ -246,8 +246,7 @@ func (s *Service) Start(b Broadcaster, atxProvider types.AtxProvider, postConfig
 	s.stop = stop
 
 	s.SetBroadcaster(b)
-	s.SetAtxProvider(atxProvider)
-	s.SetPostConfig(postConfig)
+	s.SetChallengeVerifier(atxProvider)
 
 	if s.cfg.NoRecovery {
 		log.Info("Recovery is disabled")
@@ -373,12 +372,8 @@ func (s *Service) SetBroadcaster(b Broadcaster) {
 	}
 }
 
-func (s *Service) SetAtxProvider(provider types.AtxProvider) {
-	s.atxProvider.Store(provider)
-}
-
-func (s *Service) SetPostConfig(config *types.PostConfig) {
-	s.postConfig.Store(config)
+func (s *Service) SetChallengeVerifier(provider types.ChallengeVerifier) {
+	s.challengeVerifier.Store(provider)
 }
 
 func (s *Service) executeRound(ctx context.Context, r *round) error {
@@ -413,39 +408,35 @@ func (s *Service) executeRound(ctx context.Context, r *round) error {
 // TODO(brozansk) remove support for data []byte after go-spacemesh is updated to
 // use the new API.
 // (https://github.com/spacemeshos/poet/issues/147).
-func (s *Service) Submit(ctx context.Context, challenge []byte, signedChallenge signing.Signed[shared.Challenge]) (*round, []byte, error) {
+func (s *Service) Submit(ctx context.Context, challenge []byte, signedChallenge signing.Signed[[]byte]) (*round, []byte, error) {
+	logger := logging.FromContext(ctx)
 	if !s.Started() {
 		return nil, nil, ErrNotStarted
 	}
 
 	// TODO(brozansk) Remove support for `challenge []byte` eventually (https://github.com/spacemeshos/poet/issues/147)
 	if signedChallenge != nil {
-		log.Debug("Using the new challenge submission API")
-		// SAFETY: it will never panic as `s.atxProvider` is set in Start
-		atxProvider := s.atxProvider.Load().(types.AtxProvider)
-		if err := validateChallenge(ctx, signedChallenge, atxProvider, s.postConfig.Load(), verifying.Verify); err != nil {
+		logger.With().Debug("Received challenge",
+			log.String("node_id", hex.EncodeToString(signedChallenge.PubKey())),
+		)
+		// SAFETY: it will never panic as `s.ChallengeVerifier` is set in Start
+		verifier := s.challengeVerifier.Load().(types.ChallengeVerifier)
+		hash, err := verifier.Verify(ctx, *signedChallenge.Data(), signedChallenge.Signature())
+		if err != nil {
+			logger.With().Debug("challenge verification failed", log.Err(err))
 			return nil, nil, err
 		}
 
-		var sequence uint64
-		if id := signedChallenge.Data().PreviousATXId; id != nil {
-			atx, _ := atxProvider.Get(ctx, id) // Won't fail as challenge is already validated
-			sequence = atx.Sequence + 1
-		}
-		log.Debug("Calculated sequence: %d", sequence)
-
-		// TODO(brozansk) calculate hash (https://github.com/spacemeshos/poet/issues/148)
-
 		s.openRoundMutex.Lock()
 		r := s.openRound
-		err := r.submit(signedChallenge.PubKey(), challenge)
+		err = r.submit(signedChallenge.PubKey(), hash)
 		s.openRoundMutex.Unlock()
 		if err != nil {
 			return nil, nil, err
 		}
-		return r, []byte("TODO(brozansk) calculate hash"), nil
+		return r, hash, nil
 	} else {
-		log.Debug("Using the old challenge submission API")
+		logger.Debug("Using the old challenge submission API")
 		s.openRoundMutex.Lock()
 		r := s.openRound
 		err := r.submit(challenge, challenge)
@@ -538,17 +529,17 @@ func serializeProofMsg(servicePubKey []byte, roundID string, execution *executio
 	return dataBuf.Bytes(), nil
 }
 
-// CreateAtxProvider creates ATX provider connected to provided gateways.
-// The provider caches ATXes and round-robins between gateways if
-// fetching new ATX failed.
-func CreateAtxProvider(gateways []*grpc.ClientConn) (types.AtxProvider, error) {
+// CreateChallengeVerifier creates a verifier connected to provided gateways.
+// The verifier caches verification results and round-robins between gateways if
+// verification fails.
+func CreateChallengeVerifier(gateways []*grpc.ClientConn) (types.ChallengeVerifier, error) {
 	if len(gateways) == 0 {
 		return nil, fmt.Errorf("need at least one gateway")
 	}
-	activationSvcClients := make([]types.AtxProvider, 0, len(gateways))
+	clients := make([]types.ChallengeVerifier, 0, len(gateways))
 	for _, target := range gateways {
-		client := activation.NewClient(target)
-		activationSvcClients = append(activationSvcClients, client)
+		client := challenge_verifier.NewClient(target)
+		clients = append(clients, client)
 	}
-	return activation.NewCachedAtxProvider(AtxCacheSize, activation.NewRoundRobinAtxProvider(activationSvcClients))
+	return challenge_verifier.NewCachingChallengeVerifier(ChallengeVerifierCacheSize, challenge_verifier.NewRoundRobinChallengeVerifier(clients))
 }

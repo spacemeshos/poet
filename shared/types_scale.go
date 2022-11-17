@@ -23,7 +23,7 @@ func (t *InitialPost) EncodeScale(enc *scale.Encoder) (total int, err error) {
 		total += n
 	}
 	{
-		n, err := scale.EncodeByteSlice(enc, t.CommitmentAtxId)
+		n, err := scale.EncodeByteArray(enc, t.CommitmentAtxId[:])
 		if err != nil {
 			return total, err
 		}
@@ -48,19 +48,18 @@ func (t *InitialPost) DecodeScale(dec *scale.Decoder) (total int, err error) {
 		total += n
 	}
 	{
-		field, n, err := scale.DecodeByteSlice(dec)
+		n, err := scale.DecodeByteArray(dec, t.CommitmentAtxId[:])
 		if err != nil {
 			return total, err
 		}
 		total += n
-		t.CommitmentAtxId = field
 	}
 	return total, nil
 }
 
 func (t *Challenge) EncodeScale(enc *scale.Encoder) (total int, err error) {
 	{
-		n, err := scale.EncodeByteSlice(enc, t.PositioningAtxId)
+		n, err := scale.EncodeByteArray(enc, t.PositioningAtxId[:])
 		if err != nil {
 			return total, err
 		}
@@ -81,7 +80,7 @@ func (t *Challenge) EncodeScale(enc *scale.Encoder) (total int, err error) {
 		total += n
 	}
 	{
-		n, err := scale.EncodeByteSlice(enc, t.PreviousATXId)
+		n, err := scale.EncodeOption(enc, t.PreviousATXId)
 		if err != nil {
 			return total, err
 		}
@@ -92,12 +91,11 @@ func (t *Challenge) EncodeScale(enc *scale.Encoder) (total int, err error) {
 
 func (t *Challenge) DecodeScale(dec *scale.Decoder) (total int, err error) {
 	{
-		field, n, err := scale.DecodeByteSlice(dec)
+		n, err := scale.DecodeByteArray(dec, t.PositioningAtxId[:])
 		if err != nil {
 			return total, err
 		}
 		total += n
-		t.PositioningAtxId = field
 	}
 	{
 		field, n, err := scale.DecodeCompact32(dec)
@@ -116,7 +114,7 @@ func (t *Challenge) DecodeScale(dec *scale.Decoder) (total int, err error) {
 		t.InitialPost = field
 	}
 	{
-		field, n, err := scale.DecodeByteSlice(dec)
+		field, n, err := scale.DecodeOption[ATXID](dec)
 		if err != nil {
 			return total, err
 		}

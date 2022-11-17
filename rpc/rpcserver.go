@@ -6,15 +6,15 @@ import (
 	"sync"
 
 	"golang.org/x/net/context"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/spacemeshos/poet/gateway"
 	"github.com/spacemeshos/poet/gateway/broadcaster"
-	"github.com/spacemeshos/poet/gateway/smesher"
 	rpcapi "github.com/spacemeshos/poet/release/proto/go/rpc/api"
-	"github.com/spacemeshos/poet/rpc/api"
 	"github.com/spacemeshos/poet/service"
-	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/signing"
+	"github.com/spacemeshos/poet/types"
 )
 
 // rpcServer is a gRPC, RPC front end to poet.
@@ -60,10 +60,6 @@ func (r *rpcServer) Start(ctx context.Context, in *rpcapi.StartRequest) (*rpcapi
 		return nil, err
 	}
 	defer gtwManager.Close()
-	postConfig := smesher.FetchPostConfig(ctx, gtwManager.Connections())
-	if postConfig == nil {
-		return nil, errors.New("failed to fetch post config from gateways")
-	}
 	b, err := broadcaster.New(
 		r.gtwManager.Connections(),
 		in.DisableBroadcast,
@@ -74,7 +70,7 @@ func (r *rpcServer) Start(ctx context.Context, in *rpcapi.StartRequest) (*rpcapi
 		return nil, err
 	}
 
-	atxProvider, err := service.CreateAtxProvider(gtwManager.Connections())
+	verifier, err := service.CreateChallengeVerifier(gtwManager.Connections())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create ATX provider: %w", err)
 	}
@@ -83,7 +79,7 @@ func (r *rpcServer) Start(ctx context.Context, in *rpcapi.StartRequest) (*rpcapi
 	// The temporary manager is nil-ed to avoid closing connections in defer.
 	r.gtwManager.Close()
 	r.gtwManager, gtwManager = gtwManager, nil
-	if err := r.s.Start(b, atxProvider, postConfig); err != nil {
+	if err := r.s.Start(b, verifier); err != nil {
 		return nil, fmt.Errorf("failed to start service: %w", err)
 	}
 
@@ -113,10 +109,6 @@ func (r *rpcServer) UpdateGateway(ctx context.Context, in *rpcapi.UpdateGatewayR
 		return nil, err
 	}
 	defer gtwManager.Close()
-	postConfig := smesher.FetchPostConfig(ctx, gtwManager.Connections())
-	if postConfig == nil {
-		return nil, errors.New("failed to fetch post config from gateways")
-	}
 	b, err := broadcaster.New(
 		gtwManager.Connections(),
 		in.DisableBroadcast,
@@ -127,7 +119,7 @@ func (r *rpcServer) UpdateGateway(ctx context.Context, in *rpcapi.UpdateGatewayR
 		return nil, err
 	}
 
-	atxProvider, err := service.CreateAtxProvider(gtwManager.Connections())
+	verifier, err := service.CreateChallengeVerifier(gtwManager.Connections())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create ATX provider: %w", err)
 	}
@@ -137,8 +129,7 @@ func (r *rpcServer) UpdateGateway(ctx context.Context, in *rpcapi.UpdateGatewayR
 	r.gtwManager.Close()
 	r.gtwManager, gtwManager = gtwManager, nil
 	r.s.SetBroadcaster(b)
-	r.s.SetAtxProvider(atxProvider)
-	r.s.SetPostConfig(postConfig)
+	r.s.SetChallengeVerifier(verifier)
 
 	return &rpcapi.UpdateGatewayResponse{}, nil
 }
@@ -147,9 +138,9 @@ func (r *rpcServer) Submit(ctx context.Context, in *rpcapi.SubmitRequest) (*rpca
 	// Temporarily support both the old and new challenge submission API.
 	// TODO(brozansk) remove support for data []byte after go-spacemesh is updated to
 	// use the new API.
-	var challenge signing.Signed[shared.Challenge]
-	if in.Data != nil {
-		signed, err := api.FromSubmitRequest(in)
+	var challenge signing.Signed[[]byte]
+	if in.Signature != nil {
+		signed, err := signing.NewFromBytes(in.Challenge, in.Signature)
 		if err != nil {
 			return nil, err
 		}
@@ -158,7 +149,15 @@ func (r *rpcServer) Submit(ctx context.Context, in *rpcapi.SubmitRequest) (*rpca
 
 	round, hash, err := r.s.Submit(ctx, in.Challenge, challenge)
 	if err != nil {
-		return nil, err
+		if errors.Is(err, service.ErrNotStarted) {
+			return nil, status.Error(codes.FailedPrecondition, "cannot submit a challenge because poet service is not started")
+		}
+		if errors.Is(err, types.ErrChallengeInvalid) {
+			return nil, status.Error(codes.InvalidArgument, err.Error())
+		} else if errors.Is(err, types.ErrCouldNotVerify) {
+			return nil, status.Error(codes.Unavailable, "failed to verify the challenge, consider retrying")
+		}
+		return nil, status.Error(codes.Internal, "unknown error during challenge validation")
 	}
 
 	out := new(rpcapi.SubmitResponse)

@@ -1,6 +1,9 @@
 package hash
 
-import "github.com/minio/sha256-simd"
+import (
+	"github.com/minio/sha256-simd"
+	"github.com/spacemeshos/go-scale"
+)
 
 // LabelHashNestingDepth is the number of recursive hashes per label.
 const LabelHashNestingDepth = 100
@@ -38,4 +41,11 @@ func GenLabelHashFunc(challenge []byte) func(data []byte) []byte {
 		}
 		return message
 	}
+}
+
+func Hash(data scale.Encodable) []byte {
+	hasher := sha256.New()
+	encoder := scale.NewEncoder(hasher)
+	data.EncodeScale(encoder)
+	return hasher.Sum(nil)
 }
