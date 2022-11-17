@@ -19,7 +19,6 @@ PROTOC_OPENAPI_BUILD_DIR := ./release/proto/openapiv2
 PROTOC_BUILD_DIRS := $(PROTOC_GO_BUILD_DIR) $(PROTOC_OPENAPI_BUILD_DIR)
 
 # Everything below this line is meant to be static, i.e. only adjust the above variables. ###
-
 ifeq ($(OS),Windows_NT)
 	UNAME_OS := windows
 	ifeq ($(PROCESSOR_ARCHITECTURE),AMD64)
@@ -43,23 +42,15 @@ else
  	TMP_PROTOC := $(shell mktemp -d)
 endif
 
+include Makefile-gpu.Inc
+
 # `go install` will put binaries in $(GOBIN), avoiding
 # messing up with global environment.
 export GOBIN := $(BIN_DIR)
 GOTESTSUM := $(GOBIN)/gotestsum
 
-BUILD_DEPS := $(BIN_DIR)/api.h
-export CGO_LDFLAGS := -L$(BIN_DIR)  -Wl,-rpath,$(BIN_DIR)
-export CPATH := $(BIN_DIR)
-
-# We depend on post submodule Makefile.Inc fetching
-# libgpu-setup.so so there is no must
-# to keep it in sync with Go's dependency on post package.
-post/Makefile.Inc:
-	git submodule update --init -- post
-
-$(BIN_DIR)/api.h: post/Makefile.Inc
-	BIN_DIR=$(abspath $(dir $@))/ make -f post/Makefile.Inc get-gpu-setup
+get-libs: get-gpu-setup
+.PHONY: get-libs
 
 $(BIN_DIR)/mockgen:
 	go install github.com/golang/mock/mockgen@v1.6.0
@@ -93,8 +84,8 @@ protoc-plugins:
 all: build
 .PHONY: all
 
-test: $(BUILD_DEPS)
-	$(GOTESTSUM) -- -timeout 5m -p 1 ./...
+test: get-libs
+	CGO_LDFLAGS="$(CGO_TEST_LDFLAGS)" $(GOTESTSUM) -- -timeout 5m -p 1 ./...
 .PHONY: test
 
 install: install-buf install-protoc
@@ -148,15 +139,15 @@ lint-protos:
 	buf lint
 .PHONY: lint-protos
 
-cover: $(BUILD_DEPS)
-	go test -coverprofile=cover.out -timeout 0 -p 1 ./...
+cover: get-libs
+	CGO_LDFLAGS="$(CGO_TEST_LDFLAGS)" go test -coverprofile=cover.out -timeout 0 -p 1 ./...
 .PHONY: cover
 
 staticcheck:
 	staticcheck ./...
 .PHONY: staticcheck
 
-build: $(BUILD_DEPS)
+build: get-libs
 	go build -o $(BINARY)
 .PHONY: build
 
@@ -169,8 +160,8 @@ push:
 .PHONY: push
 
 # Rebuild .proto files
-generate: $(BIN_DIR)/mockgen $(BUILD_DEPS)
-	go generate ./...
+generate: $(BIN_DIR)/mockgen get-libs
+	CGO_LDFLAGS="$(CGO_TEST_LDFLAGS)" go generate ./...
 	buf generate
 .PHONY: generate
 
