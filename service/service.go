@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -17,11 +18,13 @@ import (
 	mshared "github.com/spacemeshos/merkle-tree/shared"
 	"github.com/spacemeshos/post/verifying"
 	"github.com/spacemeshos/smutil/log"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
 	"github.com/spacemeshos/poet/gateway/activation"
 	"github.com/spacemeshos/poet/hash"
+	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/signing"
@@ -31,6 +34,7 @@ import (
 type Config struct {
 	Genesis                  string        `long:"genesis-time" description:"Genesis timestamp"`
 	EpochDuration            time.Duration `long:"epoch-duration" description:"Epoch duration"`
+	LayersPerEpoch           uint          `long:"layers" description:"Number of layers per epoch"`
 	PhaseShift               time.Duration `long:"phase-shift"`
 	CycleGap                 time.Duration `long:"cycle-gap"`
 	MemoryLayers             uint          `long:"memory" description:"Number of top Merkle tree layers to cache in-memory"`
@@ -415,16 +419,27 @@ func (s *Service) executeRound(ctx context.Context, r *round) error {
 // use the new API.
 // (https://github.com/spacemeshos/poet/issues/147).
 func (s *Service) Submit(ctx context.Context, challenge []byte, signedChallenge signing.Signed[shared.Challenge]) (*round, []byte, error) {
+	logger := logging.FromContext(ctx)
 	if !s.Started() {
 		return nil, nil, ErrNotStarted
 	}
 
 	// TODO(brozansk) Remove support for `challenge []byte` eventually (https://github.com/spacemeshos/poet/issues/147)
 	if signedChallenge != nil {
-		log.Debug("Using the new challenge submission API")
+		logger.With().Debug("Received challenge",
+			log.Field(zap.Object("challenge", signedChallenge.Data())),
+			log.String("node_id", hex.EncodeToString(signedChallenge.PubKey())),
+		)
 		// SAFETY: it will never panic as `s.atxProvider` is set in Start
 		atxProvider := s.atxProvider.Load().(types.AtxProvider)
-		if err := validateChallenge(ctx, signedChallenge, atxProvider, s.postConfig.Load(), verifying.Verify); err != nil {
+		validator := challengeValidator{
+			postConfig:     s.postConfig.Load(),
+			atxs:           atxProvider,
+			proofVerifier:  verifying.Verify,
+			layersPerEpoch: s.cfg.LayersPerEpoch,
+		}
+		if err := validator.validateChallenge(ctx, signedChallenge); err != nil {
+			logger.With().Debug("validation failed", log.Err(err))
 			return nil, nil, err
 		}
 
@@ -435,7 +450,7 @@ func (s *Service) Submit(ctx context.Context, challenge []byte, signedChallenge 
 			sequence = atx.Sequence + 1
 			previousATXId = *id
 		}
-		log.Debug("Calculated sequence: %d", sequence)
+		logger.Debug("Calculated sequence: %d", sequence)
 
 		var commitmentAtxId *shared.ATXID
 		var initialPostIndices []byte
@@ -462,7 +477,7 @@ func (s *Service) Submit(ctx context.Context, challenge []byte, signedChallenge 
 		}
 		return r, hash, nil
 	} else {
-		log.Debug("Using the old challenge submission API")
+		logger.Debug("Using the old challenge submission API")
 		s.openRoundMutex.Lock()
 		r := s.openRound
 		err := r.submit(challenge, challenge)

@@ -2,8 +2,10 @@ package types
 
 import (
 	"context"
+	"encoding/hex"
 
 	"github.com/spacemeshos/poet/shared"
+	"go.uber.org/zap/zapcore"
 )
 
 //go:generate scalegen -types NIPostChallenge
@@ -12,6 +14,16 @@ type ATX struct {
 	NodeID     []byte
 	Sequence   uint64
 	PubLayerID shared.LayerID
+}
+
+func (a *ATX) MarshalLogObject(encoder zapcore.ObjectEncoder) error {
+	if a == nil {
+		return nil
+	}
+	encoder.AddString("node_id", hex.EncodeToString(a.NodeID))
+	encoder.AddUint32("pub_layer_id", uint32(a.PubLayerID))
+	encoder.AddUint64("sequence", a.Sequence)
+	return nil
 }
 
 //go:generate mockgen -package mocks -destination mocks/atx_provider.go . AtxProvider

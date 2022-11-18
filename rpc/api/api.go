@@ -72,7 +72,7 @@ func FromSubmitRequest(r *rpcapi.SubmitRequest) (signing.Signed[shared.Challenge
 		// PositioningAtxId: r.GetData().GetPositioningAtxId(),
 		PubLayerId: shared.LayerID(r.GetData().GetPubLayerId()),
 	}
-	copy(data.PositioningAtxId[:0], r.GetData().GetPositioningAtxId())
+	copy(data.PositioningAtxId[:], r.GetData().GetPositioningAtxId())
 
 	if initialPost := r.Data.GetInitialPost(); initialPost != nil {
 		data.InitialPost = &shared.InitialPost{
@@ -92,10 +92,10 @@ func FromSubmitRequest(r *rpcapi.SubmitRequest) (signing.Signed[shared.Challenge
 			},
 			// CommitmentAtxId: initialPost.GetCommitmentAtxId(),
 		}
-		copy(data.InitialPost.CommitmentAtxId[:0], r.GetData().GetPositioningAtxId())
+		copy(data.InitialPost.CommitmentAtxId[:], r.GetData().GetPositioningAtxId())
 	} else if prevAtx := r.Data.GetPrevAtxId(); prevAtx != nil {
-		// data.PreviousATXId = prevAtx
-		copy(data.PreviousATXId[:0], r.GetData().GetPositioningAtxId())
+		data.PreviousATXId = new(shared.ATXID)
+		copy(data.PreviousATXId[:], r.GetData().GetPrevAtxId())
 	} else {
 		return nil, ErrOneOfNotSet
 	}

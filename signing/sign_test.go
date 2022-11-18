@@ -43,7 +43,6 @@ func TestSignAndVerify(t *testing.T) {
 	}
 
 	// Sign
-	require.NoError(err)
 	signed, err := signing.Sign(data, &signer)
 	require.NoError(err)
 	require.EqualValues(data, *signed.Data())
@@ -52,6 +51,8 @@ func TestSignAndVerify(t *testing.T) {
 	signed2, err := signing.NewFromScaleEncodable(*signed.Data(), signed.Signature())
 	require.NoError(err)
 	require.EqualValues(signed2.Data(), signed.Data())
+	require.EqualValues(signed2.PubKey(), signed.PubKey())
+	require.EqualValues(pubKey, signed.PubKey())
 }
 
 func TestInvalidSignature(t *testing.T) {

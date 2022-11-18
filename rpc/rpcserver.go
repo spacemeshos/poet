@@ -5,16 +5,20 @@ import (
 	"fmt"
 	"sync"
 
+	"go.uber.org/zap"
 	"golang.org/x/net/context"
 
+	"github.com/google/uuid"
 	"github.com/spacemeshos/poet/gateway"
 	"github.com/spacemeshos/poet/gateway/broadcaster"
 	"github.com/spacemeshos/poet/gateway/smesher"
+	"github.com/spacemeshos/poet/logging"
 	rpcapi "github.com/spacemeshos/poet/release/proto/go/rpc/api"
 	"github.com/spacemeshos/poet/rpc/api"
 	"github.com/spacemeshos/poet/service"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/signing"
+	"github.com/spacemeshos/smutil/log"
 )
 
 // rpcServer is a gRPC, RPC front end to poet.
@@ -144,6 +148,7 @@ func (r *rpcServer) UpdateGateway(ctx context.Context, in *rpcapi.UpdateGatewayR
 }
 
 func (r *rpcServer) Submit(ctx context.Context, in *rpcapi.SubmitRequest) (*rpcapi.SubmitResponse, error) {
+	ctx = logging.NewContext(ctx, log.AppLog.WithName("submit").WithFields(log.Field(zap.Stringer("request_id", uuid.New()))))
 	// Temporarily support both the old and new challenge submission API.
 	// TODO(brozansk) remove support for data []byte after go-spacemesh is updated to
 	// use the new API.

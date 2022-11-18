@@ -63,6 +63,7 @@ type Config struct {
 	ConfigFile      string `short:"c" long:"configfile" description:"Path to configuration file"`
 	DataDir         string `short:"b" long:"datadir" description:"The directory to store poet's data within"`
 	LogDir          string `long:"logdir" description:"Directory to log output."`
+	DebugLog        bool   `long:"debuglog" description:"Enable debug logs"`
 	JSONLog         bool   `long:"jsonlog" description:"Whether to log in JSON format"`
 	MaxLogFiles     int    `long:"maxlogfiles" description:"Maximum logfiles to keep (0 for no rotation)"`
 	MaxLogFileSize  int    `long:"maxlogfilesize" description:"Maximum logfile size in MB"`
