@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"golang.org/x/crypto/ed25519"
+	"github.com/spacemeshos/ed25519"
 )
 
 func initialState() *serviceState {

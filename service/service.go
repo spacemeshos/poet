@@ -12,10 +12,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/spacemeshos/ed25519"
 	"github.com/spacemeshos/go-scale"
 	mshared "github.com/spacemeshos/merkle-tree/shared"
 	"github.com/spacemeshos/smutil/log"
-	"golang.org/x/crypto/ed25519"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/spacemeshos/poet/prover"
