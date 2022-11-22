@@ -329,6 +329,51 @@ func TestNewService(t *testing.T) {
 	req.NoError(s.Shutdown())
 }
 
+type Bytes []byte
+
+func (b Bytes) Data() *[]byte {
+	return (*[]byte)(&b)
+}
+
+func (Bytes) PubKey() []byte {
+	return []byte("pubkey")
+}
+
+func (Bytes) Signature() []byte {
+	return []byte("signature")
+}
+
+func TestSubmitIdempotency(t *testing.T) {
+	req := require.New(t)
+	cfg := Config{
+		ExecuteEmpty:  true,
+		Genesis:       time.Now().Add(time.Second).Format(time.RFC3339),
+		EpochDuration: time.Second,
+		PhaseShift:    time.Second / 2,
+		CycleGap:      time.Second / 4,
+	}
+	s, err := NewService(&cfg, t.TempDir())
+	req.NoError(err)
+
+	proofBroadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
+	verifier := mocks.NewMockChallengeVerifier(gomock.NewController(t))
+	verifier.EXPECT().Verify(gomock.Any(), []byte("challenge"), []byte("signature")).Times(2).Return([]byte("hash"), nil)
+	err = s.Start(proofBroadcaster, verifier)
+	req.NoError(err)
+
+	// Submit challenge
+	_, hash, err := s.Submit(context.Background(), nil, Bytes("challenge"))
+	req.NoError(err)
+	req.Equal(hash, []byte("hash"))
+
+	// Try again - it should return the same result
+	_, hash, err = s.Submit(context.Background(), nil, Bytes("challenge"))
+	req.NoError(err)
+	req.Equal(hash, []byte("hash"))
+
+	req.NoError(s.Shutdown())
+}
+
 func genChallenges(num int) ([][]byte, error) {
 	ch := make([][]byte, num)
 	for i := 0; i < num; i++ {

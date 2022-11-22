@@ -431,6 +431,9 @@ func (s *Service) Submit(ctx context.Context, challenge []byte, signedChallenge 
 		err = r.submit(signedChallenge.PubKey(), hash)
 		s.openRoundMutex.Unlock()
 		if err != nil {
+			if errors.Is(err, types.ErrChallengeAlreadySubmitted) {
+				return r, hash, nil
+			}
 			return nil, nil, err
 		}
 		return r, hash, nil
