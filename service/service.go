@@ -31,7 +31,6 @@ import (
 type Config struct {
 	Genesis                  string        `long:"genesis-time" description:"Genesis timestamp"`
 	EpochDuration            time.Duration `long:"epoch-duration" description:"Epoch duration"`
-	LayersPerEpoch           uint          `long:"layers" description:"Number of layers per epoch"`
 	PhaseShift               time.Duration `long:"phase-shift"`
 	CycleGap                 time.Duration `long:"cycle-gap"`
 	MemoryLayers             uint          `long:"memory" description:"Number of top Merkle tree layers to cache in-memory"`

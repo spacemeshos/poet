@@ -19,6 +19,7 @@ PROTOC_OPENAPI_BUILD_DIR := ./release/proto/openapiv2
 PROTOC_BUILD_DIRS := $(PROTOC_GO_BUILD_DIR) $(PROTOC_OPENAPI_BUILD_DIR)
 
 # Everything below this line is meant to be static, i.e. only adjust the above variables. ###
+
 ifeq ($(OS),Windows_NT)
 	UNAME_OS := windows
 	ifeq ($(PROCESSOR_ARCHITECTURE),AMD64)
@@ -81,7 +82,7 @@ all: build
 .PHONY: all
 
 test:
-	CGO_LDFLAGS="$(CGO_TEST_LDFLAGS)" $(GOTESTSUM) -- -timeout 5m -p 1 ./...
+	$(GOTESTSUM) -- -timeout 5m -p 1 ./...
 .PHONY: test
 
 install: install-buf install-protoc
@@ -136,7 +137,7 @@ lint-protos:
 .PHONY: lint-protos
 
 cover:
-	CGO_LDFLAGS="$(CGO_TEST_LDFLAGS)" go test -coverprofile=cover.out -timeout 0 -p 1 ./...
+	go test -coverprofile=cover.out -timeout 0 -p 1 ./...
 .PHONY: cover
 
 staticcheck:
@@ -157,7 +158,7 @@ push:
 
 # Rebuild .proto files
 generate: $(BIN_DIR)/mockgen
-	CGO_LDFLAGS="$(CGO_TEST_LDFLAGS)" go generate ./...
+	go generate ./...
 	buf generate
 .PHONY: generate
 

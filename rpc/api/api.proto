@@ -70,7 +70,6 @@ message UpdateGatewayResponse {
 
 message SubmitRequest {
     bytes challenge = 1;
-    // signature contains the signature of `data`
     bytes signature = 2;
 }
 
