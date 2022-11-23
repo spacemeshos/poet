@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
+	"time"
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/spacemeshos/smutil/log"
@@ -12,6 +13,8 @@ import (
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/types"
 )
+
+const MaxBackoff = time.Second * 30
 
 // roundRobinChallengeVerifier gathers many verifiers.
 // It tries to verify a challenge in a round robin fashion,
@@ -87,4 +90,45 @@ func NewCachingChallengeVerifier(size int, verifier types.ChallengeVerifier) (ty
 		cache:    cache,
 		verifier: verifier,
 	}, nil
+}
+
+type retryingChallengeVerifier struct {
+	backoffBase       time.Duration
+	backoffMultiplier float64
+	maxRetries        uint
+	verifier          types.ChallengeVerifier
+}
+
+func (v *retryingChallengeVerifier) Verify(ctx context.Context, challenge []byte, signature []byte) ([]byte, error) {
+	logger := logging.FromContext(ctx)
+	timer := time.NewTimer(0)
+	delay := v.backoffBase
+	for retry := uint(0); retry < v.maxRetries; retry++ {
+		if hash, err := v.verifier.Verify(ctx, challenge, signature); err == nil {
+			return hash, nil
+		} else if errors.Is(err, types.ErrChallengeInvalid) {
+			return nil, err
+		}
+		delay = time.Duration(float64(delay) * v.backoffMultiplier)
+		if delay > MaxBackoff {
+			delay = MaxBackoff
+		}
+		timer.Reset(delay)
+		logger.Info("Retrying %dnth time, waiting %v", retry+1, delay)
+		select {
+		case <-timer.C:
+		case <-ctx.Done():
+			return nil, types.ErrCouldNotVerify
+		}
+	}
+	return nil, types.ErrCouldNotVerify
+}
+
+func NewRetryingChallengeVerifier(verifier types.ChallengeVerifier, maxRetries uint, backoffBase time.Duration, backoffMultiplier float64) types.ChallengeVerifier {
+	return &retryingChallengeVerifier{
+		maxRetries:        maxRetries,
+		verifier:          verifier,
+		backoffBase:       backoffBase,
+		backoffMultiplier: backoffMultiplier,
+	}
 }

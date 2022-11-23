@@ -3,6 +3,7 @@ package challenge_verifier_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
@@ -109,4 +110,20 @@ func TestCachedProvider(t *testing.T) {
 		require.NoError(t, err)
 		require.EqualValues(t, []byte("hash"), hash)
 	})
+}
+
+func TestRetryingProvider(t *testing.T) {
+	t.Parallel()
+	challenge := []byte("challenge")
+	signature := []byte("signature")
+
+	verifier := mocks.NewMockChallengeVerifier(gomock.NewController(t))
+	verifier.EXPECT().Verify(gomock.Any(), challenge, signature).Times(2).Return(nil, types.ErrCouldNotVerify)
+	verifier.EXPECT().Verify(gomock.Any(), challenge, signature).Return([]byte("hash"), nil)
+
+	provider := challenge_verifier.NewRetryingChallengeVerifier(verifier, 3, time.Nanosecond, 1)
+
+	hash, err := provider.Verify(context.Background(), challenge, signature)
+	require.NoError(t, err)
+	require.EqualValues(t, []byte("hash"), hash)
 }

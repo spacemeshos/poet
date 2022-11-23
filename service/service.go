@@ -543,5 +543,7 @@ func CreateChallengeVerifier(gateways []*grpc.ClientConn) (types.ChallengeVerifi
 		client := challenge_verifier.NewClient(target)
 		clients = append(clients, client)
 	}
-	return challenge_verifier.NewCachingChallengeVerifier(ChallengeVerifierCacheSize, challenge_verifier.NewRoundRobinChallengeVerifier(clients))
+	return challenge_verifier.NewCachingChallengeVerifier(
+		ChallengeVerifierCacheSize, challenge_verifier.NewRetryingChallengeVerifier(
+			challenge_verifier.NewRoundRobinChallengeVerifier(clients), 5, time.Second, 2))
 }
