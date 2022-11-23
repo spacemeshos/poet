@@ -24,7 +24,6 @@ import (
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
-	"github.com/spacemeshos/poet/signing"
 	"github.com/spacemeshos/poet/types"
 )
 
@@ -407,36 +406,34 @@ func (s *Service) executeRound(ctx context.Context, r *round) error {
 // TODO(brozansk) remove support for data []byte after go-spacemesh is updated to
 // use the new API.
 // (https://github.com/spacemeshos/poet/issues/147).
-func (s *Service) Submit(ctx context.Context, challenge []byte, signedChallenge signing.Signed[[]byte]) (*round, []byte, error) {
+func (s *Service) Submit(ctx context.Context, challenge, signature []byte) (*round, []byte, error) {
 	logger := logging.FromContext(ctx)
 	if !s.Started() {
 		return nil, nil, ErrNotStarted
 	}
 
-	// TODO(brozansk) Remove support for `challenge []byte` eventually (https://github.com/spacemeshos/poet/issues/147)
-	if signedChallenge != nil {
-		logger.With().Debug("Received challenge",
-			log.String("node_id", hex.EncodeToString(signedChallenge.PubKey())),
-		)
+	// TODO(brozansk) Remove support for old API eventually (https://github.com/spacemeshos/poet/issues/147)
+	if signature != nil {
+		logger.Debug("Received challenge")
 		// SAFETY: it will never panic as `s.ChallengeVerifier` is set in Start
 		verifier := s.challengeVerifier.Load().(types.ChallengeVerifier)
-		hash, err := verifier.Verify(ctx, *signedChallenge.Data(), signedChallenge.Signature())
+		result, err := verifier.Verify(ctx, challenge, signature)
 		if err != nil {
 			logger.With().Debug("challenge verification failed", log.Err(err))
 			return nil, nil, err
 		}
-
+		logger.With().Debug("verified challenge", log.String("hash", hex.EncodeToString(result.Hash)), log.String("node_id", hex.EncodeToString(result.NodeId)))
 		s.openRoundMutex.Lock()
 		r := s.openRound
-		err = r.submit(signedChallenge.PubKey(), hash)
+		err = r.submit(result.NodeId, result.Hash)
 		s.openRoundMutex.Unlock()
 		if err != nil {
 			if errors.Is(err, types.ErrChallengeAlreadySubmitted) {
-				return r, hash, nil
+				return r, result.Hash, nil
 			}
 			return nil, nil, err
 		}
-		return r, hash, nil
+		return r, result.Hash, nil
 	} else {
 		logger.Debug("Using the old challenge submission API")
 		s.openRoundMutex.Lock()
@@ -444,6 +441,9 @@ func (s *Service) Submit(ctx context.Context, challenge []byte, signedChallenge 
 		err := r.submit(challenge, challenge)
 		s.openRoundMutex.Unlock()
 		if err != nil {
+			if errors.Is(err, types.ErrChallengeAlreadySubmitted) {
+				return r, challenge, nil
+			}
 			return nil, nil, err
 		}
 		return r, challenge, nil

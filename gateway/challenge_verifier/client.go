@@ -18,7 +18,7 @@ type grpcChallengeVerifierClient struct {
 	gateway string
 }
 
-func (c *grpcChallengeVerifierClient) Verify(ctx context.Context, challenge []byte, signature []byte) ([]byte, error) {
+func (c *grpcChallengeVerifierClient) Verify(ctx context.Context, challenge, signature []byte) (*types.ChallengeVerificationResult, error) {
 	logger := logging.FromContext(ctx).WithFields(log.String("gateway", c.gateway))
 
 	resp, err := c.client.VerifyChallenge(ctx, &v1.VerifyChallengeRequest{
@@ -29,7 +29,10 @@ func (c *grpcChallengeVerifierClient) Verify(ctx context.Context, challenge []by
 	st, _ := status.FromError(err)
 	switch st.Code() {
 	case codes.OK:
-		return resp.Hash, nil
+		return &types.ChallengeVerificationResult{
+			Hash:   resp.Hash,
+			NodeId: resp.NodeId,
+		}, nil
 	case codes.InvalidArgument:
 		logger.With().Debug("challenge is invalid", log.String("message", st.Message()))
 		return nil, types.ErrChallengeInvalid

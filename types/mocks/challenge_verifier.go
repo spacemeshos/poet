@@ -9,6 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	types "github.com/spacemeshos/poet/types"
 )
 
 // MockChallengeVerifier is a mock of ChallengeVerifier interface.
@@ -35,10 +36,10 @@ func (m *MockChallengeVerifier) EXPECT() *MockChallengeVerifierMockRecorder {
 }
 
 // Verify mocks base method.
-func (m *MockChallengeVerifier) Verify(arg0 context.Context, arg1, arg2 []byte) ([]byte, error) {
+func (m *MockChallengeVerifier) Verify(arg0 context.Context, arg1, arg2 []byte) (*types.ChallengeVerificationResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Verify", arg0, arg1, arg2)
-	ret0, _ := ret[0].([]byte)
+	ret0, _ := ret[0].(*types.ChallengeVerificationResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

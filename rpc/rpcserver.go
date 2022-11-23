@@ -5,15 +5,16 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/spacemeshos/smutil/log"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/spacemeshos/poet/gateway"
 	"github.com/spacemeshos/poet/gateway/broadcaster"
+	"github.com/spacemeshos/poet/logging"
 	rpcapi "github.com/spacemeshos/poet/release/proto/go/rpc/api"
 	"github.com/spacemeshos/poet/service"
-	"github.com/spacemeshos/poet/signing"
 	"github.com/spacemeshos/poet/types"
 )
 
@@ -135,19 +136,7 @@ func (r *rpcServer) UpdateGateway(ctx context.Context, in *rpcapi.UpdateGatewayR
 }
 
 func (r *rpcServer) Submit(ctx context.Context, in *rpcapi.SubmitRequest) (*rpcapi.SubmitResponse, error) {
-	// Temporarily support both the old and new challenge submission API.
-	// TODO(brozansk) remove support for data []byte after go-spacemesh is updated to
-	// use the new API.
-	var challenge signing.Signed[[]byte]
-	if in.Signature != nil {
-		signed, err := signing.NewFromBytes(in.Challenge, in.Signature)
-		if err != nil {
-			return nil, err
-		}
-		challenge = signed
-	}
-
-	round, hash, err := r.s.Submit(ctx, in.Challenge, challenge)
+	round, hash, err := r.s.Submit(ctx, in.Challenge, in.Signature)
 	if err != nil {
 		if errors.Is(err, service.ErrNotStarted) {
 			return nil, status.Error(codes.FailedPrecondition, "cannot submit a challenge because poet service is not started")
@@ -157,6 +146,7 @@ func (r *rpcServer) Submit(ctx context.Context, in *rpcapi.SubmitRequest) (*rpca
 		} else if errors.Is(err, types.ErrCouldNotVerify) {
 			return nil, status.Error(codes.Unavailable, "failed to verify the challenge, consider retrying")
 		}
+		logging.FromContext(ctx).With().Warning("unknown error during challenge validation", log.Err(err))
 		return nil, status.Error(codes.Internal, "unknown error during challenge validation")
 	}
 

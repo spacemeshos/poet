@@ -25,7 +25,7 @@ type roundRobinChallengeVerifier struct {
 	lastUsedSvc int
 }
 
-func (a *roundRobinChallengeVerifier) Verify(ctx context.Context, challenge []byte, signature []byte) ([]byte, error) {
+func (a *roundRobinChallengeVerifier) Verify(ctx context.Context, challenge, signature []byte) (*types.ChallengeVerificationResult, error) {
 	for retries := 0; retries < len(a.services); retries++ {
 		hash, err := a.services[a.lastUsedSvc].Verify(ctx, challenge, signature)
 		if err == nil {
@@ -54,11 +54,11 @@ type cachingChallengeVerifier struct {
 }
 
 type challengeVerifierResult struct {
-	hash []byte
-	err  error
+	*types.ChallengeVerificationResult
+	err error
 }
 
-func (a *cachingChallengeVerifier) Verify(ctx context.Context, challenge []byte, signature []byte) ([]byte, error) {
+func (a *cachingChallengeVerifier) Verify(ctx context.Context, challenge, signature []byte) (*types.ChallengeVerificationResult, error) {
 	var challengeHash [sha256.Size]byte
 	hasher := sha256.New()
 	hasher.Write(challenge)
@@ -70,15 +70,14 @@ func (a *cachingChallengeVerifier) Verify(ctx context.Context, challenge []byte,
 		logger.Debug("retrieved challenge verifier result from the cache")
 		// SAFETY: type assertion will never panic as we insert only `*ATX` values.
 		result := result.(*challengeVerifierResult)
-		return result.hash, result.err
+		return result.ChallengeVerificationResult, result.err
 	}
 
-	hash, err := a.verifier.Verify(ctx, challenge, signature)
+	result, err := a.verifier.Verify(ctx, challenge, signature)
 	if err == nil || errors.Is(err, types.ErrChallengeInvalid) {
-		logger.With().Debug("finished challenge verification", log.Err(err))
-		a.cache.Add(challengeHash, &challengeVerifierResult{hash: hash, err: err})
+		a.cache.Add(challengeHash, &challengeVerifierResult{ChallengeVerificationResult: result, err: err})
 	}
-	return hash, err
+	return result, err
 }
 
 func NewCachingChallengeVerifier(size int, verifier types.ChallengeVerifier) (types.ChallengeVerifier, error) {
@@ -99,7 +98,7 @@ type retryingChallengeVerifier struct {
 	verifier          types.ChallengeVerifier
 }
 
-func (v *retryingChallengeVerifier) Verify(ctx context.Context, challenge []byte, signature []byte) ([]byte, error) {
+func (v *retryingChallengeVerifier) Verify(ctx context.Context, challenge, signature []byte) (*types.ChallengeVerificationResult, error) {
 	logger := logging.FromContext(ctx)
 	timer := time.NewTimer(0)
 	<-timer.C
@@ -116,7 +115,7 @@ func (v *retryingChallengeVerifier) Verify(ctx context.Context, challenge []byte
 			delay = MaxBackoff
 		}
 		timer.Reset(delay)
-		logger.Info("Retrying %dnth time, waiting %v", retry+1, delay)
+		logger.Info("Retrying for %d time, waiting %v", retry+1, delay)
 		select {
 		case <-timer.C:
 		case <-ctx.Done():

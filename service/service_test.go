@@ -16,6 +16,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/spacemeshos/poet/prover"
+	"github.com/spacemeshos/poet/types"
 	"github.com/spacemeshos/poet/types/mocks"
 )
 
@@ -352,22 +353,25 @@ func TestSubmitIdempotency(t *testing.T) {
 		PhaseShift:    time.Second / 2,
 		CycleGap:      time.Second / 4,
 	}
+	challenge := []byte("challenge")
+	signature := []byte("signature")
+
 	s, err := NewService(&cfg, t.TempDir())
 	req.NoError(err)
 
 	proofBroadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
 	verifier := mocks.NewMockChallengeVerifier(gomock.NewController(t))
-	verifier.EXPECT().Verify(gomock.Any(), []byte("challenge"), []byte("signature")).Times(2).Return([]byte("hash"), nil)
+	verifier.EXPECT().Verify(gomock.Any(), challenge, signature).Times(2).Return(&types.ChallengeVerificationResult{Hash: []byte("hash")}, nil)
 	err = s.Start(proofBroadcaster, verifier)
 	req.NoError(err)
 
 	// Submit challenge
-	_, hash, err := s.Submit(context.Background(), nil, Bytes("challenge"))
+	_, hash, err := s.Submit(context.Background(), challenge, signature)
 	req.NoError(err)
 	req.Equal(hash, []byte("hash"))
 
 	// Try again - it should return the same result
-	_, hash, err = s.Submit(context.Background(), nil, Bytes("challenge"))
+	_, hash, err = s.Submit(context.Background(), challenge, signature)
 	req.NoError(err)
 	req.Equal(hash, []byte("hash"))
 
