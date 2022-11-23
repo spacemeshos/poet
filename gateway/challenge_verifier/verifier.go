@@ -102,7 +102,9 @@ type retryingChallengeVerifier struct {
 func (v *retryingChallengeVerifier) Verify(ctx context.Context, challenge []byte, signature []byte) ([]byte, error) {
 	logger := logging.FromContext(ctx)
 	timer := time.NewTimer(0)
+	<-timer.C
 	delay := v.backoffBase
+
 	for retry := uint(0); retry < v.maxRetries; retry++ {
 		if hash, err := v.verifier.Verify(ctx, challenge, signature); err == nil {
 			return hash, nil
@@ -118,6 +120,9 @@ func (v *retryingChallengeVerifier) Verify(ctx context.Context, challenge []byte
 		select {
 		case <-timer.C:
 		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
 			return nil, types.ErrCouldNotVerify
 		}
 	}

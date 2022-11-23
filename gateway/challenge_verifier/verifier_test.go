@@ -117,13 +117,44 @@ func TestRetryingProvider(t *testing.T) {
 	challenge := []byte("challenge")
 	signature := []byte("signature")
 
-	verifier := mocks.NewMockChallengeVerifier(gomock.NewController(t))
-	verifier.EXPECT().Verify(gomock.Any(), challenge, signature).Times(2).Return(nil, types.ErrCouldNotVerify)
-	verifier.EXPECT().Verify(gomock.Any(), challenge, signature).Return([]byte("hash"), nil)
+	t.Run("eventually succeeds", func(t *testing.T) {
+		t.Parallel()
+		verifier := mocks.NewMockChallengeVerifier(gomock.NewController(t))
+		verifier.EXPECT().Verify(gomock.Any(), challenge, signature).Times(2).Return(nil, types.ErrCouldNotVerify)
+		verifier.EXPECT().Verify(gomock.Any(), challenge, signature).Return([]byte("hash"), nil)
+		provider := challenge_verifier.NewRetryingChallengeVerifier(verifier, 3, time.Nanosecond, 1)
 
-	provider := challenge_verifier.NewRetryingChallengeVerifier(verifier, 3, time.Nanosecond, 1)
+		hash, err := provider.Verify(context.Background(), challenge, signature)
+		require.NoError(t, err)
+		require.EqualValues(t, []byte("hash"), hash)
+	})
+	t.Run("max retries reached", func(t *testing.T) {
+		t.Parallel()
+		verifier := mocks.NewMockChallengeVerifier(gomock.NewController(t))
+		verifier.EXPECT().Verify(gomock.Any(), challenge, signature).AnyTimes().Return(nil, types.ErrCouldNotVerify)
+		provider := challenge_verifier.NewRetryingChallengeVerifier(verifier, 3, time.Nanosecond, 1)
 
-	hash, err := provider.Verify(context.Background(), challenge, signature)
-	require.NoError(t, err)
-	require.EqualValues(t, []byte("hash"), hash)
+		_, err := provider.Verify(context.Background(), challenge, signature)
+		require.ErrorIs(t, err, types.ErrCouldNotVerify)
+	})
+	t.Run("doesn't retry when the challenge is invalid", func(t *testing.T) {
+		t.Parallel()
+		verifier := mocks.NewMockChallengeVerifier(gomock.NewController(t))
+		verifier.EXPECT().Verify(gomock.Any(), challenge, signature).Return(nil, types.ErrChallengeInvalid)
+		provider := challenge_verifier.NewRetryingChallengeVerifier(verifier, 3, time.Nanosecond, 1)
+
+		_, err := provider.Verify(context.Background(), challenge, signature)
+		require.ErrorIs(t, err, types.ErrChallengeInvalid)
+	})
+	t.Run("stops on ctx cancellation", func(t *testing.T) {
+		t.Parallel()
+		verifier := mocks.NewMockChallengeVerifier(gomock.NewController(t))
+		verifier.EXPECT().Verify(gomock.Any(), challenge, signature).AnyTimes().Return(nil, types.ErrCouldNotVerify)
+		provider := challenge_verifier.NewRetryingChallengeVerifier(verifier, 100000000, time.Second, 100)
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		_, err := provider.Verify(ctx, challenge, signature)
+		require.ErrorIs(t, err, types.ErrCouldNotVerify)
+	})
 }
