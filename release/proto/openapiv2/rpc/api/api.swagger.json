@@ -192,8 +192,7 @@
         },
         "signature": {
           "type": "string",
-          "format": "byte",
-          "title": "signature contains the signature of `data`"
+          "format": "byte"
         }
       }
     },

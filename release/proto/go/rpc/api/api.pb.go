@@ -245,7 +245,6 @@ type SubmitRequest struct {
 	unknownFields protoimpl.UnknownFields
 
 	Challenge []byte `protobuf:"bytes,1,opt,name=challenge,proto3" json:"challenge,omitempty"`
-	// signature contains the signature of `data`
 	Signature []byte `protobuf:"bytes,2,opt,name=signature,proto3" json:"signature,omitempty"`
 }
 
