@@ -193,10 +193,6 @@
         "signature": {
           "type": "string",
           "format": "byte"
-        },
-        "nodeId": {
-          "type": "string",
-          "format": "byte"
         }
       }
     },
