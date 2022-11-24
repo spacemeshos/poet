@@ -329,6 +329,7 @@ func TestNewService(t *testing.T) {
 
 	req.NoError(s.Shutdown())
 }
+
 func TestSubmitIdempotency(t *testing.T) {
 	req := require.New(t)
 	cfg := Config{
