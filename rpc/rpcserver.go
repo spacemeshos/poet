@@ -60,7 +60,7 @@ func (r *rpcServer) Start(ctx context.Context, in *rpcapi.StartRequest) (*rpcapi
 	if err != nil {
 		return nil, err
 	}
-	defer gtwManager.Close()
+	defer func() { gtwManager.Close() }()
 	b, err := broadcaster.New(
 		r.gtwManager.Connections(),
 		in.DisableBroadcast,
@@ -109,7 +109,7 @@ func (r *rpcServer) UpdateGateway(ctx context.Context, in *rpcapi.UpdateGatewayR
 	if err != nil {
 		return nil, err
 	}
-	defer gtwManager.Close()
+	defer func() { gtwManager.Close() }()
 	b, err := broadcaster.New(
 		gtwManager.Connections(),
 		in.DisableBroadcast,
