@@ -30,8 +30,9 @@ func (b *MockBroadcaster) BroadcastProof(msg []byte, roundID string, members [][
 }
 
 type challenge struct {
-	data  []byte
-	round *round
+	data   []byte
+	nodeID []byte
+	round  *round
 }
 
 func TestService_Recovery(t *testing.T) {
@@ -64,8 +65,10 @@ func TestService_Recovery(t *testing.T) {
 	for i := 0; i < 4; i++ {
 		challengeGroup := make([]challenge, challengeGroupSize)
 		for i := 0; i < challengeGroupSize; i++ {
-			challengeGroup[i] = challenge{data: make([]byte, 32)}
+			challengeGroup[i] = challenge{data: make([]byte, 32), nodeID: make([]byte, 32)}
 			_, err := rand.Read(challengeGroup[i].data)
+			req.NoError(err)
+			_, err = rand.Read(challengeGroup[i].nodeID)
 			req.NoError(err)
 		}
 		challengeGroups[i] = challengeGroup
@@ -75,9 +78,10 @@ func TestService_Recovery(t *testing.T) {
 	submitChallenges := func(roundIndex int, groupIndex int) {
 		challengesGroup := challengeGroups[groupIndex]
 		for _, challenge := range challengeGroups[groupIndex] {
+			verifier.EXPECT().Verify(gomock.Any(), challenge.data, nil).Return(&challenge_verifier.Result{Hash: challenge.data, NodeId: challenge.nodeID}, nil)
 			round, hash, err := s.Submit(context.Background(), challenge.data, nil)
 			req.NoError(err)
-			req.Equal(hash, challenge.data)
+			req.Equal(challenge.data, hash)
 			req.Equal(strconv.Itoa(roundIndex), round.ID)
 
 			// Verify that all submissions returned the same round instance.
@@ -182,7 +186,7 @@ func TestService_Recovery(t *testing.T) {
 		// Verify the submitted challenges.
 		req.Len(proofMsg.Members, len(submittedChallenges[i]))
 		for _, ch := range submittedChallenges[i] {
-			req.True(contains(proofMsg.Members, ch.data), "proof %v, round %v", proofMsg.RoundID, i)
+			req.Contains(proofMsg.Members, ch.data, "proof %v, round %v", proofMsg.RoundID, i)
 		}
 
 		// Verify round statement.
@@ -263,8 +267,10 @@ func TestNewService(t *testing.T) {
 
 	// Generate random challenges.
 	for i := 0; i < len(challenges); i++ {
-		challenges[i] = challenge{data: make([]byte, 32)}
+		challenges[i] = challenge{data: make([]byte, 32), nodeID: make([]byte, 32)}
 		_, err := rand.Read(challenges[i].data)
+		req.NoError(err)
+		_, err = rand.Read(challenges[i].nodeID)
 		req.NoError(err)
 	}
 
@@ -274,9 +280,10 @@ func TestNewService(t *testing.T) {
 
 	// Submit challenges.
 	for i := 0; i < len(challenges); i++ {
+		verifier.EXPECT().Verify(gomock.Any(), challenges[i].data, nil).Return(&challenge_verifier.Result{Hash: challenges[i].data, NodeId: challenges[i].nodeID}, nil)
 		round, hash, err := s.Submit(context.Background(), challenges[i].data, nil)
 		req.NoError(err)
-		req.Equal(hash, challenges[i].data)
+		req.Equal(challenges[i].data, hash)
 		req.Equal(currentRound, round.ID)
 		challenges[i].round = round
 

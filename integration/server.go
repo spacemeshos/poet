@@ -14,9 +14,7 @@ import (
 // ServerConfig contains all the args and data required to launch a poet server
 // instance  and connect to it via rpc client.
 type ServerConfig struct {
-	logLevel  string
 	rpcListen string
-	baseDir   string
 	dataDir   string
 	exe       string
 
@@ -24,6 +22,7 @@ type ServerConfig struct {
 	EpochDuration    time.Duration
 	PhaseShift       time.Duration
 	CycleGap         time.Duration
+	DebugLog         bool
 	Reset            bool
 	DisableBroadcast bool
 	RESTListen       string
@@ -44,10 +43,8 @@ func DefaultConfig() (*ServerConfig, error) {
 	}
 
 	cfg := &ServerConfig{
-		logLevel:       "debug",
 		rpcListen:      "127.0.0.1:18550",
 		RESTListen:     "127.0.0.1:18551",
-		baseDir:        baseDir,
 		dataDir:        filepath.Join(baseDir, "data"),
 		exe:            poetPath,
 		EpochDuration:  2 * time.Second,
@@ -76,6 +73,9 @@ func (cfg *ServerConfig) genArgs() []string {
 		args = append(args, fmt.Sprintf("--gateway=%s", address))
 	}
 
+	if cfg.DebugLog {
+		args = append(args, "--debuglog")
+	}
 	if cfg.Reset {
 		args = append(args, "--reset")
 	}

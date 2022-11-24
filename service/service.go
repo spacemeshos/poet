@@ -393,52 +393,32 @@ func (s *Service) executeRound(ctx context.Context, r *round) error {
 	return nil
 }
 
-// Temporarily support both the old and new challenge submission API.
-// TODO(brozansk) remove support for data []byte after go-spacemesh is updated to
-// use the new API.
-// (https://github.com/spacemeshos/poet/issues/147).
 func (s *Service) Submit(ctx context.Context, challenge, signature []byte) (*round, []byte, error) {
 	logger := logging.FromContext(ctx)
 	if !s.Started() {
 		return nil, nil, ErrNotStarted
 	}
 
-	// TODO(brozansk) Remove support for old API eventually (https://github.com/spacemeshos/poet/issues/147)
-	if signature != nil {
-		logger.Debug("Received challenge")
-		// SAFETY: it will never panic as `s.ChallengeVerifier` is set in Start
-		verifier := s.challengeVerifier.Load().(challenge_verifier.Verifier)
-		result, err := verifier.Verify(ctx, challenge, signature)
-		if err != nil {
-			logger.With().Debug("challenge verification failed", log.Err(err))
-			return nil, nil, err
-		}
-		logger.With().Debug("verified challenge", log.String("hash", hex.EncodeToString(result.Hash)), log.String("node_id", hex.EncodeToString(result.NodeId)))
-		s.openRoundMutex.Lock()
-		r := s.openRound
-		err = r.submit(result.NodeId, result.Hash)
-		s.openRoundMutex.Unlock()
-		switch {
-		case errors.Is(err, ErrChallengeAlreadySubmitted):
-			return r, result.Hash, nil
-		case err != nil:
-			return nil, nil, err
-		}
-		return r, result.Hash, nil
-	} else {
-		logger.Debug("Using the old challenge submission API")
-		s.openRoundMutex.Lock()
-		r := s.openRound
-		err := r.submit(challenge, challenge)
-		s.openRoundMutex.Unlock()
-		switch {
-		case errors.Is(err, ErrChallengeAlreadySubmitted):
-			return r, challenge, nil
-		case err != nil:
-			return nil, nil, err
-		}
-		return r, challenge, nil
+	logger.Debug("Received challenge")
+	// SAFETY: it will never panic as `s.ChallengeVerifier` is set in Start
+	verifier := s.challengeVerifier.Load().(challenge_verifier.Verifier)
+	result, err := verifier.Verify(ctx, challenge, signature)
+	if err != nil {
+		logger.With().Debug("challenge verification failed", log.Err(err))
+		return nil, nil, err
 	}
+	logger.With().Debug("verified challenge", log.String("hash", hex.EncodeToString(result.Hash)), log.String("node_id", hex.EncodeToString(result.NodeId)))
+	s.openRoundMutex.Lock()
+	r := s.openRound
+	err = r.submit(result.NodeId, result.Hash)
+	s.openRoundMutex.Unlock()
+	switch {
+	case errors.Is(err, ErrChallengeAlreadySubmitted):
+		return r, result.Hash, nil
+	case err != nil:
+		return nil, nil, err
+	}
+	return r, result.Hash, nil
 }
 
 func (s *Service) Info() (*InfoResponse, error) {
