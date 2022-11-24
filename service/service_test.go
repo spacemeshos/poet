@@ -329,21 +329,6 @@ func TestNewService(t *testing.T) {
 
 	req.NoError(s.Shutdown())
 }
-
-type Bytes []byte
-
-func (b Bytes) Data() *[]byte {
-	return (*[]byte)(&b)
-}
-
-func (Bytes) PubKey() []byte {
-	return []byte("pubkey")
-}
-
-func (Bytes) Signature() []byte {
-	return []byte("signature")
-}
-
 func TestSubmitIdempotency(t *testing.T) {
 	req := require.New(t)
 	cfg := Config{
