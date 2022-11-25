@@ -33,7 +33,6 @@ type Config struct {
 	PhaseShift               time.Duration `long:"phase-shift"`
 	CycleGap                 time.Duration `long:"cycle-gap"`
 	MemoryLayers             uint          `long:"memory" description:"Number of top Merkle tree layers to cache in-memory"`
-	ExecuteEmpty             bool          `long:"empty" description:"whether to execute empty rounds, without any submitted challenges"`
 	NoRecovery               bool          `long:"norecovery" description:"whether to disable a potential recovery procedure"`
 	Reset                    bool          `long:"reset" description:"whether to reset the service state by deleting the datadir"`
 	GatewayAddresses         []string      `long:"gateway" description:"list of Spacemesh gateway nodes RPC listeners (host:port) for broadcasting of proofs"`
@@ -207,14 +206,6 @@ func (s *Service) loop(ctx context.Context) {
 		}
 
 		s.openRoundMutex.Lock()
-		if s.openRound.isEmpty() && !s.cfg.ExecuteEmpty {
-			// FIXME Poet enters a busy loop
-			// See https://github.com/spacemeshos/poet/issues/142
-			log.With().Info("Not executing an empty round", log.String("ID", s.openRound.ID))
-			s.openRoundMutex.Unlock()
-			continue
-		}
-
 		prevRound := s.openRound
 		s.newRound(ctx, prevRound.Epoch()+1)
 		s.openRoundMutex.Unlock()
