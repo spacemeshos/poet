@@ -14,8 +14,6 @@ import (
 	"github.com/spacemeshos/poet/types"
 )
 
-const DefaultConnTimeout = 10 * time.Second
-
 // Manager aggregates GRPC connections to gateways.
 // Its Close() must be called when the connections are no longer needed.
 type Manager struct {
@@ -45,8 +43,6 @@ func (m *Manager) Close() error {
 // NewManager creates a gateway manager connected to `gateways`.
 // Close() must be called when the connections are no longer needed.
 func NewManager(ctx context.Context, gateways []string, minSuccesfullConns uint) (*Manager, error) {
-	ctx, cancel := context.WithTimeout(ctx, DefaultConnTimeout)
-	defer cancel()
 	connections, errs := connect(ctx, gateways)
 	if len(connections) < int(minSuccesfullConns) {
 		for _, conn := range connections {

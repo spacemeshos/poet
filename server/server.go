@@ -75,7 +75,9 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 		if err != nil {
 			return err
 		}
-		gtwManager, err := gateway.NewManager(ctx, cfg.Service.GatewayAddresses, cfg.Service.ConnAcksThreshold)
+		gtwConnectionCtx, cancel := context.WithTimeout(ctx, time.Second*30)
+		defer cancel()
+		gtwManager, err := gateway.NewManager(gtwConnectionCtx, cfg.Service.GatewayAddresses, cfg.Service.ConnAcksThreshold)
 		if err == nil {
 			broadcaster, err := broadcaster.New(
 				gtwManager.Connections(),
