@@ -37,6 +37,7 @@ const (
 	defaultBroadcastAcksThreshold   = 1
 	defaultBroadcastNumRetries      = 100
 	defaultBroadcastRetriesInterval = 5 * time.Minute
+	defaultGatewayConnectionTimeout = 30 * time.Second
 )
 
 var (
@@ -71,6 +72,7 @@ type Config struct {
 	RawRESTListener string `short:"w" long:"restlisten" description:"The interface/port/socket to listen for REST connections"`
 	RPCListener     net.Addr
 	RESTListener    net.Addr
+	GtwConnTimeout  time.Duration `long:"gtw-connection-timeout" description:"Timeout for connecting to gateway"`
 
 	CPUProfile string `long:"cpuprofile" description:"Write CPU profile to the specified file"`
 	Profile    string `long:"profile" description:"Enable HTTP profiling on given port -- must be between 1024 and 65535"`
@@ -92,6 +94,7 @@ func DefaultConfig() *Config {
 		MaxLogFileSize:  defaultMaxLogFileSize,
 		RawRPCListener:  fmt.Sprintf("localhost:%d", defaultRPCPort),
 		RawRESTListener: fmt.Sprintf("localhost:%d", defaultRESTPort),
+		GtwConnTimeout:  defaultGatewayConnectionTimeout,
 		Service: &service.Config{
 			Genesis:                  defaultGenesisTime,
 			EpochDuration:            defaultEpochDuration,

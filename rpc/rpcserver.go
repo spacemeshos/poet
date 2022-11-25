@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/gateway"
 	"github.com/spacemeshos/poet/gateway/broadcaster"
 	"github.com/spacemeshos/poet/logging"
@@ -22,6 +23,7 @@ import (
 type rpcServer struct {
 	s          *service.Service
 	gtwManager *gateway.Manager
+	cfg        config.Config
 	sync.Mutex
 }
 
@@ -30,9 +32,10 @@ type rpcServer struct {
 var _ api.PoetServer = (*rpcServer)(nil)
 
 // NewServer creates and returns a new instance of the rpcServer.
-func NewServer(service *service.Service, gtwManager *gateway.Manager) *rpcServer {
+func NewServer(service *service.Service, gtwManager *gateway.Manager, cfg config.Config) *rpcServer {
 	server := &rpcServer{
 		s:          service,
+		cfg:        cfg,
 		gtwManager: gtwManager,
 	}
 	return server
@@ -56,7 +59,9 @@ func (r *rpcServer) Start(ctx context.Context, in *api.StartRequest) (*api.Start
 		broadcastAcks = 1
 	}
 
-	gtwManager, err := gateway.NewManager(ctx, in.GatewayAddresses, connAcks)
+	gtwConnCtx, cancel := context.WithTimeout(ctx, r.cfg.GtwConnTimeout)
+	defer cancel()
+	gtwManager, err := gateway.NewManager(gtwConnCtx, in.GatewayAddresses, connAcks)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +113,9 @@ func (r *rpcServer) UpdateGateway(ctx context.Context, in *api.UpdateGatewayRequ
 		broadcastAcks = 1
 	}
 
-	gtwManager, err := gateway.NewManager(ctx, in.GatewayAddresses, connAcks)
+	gtwConnCtx, cancel := context.WithTimeout(ctx, r.cfg.GtwConnTimeout)
+	defer cancel()
+	gtwManager, err := gateway.NewManager(gtwConnCtx, in.GatewayAddresses, connAcks)
 	if err != nil {
 		return nil, err
 	}

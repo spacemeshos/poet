@@ -75,9 +75,9 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 		if err != nil {
 			return err
 		}
-		gtwConnectionCtx, cancel := context.WithTimeout(ctx, time.Second*30)
+		gtwConnCtx, cancel := context.WithTimeout(ctx, cfg.GtwConnTimeout)
 		defer cancel()
-		gtwManager, err := gateway.NewManager(gtwConnectionCtx, cfg.Service.GatewayAddresses, cfg.Service.ConnAcksThreshold)
+		gtwManager, err := gateway.NewManager(gtwConnCtx, cfg.Service.GatewayAddresses, cfg.Service.ConnAcksThreshold)
 		if err == nil {
 			broadcaster, err := broadcaster.New(
 				gtwManager.Connections(),
@@ -106,7 +106,7 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 			logger.With().Info("Service not starting, waiting for start request", log.Err(err))
 		}
 
-		rpcServer := rpc.NewServer(svc, gtwManager)
+		rpcServer := rpc.NewServer(svc, gtwManager, *cfg)
 		grpcServer = grpc.NewServer(options...)
 
 		api.RegisterPoetServer(grpcServer, rpcServer)

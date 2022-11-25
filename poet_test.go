@@ -54,6 +54,7 @@ func TestHarness(t *testing.T) {
 	cfg, err := integration.DefaultConfig()
 	r.NoError(err)
 	cfg.Genesis = time.Now()
+	cfg.GtwConnTimeout = time.Second
 
 	h := newHarness(t, context.Background(), cfg)
 	t.Cleanup(func() {
@@ -119,6 +120,7 @@ func TestHarness_CrashRecovery(t *testing.T) {
 	cfg.Reset = true
 	cfg.DisableBroadcast = true
 	cfg.GatewayAddresses = []string{target}
+	cfg.GtwConnTimeout = time.Second
 
 	// Track rounds.
 	numRounds := 40
