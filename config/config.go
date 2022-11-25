@@ -31,7 +31,6 @@ const (
 	defaultMaxLogFileSize           = 10
 	defaultRPCPort                  = 50002
 	defaultRESTPort                 = 8080
-	defaultExecuteEmpty             = true
 	defaultMemoryLayers             = 26 // Up to (1 << 26) * 2 - 1 Merkle tree cache nodes (32 bytes each) will be held in-memory
 	defaultConnAcksThreshold        = 1
 	defaultBroadcastAcksThreshold   = 1
@@ -97,7 +96,6 @@ func DefaultConfig() *Config {
 			PhaseShift:               defaultPhaseShift,
 			CycleGap:                 defaultCycleGap,
 			MemoryLayers:             defaultMemoryLayers,
-			ExecuteEmpty:             defaultExecuteEmpty,
 			ConnAcksThreshold:        defaultConnAcksThreshold,
 			BroadcastAcksThreshold:   defaultBroadcastAcksThreshold,
 			BroadcastNumRetries:      defaultBroadcastNumRetries,
