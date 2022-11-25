@@ -2,7 +2,7 @@ package challenge_verifier
 
 import (
 	"context"
-	"crypto/sha256"
+	"github.com/minio/sha256-simd"
 	"errors"
 	"time"
 

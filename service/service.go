@@ -427,10 +427,10 @@ func (s *Service) Submit(ctx context.Context, challenge, signature []byte) (*rou
 		r := s.openRound
 		err = r.submit(result.NodeId, result.Hash)
 		s.openRoundMutex.Unlock()
-		if err != nil {
-			if errors.Is(err, types.ErrChallengeAlreadySubmitted) {
-				return r, result.Hash, nil
-			}
+		switch {
+		case errors.Is(err, types.ErrChallengeAlreadySubmitted):
+			return r, result.Hash, nil
+		case err != nil:
 			return nil, nil, err
 		}
 		return r, result.Hash, nil
@@ -440,10 +440,10 @@ func (s *Service) Submit(ctx context.Context, challenge, signature []byte) (*rou
 		r := s.openRound
 		err := r.submit(challenge, challenge)
 		s.openRoundMutex.Unlock()
-		if err != nil {
-			if errors.Is(err, types.ErrChallengeAlreadySubmitted) {
-				return r, challenge, nil
-			}
+		switch {
+		case errors.Is(err, types.ErrChallengeAlreadySubmitted):
+			return r, challenge, nil
+		case err != nil:
 			return nil, nil, err
 		}
 		return r, challenge, nil

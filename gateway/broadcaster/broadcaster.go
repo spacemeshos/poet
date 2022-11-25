@@ -89,7 +89,7 @@ func (b *Broadcaster) BroadcastProof(msg []byte, roundID string, members [][]byt
 		err := errs[i]
 
 		if err != nil {
-			err = fmt.Errorf("failed to broadcast via gateway node at \"%v\" after %v: %v",
+			err = fmt.Errorf("failed to broadcast via gateway node at \"%v\" after %v: %w",
 				b.connections[i].Target(), elapsed, err)
 		} else if code.Code(res.Status.Code) != code.Code_OK {
 			err = fmt.Errorf("failed to broadcast via gateway node at \"%v\" after %v: node response: %s (%s)",
