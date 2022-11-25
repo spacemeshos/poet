@@ -331,7 +331,6 @@ func TestNewService(t *testing.T) {
 func TestSubmitIdempotency(t *testing.T) {
 	req := require.New(t)
 	cfg := Config{
-		ExecuteEmpty:  true,
 		Genesis:       time.Now().Add(time.Second).Format(time.RFC3339),
 		EpochDuration: time.Second,
 		PhaseShift:    time.Second / 2,
