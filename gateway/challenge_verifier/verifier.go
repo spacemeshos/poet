@@ -2,11 +2,11 @@ package challenge_verifier
 
 import (
 	"context"
-	"github.com/minio/sha256-simd"
 	"errors"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/minio/sha256-simd"
 	"github.com/spacemeshos/smutil/log"
 	"go.uber.org/zap"
 
@@ -16,16 +16,16 @@ import (
 
 const MaxBackoff = time.Second * 30
 
-// roundRobinChallengeVerifier gathers many verifiers.
+// roundRobin gathers many verifiers.
 // It tries to verify a challenge in a round robin fashion,
 // retrying with the next verifier if the previous one was not
 // able to complete verification.
-type roundRobinChallengeVerifier struct {
+type roundRobin struct {
 	services    []types.ChallengeVerifier
 	lastUsedSvc int
 }
 
-func (a *roundRobinChallengeVerifier) Verify(ctx context.Context, challenge, signature []byte) (*types.ChallengeVerificationResult, error) {
+func (a *roundRobin) Verify(ctx context.Context, challenge, signature []byte) (*types.ChallengeVerificationResult, error) {
 	for retries := 0; retries < len(a.services); retries++ {
 		hash, err := a.services[a.lastUsedSvc].Verify(ctx, challenge, signature)
 		if err == nil {
@@ -40,15 +40,15 @@ func (a *roundRobinChallengeVerifier) Verify(ctx context.Context, challenge, sig
 	return nil, types.ErrCouldNotVerify
 }
 
-func NewRoundRobinChallengeVerifier(services []types.ChallengeVerifier) types.ChallengeVerifier {
-	return &roundRobinChallengeVerifier{
+func NewRoundRobin(services []types.ChallengeVerifier) types.ChallengeVerifier {
+	return &roundRobin{
 		services: services,
 	}
 }
 
-// cachingChallengeVerifier implements caching layer on top of
+// caching implements caching layer on top of
 // its ChallengeVerifier.
-type cachingChallengeVerifier struct {
+type caching struct {
 	cache    *lru.Cache
 	verifier types.ChallengeVerifier
 }
@@ -58,7 +58,7 @@ type challengeVerifierResult struct {
 	err error
 }
 
-func (a *cachingChallengeVerifier) Verify(ctx context.Context, challenge, signature []byte) (*types.ChallengeVerificationResult, error) {
+func (a *caching) Verify(ctx context.Context, challenge, signature []byte) (*types.ChallengeVerificationResult, error) {
 	var challengeHash [sha256.Size]byte
 	hasher := sha256.New()
 	hasher.Write(challenge)
@@ -80,25 +80,25 @@ func (a *cachingChallengeVerifier) Verify(ctx context.Context, challenge, signat
 	return result, err
 }
 
-func NewCachingChallengeVerifier(size int, verifier types.ChallengeVerifier) (types.ChallengeVerifier, error) {
+func NewCaching(size int, verifier types.ChallengeVerifier) (types.ChallengeVerifier, error) {
 	cache, err := lru.New(size)
 	if err != nil {
 		return nil, err
 	}
-	return &cachingChallengeVerifier{
+	return &caching{
 		cache:    cache,
 		verifier: verifier,
 	}, nil
 }
 
-type retryingChallengeVerifier struct {
+type retrying struct {
 	backoffBase       time.Duration
 	backoffMultiplier float64
 	maxRetries        uint
 	verifier          types.ChallengeVerifier
 }
 
-func (v *retryingChallengeVerifier) Verify(ctx context.Context, challenge, signature []byte) (*types.ChallengeVerificationResult, error) {
+func (v *retrying) Verify(ctx context.Context, challenge, signature []byte) (*types.ChallengeVerificationResult, error) {
 	logger := logging.FromContext(ctx)
 	timer := time.NewTimer(0)
 	<-timer.C
@@ -128,8 +128,8 @@ func (v *retryingChallengeVerifier) Verify(ctx context.Context, challenge, signa
 	return nil, types.ErrCouldNotVerify
 }
 
-func NewRetryingChallengeVerifier(verifier types.ChallengeVerifier, maxRetries uint, backoffBase time.Duration, backoffMultiplier float64) types.ChallengeVerifier {
-	return &retryingChallengeVerifier{
+func NewRetrying(verifier types.ChallengeVerifier, maxRetries uint, backoffBase time.Duration, backoffMultiplier float64) types.ChallengeVerifier {
+	return &retrying{
 		maxRetries:        maxRetries,
 		verifier:          verifier,
 		backoffBase:       backoffBase,

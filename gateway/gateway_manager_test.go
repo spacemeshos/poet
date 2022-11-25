@@ -24,7 +24,7 @@ func TestConnecting(t *testing.T) {
 		defer cancel()
 		mgr, err := NewManager(ctx, []string{gtw.Target(), "wrong-address"}, 1)
 		req.NoError(err)
-		t.Cleanup(mgr.Close)
+		t.Cleanup(func() { require.NoError(t, mgr.Close()) })
 		req.Len(mgr.Connections(), 1)
 	})
 	t.Run("min successful not connections met", func(t *testing.T) {

@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -11,7 +12,6 @@ import (
 	proxy "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/spacemeshos/smutil/log"
 	"go.uber.org/zap"
-	"golang.org/x/net/context"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -34,6 +34,9 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 	ctx, stop := context.WithCancel(ctx)
 	defer stop()
 	serverGroup, ctx := errgroup.WithContext(ctx)
+
+	logger := log.AppLog.WithName("StartServer")
+	ctx = logging.NewContext(ctx, logger)
 
 	// Initialize and register the implementation of gRPC interface
 	var grpcServer *grpc.Server
@@ -81,20 +84,24 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 				cfg.Service.BroadcastAcksThreshold,
 			)
 			if err != nil {
-				gtwManager.Close()
+				if err := gtwManager.Close(); err != nil {
+					logger.With().Warning("failed to close GRPC connections", log.Err(err))
+				}
 				return err
 			}
 			verifier, err := service.CreateChallengeVerifier(gtwManager.Connections())
 			if err != nil {
-				gtwManager.Close()
-				return fmt.Errorf("failed to create ATX provider: %w", err)
+				if err := gtwManager.Close(); err != nil {
+					logger.With().Warning("failed to close GRPC connections", log.Err(err))
+				}
+				return fmt.Errorf("failed to create challenge verifier: %w", err)
 			}
 
 			if err := svc.Start(broadcaster, verifier); err != nil {
 				return err
 			}
 		} else {
-			log.With().Info("Service not starting, waiting for start request", log.Err(err))
+			logger.With().Info("Service not starting, waiting for start request", log.Err(err))
 		}
 
 		rpcServer := rpc.NewServer(svc, gtwManager)
@@ -112,7 +119,7 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 	defer lis.Close()
 
 	serverGroup.Go(func() error {
-		log.Info("RPC server listening on %s", lis.Addr())
+		logger.Info("RPC server listening on %s", lis.Addr())
 		return grpcServer.Serve(lis)
 	})
 
@@ -127,7 +134,7 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 
 	server := &http.Server{Addr: cfg.RESTListener.String(), Handler: mux}
 	serverGroup.Go(func() error {
-		log.Info("REST proxy start listening on %s", cfg.RESTListener.String())
+		logger.Info("REST proxy start listening on %s", cfg.RESTListener.String())
 		return server.ListenAndServe()
 	})
 

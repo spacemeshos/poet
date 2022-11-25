@@ -11,6 +11,8 @@ import (
 	"github.com/spacemeshos/smutil/log"
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/grpc"
+
+	"github.com/spacemeshos/poet/types"
 )
 
 const DefaultBroadcastTimeout = 30 * time.Second
@@ -83,7 +85,7 @@ func (b *Broadcaster) BroadcastProof(msg []byte, roundID string, members [][]byt
 
 	// Count successful responses and concatenate errors of non-successful ones.
 	var numAcks int
-	var retErr error
+	var errors []error
 	for i := range b.clients {
 		res := responses[i]
 		err := errs[i]
@@ -99,23 +101,18 @@ func (b *Broadcaster) BroadcastProof(msg []byte, roundID string, members [][]byt
 			numAcks++
 			continue
 		}
-
-		if retErr == nil {
-			retErr = err
-		} else {
-			retErr = fmt.Errorf("%v | %v", retErr, err)
-		}
+		errors = append(errors, err)
 	}
 
-	// If successful broadcasts threshold wasn't met, return errors concatenation.
+	retErr := types.NewMultiError(errors)
+	// If some requests failed, log it.
+	if numErrors := len(errors); numErrors > 0 {
+		log.Warning("Round %v proof broadcast failed on %d/%d gateway nodes: %v", roundID, numErrors, len(b.clients), retErr)
+	}
+
+	// If successful broadcasts threshold wasn't met, return error
 	if numAcks < int(b.broadcastAckThreshold) {
 		return retErr
-	}
-
-	// If some requests failed, log it.
-	if retErr != nil {
-		numErrors := len(b.clients) - numAcks
-		log.Warning("Round %v proof broadcast failed on %d/%d gateway nodes: %v", roundID, numErrors, len(b.clients), retErr)
 	}
 
 	log.Info("Round %v proof broadcast completed successfully after %v, num of members: %d, proof size: %d", roundID, elapsed, len(members), len(msg))

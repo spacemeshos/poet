@@ -10,31 +10,11 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
+
+	"github.com/spacemeshos/poet/types"
 )
 
 const DefaultConnTimeout = 10 * time.Second
-
-type ConnectingErrors struct {
-	errors []error
-}
-
-func (e *ConnectingErrors) Error() string {
-	// concatenate errors
-	err := ""
-	for _, e := range e.errors {
-		if err == "" {
-			err = e.Error()
-		} else {
-			err = fmt.Sprintf("%v | %v", err, e)
-		}
-	}
-	return err
-}
-
-func (e *ConnectingErrors) Is(target error) bool {
-	_, ok := target.(*ConnectingErrors)
-	return ok
-}
 
 // Manager aggregates GRPC connections to gateways.
 // Its Close() must be called when the connections are no longer needed.
@@ -43,19 +23,23 @@ type Manager struct {
 }
 
 func (m *Manager) Connections() []*grpc.ClientConn {
-	if m == nil {
-		return []*grpc.ClientConn{}
-	}
 	return m.connections
 }
 
-func (m *Manager) Close() {
+func (m *Manager) Close() error {
 	if m == nil {
-		return
+		return nil
 	}
+	var errors []error
 	for _, conn := range m.connections {
-		conn.Close()
+		if err := conn.Close(); err != nil {
+			errors = append(errors, err)
+		}
 	}
+	if len(errors) > 0 {
+		return types.NewMultiError(errors)
+	}
+	return nil
 }
 
 // NewManager creates a gateway manager connected to `gateways`.
@@ -66,14 +50,14 @@ func NewManager(ctx context.Context, gateways []string, minSuccesfullConns uint)
 	connections, errs := connect(ctx, gateways)
 	if len(connections) < int(minSuccesfullConns) {
 		for _, conn := range connections {
-			conn.Close()
+			if err := conn.Close(); err != nil {
+				errs = append(errs, err)
+			}
 		}
-		return nil, &ConnectingErrors{errors: errs}
+		return nil, types.NewMultiError(errs)
 	}
 
-	return &Manager{
-		connections: connections,
-	}, nil
+	return &Manager{connections: connections}, nil
 }
 
 // Connect tries to connect to gateways at provided addresses.
