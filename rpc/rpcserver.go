@@ -1,10 +1,9 @@
 package rpc
 
 import (
+	"context"
 	"fmt"
 	"sync"
-
-	"golang.org/x/net/context"
 
 	"github.com/spacemeshos/poet/broadcaster"
 	rpcapi "github.com/spacemeshos/poet/release/proto/go/rpc/api"

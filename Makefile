@@ -113,7 +113,6 @@ clear-test-cache:
 .PHONY: clear-test-cache
 
 lint:
-	go vet ./...
 	golangci-lint run --config .golangci.yml
 .PHONY: lint
 
@@ -123,7 +122,6 @@ lint-fix:
 .PHONY: lint-fix
 
 lint-github-action:
-	go vet ./...
 	golangci-lint run --config .golangci.yml --out-format=github-actions
 .PHONY: lint-github-action
 
