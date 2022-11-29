@@ -2,33 +2,46 @@ package rpc
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
-	"github.com/spacemeshos/poet/broadcaster"
-	rpcapi "github.com/spacemeshos/poet/release/proto/go/rpc/api"
-	"github.com/spacemeshos/poet/rpc/api"
+	"github.com/spacemeshos/smutil/log"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	"github.com/spacemeshos/poet/config"
+	"github.com/spacemeshos/poet/gateway"
+	"github.com/spacemeshos/poet/gateway/broadcaster"
+	"github.com/spacemeshos/poet/gateway/challenge_verifier"
+	"github.com/spacemeshos/poet/logging"
+	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
 	"github.com/spacemeshos/poet/service"
 )
 
 // rpcServer is a gRPC, RPC front end to poet.
 type rpcServer struct {
-	s *service.Service
+	s          *service.Service
+	gtwManager *gateway.Manager
+	cfg        config.Config
 	sync.Mutex
 }
 
 // A compile time check to ensure that rpcService fully implements
 // the PoetServer gRPC rpc.
-var _ rpcapi.PoetServer = (*rpcServer)(nil)
+var _ api.PoetServer = (*rpcServer)(nil)
 
-// NewRPCServer creates and returns a new instance of the rpcServer.
-func NewRPCServer(service *service.Service) *rpcServer {
-	return &rpcServer{
-		s: service,
+// NewServer creates and returns a new instance of the rpcServer.
+func NewServer(service *service.Service, gtwManager *gateway.Manager, cfg config.Config) *rpcServer {
+	server := &rpcServer{
+		s:          service,
+		cfg:        cfg,
+		gtwManager: gtwManager,
 	}
+	return server
 }
 
-func (r *rpcServer) Start(ctx context.Context, in *rpcapi.StartRequest) (*rpcapi.StartResponse, error) {
+func (r *rpcServer) Start(ctx context.Context, in *api.StartRequest) (*api.StartResponse, error) {
 	r.Lock()
 	defer r.Unlock()
 
@@ -36,7 +49,7 @@ func (r *rpcServer) Start(ctx context.Context, in *rpcapi.StartRequest) (*rpcapi
 		return nil, service.ErrAlreadyStarted
 	}
 
-	connAcks := in.ConnAcksThreshold
+	connAcks := uint(in.ConnAcksThreshold)
 	if connAcks < 1 {
 		connAcks = 1
 	}
@@ -46,25 +59,43 @@ func (r *rpcServer) Start(ctx context.Context, in *rpcapi.StartRequest) (*rpcapi
 		broadcastAcks = 1
 	}
 
+	gtwConnCtx, cancel := context.WithTimeout(ctx, r.cfg.GtwConnTimeout)
+	defer cancel()
+	gtwManager, err := gateway.NewManager(gtwConnCtx, in.GatewayAddresses, connAcks)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := gtwManager.Close(); err != nil {
+			logging.FromContext(ctx).With().Warning("failed to close GRPC connections", log.Err(err))
+		}
+	}()
 	b, err := broadcaster.New(
-		in.GatewayAddresses,
+		gtwManager.Connections(),
 		in.DisableBroadcast,
-		broadcaster.DefaultConnTimeout,
-		uint(connAcks),
 		broadcaster.DefaultBroadcastTimeout,
 		uint(broadcastAcks),
 	)
 	if err != nil {
 		return nil, err
 	}
-	if err := r.s.Start(b); err != nil {
-		return nil, fmt.Errorf("failed to start service: %v", err)
+
+	verifier, err := service.CreateChallengeVerifier(gtwManager.Connections())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create ATX provider: %w", err)
 	}
 
-	return &rpcapi.StartResponse{}, nil
+	// Swap the new and old gateway managers.
+	// The old one will be closed in defer.
+	r.gtwManager, gtwManager = gtwManager, r.gtwManager
+	if err := r.s.Start(b, verifier); err != nil {
+		return nil, fmt.Errorf("failed to start service: %w", err)
+	}
+
+	return &api.StartResponse{}, nil
 }
 
-func (r *rpcServer) UpdateGateway(ctx context.Context, in *rpcapi.UpdateGatewayRequest) (*rpcapi.UpdateGatewayResponse, error) {
+func (r *rpcServer) UpdateGateway(ctx context.Context, in *api.UpdateGatewayRequest) (*api.UpdateGatewayResponse, error) {
 	r.Lock()
 	defer r.Unlock()
 
@@ -72,7 +103,7 @@ func (r *rpcServer) UpdateGateway(ctx context.Context, in *rpcapi.UpdateGatewayR
 		return nil, service.ErrNotStarted
 	}
 
-	connAcks := in.ConnAcksThreshold
+	connAcks := uint(in.ConnAcksThreshold)
 	if connAcks < 1 {
 		connAcks = 1
 	}
@@ -82,11 +113,20 @@ func (r *rpcServer) UpdateGateway(ctx context.Context, in *rpcapi.UpdateGatewayR
 		broadcastAcks = 1
 	}
 
+	gtwConnCtx, cancel := context.WithTimeout(ctx, r.cfg.GtwConnTimeout)
+	defer cancel()
+	gtwManager, err := gateway.NewManager(gtwConnCtx, in.GatewayAddresses, connAcks)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err := gtwManager.Close(); err != nil {
+			logging.FromContext(ctx).With().Warning("failed to close GRPC connections", log.Err(err))
+		}
+	}()
 	b, err := broadcaster.New(
-		in.GatewayAddresses,
+		gtwManager.Connections(),
 		in.DisableBroadcast,
-		broadcaster.DefaultConnTimeout,
-		uint(connAcks),
 		broadcaster.DefaultBroadcastTimeout,
 		uint(broadcastAcks),
 	)
@@ -94,33 +134,47 @@ func (r *rpcServer) UpdateGateway(ctx context.Context, in *rpcapi.UpdateGatewayR
 		return nil, err
 	}
 
-	r.s.SetBroadcaster(b)
-
-	return &rpcapi.UpdateGatewayResponse{}, nil
-}
-
-func (r *rpcServer) Submit(ctx context.Context, in *rpcapi.SubmitRequest) (*rpcapi.SubmitResponse, error) {
-	// TODO(brozansk) return an error once migration to new API is complete
-	api.FromSubmitRequest(in)
-
-	round, err := r.s.Submit(in.Challenge)
+	verifier, err := service.CreateChallengeVerifier(gtwManager.Connections())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create ATX provider: %w", err)
 	}
 
-	out := new(rpcapi.SubmitResponse)
+	// Swap the new and old gateway managers.
+	// The old one will be closed in defer.
+	r.gtwManager, gtwManager = gtwManager, r.gtwManager
+	r.s.SetBroadcaster(b)
+	r.s.SetChallengeVerifier(verifier)
+
+	return &api.UpdateGatewayResponse{}, nil
+}
+
+func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.SubmitResponse, error) {
+	round, hash, err := r.s.Submit(ctx, in.Challenge, in.Signature)
+	switch {
+	case errors.Is(err, service.ErrNotStarted):
+		return nil, status.Error(codes.FailedPrecondition, "cannot submit a challenge because poet service is not started")
+	case errors.Is(err, challenge_verifier.ErrChallengeInvalid):
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, challenge_verifier.ErrCouldNotVerify):
+		return nil, status.Error(codes.Unavailable, "failed to verify the challenge, consider retrying")
+	case err != nil:
+		logging.FromContext(ctx).With().Warning("unknown error during challenge validation", log.Err(err))
+		return nil, status.Error(codes.Internal, "unknown error during challenge validation")
+	}
+
+	out := new(api.SubmitResponse)
 	out.RoundId = round.ID
-	out.Hash = in.Challenge
+	out.Hash = hash
 	return out, nil
 }
 
-func (r *rpcServer) GetInfo(ctx context.Context, in *rpcapi.GetInfoRequest) (*rpcapi.GetInfoResponse, error) {
+func (r *rpcServer) GetInfo(ctx context.Context, in *api.GetInfoRequest) (*api.GetInfoResponse, error) {
 	info, err := r.s.Info()
 	if err != nil {
 		return nil, err
 	}
 
-	out := new(rpcapi.GetInfoResponse)
+	out := new(api.GetInfoResponse)
 	out.OpenRoundId = info.OpenRoundID
 
 	ids := make([]string, len(info.ExecutingRoundsIds))

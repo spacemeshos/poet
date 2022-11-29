@@ -36,6 +36,7 @@ const (
 	defaultBroadcastAcksThreshold   = 1
 	defaultBroadcastNumRetries      = 100
 	defaultBroadcastRetriesInterval = 5 * time.Minute
+	defaultGatewayConnectionTimeout = 30 * time.Second
 )
 
 var (
@@ -62,6 +63,7 @@ type Config struct {
 	ConfigFile      string `short:"c" long:"configfile" description:"Path to configuration file"`
 	DataDir         string `short:"b" long:"datadir" description:"The directory to store poet's data within"`
 	LogDir          string `long:"logdir" description:"Directory to log output."`
+	DebugLog        bool   `long:"debuglog" description:"Enable debug logs"`
 	JSONLog         bool   `long:"jsonlog" description:"Whether to log in JSON format"`
 	MaxLogFiles     int    `long:"maxlogfiles" description:"Maximum logfiles to keep (0 for no rotation)"`
 	MaxLogFileSize  int    `long:"maxlogfilesize" description:"Maximum logfile size in MB"`
@@ -69,6 +71,7 @@ type Config struct {
 	RawRESTListener string `short:"w" long:"restlisten" description:"The interface/port/socket to listen for REST connections"`
 	RPCListener     net.Addr
 	RESTListener    net.Addr
+	GtwConnTimeout  time.Duration `long:"gtw-connection-timeout" description:"Timeout for connecting to gateway"`
 
 	CPUProfile string `long:"cpuprofile" description:"Write CPU profile to the specified file"`
 	Profile    string `long:"profile" description:"Enable HTTP profiling on given port -- must be between 1024 and 65535"`
@@ -90,6 +93,7 @@ func DefaultConfig() *Config {
 		MaxLogFileSize:  defaultMaxLogFileSize,
 		RawRPCListener:  fmt.Sprintf("localhost:%d", defaultRPCPort),
 		RawRESTListener: fmt.Sprintf("localhost:%d", defaultRESTPort),
+		GtwConnTimeout:  defaultGatewayConnectionTimeout,
 		Service: &service.Config{
 			Genesis:                  defaultGenesisTime,
 			EpochDuration:            defaultEpochDuration,

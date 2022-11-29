@@ -48,6 +48,7 @@ func poetMain() error {
 		return err
 	}
 
+	log.DebugMode(cfg.DebugLog)
 	log.JSONLog(cfg.JSONLog)
 	log.InitSpacemeshLoggingSystem(cfg.LogDir, "poet.log")
 
