@@ -15,9 +15,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/spacemeshos/poet/gateway/challenge_verifier"
+	"github.com/spacemeshos/poet/gateway/challenge_verifier/mocks"
 	"github.com/spacemeshos/poet/prover"
-	"github.com/spacemeshos/poet/types"
-	"github.com/spacemeshos/poet/types/mocks"
 )
 
 type MockBroadcaster struct {
@@ -45,7 +45,7 @@ func TestService_Recovery(t *testing.T) {
 	}
 
 	ctrl := gomock.NewController(t)
-	verifier := mocks.NewMockChallengeVerifier(ctrl)
+	verifier := mocks.NewMockVerifier(ctrl)
 
 	tempdir := t.TempDir()
 	// Create a new service instance.
@@ -220,7 +220,7 @@ func TestConcurrentServiceStartAndShutdown(t *testing.T) {
 		CycleGap:      time.Second / 4,
 	}
 	ctrl := gomock.NewController(t)
-	verifier := mocks.NewMockChallengeVerifier(ctrl)
+	verifier := mocks.NewMockVerifier(ctrl)
 
 	for i := 0; i < 100; i += 1 {
 		t.Run(fmt.Sprintf("iteration %d", i), func(t *testing.T) {
@@ -254,7 +254,7 @@ func TestNewService(t *testing.T) {
 	req.NoError(err)
 	proofBroadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
 	ctrl := gomock.NewController(t)
-	verifier := mocks.NewMockChallengeVerifier(ctrl)
+	verifier := mocks.NewMockVerifier(ctrl)
 	err = s.Start(proofBroadcaster, verifier)
 	req.NoError(err)
 
@@ -343,8 +343,8 @@ func TestSubmitIdempotency(t *testing.T) {
 	req.NoError(err)
 
 	proofBroadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
-	verifier := mocks.NewMockChallengeVerifier(gomock.NewController(t))
-	verifier.EXPECT().Verify(gomock.Any(), challenge, signature).Times(2).Return(&types.ChallengeVerificationResult{Hash: []byte("hash")}, nil)
+	verifier := mocks.NewMockVerifier(gomock.NewController(t))
+	verifier.EXPECT().Verify(gomock.Any(), challenge, signature).Times(2).Return(&challenge_verifier.Result{Hash: []byte("hash")}, nil)
 	err = s.Start(proofBroadcaster, verifier)
 	req.NoError(err)
 

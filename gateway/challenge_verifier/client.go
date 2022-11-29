@@ -10,7 +10,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/spacemeshos/poet/logging"
-	"github.com/spacemeshos/poet/types"
 )
 
 type grpcChallengeVerifierClient struct {
@@ -18,7 +17,7 @@ type grpcChallengeVerifierClient struct {
 	gateway string
 }
 
-func (c *grpcChallengeVerifierClient) Verify(ctx context.Context, challenge, signature []byte) (*types.ChallengeVerificationResult, error) {
+func (c *grpcChallengeVerifierClient) Verify(ctx context.Context, challenge, signature []byte) (*Result, error) {
 	logger := logging.FromContext(ctx).WithFields(log.String("gateway", c.gateway))
 
 	resp, err := c.client.VerifyChallenge(ctx, &v1.VerifyChallengeRequest{
@@ -29,20 +28,20 @@ func (c *grpcChallengeVerifierClient) Verify(ctx context.Context, challenge, sig
 	st, _ := status.FromError(err)
 	switch st.Code() {
 	case codes.OK:
-		return &types.ChallengeVerificationResult{
+		return &Result{
 			Hash:   resp.Hash,
 			NodeId: resp.NodeId,
 		}, nil
 	case codes.InvalidArgument:
 		logger.With().Debug("challenge is invalid", log.String("message", st.Message()))
-		return nil, types.ErrChallengeInvalid
+		return nil, ErrChallengeInvalid
 	default:
 		logger.With().Debug("could not verify challenge", log.String("message", st.Message()))
-		return nil, types.ErrCouldNotVerify
+		return nil, ErrCouldNotVerify
 	}
 }
 
-func NewClient(conn *grpc.ClientConn) types.ChallengeVerifier {
+func NewClient(conn *grpc.ClientConn) Verifier {
 	return &grpcChallengeVerifierClient{
 		client:  v1.NewGatewayServiceClient(conn),
 		gateway: conn.Target(),

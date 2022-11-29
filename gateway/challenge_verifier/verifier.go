@@ -11,36 +11,51 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/spacemeshos/poet/logging"
-	"github.com/spacemeshos/poet/types"
 )
 
 const MaxBackoff = time.Second * 30
+
+var (
+	ErrChallengeInvalid = errors.New("challenge is invalid")
+	ErrCouldNotVerify   = errors.New("could not verify the challenge")
+)
+
+//go:generate mockgen -package mocks -destination mocks/challenge_verifier.go . Verifier
+
+type Result struct {
+	Hash   []byte
+	NodeId []byte
+}
+
+type Verifier interface {
+	Verify(ctx context.Context, challenge, signature []byte) (*Result, error)
+}
 
 // roundRobin gathers many verifiers.
 // It tries to verify a challenge in a round robin fashion,
 // retrying with the next verifier if the previous one was not
 // able to complete verification.
 type roundRobin struct {
-	services    []types.ChallengeVerifier
+	services    []Verifier
 	lastUsedSvc int
 }
 
-func (a *roundRobin) Verify(ctx context.Context, challenge, signature []byte) (*types.ChallengeVerificationResult, error) {
+func (a *roundRobin) Verify(ctx context.Context, challenge, signature []byte) (*Result, error) {
 	for retries := 0; retries < len(a.services); retries++ {
 		hash, err := a.services[a.lastUsedSvc].Verify(ctx, challenge, signature)
 		if err == nil {
 			return hash, nil
 		}
-		if errors.Is(err, types.ErrChallengeInvalid) {
+		if errors.Is(err, ErrChallengeInvalid) {
 			return nil, err
 		}
 		a.lastUsedSvc = (a.lastUsedSvc + 1) % len(a.services)
 	}
 
-	return nil, types.ErrCouldNotVerify
+	return nil, ErrCouldNotVerify
 }
 
-func NewRoundRobin(services []types.ChallengeVerifier) types.ChallengeVerifier {
+func NewRoundRobin(services []Verifier) Verifier {
 	return &roundRobin{
 		services: services,
 	}
@@ -50,15 +65,15 @@ func NewRoundRobin(services []types.ChallengeVerifier) types.ChallengeVerifier {
 // its ChallengeVerifier.
 type caching struct {
 	cache    *lru.Cache
-	verifier types.ChallengeVerifier
+	verifier Verifier
 }
 
 type challengeVerifierResult struct {
-	*types.ChallengeVerificationResult
+	*Result
 	err error
 }
 
-func (a *caching) Verify(ctx context.Context, challenge, signature []byte) (*types.ChallengeVerificationResult, error) {
+func (a *caching) Verify(ctx context.Context, challenge, signature []byte) (*Result, error) {
 	var challengeHash [sha256.Size]byte
 	hasher := sha256.New()
 	hasher.Write(challenge)
@@ -70,17 +85,17 @@ func (a *caching) Verify(ctx context.Context, challenge, signature []byte) (*typ
 		logger.Debug("retrieved challenge verifier result from the cache")
 		// SAFETY: type assertion will never panic as we insert only `*ATX` values.
 		result := result.(*challengeVerifierResult)
-		return result.ChallengeVerificationResult, result.err
+		return result.Result, result.err
 	}
 
 	result, err := a.verifier.Verify(ctx, challenge, signature)
-	if err == nil || errors.Is(err, types.ErrChallengeInvalid) {
-		a.cache.Add(challengeHash, &challengeVerifierResult{ChallengeVerificationResult: result, err: err})
+	if err == nil || errors.Is(err, ErrChallengeInvalid) {
+		a.cache.Add(challengeHash, &challengeVerifierResult{Result: result, err: err})
 	}
 	return result, err
 }
 
-func NewCaching(size int, verifier types.ChallengeVerifier) (types.ChallengeVerifier, error) {
+func NewCaching(size int, verifier Verifier) (Verifier, error) {
 	cache, err := lru.New(size)
 	if err != nil {
 		return nil, err
@@ -95,10 +110,10 @@ type retrying struct {
 	backoffBase       time.Duration
 	backoffMultiplier float64
 	maxRetries        uint
-	verifier          types.ChallengeVerifier
+	verifier          Verifier
 }
 
-func (v *retrying) Verify(ctx context.Context, challenge, signature []byte) (*types.ChallengeVerificationResult, error) {
+func (v *retrying) Verify(ctx context.Context, challenge, signature []byte) (*Result, error) {
 	logger := logging.FromContext(ctx)
 	timer := time.NewTimer(0)
 	<-timer.C
@@ -107,7 +122,7 @@ func (v *retrying) Verify(ctx context.Context, challenge, signature []byte) (*ty
 	for retry := uint(0); retry < v.maxRetries; retry++ {
 		if hash, err := v.verifier.Verify(ctx, challenge, signature); err == nil {
 			return hash, nil
-		} else if errors.Is(err, types.ErrChallengeInvalid) {
+		} else if errors.Is(err, ErrChallengeInvalid) {
 			return nil, err
 		}
 		delay = time.Duration(float64(delay) * v.backoffMultiplier)
@@ -122,13 +137,13 @@ func (v *retrying) Verify(ctx context.Context, challenge, signature []byte) (*ty
 			if !timer.Stop() {
 				<-timer.C
 			}
-			return nil, types.ErrCouldNotVerify
+			return nil, ErrCouldNotVerify
 		}
 	}
-	return nil, types.ErrCouldNotVerify
+	return nil, ErrCouldNotVerify
 }
 
-func NewRetrying(verifier types.ChallengeVerifier, maxRetries uint, backoffBase time.Duration, backoffMultiplier float64) types.ChallengeVerifier {
+func NewRetrying(verifier Verifier, maxRetries uint, backoffBase time.Duration, backoffMultiplier float64) Verifier {
 	return &retrying{
 		maxRetries:        maxRetries,
 		verifier:          verifier,

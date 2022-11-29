@@ -18,7 +18,6 @@ import (
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
-	"github.com/spacemeshos/poet/types"
 )
 
 type executionState struct {
@@ -147,7 +146,7 @@ func (r *round) submit(key, challenge []byte) error {
 	if has, err := r.challengesDb.Has(key); err != nil {
 		return err
 	} else if has {
-		return fmt.Errorf("%w: key: %X", types.ErrChallengeAlreadySubmitted, key)
+		return fmt.Errorf("%w: key: %X", ErrChallengeAlreadySubmitted, key)
 	}
 	return r.challengesDb.Put(key, challenge)
 }

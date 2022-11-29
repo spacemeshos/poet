@@ -104,6 +104,7 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 			}
 		} else {
 			logger.With().Info("Service not starting, waiting for start request", log.Err(err))
+			gtwManager = &gateway.Manager{}
 		}
 
 		rpcServer := rpc.NewServer(svc, gtwManager, *cfg)

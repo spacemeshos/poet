@@ -10,8 +10,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
-
-	"github.com/spacemeshos/poet/types"
 )
 
 // Manager aggregates GRPC connections to gateways.
@@ -25,9 +23,6 @@ func (m *Manager) Connections() []*grpc.ClientConn {
 }
 
 func (m *Manager) Close() error {
-	if m == nil {
-		return nil
-	}
 	var errors []error
 	for _, conn := range m.connections {
 		if err := conn.Close(); err != nil {
@@ -35,22 +30,22 @@ func (m *Manager) Close() error {
 		}
 	}
 	if len(errors) > 0 {
-		return types.NewMultiError(errors)
+		return NewMultiError(errors)
 	}
 	return nil
 }
 
 // NewManager creates a gateway manager connected to `gateways`.
 // Close() must be called when the connections are no longer needed.
-func NewManager(ctx context.Context, gateways []string, minSuccesfullConns uint) (*Manager, error) {
+func NewManager(ctx context.Context, gateways []string, minSuccesfulConns uint) (*Manager, error) {
 	connections, errs := connect(ctx, gateways)
-	if len(connections) < int(minSuccesfullConns) {
+	if len(connections) < int(minSuccesfulConns) {
 		for _, conn := range connections {
 			if err := conn.Close(); err != nil {
 				errs = append(errs, err)
 			}
 		}
-		return nil, types.NewMultiError(errs)
+		return nil, NewMultiError(errs)
 	}
 
 	return &Manager{connections: connections}, nil
@@ -79,7 +74,7 @@ func connect(ctx context.Context, gateways []string) ([]*grpc.ClientConn, []erro
 		}),
 	}
 
-	eg, _ := errgroup.WithContext(ctx)
+	var eg errgroup.Group
 	for _, target := range gateways {
 		target := target
 		eg.Go(func() error {

@@ -8,11 +8,10 @@ import (
 	"time"
 
 	pb "github.com/spacemeshos/api/release/go/spacemesh/v1"
+	"github.com/spacemeshos/poet/gateway"
 	"github.com/spacemeshos/smutil/log"
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/grpc"
-
-	"github.com/spacemeshos/poet/types"
 )
 
 const DefaultBroadcastTimeout = 30 * time.Second
@@ -104,7 +103,7 @@ func (b *Broadcaster) BroadcastProof(msg []byte, roundID string, members [][]byt
 		errors = append(errors, err)
 	}
 
-	retErr := types.NewMultiError(errors)
+	retErr := gateway.NewMultiError(errors)
 	// If some requests failed, log it.
 	if len(errors) > 0 {
 		log.Warning("Round %v proof broadcast failed on %d/%d gateway nodes: %v", roundID, len(errors), len(b.clients), retErr)

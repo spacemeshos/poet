@@ -9,8 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/spacemeshos/poet/gateway/challenge_verifier"
-	"github.com/spacemeshos/poet/types"
-	"github.com/spacemeshos/poet/types/mocks"
+	"github.com/spacemeshos/poet/gateway/challenge_verifier/mocks"
 )
 
 func TestRoundRobinVerifier(t *testing.T) {
@@ -19,14 +18,14 @@ func TestRoundRobinVerifier(t *testing.T) {
 
 	challenge := []byte("challenge")
 	signature := []byte("signature")
-	expected := &types.ChallengeVerificationResult{Hash: []byte("hash")}
+	expected := &challenge_verifier.Result{Hash: []byte("hash")}
 
-	faultyVerifier := mocks.NewMockChallengeVerifier(ctrl)
-	faultyVerifier.EXPECT().Verify(gomock.Any(), challenge, signature).Return(nil, types.ErrCouldNotVerify)
-	verifier := mocks.NewMockChallengeVerifier(ctrl)
+	faultyVerifier := mocks.NewMockVerifier(ctrl)
+	faultyVerifier.EXPECT().Verify(gomock.Any(), challenge, signature).Return(nil, challenge_verifier.ErrCouldNotVerify)
+	verifier := mocks.NewMockVerifier(ctrl)
 	verifier.EXPECT().Verify(gomock.Any(), challenge, signature).Times(2).Return(expected, nil)
 
-	rrVerifier := challenge_verifier.NewRoundRobin([]types.ChallengeVerifier{faultyVerifier, verifier})
+	rrVerifier := challenge_verifier.NewRoundRobin([]challenge_verifier.Verifier{faultyVerifier, verifier})
 
 	result, err := rrVerifier.Verify(context.Background(), challenge, signature)
 	require.NoError(t, err)
@@ -43,12 +42,12 @@ func TestCachedProvider(t *testing.T) {
 	challenge := []byte("challenge")
 	challenge2 := []byte("challenge2")
 	signature := []byte("signature")
-	expected := &types.ChallengeVerificationResult{Hash: []byte("hash")}
+	expected := &challenge_verifier.Result{Hash: []byte("hash")}
 
 	t.Run("caching", func(t *testing.T) {
 		t.Parallel()
 		ctrl := gomock.NewController(t)
-		verifier := mocks.NewMockChallengeVerifier(ctrl)
+		verifier := mocks.NewMockVerifier(ctrl)
 		verifier.EXPECT().Verify(gomock.Any(), challenge, signature).Return(expected, nil)
 
 		rrVerifier, err := challenge_verifier.NewCaching(1, verifier)
@@ -65,8 +64,8 @@ func TestCachedProvider(t *testing.T) {
 	t.Run("eviction", func(t *testing.T) {
 		t.Parallel()
 		ctrl := gomock.NewController(t)
-		expected := &types.ChallengeVerificationResult{Hash: []byte("hash")}
-		verifier := mocks.NewMockChallengeVerifier(ctrl)
+		expected := &challenge_verifier.Result{Hash: []byte("hash")}
+		verifier := mocks.NewMockVerifier(ctrl)
 		verifier.EXPECT().Verify(gomock.Any(), challenge, signature).Times(2).Return(expected, nil)
 		verifier.EXPECT().Verify(gomock.Any(), challenge2, signature).Return(expected, nil)
 
@@ -93,9 +92,9 @@ func TestCachedProvider(t *testing.T) {
 	t.Run("doesn't cache when verification failed", func(t *testing.T) {
 		t.Parallel()
 		ctrl := gomock.NewController(t)
-		expected := &types.ChallengeVerificationResult{Hash: []byte("hash")}
-		verifier := mocks.NewMockChallengeVerifier(ctrl)
-		verifier.EXPECT().Verify(gomock.Any(), challenge, signature).Times(2).Return(nil, types.ErrCouldNotVerify)
+		expected := &challenge_verifier.Result{Hash: []byte("hash")}
+		verifier := mocks.NewMockVerifier(ctrl)
+		verifier.EXPECT().Verify(gomock.Any(), challenge, signature).Times(2).Return(nil, challenge_verifier.ErrCouldNotVerify)
 		verifier.EXPECT().Verify(gomock.Any(), challenge, signature).Return(expected, nil)
 
 		cachingVerifier, err := challenge_verifier.NewCaching(1, verifier)
@@ -120,12 +119,12 @@ func TestRetryingProvider(t *testing.T) {
 	t.Parallel()
 	challenge := []byte("challenge")
 	signature := []byte("signature")
-	expected := &types.ChallengeVerificationResult{Hash: []byte("hash")}
+	expected := &challenge_verifier.Result{Hash: []byte("hash")}
 
 	t.Run("eventually succeeds", func(t *testing.T) {
 		t.Parallel()
-		verifier := mocks.NewMockChallengeVerifier(gomock.NewController(t))
-		verifier.EXPECT().Verify(gomock.Any(), challenge, signature).Times(2).Return(nil, types.ErrCouldNotVerify)
+		verifier := mocks.NewMockVerifier(gomock.NewController(t))
+		verifier.EXPECT().Verify(gomock.Any(), challenge, signature).Times(2).Return(nil, challenge_verifier.ErrCouldNotVerify)
 		verifier.EXPECT().Verify(gomock.Any(), challenge, signature).Return(expected, nil)
 		retryingVerifier := challenge_verifier.NewRetrying(verifier, 3, time.Nanosecond, 1)
 
@@ -135,31 +134,31 @@ func TestRetryingProvider(t *testing.T) {
 	})
 	t.Run("max retries reached", func(t *testing.T) {
 		t.Parallel()
-		verifier := mocks.NewMockChallengeVerifier(gomock.NewController(t))
-		verifier.EXPECT().Verify(gomock.Any(), challenge, signature).AnyTimes().Return(nil, types.ErrCouldNotVerify)
+		verifier := mocks.NewMockVerifier(gomock.NewController(t))
+		verifier.EXPECT().Verify(gomock.Any(), challenge, signature).AnyTimes().Return(nil, challenge_verifier.ErrCouldNotVerify)
 		retryingVerifier := challenge_verifier.NewRetrying(verifier, 3, time.Nanosecond, 1)
 
 		_, err := retryingVerifier.Verify(context.Background(), challenge, signature)
-		require.ErrorIs(t, err, types.ErrCouldNotVerify)
+		require.ErrorIs(t, err, challenge_verifier.ErrCouldNotVerify)
 	})
 	t.Run("doesn't retry when the challenge is invalid", func(t *testing.T) {
 		t.Parallel()
-		verifier := mocks.NewMockChallengeVerifier(gomock.NewController(t))
-		verifier.EXPECT().Verify(gomock.Any(), challenge, signature).Return(nil, types.ErrChallengeInvalid)
+		verifier := mocks.NewMockVerifier(gomock.NewController(t))
+		verifier.EXPECT().Verify(gomock.Any(), challenge, signature).Return(nil, challenge_verifier.ErrChallengeInvalid)
 		retryingVerifier := challenge_verifier.NewRetrying(verifier, 3, time.Nanosecond, 1)
 
 		_, err := retryingVerifier.Verify(context.Background(), challenge, signature)
-		require.ErrorIs(t, err, types.ErrChallengeInvalid)
+		require.ErrorIs(t, err, challenge_verifier.ErrChallengeInvalid)
 	})
 	t.Run("stops on ctx cancellation", func(t *testing.T) {
 		t.Parallel()
-		verifier := mocks.NewMockChallengeVerifier(gomock.NewController(t))
-		verifier.EXPECT().Verify(gomock.Any(), challenge, signature).AnyTimes().Return(nil, types.ErrCouldNotVerify)
+		verifier := mocks.NewMockVerifier(gomock.NewController(t))
+		verifier.EXPECT().Verify(gomock.Any(), challenge, signature).AnyTimes().Return(nil, challenge_verifier.ErrCouldNotVerify)
 		retryingVerifier := challenge_verifier.NewRetrying(verifier, 100000000, time.Second, 100)
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 
 		_, err := retryingVerifier.Verify(ctx, challenge, signature)
-		require.ErrorIs(t, err, types.ErrCouldNotVerify)
+		require.ErrorIs(t, err, challenge_verifier.ErrCouldNotVerify)
 	})
 }

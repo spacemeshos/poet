@@ -13,10 +13,10 @@ import (
 	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/gateway"
 	"github.com/spacemeshos/poet/gateway/broadcaster"
+	"github.com/spacemeshos/poet/gateway/challenge_verifier"
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
 	"github.com/spacemeshos/poet/service"
-	"github.com/spacemeshos/poet/types"
 )
 
 // rpcServer is a gRPC, RPC front end to poet.
@@ -153,9 +153,9 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 	switch {
 	case errors.Is(err, service.ErrNotStarted):
 		return nil, status.Error(codes.FailedPrecondition, "cannot submit a challenge because poet service is not started")
-	case errors.Is(err, types.ErrChallengeInvalid):
+	case errors.Is(err, challenge_verifier.ErrChallengeInvalid):
 		return nil, status.Error(codes.InvalidArgument, err.Error())
-	case errors.Is(err, types.ErrCouldNotVerify):
+	case errors.Is(err, challenge_verifier.ErrCouldNotVerify):
 		return nil, status.Error(codes.Unavailable, "failed to verify the challenge, consider retrying")
 	case err != nil:
 		logging.FromContext(ctx).With().Warning("unknown error during challenge validation", log.Err(err))

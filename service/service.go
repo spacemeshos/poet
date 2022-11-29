@@ -24,7 +24,6 @@ import (
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
-	"github.com/spacemeshos/poet/types"
 )
 
 type Config struct {
@@ -84,7 +83,7 @@ type Service struct {
 	privKey ed25519.PrivateKey
 
 	broadcaster       atomic.Value // holds Broadcaster interface
-	challengeVerifier atomic.Value // holds types.challengeVerifier
+	challengeVerifier atomic.Value // holds challenge_verifier.Verifier
 
 	errChan chan error
 	sync.Mutex
@@ -102,8 +101,9 @@ type PoetProof struct {
 }
 
 var (
-	ErrNotStarted     = errors.New("service not started")
-	ErrAlreadyStarted = errors.New("already started")
+	ErrNotStarted                = errors.New("service not started")
+	ErrAlreadyStarted            = errors.New("already started")
+	ErrChallengeAlreadySubmitted = errors.New("challenge is already submitted")
 )
 
 type Broadcaster interface {
@@ -222,7 +222,7 @@ func (s *Service) loop(ctx context.Context) {
 	}
 }
 
-func (s *Service) Start(b Broadcaster, atxProvider types.ChallengeVerifier) error {
+func (s *Service) Start(b Broadcaster, atxProvider challenge_verifier.Verifier) error {
 	s.Lock()
 	defer s.Unlock()
 	if s.Started() {
@@ -361,7 +361,7 @@ func (s *Service) SetBroadcaster(b Broadcaster) {
 	}
 }
 
-func (s *Service) SetChallengeVerifier(provider types.ChallengeVerifier) {
+func (s *Service) SetChallengeVerifier(provider challenge_verifier.Verifier) {
 	s.challengeVerifier.Store(provider)
 }
 
@@ -407,7 +407,7 @@ func (s *Service) Submit(ctx context.Context, challenge, signature []byte) (*rou
 	if signature != nil {
 		logger.Debug("Received challenge")
 		// SAFETY: it will never panic as `s.ChallengeVerifier` is set in Start
-		verifier := s.challengeVerifier.Load().(types.ChallengeVerifier)
+		verifier := s.challengeVerifier.Load().(challenge_verifier.Verifier)
 		result, err := verifier.Verify(ctx, challenge, signature)
 		if err != nil {
 			logger.With().Debug("challenge verification failed", log.Err(err))
@@ -419,7 +419,7 @@ func (s *Service) Submit(ctx context.Context, challenge, signature []byte) (*rou
 		err = r.submit(result.NodeId, result.Hash)
 		s.openRoundMutex.Unlock()
 		switch {
-		case errors.Is(err, types.ErrChallengeAlreadySubmitted):
+		case errors.Is(err, ErrChallengeAlreadySubmitted):
 			return r, result.Hash, nil
 		case err != nil:
 			return nil, nil, err
@@ -432,7 +432,7 @@ func (s *Service) Submit(ctx context.Context, challenge, signature []byte) (*rou
 		err := r.submit(challenge, challenge)
 		s.openRoundMutex.Unlock()
 		switch {
-		case errors.Is(err, types.ErrChallengeAlreadySubmitted):
+		case errors.Is(err, ErrChallengeAlreadySubmitted):
 			return r, challenge, nil
 		case err != nil:
 			return nil, nil, err
@@ -525,11 +525,11 @@ func serializeProofMsg(servicePubKey []byte, roundID string, execution *executio
 // CreateChallengeVerifier creates a verifier connected to provided gateways.
 // The verifier caches verification results and round-robins between gateways if
 // verification fails.
-func CreateChallengeVerifier(gateways []*grpc.ClientConn) (types.ChallengeVerifier, error) {
+func CreateChallengeVerifier(gateways []*grpc.ClientConn) (challenge_verifier.Verifier, error) {
 	if len(gateways) == 0 {
 		return nil, fmt.Errorf("need at least one gateway")
 	}
-	clients := make([]types.ChallengeVerifier, 0, len(gateways))
+	clients := make([]challenge_verifier.Verifier, 0, len(gateways))
 	for _, target := range gateways {
 		client := challenge_verifier.NewClient(target)
 		clients = append(clients, client)
