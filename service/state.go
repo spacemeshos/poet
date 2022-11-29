@@ -1,10 +1,9 @@
 package service
 
 import (
+	"crypto/ed25519"
 	"fmt"
 	"path/filepath"
-
-	"golang.org/x/crypto/ed25519"
 )
 
 func initialState() *serviceState {

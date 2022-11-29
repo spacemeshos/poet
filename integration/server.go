@@ -27,6 +27,8 @@ type ServerConfig struct {
 	Reset            bool
 	DisableBroadcast bool
 	RESTListen       string
+	GatewayAddresses []string
+	GtwConnTimeout   time.Duration
 }
 
 // DefaultConfig returns a newConfig with all default values.
@@ -42,15 +44,16 @@ func DefaultConfig() (*ServerConfig, error) {
 	}
 
 	cfg := &ServerConfig{
-		logLevel:      "debug",
-		rpcListen:     "127.0.0.1:18550",
-		RESTListen:    "127.0.0.1:18551",
-		baseDir:       baseDir,
-		dataDir:       filepath.Join(baseDir, "data"),
-		exe:           poetPath,
-		EpochDuration: 2 * time.Second,
-		PhaseShift:    time.Second / 2,
-		CycleGap:      time.Second / 4,
+		logLevel:       "debug",
+		rpcListen:      "127.0.0.1:18550",
+		RESTListen:     "127.0.0.1:18551",
+		baseDir:        baseDir,
+		dataDir:        filepath.Join(baseDir, "data"),
+		exe:            poetPath,
+		EpochDuration:  2 * time.Second,
+		PhaseShift:     time.Second / 2,
+		CycleGap:       time.Second / 4,
+		GtwConnTimeout: time.Second * 10,
 	}
 
 	return cfg, nil
@@ -67,6 +70,11 @@ func (cfg *ServerConfig) genArgs() []string {
 	args = append(args, fmt.Sprintf("--epoch-duration=%s", cfg.EpochDuration))
 	args = append(args, fmt.Sprintf("--phase-shift=%s", cfg.PhaseShift))
 	args = append(args, fmt.Sprintf("--cycle-gap=%s", cfg.CycleGap))
+	args = append(args, fmt.Sprintf("--gtw-connection-timeout=%s", cfg.GtwConnTimeout.String()))
+
+	for _, address := range cfg.GatewayAddresses {
+		args = append(args, fmt.Sprintf("--gateway=%s", address))
+	}
 
 	if cfg.Reset {
 		args = append(args, "--reset")
