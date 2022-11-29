@@ -106,8 +106,8 @@ func (b *Broadcaster) BroadcastProof(msg []byte, roundID string, members [][]byt
 
 	retErr := types.NewMultiError(errors)
 	// If some requests failed, log it.
-	if numErrors := len(errors); numErrors > 0 {
-		log.Warning("Round %v proof broadcast failed on %d/%d gateway nodes: %v", roundID, numErrors, len(b.clients), retErr)
+	if len(errors) > 0 {
+		log.Warning("Round %v proof broadcast failed on %d/%d gateway nodes: %v", roundID, len(errors), len(b.clients), retErr)
 	}
 
 	// If successful broadcasts threshold wasn't met, return error
