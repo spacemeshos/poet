@@ -2,17 +2,21 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"fmt"
 	"strconv"
 	"testing"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/spacemeshos/go-scale"
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/spacemeshos/poet/gateway/challenge_verifier"
+	"github.com/spacemeshos/poet/gateway/challenge_verifier/mocks"
 	"github.com/spacemeshos/poet/prover"
 )
 
@@ -40,11 +44,14 @@ func TestService_Recovery(t *testing.T) {
 		CycleGap:      time.Second / 4,
 	}
 
+	ctrl := gomock.NewController(t)
+	verifier := mocks.NewMockVerifier(ctrl)
+
 	tempdir := t.TempDir()
 	// Create a new service instance.
 	s, err := NewService(cfg, tempdir)
 	req.NoError(err)
-	err = s.Start(broadcaster)
+	err = s.Start(broadcaster, verifier)
 	req.NoError(err)
 
 	// Track the service rounds.
@@ -67,9 +74,10 @@ func TestService_Recovery(t *testing.T) {
 	submittedChallenges := make(map[int][]challenge)
 	submitChallenges := func(roundIndex int, groupIndex int) {
 		challengesGroup := challengeGroups[groupIndex]
-		for i := 0; i < len(challengeGroups[groupIndex]); i++ {
-			round, err := s.Submit(challengesGroup[i].data)
+		for _, challenge := range challengeGroups[groupIndex] {
+			round, hash, err := s.Submit(context.Background(), challenge.data, nil)
 			req.NoError(err)
+			req.Equal(hash, challenge.data)
 			req.Equal(strconv.Itoa(roundIndex), round.ID)
 
 			// Verify that all submissions returned the same round instance.
@@ -130,7 +138,7 @@ func TestService_Recovery(t *testing.T) {
 	s, err = NewService(cfg, tempdir)
 	req.NoError(err)
 
-	err = s.Start(broadcaster)
+	err = s.Start(broadcaster, verifier)
 	req.NoError(err)
 
 	// Service instance should recover 2 rounds: round 1 in executing state, and round 2 in open state.
@@ -210,18 +218,20 @@ func TestConcurrentServiceStartAndShutdown(t *testing.T) {
 		EpochDuration: time.Second,
 		PhaseShift:    time.Second / 2,
 		CycleGap:      time.Second / 4,
-		ExecuteEmpty:  true,
 	}
+	ctrl := gomock.NewController(t)
+	verifier := mocks.NewMockVerifier(ctrl)
 
 	for i := 0; i < 100; i += 1 {
 		t.Run(fmt.Sprintf("iteration %d", i), func(t *testing.T) {
 			t.Parallel()
 			s, err := NewService(&cfg, t.TempDir())
 			req.NoError(err)
+
 			var eg errgroup.Group
 			eg.Go(func() error {
 				proofBroadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
-				req.NoError(s.Start(proofBroadcaster))
+				req.NoError(s.Start(proofBroadcaster, verifier))
 				return nil
 			})
 			req.Eventually(func() bool { return s.Shutdown() == nil }, time.Second, time.Millisecond*10)
@@ -235,7 +245,6 @@ func TestNewService(t *testing.T) {
 	tempdir := t.TempDir()
 
 	cfg := new(Config)
-	cfg.ExecuteEmpty = true
 	cfg.Genesis = time.Now().Add(time.Second).Format(time.RFC3339)
 	cfg.EpochDuration = time.Second
 	cfg.PhaseShift = time.Second / 2
@@ -244,7 +253,9 @@ func TestNewService(t *testing.T) {
 	s, err := NewService(cfg, tempdir)
 	req.NoError(err)
 	proofBroadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
-	err = s.Start(proofBroadcaster)
+	ctrl := gomock.NewController(t)
+	verifier := mocks.NewMockVerifier(ctrl)
+	err = s.Start(proofBroadcaster, verifier)
 	req.NoError(err)
 
 	challengesCount := 8
@@ -263,8 +274,9 @@ func TestNewService(t *testing.T) {
 
 	// Submit challenges.
 	for i := 0; i < len(challenges); i++ {
-		round, err := s.Submit(challenges[i].data)
+		round, hash, err := s.Submit(context.Background(), challenges[i].data, nil)
 		req.NoError(err)
+		req.Equal(hash, challenges[i].data)
 		req.Equal(currentRound, round.ID)
 		challenges[i].round = round
 
@@ -312,6 +324,39 @@ func TestNewService(t *testing.T) {
 	case <-time.After(100 * time.Millisecond):
 		req.Fail("proof message wasn't sent")
 	}
+
+	req.NoError(s.Shutdown())
+}
+
+func TestSubmitIdempotency(t *testing.T) {
+	req := require.New(t)
+	cfg := Config{
+		Genesis:       time.Now().Add(time.Second).Format(time.RFC3339),
+		EpochDuration: time.Second,
+		PhaseShift:    time.Second / 2,
+		CycleGap:      time.Second / 4,
+	}
+	challenge := []byte("challenge")
+	signature := []byte("signature")
+
+	s, err := NewService(&cfg, t.TempDir())
+	req.NoError(err)
+
+	proofBroadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
+	verifier := mocks.NewMockVerifier(gomock.NewController(t))
+	verifier.EXPECT().Verify(gomock.Any(), challenge, signature).Times(2).Return(&challenge_verifier.Result{Hash: []byte("hash")}, nil)
+	err = s.Start(proofBroadcaster, verifier)
+	req.NoError(err)
+
+	// Submit challenge
+	_, hash, err := s.Submit(context.Background(), challenge, signature)
+	req.NoError(err)
+	req.Equal(hash, []byte("hash"))
+
+	// Try again - it should return the same result
+	_, hash, err = s.Submit(context.Background(), challenge, signature)
+	req.NoError(err)
+	req.Equal(hash, []byte("hash"))
 
 	req.NoError(s.Shutdown())
 }

@@ -1,23 +1,27 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	proxy "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/spacemeshos/smutil/log"
-	"golang.org/x/net/context"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/peer"
 
-	"github.com/spacemeshos/poet/broadcaster"
 	"github.com/spacemeshos/poet/config"
+	"github.com/spacemeshos/poet/gateway"
+	"github.com/spacemeshos/poet/gateway/broadcaster"
+	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
 	"github.com/spacemeshos/poet/release/proto/go/rpccore/apicore"
 	"github.com/spacemeshos/poet/rpc"
@@ -30,6 +34,9 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 	ctx, stop := context.WithCancel(ctx)
 	defer stop()
 	serverGroup, ctx := errgroup.WithContext(ctx)
+
+	logger := log.AppLog.WithName("StartServer")
+	ctx = logging.NewContext(ctx, logger)
 
 	// Initialize and register the implementation of gRPC interface
 	var grpcServer *grpc.Server
@@ -68,26 +75,39 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 		if err != nil {
 			return err
 		}
-		if len(cfg.Service.GatewayAddresses) > 0 || cfg.Service.DisableBroadcast {
+		gtwConnCtx, cancel := context.WithTimeout(ctx, cfg.GtwConnTimeout)
+		defer cancel()
+		gtwManager, err := gateway.NewManager(gtwConnCtx, cfg.Service.GatewayAddresses, cfg.Service.ConnAcksThreshold)
+		if err == nil {
 			broadcaster, err := broadcaster.New(
-				cfg.Service.GatewayAddresses,
+				gtwManager.Connections(),
 				cfg.Service.DisableBroadcast,
-				broadcaster.DefaultConnTimeout,
-				cfg.Service.ConnAcksThreshold,
 				broadcaster.DefaultBroadcastTimeout,
 				cfg.Service.BroadcastAcksThreshold,
 			)
 			if err != nil {
+				if err := gtwManager.Close(); err != nil {
+					logger.With().Warning("failed to close GRPC connections", log.Err(err))
+				}
 				return err
 			}
-			if err := svc.Start(broadcaster); err != nil {
+			verifier, err := service.CreateChallengeVerifier(gtwManager.Connections())
+			if err != nil {
+				if err := gtwManager.Close(); err != nil {
+					logger.With().Warning("failed to close GRPC connections", log.Err(err))
+				}
+				return fmt.Errorf("failed to create challenge verifier: %w", err)
+			}
+
+			if err := svc.Start(broadcaster, verifier); err != nil {
 				return err
 			}
 		} else {
-			log.Info("Service not starting, waiting for start request")
+			logger.With().Info("Service not starting, waiting for start request", log.Err(err))
+			gtwManager = &gateway.Manager{}
 		}
 
-		rpcServer := rpc.NewRPCServer(svc)
+		rpcServer := rpc.NewServer(svc, gtwManager, *cfg)
 		grpcServer = grpc.NewServer(options...)
 
 		api.RegisterPoetServer(grpcServer, rpcServer)
@@ -102,7 +122,7 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 	defer lis.Close()
 
 	serverGroup.Go(func() error {
-		log.Info("RPC server listening on %s", lis.Addr())
+		logger.Info("RPC server listening on %s", lis.Addr())
 		return grpcServer.Serve(lis)
 	})
 
@@ -117,7 +137,7 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 
 	server := &http.Server{Addr: cfg.RESTListener.String(), Handler: mux}
 	serverGroup.Go(func() error {
-		log.Info("REST proxy start listening on %s", cfg.RESTListener.String())
+		logger.Info("REST proxy start listening on %s", cfg.RESTListener.String())
 		return server.ListenAndServe()
 	})
 
@@ -133,24 +153,16 @@ func loggerInterceptor() func(ctx context.Context, req interface{}, info *grpc.U
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		peer, _ := peer.FromContext(ctx)
 
-		if submitReq, ok := req.(*api.SubmitRequest); ok {
-			log.Info("%v | %s | %v", info.FullMethod, submitReq.String(), peer.Addr.String())
-		} else {
-			maxDispLen := 50
-			reqStr := fmt.Sprintf("%v", req)
+		logger := log.AppLog.WithName(info.FullMethod).WithFields(log.Field(zap.Stringer("request_id", uuid.New())))
+		ctx = logging.NewContext(ctx, logger)
 
-			var reqDispStr string
-			if len(reqStr) > maxDispLen {
-				reqDispStr = reqStr[:maxDispLen] + "..."
-			} else {
-				reqDispStr = reqStr
-			}
-			log.Info("%v | %v | %v", info.FullMethod, reqDispStr, peer.Addr.String())
+		if msg, ok := req.(fmt.Stringer); ok {
+			logger.With().Debug("new GRPC", log.Field(zap.Stringer("from", peer.Addr)), log.Field(zap.Stringer("message", msg)))
 		}
 
 		resp, err := handler(ctx, req)
 		if err != nil {
-			log.Info("FAILURE %v | %v | %v", info.FullMethod, err, peer.Addr.String())
+			logger.With().Info("FAILURE", log.Err(err))
 		}
 		return resp, err
 	}

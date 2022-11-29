@@ -1,10 +1,9 @@
 package service
 
 import (
+	"crypto/ed25519"
 	"fmt"
 	"path/filepath"
-
-	"github.com/spacemeshos/ed25519"
 )
 
 func initialState() *serviceState {

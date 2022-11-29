@@ -1,6 +1,8 @@
 package hash
 
-import "github.com/minio/sha256-simd"
+import (
+	"github.com/minio/sha256-simd"
+)
 
 // LabelHashNestingDepth is the number of recursive hashes per label.
 const LabelHashNestingDepth = 100

@@ -3,6 +3,8 @@ package service
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -17,7 +19,10 @@ import (
 	mshared "github.com/spacemeshos/merkle-tree/shared"
 	"github.com/spacemeshos/smutil/log"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
 
+	"github.com/spacemeshos/poet/gateway/challenge_verifier"
+	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
 )
@@ -28,7 +33,6 @@ type Config struct {
 	PhaseShift               time.Duration `long:"phase-shift"`
 	CycleGap                 time.Duration `long:"cycle-gap"`
 	MemoryLayers             uint          `long:"memory" description:"Number of top Merkle tree layers to cache in-memory"`
-	ExecuteEmpty             bool          `long:"empty" description:"whether to execute empty rounds, without any submitted challenges"`
 	NoRecovery               bool          `long:"norecovery" description:"whether to disable a potential recovery procedure"`
 	Reset                    bool          `long:"reset" description:"whether to reset the service state by deleting the datadir"`
 	GatewayAddresses         []string      `long:"gateway" description:"list of Spacemesh gateway nodes RPC listeners (host:port) for broadcasting of proofs"`
@@ -44,6 +48,8 @@ type Config struct {
 const estimatedLeavesPerSecond = 1 << 17
 
 const serviceStateFileBaseName = "state.bin"
+
+const ChallengeVerifierCacheSize = 1024
 
 type serviceState struct {
 	PrivKey []byte
@@ -76,8 +82,9 @@ type Service struct {
 
 	PubKey  ed25519.PublicKey
 	privKey ed25519.PrivateKey
-	// holds Broadcaster interface
-	broadcaster atomic.Value
+
+	broadcaster       atomic.Value // holds Broadcaster interface
+	challengeVerifier atomic.Value // holds challenge_verifier.Verifier
 
 	errChan chan error
 	sync.Mutex
@@ -95,8 +102,9 @@ type PoetProof struct {
 }
 
 var (
-	ErrNotStarted     = errors.New("service not started")
-	ErrAlreadyStarted = errors.New("already started")
+	ErrNotStarted                = errors.New("service not started")
+	ErrAlreadyStarted            = errors.New("already started")
+	ErrChallengeAlreadySubmitted = errors.New("challenge is already submitted")
 )
 
 type Broadcaster interface {
@@ -199,14 +207,6 @@ func (s *Service) loop(ctx context.Context) {
 		}
 
 		s.openRoundMutex.Lock()
-		if s.openRound.isEmpty() && !s.cfg.ExecuteEmpty {
-			// FIXME Poet enters a busy loop
-			// See https://github.com/spacemeshos/poet/issues/142
-			log.With().Info("Not executing an empty round", log.String("ID", s.openRound.ID))
-			s.openRoundMutex.Unlock()
-			continue
-		}
-
 		prevRound := s.openRound
 		s.newRound(ctx, prevRound.Epoch()+1)
 		s.openRoundMutex.Unlock()
@@ -223,7 +223,7 @@ func (s *Service) loop(ctx context.Context) {
 	}
 }
 
-func (s *Service) Start(b Broadcaster) error {
+func (s *Service) Start(b Broadcaster, atxProvider challenge_verifier.Verifier) error {
 	s.Lock()
 	defer s.Unlock()
 	if s.Started() {
@@ -236,6 +236,7 @@ func (s *Service) Start(b Broadcaster) error {
 	s.stop = stop
 
 	s.SetBroadcaster(b)
+	s.SetChallengeVerifier(atxProvider)
 
 	if s.cfg.NoRecovery {
 		log.Info("Recovery is disabled")
@@ -361,6 +362,10 @@ func (s *Service) SetBroadcaster(b Broadcaster) {
 	}
 }
 
+func (s *Service) SetChallengeVerifier(provider challenge_verifier.Verifier) {
+	s.challengeVerifier.Store(provider)
+}
+
 func (s *Service) executeRound(ctx context.Context, r *round) error {
 	s.executingRoundsMutex.Lock()
 	s.executingRounds[r.ID] = r
@@ -389,20 +394,52 @@ func (s *Service) executeRound(ctx context.Context, r *round) error {
 	return nil
 }
 
-func (s *Service) Submit(data []byte) (*round, error) {
+// Temporarily support both the old and new challenge submission API.
+// TODO(brozansk) remove support for data []byte after go-spacemesh is updated to
+// use the new API.
+// (https://github.com/spacemeshos/poet/issues/147).
+func (s *Service) Submit(ctx context.Context, challenge, signature []byte) (*round, []byte, error) {
+	logger := logging.FromContext(ctx)
 	if !s.Started() {
-		return nil, ErrNotStarted
+		return nil, nil, ErrNotStarted
 	}
 
-	s.openRoundMutex.Lock()
-	r := s.openRound
-	err := r.submit(data)
-	s.openRoundMutex.Unlock()
-	if err != nil {
-		return nil, err
+	// TODO(brozansk) Remove support for old API eventually (https://github.com/spacemeshos/poet/issues/147)
+	if signature != nil {
+		logger.Debug("Received challenge")
+		// SAFETY: it will never panic as `s.ChallengeVerifier` is set in Start
+		verifier := s.challengeVerifier.Load().(challenge_verifier.Verifier)
+		result, err := verifier.Verify(ctx, challenge, signature)
+		if err != nil {
+			logger.With().Debug("challenge verification failed", log.Err(err))
+			return nil, nil, err
+		}
+		logger.With().Debug("verified challenge", log.String("hash", hex.EncodeToString(result.Hash)), log.String("node_id", hex.EncodeToString(result.NodeId)))
+		s.openRoundMutex.Lock()
+		r := s.openRound
+		err = r.submit(result.NodeId, result.Hash)
+		s.openRoundMutex.Unlock()
+		switch {
+		case errors.Is(err, ErrChallengeAlreadySubmitted):
+			return r, result.Hash, nil
+		case err != nil:
+			return nil, nil, err
+		}
+		return r, result.Hash, nil
+	} else {
+		logger.Debug("Using the old challenge submission API")
+		s.openRoundMutex.Lock()
+		r := s.openRound
+		err := r.submit(challenge, challenge)
+		s.openRoundMutex.Unlock()
+		switch {
+		case errors.Is(err, ErrChallengeAlreadySubmitted):
+			return r, challenge, nil
+		case err != nil:
+			return nil, nil, err
+		}
+		return r, challenge, nil
 	}
-
-	return r, nil
 }
 
 func (s *Service) Info() (*InfoResponse, error) {
@@ -484,4 +521,21 @@ func serializeProofMsg(servicePubKey []byte, roundID string, execution *executio
 	}
 
 	return dataBuf.Bytes(), nil
+}
+
+// CreateChallengeVerifier creates a verifier connected to provided gateways.
+// The verifier caches verification results and round-robins between gateways if
+// verification fails.
+func CreateChallengeVerifier(gateways []*grpc.ClientConn) (challenge_verifier.Verifier, error) {
+	if len(gateways) == 0 {
+		return nil, fmt.Errorf("need at least one gateway")
+	}
+	clients := make([]challenge_verifier.Verifier, 0, len(gateways))
+	for _, target := range gateways {
+		client := challenge_verifier.NewClient(target)
+		clients = append(clients, client)
+	}
+	return challenge_verifier.NewCaching(
+		ChallengeVerifierCacheSize, challenge_verifier.NewRetrying(
+			challenge_verifier.NewRoundRobin(clients), 5, time.Second, 2))
 }

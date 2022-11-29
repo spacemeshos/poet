@@ -10,7 +10,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
+	"github.com/spacemeshos/poet/gateway"
 	"github.com/spacemeshos/poet/integration"
 	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
 )
@@ -31,12 +33,28 @@ var testCases = []*harnessTestCase{
 	{name: "submit", test: testSubmit},
 }
 
+func spawnMockGateway(t *testing.T) (target string) {
+	t.Helper()
+	server := gateway.NewMockGrpcServer(t)
+
+	var eg errgroup.Group
+	t.Cleanup(func() { require.NoError(t, eg.Wait()) })
+
+	eg.Go(server.Serve)
+	t.Cleanup(server.Stop)
+
+	return server.Target()
+}
+
 func TestHarness(t *testing.T) {
 	r := require.New(t)
+
+	target := spawnMockGateway(t)
 
 	cfg, err := integration.DefaultConfig()
 	r.NoError(err)
 	cfg.Genesis = time.Now()
+	cfg.GtwConnTimeout = time.Second
 
 	h := newHarness(t, context.Background(), cfg)
 	t.Cleanup(func() {
@@ -52,12 +70,12 @@ func TestHarness(t *testing.T) {
 
 	ctx := context.Background()
 	_, err = h.Submit(ctx, &api.SubmitRequest{Challenge: []byte("this is a commitment")})
-	r.EqualError(err, "rpc error: code = Unknown desc = service not started")
+	r.EqualError(err, "rpc error: code = FailedPrecondition desc = cannot submit a challenge because poet service is not started")
 
 	_, err = h.Start(ctx, &api.StartRequest{GatewayAddresses: []string{"666"}})
-	r.EqualError(err, "rpc error: code = Unknown desc = failed to connect to Spacemesh gateway node at \"666\": failed to connect to rpc server: context deadline exceeded")
+	r.EqualError(err, "rpc error: code = Unknown desc = failed to connect to gateway grpc server 666 (context deadline exceeded)")
 
-	_, err = h.Start(ctx, &api.StartRequest{DisableBroadcast: true})
+	_, err = h.Start(ctx, &api.StartRequest{DisableBroadcast: true, GatewayAddresses: []string{target}})
 	r.NoError(err)
 
 	_, err = h.Start(ctx, &api.StartRequest{DisableBroadcast: true})
@@ -94,11 +112,15 @@ func testSubmit(ctx context.Context, h *integration.Harness, assert *require.Ass
 func TestHarness_CrashRecovery(t *testing.T) {
 	req := require.New(t)
 
+	target := spawnMockGateway(t)
+
 	cfg, err := integration.DefaultConfig()
 	req.NoError(err)
 	cfg.Genesis = time.Now().Add(5 * time.Second)
 	cfg.Reset = true
 	cfg.DisableBroadcast = true
+	cfg.GatewayAddresses = []string{target}
+	cfg.GtwConnTimeout = time.Second
 
 	// Track rounds.
 	numRounds := 40
