@@ -203,16 +203,6 @@ func TestService_Recovery(t *testing.T) {
 	req.NoError(s.Shutdown())
 }
 
-func contains(list [][]byte, item []byte) bool {
-	for _, listItem := range list {
-		if bytes.Equal(listItem, item) {
-			return true
-		}
-	}
-
-	return false
-}
-
 func TestConcurrentServiceStartAndShutdown(t *testing.T) {
 	t.Parallel()
 	req := require.New(t)

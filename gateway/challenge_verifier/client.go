@@ -3,7 +3,7 @@ package challenge_verifier
 import (
 	"context"
 
-	v1 "github.com/spacemeshos/api/release/go/spacemesh/v1"
+	pb "github.com/spacemeshos/api/release/go/spacemesh/v1"
 	"github.com/spacemeshos/smutil/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -13,14 +13,14 @@ import (
 )
 
 type grpcChallengeVerifierClient struct {
-	client  v1.GatewayServiceClient
+	client  pb.GatewayServiceClient
 	gateway string
 }
 
 func (c *grpcChallengeVerifierClient) Verify(ctx context.Context, challenge, signature []byte) (*Result, error) {
 	logger := logging.FromContext(ctx).WithFields(log.String("gateway", c.gateway))
 
-	resp, err := c.client.VerifyChallenge(ctx, &v1.VerifyChallengeRequest{
+	resp, err := c.client.VerifyChallenge(ctx, &pb.VerifyChallengeRequest{
 		Challenge: challenge,
 		Signature: signature,
 	})
@@ -43,7 +43,7 @@ func (c *grpcChallengeVerifierClient) Verify(ctx context.Context, challenge, sig
 
 func NewClient(conn *grpc.ClientConn) Verifier {
 	return &grpcChallengeVerifierClient{
-		client:  v1.NewGatewayServiceClient(conn),
+		client:  pb.NewGatewayServiceClient(conn),
 		gateway: conn.Target(),
 	}
 }

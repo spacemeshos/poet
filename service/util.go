@@ -13,7 +13,7 @@ import (
 
 var ErrFileIsMissing = errors.New("file is missing")
 
-func persist(filename string, v interface{}) error {
+func persist(filename string, v any) error {
 	var w bytes.Buffer
 	_, err := xdr.Marshal(&w, v)
 	if err != nil {
@@ -28,7 +28,7 @@ func persist(filename string, v interface{}) error {
 	return nil
 }
 
-func load(filename string, v interface{}) error {
+func load(filename string, v any) error {
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		if os.IsNotExist(err) {
