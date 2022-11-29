@@ -8,10 +8,11 @@ import (
 	"time"
 
 	pb "github.com/spacemeshos/api/release/go/spacemesh/v1"
-	"github.com/spacemeshos/poet/gateway"
 	"github.com/spacemeshos/smutil/log"
 	"google.golang.org/genproto/googleapis/rpc/code"
 	"google.golang.org/grpc"
+
+	"github.com/spacemeshos/poet/gateway"
 )
 
 const DefaultBroadcastTimeout = 30 * time.Second
