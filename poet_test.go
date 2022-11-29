@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	pb "github.com/spacemeshos/api/release/go/spacemesh/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
@@ -33,9 +34,20 @@ var testCases = []*harnessTestCase{
 	{name: "submit", test: testSubmit},
 }
 
+type gatewayService struct {
+	pb.UnimplementedGatewayServiceServer
+}
+
+func (*gatewayService) VerifyChallenge(ctx context.Context, req *pb.VerifyChallengeRequest) (*pb.VerifyChallengeResponse, error) {
+	return &pb.VerifyChallengeResponse{
+		Hash: []byte("hash"),
+	}, nil
+}
+
 func spawnMockGateway(t *testing.T) (target string) {
 	t.Helper()
 	server := gateway.NewMockGrpcServer(t)
+	pb.RegisterGatewayServiceServer(server.Server, &gatewayService{})
 
 	var eg errgroup.Group
 	t.Cleanup(func() { require.NoError(t, eg.Wait()) })
