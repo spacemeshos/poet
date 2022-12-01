@@ -163,7 +163,7 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 	}
 
 	out := new(api.SubmitResponse)
-	out.RoundId = round.ID
+	out.RoundId = round
 	out.Hash = hash
 	return out, nil
 }

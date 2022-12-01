@@ -71,13 +71,8 @@ type Service struct {
 
 	// openRound is the round which is currently open for accepting challenges registration from miners.
 	// At any given time there is one single open round.
-	// openRoundMutex guards openRound, any access to it must be protected by this mutex.
-	openRound      *round
-	openRoundMutex sync.RWMutex
-
-	// executingRounds are the rounds which are currently executing, hence generating a proof.
-	executingRounds      map[string]*round
-	executingRoundsMutex sync.RWMutex
+	openRound       *round
+	executingRounds map[string]struct{}
 
 	PubKey  ed25519.PublicKey
 	privKey ed25519.PrivateKey
@@ -85,9 +80,12 @@ type Service struct {
 	broadcaster       atomic.Value // holds Broadcaster interface
 	challengeVerifier atomic.Value // holds challenge_verifier.Verifier
 
-	errChan chan error
+	command chan Command
+
 	sync.Mutex
 }
+
+type Command func(*Service)
 
 type InfoResponse struct {
 	OpenRoundID        string
@@ -170,56 +168,91 @@ func NewService(cfg *Config, datadir string) (*Service, error) {
 		minMemoryLayer:  uint(minMemoryLayer),
 		genesis:         genesis,
 		datadir:         datadir,
-		executingRounds: make(map[string]*round),
-		errChan:         make(chan error, 10),
+		executingRounds: make(map[string]struct{}),
 		privKey:         privateKey,
 		PubKey:          privateKey.Public().(ed25519.PublicKey),
+		command:         make(chan Command),
 	}
 	log.Info("Service public key: %x", s.PubKey)
 
 	return s, nil
 }
 
-func (s *Service) loop(ctx context.Context) {
-	var executingRounds errgroup.Group
-	defer executingRounds.Wait()
+type roundResult struct {
+	round *round
+	err   error
+}
 
-	for {
-		s.openRoundMutex.RLock()
-		epoch := s.openRound.Epoch()
-		s.openRoundMutex.RUnlock()
+func (s *Service) loop(ctx context.Context, roundsToResume []*round) {
+	var eg errgroup.Group
+	defer eg.Wait()
 
-		start := s.genesis.Add(s.cfg.EpochDuration * time.Duration(epoch)).Add(s.cfg.PhaseShift)
-		waitTime := time.Until(start)
-		timer := time.After(waitTime)
-		if waitTime > 0 {
-			log.Info("Round %v waiting for execution to start for %v", s.openRoundID(), waitTime)
-		}
-		select {
-		case <-timer:
-		case <-ctx.Done():
-			log.Info("service shutting down")
-			s.openRoundMutex.Lock()
-			s.openRound = nil
-			s.openRoundMutex.Unlock()
-			return
-		}
+	logger := log.AppLog.WithName("worker")
+	ctx = logging.NewContext(ctx, logger)
 
-		s.openRoundMutex.Lock()
-		prevRound := s.openRound
-		s.newRound(ctx, prevRound.Epoch()+1)
-		s.openRoundMutex.Unlock()
+	roundResults := make(chan roundResult, 1)
 
-		executingRounds.Go(func() error {
-			round := prevRound
-			if err := s.executeRound(ctx, round); err != nil {
-				s.asyncError(fmt.Errorf("round %v execution error: %v", round.ID, err))
-				return nil
-			}
-			broadcastProof(s, round, round.execution, s.getBroadcaster())
+	// Resume recovered rounds
+	for _, round := range roundsToResume {
+		round := round
+		s.executingRounds[round.ID] = struct{}{}
+		end := s.roundEndTime(round)
+		eg.Go(func() error {
+			err := round.recoverExecution(ctx, round.stateCache.Execution, end)
+			roundResults <- roundResult{round: round, err: err}
 			return nil
 		})
 	}
+
+	timer := s.scheduleRound(ctx, s.openRound)
+
+	for {
+		select {
+		case cmd := <-s.command:
+			cmd(s)
+
+		case result := <-roundResults:
+			if result.err == nil {
+				go broadcastProof(s, result.round, result.round.execution, s.getBroadcaster())
+			}
+			delete(s.executingRounds, result.round.ID)
+
+		case <-timer:
+			round := s.openRound
+			s.openRound = s.newRound(ctx, round.Epoch()+1)
+			s.executingRounds[round.ID] = struct{}{}
+
+			end := s.roundEndTime(round)
+			eg.Go(func() error {
+				roundResults <- executeRound(ctx, round, end, s.minMemoryLayer)
+				return nil
+			})
+
+			// schedule the next round
+			timer = s.scheduleRound(ctx, s.openRound)
+
+		case <-ctx.Done():
+			logger.Info("service shutting down")
+			return
+		}
+	}
+}
+
+func (s *Service) roundStartTime(round *round) time.Time {
+	return s.genesis.Add(s.cfg.PhaseShift).Add(s.cfg.EpochDuration * time.Duration(round.Epoch()))
+}
+
+func (s *Service) roundEndTime(round *round) time.Time {
+	return s.roundStartTime(round).Add(s.cfg.EpochDuration).Add(-s.cfg.CycleGap)
+}
+
+func (s *Service) scheduleRound(ctx context.Context, round *round) <-chan time.Time {
+	waitTime := time.Until(s.roundStartTime(round))
+	timer := time.After(waitTime)
+	if waitTime > 0 {
+		logging.FromContext(ctx).With().Info("waiting for execution to start", log.Duration("wait time", waitTime), log.String("round", round.ID))
+	}
+	return timer
 }
 
 func (s *Service) Start(b Broadcaster, atxProvider challenge_verifier.Verifier) error {
@@ -237,24 +270,28 @@ func (s *Service) Start(b Broadcaster, atxProvider challenge_verifier.Verifier) 
 	s.SetBroadcaster(b)
 	s.SetChallengeVerifier(atxProvider)
 
+	var toResume []*round
 	if s.cfg.NoRecovery {
 		log.Info("Recovery is disabled")
-	} else if err := s.recover(ctx); err != nil {
-		return fmt.Errorf("failed to recover: %v", err)
+	} else {
+		var err error
+		s.openRound, toResume, err = s.recover(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to recover: %v", err)
+		}
 	}
+
 	now := time.Now()
 	epoch := time.Duration(0)
 	if d := now.Sub(s.genesis); d > 0 {
 		epoch = d / s.cfg.EpochDuration
 	}
-	s.openRoundMutex.Lock()
 	if s.openRound == nil {
-		s.newRound(ctx, uint32(epoch))
+		s.openRound = s.newRound(ctx, uint32(epoch))
 	}
-	s.openRoundMutex.Unlock()
 
 	s.runningGroup.Go(func() error {
-		s.loop(ctx)
+		s.loop(ctx, toResume)
 		return nil
 	})
 	s.started.Store(true)
@@ -279,76 +316,53 @@ func (s *Service) Started() bool {
 	return s.started.Load()
 }
 
-func (s *Service) recover(ctx context.Context) error {
-	log.With().Info("Recovering service state", log.String("datadir", s.datadir))
+func (s *Service) recover(ctx context.Context) (open *round, executing []*round, err error) {
+	logger := log.AppLog.WithName("recovery")
+	logger.With().Info("Recovering service state", log.String("datadir", s.datadir))
 	entries, err := os.ReadDir(s.datadir)
 	if err != nil {
-		return err
+		return nil, nil, err
 	}
 
 	for _, entry := range entries {
-		log.Info("Recovering entry %s", entry.Name())
+		logger.Info("recovering entry %s", entry.Name())
 		if !entry.IsDir() {
 			continue
 		}
 
 		epoch, err := strconv.ParseUint(entry.Name(), 10, 32)
 		if err != nil {
-			return fmt.Errorf("entry is not a uint32 %s", entry.Name())
+			return nil, nil, fmt.Errorf("entry is not a uint32 %s", entry.Name())
 		}
 		r := newRound(ctx, s.datadir, uint32(epoch))
 		state, err := r.state()
 		if err != nil {
-			return fmt.Errorf("invalid round state: %v", err)
+			return nil, nil, fmt.Errorf("invalid round state: %v", err)
 		}
 
 		if state.isExecuted() {
-			log.Info("Recovery: found round %v in executed state. broadcasting...", r.ID)
+			logger.Info("found round %v in executed state. broadcasting...", r.ID)
 			go broadcastProof(s, r, state.Execution, s.getBroadcaster())
 			continue
 		}
 
 		if state.isOpen() {
-			log.Info("Recovery: found round %v in open state.", r.ID)
+			logger.Info("found round %v in open state.", r.ID)
 			if err := r.open(); err != nil {
-				return fmt.Errorf("failed to open round: %v", err)
+				return nil, nil, fmt.Errorf("failed to open round: %v", err)
 			}
 
 			// Keep the last open round as openRound (multiple open rounds state is possible
 			// only if recovery was previously disabled).
-			s.openRound = r
+			open = r
 			continue
 		}
 
-		log.Info("Recovery: found round %v in executing state. recovering execution...", r.ID)
-		s.executingRoundsMutex.Lock()
-		s.executingRounds[r.ID] = r
-		s.executingRoundsMutex.Unlock()
-		s.runningGroup.Go(func() error {
-			r, rs := r, state
-			defer func() {
-				s.executingRoundsMutex.Lock()
-				delete(s.executingRounds, r.ID)
-				s.executingRoundsMutex.Unlock()
-			}()
-
-			end := s.genesis.
-				Add(s.cfg.EpochDuration * time.Duration(r.Epoch()+1)).
-				Add(s.cfg.PhaseShift).
-				Add(-s.cfg.CycleGap)
-
-			if err = r.recoverExecution(ctx, rs.Execution, end); err != nil {
-				s.asyncError(fmt.Errorf("recovery: round %v execution failure: %v", r.ID, err))
-				return nil
-			}
-
-			log.Info("Recovery: round %v execution ended, phi=%x", r.ID, r.execution.NIP.Root)
-			broadcastProof(s, r, r.execution, s.getBroadcaster())
-			return nil
-		})
+		logger.Info("found round %v in executing state.", r.ID)
+		executing = append(executing, r)
 	}
 
-	return nil
+	return open, executing, nil
 }
 
 func (s *Service) getBroadcaster() Broadcaster {
@@ -365,38 +379,24 @@ func (s *Service) SetChallengeVerifier(provider challenge_verifier.Verifier) {
 	s.challengeVerifier.Store(provider)
 }
 
-func (s *Service) executeRound(ctx context.Context, r *round) error {
-	s.executingRoundsMutex.Lock()
-	s.executingRounds[r.ID] = r
-	s.executingRoundsMutex.Unlock()
-
-	defer func() {
-		s.executingRoundsMutex.Lock()
-		delete(s.executingRounds, r.ID)
-		s.executingRoundsMutex.Unlock()
-	}()
-
+func executeRound(ctx context.Context, r *round, end time.Time, minMemoryLayer uint) roundResult {
+	logger := logging.FromContext(ctx).WithFields(log.String("round", r.ID))
+	logger.Info("executing until %v...", end)
 	start := time.Now()
-	end := s.genesis.
-		Add(s.cfg.EpochDuration * time.Duration(r.Epoch()+1)).
-		Add(s.cfg.PhaseShift).
-		Add(-s.cfg.CycleGap)
-
-	log.Info("Round %v executing until %v...", r.ID, end)
-
-	if err := r.execute(ctx, end, uint(s.minMemoryLayer)); err != nil {
-		return err
+	err := r.execute(ctx, end, uint(minMemoryLayer))
+	if err == nil {
+		logger.Info("execution ended, phi=%x, duration %v", r.execution.NIP.Root, time.Since(start))
+	} else {
+		logger.With().Warning("execution failed", log.Err(err))
 	}
 
-	log.Info("Round %v execution ended, phi=%x, duration %v", r.ID, r.execution.NIP.Root, time.Since(start))
-
-	return nil
+	return roundResult{round: r, err: err}
 }
 
-func (s *Service) Submit(ctx context.Context, challenge, signature []byte) (*round, []byte, error) {
+func (s *Service) Submit(ctx context.Context, challenge, signature []byte) (string, []byte, error) {
 	logger := logging.FromContext(ctx)
 	if !s.Started() {
-		return nil, nil, ErrNotStarted
+		return "", nil, ErrNotStarted
 	}
 
 	logger.Debug("Received challenge")
@@ -405,20 +405,32 @@ func (s *Service) Submit(ctx context.Context, challenge, signature []byte) (*rou
 	result, err := verifier.Verify(ctx, challenge, signature)
 	if err != nil {
 		logger.With().Debug("challenge verification failed", log.Err(err))
-		return nil, nil, err
+		return "", nil, err
 	}
 	logger.With().Debug("verified challenge", log.String("hash", hex.EncodeToString(result.Hash)), log.String("node_id", hex.EncodeToString(result.NodeId)))
-	s.openRoundMutex.Lock()
-	r := s.openRound
-	err = r.submit(result.NodeId, result.Hash)
-	s.openRoundMutex.Unlock()
-	switch {
-	case errors.Is(err, ErrChallengeAlreadySubmitted):
-		return r, result.Hash, nil
-	case err != nil:
-		return nil, nil, err
+
+	type response struct {
+		round string
+		err   error
 	}
-	return r, result.Hash, nil
+	done := make(chan response, 1)
+	s.command <- func(s *Service) {
+		done <- response{
+			round: s.openRound.ID,
+			err:   s.openRound.submit(result.NodeId, result.Hash),
+		}
+		close(done)
+	}
+	resp := <-done
+
+	switch {
+	case errors.Is(resp.err, ErrChallengeAlreadySubmitted):
+		return resp.round, result.Hash, nil
+	case err != nil:
+		return "", nil, resp.err
+	}
+	logger.With().Debug("submitted challenge for round", log.String("round", resp.round))
+	return resp.round, result.Hash, nil
 }
 
 func (s *Service) Info() (*InfoResponse, error) {
@@ -426,21 +438,23 @@ func (s *Service) Info() (*InfoResponse, error) {
 		return nil, ErrNotStarted
 	}
 
-	s.executingRoundsMutex.RLock()
-	ids := make([]string, 0, len(s.executingRounds))
-	for id := range s.executingRounds {
-		ids = append(ids, id)
+	resp := make(chan *InfoResponse, 1)
+	s.command <- func(s *Service) {
+		ids := make([]string, 0, len(s.executingRounds))
+		for id := range s.executingRounds {
+			ids = append(ids, id)
+		}
+		resp <- &InfoResponse{
+			OpenRoundID:        s.openRound.ID,
+			ExecutingRoundsIds: ids,
+		}
+		close(resp)
 	}
-	s.executingRoundsMutex.RUnlock()
-
-	return &InfoResponse{
-		OpenRoundID:        s.openRoundID(),
-		ExecutingRoundsIds: ids,
-	}, nil
+	return <-resp, nil
 }
 
 // newRound creates a new round with the given epoch. This method MUST be guarded by a write lock on openRoundMutex.
-func (s *Service) newRound(ctx context.Context, epoch uint32) {
+func (s *Service) newRound(ctx context.Context, epoch uint32) *round {
 	if err := saveState(s.datadir, s.privKey); err != nil {
 		panic(err)
 	}
@@ -449,19 +463,8 @@ func (s *Service) newRound(ctx context.Context, epoch uint32) {
 		panic(fmt.Errorf("failed to open round: %v", err))
 	}
 
-	s.openRound = r
-	log.With().Info("Round opened", log.String("ID", s.openRound.ID))
-}
-
-func (s *Service) openRoundID() string {
-	s.openRoundMutex.RLock()
-	defer s.openRoundMutex.RUnlock()
-	return s.openRound.ID
-}
-
-func (s *Service) asyncError(err error) {
-	log.Error(err.Error())
-	s.errChan <- err
+	log.With().Info("Round opened", log.String("ID", r.ID))
+	return r
 }
 
 func broadcastProof(s *Service, r *round, execution *executionState, broadcaster Broadcaster) {

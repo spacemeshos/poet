@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/spacemeshos/merkle-tree"
@@ -63,8 +62,6 @@ type round struct {
 	teardownChan         chan struct{}
 
 	stateCache *roundState
-
-	submitMtx sync.Mutex
 }
 
 func (r *round) Epoch() uint32 {
@@ -141,8 +138,6 @@ func (r *round) submit(key, challenge []byte) error {
 		return errors.New("round is not open")
 	}
 
-	r.submitMtx.Lock()
-	defer r.submitMtx.Unlock()
 	if has, err := r.challengesDb.Has(key); err != nil {
 		return err
 	} else if has {
@@ -177,13 +172,11 @@ func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer uint)
 
 	close(r.executionStartedChan)
 
-	r.submitMtx.Lock()
 	var err error
 	r.execution.Members, r.execution.Statement, err = r.calcMembersAndStatement()
 	if err != nil {
 		return err
 	}
-	r.submitMtx.Unlock()
 
 	if err := r.saveState(); err != nil {
 		return err
