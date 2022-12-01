@@ -54,12 +54,20 @@ type serviceState struct {
 	PrivKey []byte
 }
 
+// ServiceClient is an interface for interacting with the Service actor.
+// It is created when the Service is started.
+type ServiceClient struct {
+	command           chan<- Command
+	challengeVerifier atomic.Value // holds challenge_verifier.Verifier
+}
+
 // Service orchestrates rounds functionality; each responsible for accepting challenges,
 // generating a proof from their hash digest, and broadcasting the result to the Spacemesh network.
 //
 // Service is single-use, meaning it can be started with `Start()` and then stopped with `Shutdown()`
 // but it cannot be restarted. A new instance of `Service` must be created.
 type Service struct {
+	*ServiceClient
 	runningGroup errgroup.Group
 	stop         context.CancelFunc
 
@@ -77,10 +85,7 @@ type Service struct {
 	PubKey  ed25519.PublicKey
 	privKey ed25519.PrivateKey
 
-	broadcaster       atomic.Value // holds Broadcaster interface
-	challengeVerifier atomic.Value // holds challenge_verifier.Verifier
-
-	command chan Command
+	broadcaster Broadcaster
 
 	sync.Mutex
 }
@@ -171,8 +176,8 @@ func NewService(cfg *Config, datadir string) (*Service, error) {
 		executingRounds: make(map[string]struct{}),
 		privKey:         privateKey,
 		PubKey:          privateKey.Public().(ed25519.PublicKey),
-		command:         make(chan Command),
 	}
+
 	log.Info("Service public key: %x", s.PubKey)
 
 	return s, nil
@@ -183,7 +188,7 @@ type roundResult struct {
 	err   error
 }
 
-func (s *Service) loop(ctx context.Context, roundsToResume []*round) {
+func (s *Service) loop(ctx context.Context, roundsToResume []*round, cmds <-chan Command) {
 	var eg errgroup.Group
 	defer eg.Wait()
 
@@ -208,12 +213,12 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) {
 
 	for {
 		select {
-		case cmd := <-s.command:
+		case cmd := <-cmds:
 			cmd(s)
 
 		case result := <-roundResults:
 			if result.err == nil {
-				go broadcastProof(s, result.round, result.round.execution, s.getBroadcaster())
+				go broadcastProof(s, result.round, result.round.execution, s.broadcaster)
 			}
 			delete(s.executingRounds, result.round.ID)
 
@@ -267,8 +272,7 @@ func (s *Service) Start(b Broadcaster, atxProvider challenge_verifier.Verifier) 
 	ctx, stop := context.WithCancel(context.Background())
 	s.stop = stop
 
-	s.SetBroadcaster(b)
-	s.SetChallengeVerifier(atxProvider)
+	s.broadcaster = b
 
 	var toResume []*round
 	if s.cfg.NoRecovery {
@@ -290,8 +294,14 @@ func (s *Service) Start(b Broadcaster, atxProvider challenge_verifier.Verifier) 
 		s.openRound = s.newRound(ctx, uint32(epoch))
 	}
 
+	cmds := make(chan Command, 1)
+	s.ServiceClient = &ServiceClient{
+		command: cmds,
+	}
+	s.ServiceClient.SetChallengeVerifier(atxProvider)
+
 	s.runningGroup.Go(func() error {
-		s.loop(ctx, toResume)
+		s.loop(ctx, toResume, cmds)
 		return nil
 	})
 	s.started.Store(true)
@@ -342,7 +352,7 @@ func (s *Service) recover(ctx context.Context) (open *round, executing []*round,
 
 		if state.isExecuted() {
 			logger.Info("found round %v in executed state. broadcasting...", r.ID)
-			go broadcastProof(s, r, state.Execution, s.getBroadcaster())
+			go broadcastProof(s, r, state.Execution, s.broadcaster)
 			continue
 		}
 
@@ -365,17 +375,17 @@ func (s *Service) recover(ctx context.Context) (open *round, executing []*round,
 	return open, executing, nil
 }
 
-func (s *Service) getBroadcaster() Broadcaster {
-	return s.broadcaster.Load().(Broadcaster)
-}
-
-func (s *Service) SetBroadcaster(b Broadcaster) {
-	if s.broadcaster.Swap(b) != nil {
-		log.Info("Service broadcaster updated")
+func (s *ServiceClient) SetBroadcaster(b Broadcaster) {
+	s.command <- func(s *Service) {
+		old := s.broadcaster
+		s.broadcaster = b
+		if old != nil {
+			log.Info("Service broadcaster updated")
+		}
 	}
 }
 
-func (s *Service) SetChallengeVerifier(provider challenge_verifier.Verifier) {
+func (s *ServiceClient) SetChallengeVerifier(provider challenge_verifier.Verifier) {
 	s.challengeVerifier.Store(provider)
 }
 
@@ -393,11 +403,11 @@ func executeRound(ctx context.Context, r *round, end time.Time, minMemoryLayer u
 	return roundResult{round: r, err: err}
 }
 
-func (s *Service) Submit(ctx context.Context, challenge, signature []byte) (string, []byte, error) {
-	logger := logging.FromContext(ctx)
-	if !s.Started() {
+func (s *ServiceClient) Submit(ctx context.Context, challenge, signature []byte) (string, []byte, error) {
+	if s == nil {
 		return "", nil, ErrNotStarted
 	}
+	logger := logging.FromContext(ctx)
 
 	logger.Debug("Received challenge")
 	// SAFETY: it will never panic as `s.ChallengeVerifier` is set in Start
@@ -433,8 +443,8 @@ func (s *Service) Submit(ctx context.Context, challenge, signature []byte) (stri
 	return resp.round, result.Hash, nil
 }
 
-func (s *Service) Info() (*InfoResponse, error) {
-	if !s.Started() {
+func (s *ServiceClient) Info() (*InfoResponse, error) {
+	if s == nil {
 		return nil, ErrNotStarted
 	}
 
