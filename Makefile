@@ -82,7 +82,7 @@ all: build
 .PHONY: all
 
 test:
-	$(GOTESTSUM) -- -timeout 5m -p 1 ./...
+	$(GOTESTSUM) -- -race -timeout 5m -p 1 ./...
 .PHONY: test
 
 install: install-buf install-protoc
