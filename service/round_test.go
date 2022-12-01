@@ -197,7 +197,7 @@ func TestRound_State(t *testing.T) {
 	req.Equal(prevState, state)
 
 	// Recover execution.
-	req.NoError(r.recoverExecution(ctx, state.Execution, time.Now().Add(100*time.Microsecond)))
+	req.NoError(r.recoverExecution(ctx, state.Execution, time.Now().Add(200*time.Millisecond)))
 
 	req.False(r.executionStarted.IsZero())
 	proof, err := r.proof(false)
