@@ -218,7 +218,8 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round, cmds <-chan
 
 		case result := <-roundResults:
 			if result.err == nil {
-				go broadcastProof(s, result.round, result.round.execution, s.broadcaster)
+				broadcaster := s.broadcaster
+				go broadcastProof(s, result.round, result.round.execution, broadcaster)
 			}
 			delete(s.executingRounds, result.round.ID)
 
@@ -228,8 +229,9 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round, cmds <-chan
 			s.executingRounds[round.ID] = struct{}{}
 
 			end := s.roundEndTime(round)
+			minMemoryLayer := s.minMemoryLayer
 			eg.Go(func() error {
-				roundResults <- executeRound(ctx, round, end, s.minMemoryLayer)
+				roundResults <- executeRound(ctx, round, end, minMemoryLayer)
 				return nil
 			})
 
@@ -260,7 +262,7 @@ func (s *Service) scheduleRound(ctx context.Context, round *round) <-chan time.T
 	return timer
 }
 
-func (s *Service) Start(b Broadcaster, atxProvider challenge_verifier.Verifier) error {
+func (s *Service) Start(b Broadcaster, verifier challenge_verifier.Verifier) error {
 	s.Lock()
 	defer s.Unlock()
 	if s.Started() {
@@ -298,7 +300,7 @@ func (s *Service) Start(b Broadcaster, atxProvider challenge_verifier.Verifier) 
 	s.ServiceClient = &ServiceClient{
 		command: cmds,
 	}
-	s.ServiceClient.SetChallengeVerifier(atxProvider)
+	s.ServiceClient.SetChallengeVerifier(verifier)
 
 	s.runningGroup.Go(func() error {
 		s.loop(ctx, toResume, cmds)
