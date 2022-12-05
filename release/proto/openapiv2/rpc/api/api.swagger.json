@@ -39,6 +39,37 @@
         ]
       }
     },
+    "/v1/proof/{roundId}": {
+      "get": {
+        "summary": "GetProof returns the generated proof for given round id.",
+        "operationId": "Poet_GetProof",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/apiGetProofResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "roundId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "Poet"
+        ]
+      }
+    },
     "/v1/start": {
       "post": {
         "summary": "Start is used to start the service.",
@@ -155,6 +186,64 @@
         "servicePubKey": {
           "type": "string",
           "format": "byte"
+        }
+      }
+    },
+    "apiGetProofResponse": {
+      "type": "object",
+      "properties": {
+        "proof": {
+          "$ref": "#/definitions/apiPoetProof"
+        },
+        "pubkey": {
+          "type": "string",
+          "format": "byte"
+        },
+        "signature": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "apiMerkleProof": {
+      "type": "object",
+      "properties": {
+        "root": {
+          "type": "string",
+          "format": "byte"
+        },
+        "provenLeaves": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
+          }
+        },
+        "proofNodes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
+          }
+        }
+      }
+    },
+    "apiPoetProof": {
+      "type": "object",
+      "properties": {
+        "proof": {
+          "$ref": "#/definitions/apiMerkleProof"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
+          }
+        },
+        "leaves": {
+          "type": "string",
+          "format": "uint64"
         }
       }
     },
