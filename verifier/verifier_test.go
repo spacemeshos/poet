@@ -16,9 +16,23 @@ func testValidate(t *testing.T, minMemoryLayer uint) {
 	r := require.New(t)
 	challenge := []byte("challenge")
 	securityParam := uint8(1)
-	leaves, merkleProof, err := prover.GenerateProofWithoutPersistency(context.Background(), t.TempDir(), hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(10*time.Millisecond), securityParam, minMemoryLayer)
+	leaves, merkleProof, err := prover.GenerateProofWithoutPersistency(
+		context.Background(),
+		t.TempDir(),
+		hash.GenLabelHashFunc(challenge),
+		hash.GenMerkleHashFunc(challenge),
+		time.Now().Add(100*time.Millisecond),
+		securityParam,
+		minMemoryLayer,
+	)
 	r.NoError(err)
-	err = Validate(*merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leaves, securityParam)
+	err = Validate(
+		*merkleProof,
+		hash.GenLabelHashFunc(challenge),
+		hash.GenMerkleHashFunc(challenge),
+		leaves,
+		securityParam,
+	)
 	r.NoError(err, "leaves %d", leaves)
 }
 
@@ -40,7 +54,13 @@ func TestValidateWrongSecParam(t *testing.T) {
 	challenge := []byte("challenge")
 	numLeaves := uint64(16)
 	securityParam := uint8(4)
-	err := Validate(merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
+	err := Validate(
+		merkleProof,
+		hash.GenLabelHashFunc(challenge),
+		hash.GenMerkleHashFunc(challenge),
+		numLeaves,
+		securityParam,
+	)
 	require.EqualError(t, err, "number of proven leaves (2) must be equal to security param (4)")
 }
 
@@ -53,7 +73,13 @@ func TestValidateWrongMerkleValidationError(t *testing.T) {
 	challenge := []byte("challenge")
 	numLeaves := uint64(16)
 	securityParam := uint8(0)
-	err := Validate(merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
+	err := Validate(
+		merkleProof,
+		hash.GenLabelHashFunc(challenge),
+		hash.GenMerkleHashFunc(challenge),
+		numLeaves,
+		securityParam,
+	)
 	require.EqualError(t, err, "error while validating merkle proof: at least one leaf is required for validation")
 }
 
@@ -61,14 +87,28 @@ func TestValidateWrongRoot(t *testing.T) {
 	r := require.New(t)
 
 	challenge := []byte("challenge")
-	duration := 10 * time.Millisecond
+	duration := 100 * time.Millisecond
 	securityParam := uint8(4)
-	leafs, merkleProof, err := prover.GenerateProofWithoutPersistency(context.Background(), t.TempDir(), hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(duration), securityParam, prover.LowestMerkleMinMemoryLayer)
+	leafs, merkleProof, err := prover.GenerateProofWithoutPersistency(
+		context.Background(),
+		t.TempDir(),
+		hash.GenLabelHashFunc(challenge),
+		hash.GenMerkleHashFunc(challenge),
+		time.Now().Add(duration),
+		securityParam,
+		prover.LowestMerkleMinMemoryLayer,
+	)
 	r.NoError(err)
 
 	merkleProof.Root[0] = 0
 
-	err = Validate(*merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafs, securityParam)
+	err = Validate(
+		*merkleProof,
+		hash.GenLabelHashFunc(challenge),
+		hash.GenMerkleHashFunc(challenge),
+		leafs,
+		securityParam,
+	)
 	r.EqualError(err, "merkle proof not valid")
 }
 
@@ -80,9 +120,17 @@ func TestValidateFailLabelValidation(t *testing.T) {
 	r := require.New(t)
 
 	challenge := []byte("challenge")
-	duration := 10 * time.Millisecond
+	duration := 100 * time.Millisecond
 	securityParam := uint8(4)
-	leafs, merkleProof, err := prover.GenerateProofWithoutPersistency(context.Background(), t.TempDir(), hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(duration), securityParam, prover.LowestMerkleMinMemoryLayer)
+	leafs, merkleProof, err := prover.GenerateProofWithoutPersistency(
+		context.Background(),
+		t.TempDir(),
+		hash.GenLabelHashFunc(challenge),
+		hash.GenMerkleHashFunc(challenge),
+		time.Now().Add(duration),
+		securityParam,
+		prover.LowestMerkleMinMemoryLayer,
+	)
 	r.NoError(err)
 	err = Validate(*merkleProof, BadLabelHashFunc, hash.GenMerkleHashFunc(challenge), leafs, securityParam)
 	r.Error(err)

@@ -164,6 +164,7 @@ linters-settings:
       - "github.com/pkg/errors"
       - "golang.org/x/xerrors"
       - "golang.org/x/net/context"
+      - "golang.org/x/crypto/ed25519"
 
   misspell:
     # Correct spellings using locale preferences for US or UK.
