@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 import "google/api/annotations.proto";
+import "google/protobuf/duration.proto";
 
 package api;
 
@@ -85,6 +86,7 @@ message SubmitRequest {
 message SubmitResponse {
     string roundId = 1;
     bytes hash = 2;
+    google.protobuf.Duration round_end = 3;
 }
 
 message GetInfoRequest {
