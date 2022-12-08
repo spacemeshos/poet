@@ -294,6 +294,9 @@
         "hash": {
           "type": "string",
           "format": "byte"
+        },
+        "roundEnd": {
+          "type": "string"
         }
       }
     },
