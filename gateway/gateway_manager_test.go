@@ -20,7 +20,7 @@ func TestConnecting(t *testing.T) {
 
 	t.Run("min successful connections met", func(t *testing.T) {
 		t.Parallel()
-		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 		mgr, err := NewManager(ctx, []string{gtw.Target(), "wrong-address"}, 1)
 		req.NoError(err)
@@ -29,7 +29,7 @@ func TestConnecting(t *testing.T) {
 	})
 	t.Run("min successful not connections met", func(t *testing.T) {
 		t.Parallel()
-		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 		mgr, err := NewManager(ctx, []string{gtw.Target(), "wrong-address"}, 2)
 		req.Error(err)
