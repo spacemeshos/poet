@@ -84,7 +84,7 @@ func TestService_Recovery(t *testing.T) {
 
 	// Wait for round 0 to start executing.
 	req.Eventually(func() bool {
-		info, err := s.Info()
+		info, err := s.Info(context.Background())
 		req.NoError(err)
 		return info.OpenRoundID == "1"
 	}, cfg.EpochDuration*2, time.Millisecond*20)
@@ -102,7 +102,7 @@ func TestService_Recovery(t *testing.T) {
 	req.NoError(err)
 
 	// Service instance should recover 2 rounds: round 0 in executing state, and round 1 in open state.
-	info, err := s.Info()
+	info, err := s.Info(context.Background())
 	req.NoError(err)
 	req.Equal("1", info.OpenRoundID)
 	req.Len(info.ExecutingRoundsIds, 1)
@@ -111,7 +111,7 @@ func TestService_Recovery(t *testing.T) {
 
 	// Wait for round 2 to open
 	req.Eventually(func() bool {
-		info, err := s.Info()
+		info, err := s.Info(context.Background())
 		req.NoError(err)
 		return info.OpenRoundID == "2"
 	}, cfg.EpochDuration*2, time.Millisecond*20)
@@ -197,7 +197,7 @@ func TestNewService(t *testing.T) {
 		req.NoError(err)
 	}
 
-	info, err := s.Info()
+	info, err := s.Info(context.Background())
 	require.NoError(t, err)
 	currentRound := info.OpenRoundID
 
@@ -211,13 +211,13 @@ func TestNewService(t *testing.T) {
 	}
 
 	// Verify that round is still open.
-	info, err = s.Info()
+	info, err = s.Info(context.Background())
 	req.NoError(err)
 	req.Equal(currentRound, info.OpenRoundID)
 
 	// Wait for round to start execution.
 	req.Eventually(func() bool {
-		info, err := s.Info()
+		info, err := s.Info(context.Background())
 		req.NoError(err)
 		for _, r := range info.ExecutingRoundsIds {
 			if r == currentRound {
@@ -229,7 +229,7 @@ func TestNewService(t *testing.T) {
 
 	// Wait for end of execution.
 	req.Eventually(func() bool {
-		info, err := s.Info()
+		info, err := s.Info(context.Background())
 		req.NoError(err)
 		prevRoundID, err := strconv.Atoi(currentRound)
 		req.NoError(err)

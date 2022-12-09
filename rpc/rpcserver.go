@@ -169,7 +169,7 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 }
 
 func (r *rpcServer) GetInfo(ctx context.Context, in *api.GetInfoRequest) (*api.GetInfoResponse, error) {
-	info, err := r.s.Info()
+	info, err := r.s.Info(ctx)
 	if err != nil {
 		return nil, err
 	}

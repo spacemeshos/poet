@@ -57,6 +57,7 @@ type serviceState struct {
 // ServiceClient is an interface for interacting with the Service actor.
 // It is created when the Service is started.
 type ServiceClient struct {
+	serviceStarted    *atomic.Bool
 	command           chan<- Command
 	challengeVerifier atomic.Value // holds challenge_verifier.Verifier
 }
@@ -67,7 +68,9 @@ type ServiceClient struct {
 // Service is single-use, meaning it can be started with `Start()` and then stopped with `Shutdown()`
 // but it cannot be restarted. A new instance of `Service` must be created.
 type Service struct {
-	*ServiceClient
+	commands <-chan Command
+	ServiceClient
+
 	runningGroup errgroup.Group
 	stop         context.CancelFunc
 
@@ -90,6 +93,9 @@ type Service struct {
 	sync.Mutex
 }
 
+// Command is a function that will be run in the main Service loop.
+// Commands are run serially hence they don't require additional synchronization.
+// The functions cannot block and should be kept short to not block the Service loop.
 type Command func(*Service)
 
 type InfoResponse struct {
@@ -167,8 +173,14 @@ func NewService(cfg *Config, datadir string) (*Service, error) {
 		state = initialState()
 	}
 
+	cmds := make(chan Command, 1)
+
 	privateKey := ed25519.NewKeyFromSeed(state.PrivKey[:32])
 	s := &Service{
+		commands: cmds,
+		ServiceClient: ServiceClient{
+			command: cmds,
+		},
 		cfg:             cfg,
 		minMemoryLayer:  uint(minMemoryLayer),
 		genesis:         genesis,
@@ -177,6 +189,7 @@ func NewService(cfg *Config, datadir string) (*Service, error) {
 		privKey:         privateKey,
 		PubKey:          privateKey.Public().(ed25519.PublicKey),
 	}
+	s.ServiceClient.serviceStarted = &s.started
 
 	log.Info("Service public key: %x", s.PubKey)
 
@@ -188,7 +201,7 @@ type roundResult struct {
 	err   error
 }
 
-func (s *Service) loop(ctx context.Context, roundsToResume []*round, cmds <-chan Command) {
+func (s *Service) loop(ctx context.Context, roundsToResume []*round) {
 	var eg errgroup.Group
 	defer eg.Wait()
 
@@ -213,7 +226,7 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round, cmds <-chan
 
 	for {
 		select {
-		case cmd := <-cmds:
+		case cmd := <-s.commands:
 			cmd(s)
 
 		case result := <-roundResults:
@@ -296,14 +309,10 @@ func (s *Service) Start(b Broadcaster, verifier challenge_verifier.Verifier) err
 		s.openRound = s.newRound(ctx, uint32(epoch))
 	}
 
-	cmds := make(chan Command, 1)
-	s.ServiceClient = &ServiceClient{
-		command: cmds,
-	}
 	s.ServiceClient.SetChallengeVerifier(verifier)
 
 	s.runningGroup.Go(func() error {
-		s.loop(ctx, toResume, cmds)
+		s.loop(ctx, toResume)
 		return nil
 	})
 	s.started.Store(true)
@@ -378,6 +387,7 @@ func (s *Service) recover(ctx context.Context) (open *round, executing []*round,
 }
 
 func (s *ServiceClient) SetBroadcaster(b Broadcaster) {
+	// No need to wait for the Command to execute.
 	s.command <- func(s *Service) {
 		old := s.broadcaster
 		s.broadcaster = b
@@ -406,7 +416,7 @@ func executeRound(ctx context.Context, r *round, end time.Time, minMemoryLayer u
 }
 
 func (s *ServiceClient) Submit(ctx context.Context, challenge, signature []byte) (string, []byte, error) {
-	if s == nil {
+	if !s.serviceStarted.Load() {
 		return "", nil, ErrNotStarted
 	}
 	logger := logging.FromContext(ctx)
@@ -433,25 +443,30 @@ func (s *ServiceClient) Submit(ctx context.Context, challenge, signature []byte)
 		}
 		close(done)
 	}
-	resp := <-done
 
-	switch {
-	case errors.Is(resp.err, ErrChallengeAlreadySubmitted):
+	select {
+	case resp := <-done:
+		switch {
+		case errors.Is(resp.err, ErrChallengeAlreadySubmitted):
+			return resp.round, result.Hash, nil
+		case err != nil:
+			return "", nil, resp.err
+		}
+		logger.With().Debug("submitted challenge for round", log.String("round", resp.round))
 		return resp.round, result.Hash, nil
-	case err != nil:
-		return "", nil, resp.err
+	case <-ctx.Done():
+		return "nil", nil, ctx.Err()
 	}
-	logger.With().Debug("submitted challenge for round", log.String("round", resp.round))
-	return resp.round, result.Hash, nil
 }
 
-func (s *ServiceClient) Info() (*InfoResponse, error) {
-	if s == nil {
+func (s *ServiceClient) Info(ctx context.Context) (*InfoResponse, error) {
+	if !s.serviceStarted.Load() {
 		return nil, ErrNotStarted
 	}
 
 	resp := make(chan *InfoResponse, 1)
 	s.command <- func(s *Service) {
+		defer close(resp)
 		ids := make([]string, 0, len(s.executingRounds))
 		for id := range s.executingRounds {
 			ids = append(ids, id)
@@ -460,12 +475,16 @@ func (s *ServiceClient) Info() (*InfoResponse, error) {
 			OpenRoundID:        s.openRound.ID,
 			ExecutingRoundsIds: ids,
 		}
-		close(resp)
 	}
-	return <-resp, nil
+	select {
+	case resp := <-resp:
+		return resp, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }
 
-// newRound creates a new round with the given epoch. This method MUST be guarded by a write lock on openRoundMutex.
+// newRound creates a new round with the given epoch.
 func (s *Service) newRound(ctx context.Context, epoch uint32) *round {
 	if err := saveState(s.datadir, s.privKey); err != nil {
 		panic(err)
