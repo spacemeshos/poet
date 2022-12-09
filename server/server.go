@@ -23,9 +23,7 @@ import (
 	"github.com/spacemeshos/poet/gateway/broadcaster"
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
-	"github.com/spacemeshos/poet/release/proto/go/rpccore/apicore"
 	"github.com/spacemeshos/poet/rpc"
-	"github.com/spacemeshos/poet/rpccore"
 	"github.com/spacemeshos/poet/service"
 )
 
@@ -61,58 +59,48 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 		}
 	}
 
-	if cfg.CoreServiceMode {
-		rpcServer := rpccore.NewRPCServer(stop, cfg.DataDir)
-		grpcServer = grpc.NewServer(options...)
-
-		apicore.RegisterPoetCoreProverServer(grpcServer, rpcServer)
-		apicore.RegisterPoetVerifierServer(grpcServer, rpcServer)
-		proxyRegstr = append(proxyRegstr, apicore.RegisterPoetCoreProverHandlerFromEndpoint)
-		proxyRegstr = append(proxyRegstr, apicore.RegisterPoetVerifierHandlerFromEndpoint)
-	} else {
-		svc, err := service.NewService(cfg.Service, cfg.DataDir)
-		defer svc.Shutdown()
+	svc, err := service.NewService(cfg.Service, cfg.DataDir)
+	defer svc.Shutdown()
+	if err != nil {
+		return err
+	}
+	gtwConnCtx, cancel := context.WithTimeout(ctx, cfg.GtwConnTimeout)
+	defer cancel()
+	gtwManager, err := gateway.NewManager(gtwConnCtx, cfg.Service.GatewayAddresses, cfg.Service.ConnAcksThreshold)
+	if err == nil {
+		broadcaster, err := broadcaster.New(
+			gtwManager.Connections(),
+			cfg.Service.DisableBroadcast,
+			broadcaster.DefaultBroadcastTimeout,
+			cfg.Service.BroadcastAcksThreshold,
+		)
 		if err != nil {
+			if err := gtwManager.Close(); err != nil {
+				logger.With().Warning("failed to close GRPC connections", log.Err(err))
+			}
 			return err
 		}
-		gtwConnCtx, cancel := context.WithTimeout(ctx, cfg.GtwConnTimeout)
-		defer cancel()
-		gtwManager, err := gateway.NewManager(gtwConnCtx, cfg.Service.GatewayAddresses, cfg.Service.ConnAcksThreshold)
-		if err == nil {
-			broadcaster, err := broadcaster.New(
-				gtwManager.Connections(),
-				cfg.Service.DisableBroadcast,
-				broadcaster.DefaultBroadcastTimeout,
-				cfg.Service.BroadcastAcksThreshold,
-			)
-			if err != nil {
-				if err := gtwManager.Close(); err != nil {
-					logger.With().Warning("failed to close GRPC connections", log.Err(err))
-				}
-				return err
+		verifier, err := service.CreateChallengeVerifier(gtwManager.Connections())
+		if err != nil {
+			if err := gtwManager.Close(); err != nil {
+				logger.With().Warning("failed to close GRPC connections", log.Err(err))
 			}
-			verifier, err := service.CreateChallengeVerifier(gtwManager.Connections())
-			if err != nil {
-				if err := gtwManager.Close(); err != nil {
-					logger.With().Warning("failed to close GRPC connections", log.Err(err))
-				}
-				return fmt.Errorf("failed to create challenge verifier: %w", err)
-			}
-
-			if err := svc.Start(broadcaster, verifier); err != nil {
-				return err
-			}
-		} else {
-			logger.With().Info("Service not starting, waiting for start request", log.Err(err))
-			gtwManager = &gateway.Manager{}
+			return fmt.Errorf("failed to create challenge verifier: %w", err)
 		}
 
-		rpcServer := rpc.NewServer(svc, gtwManager, *cfg)
-		grpcServer = grpc.NewServer(options...)
-
-		api.RegisterPoetServer(grpcServer, rpcServer)
-		proxyRegstr = append(proxyRegstr, api.RegisterPoetHandlerFromEndpoint)
+		if err := svc.Start(broadcaster, verifier); err != nil {
+			return err
+		}
+	} else {
+		logger.With().Info("Service not starting, waiting for start request", log.Err(err))
+		gtwManager = &gateway.Manager{}
 	}
+
+	rpcServer := rpc.NewServer(svc, gtwManager, *cfg)
+	grpcServer = grpc.NewServer(options...)
+
+	api.RegisterPoetServer(grpcServer, rpcServer)
+	proxyRegstr = append(proxyRegstr, api.RegisterPoetHandlerFromEndpoint)
 
 	// Start the gRPC server listening for HTTP/2 connections.
 	lis, err := net.Listen(cfg.RPCListener.Network(), cfg.RPCListener.String())
