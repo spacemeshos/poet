@@ -37,15 +37,19 @@ func testValidate(t *testing.T, minMemoryLayer uint) {
 }
 
 func TestValidate(t *testing.T) {
+	t.Parallel()
 	t.Run("Leaves", func(t *testing.T) {
+		t.Parallel()
 		testValidate(t, 0)
 	})
 	t.Run("NoLeaves", func(t *testing.T) {
+		t.Parallel()
 		testValidate(t, prover.LowestMerkleMinMemoryLayer)
 	})
 }
 
 func TestValidateWrongSecParam(t *testing.T) {
+	t.Parallel()
 	merkleProof := shared.MerkleProof{
 		Root:         nil,
 		ProvenLeaves: [][]byte{nil, nil},
@@ -65,6 +69,7 @@ func TestValidateWrongSecParam(t *testing.T) {
 }
 
 func TestValidateWrongMerkleValidationError(t *testing.T) {
+	t.Parallel()
 	merkleProof := shared.MerkleProof{
 		Root:         nil,
 		ProvenLeaves: [][]byte{},
@@ -84,6 +89,7 @@ func TestValidateWrongMerkleValidationError(t *testing.T) {
 }
 
 func TestValidateWrongRoot(t *testing.T) {
+	t.Parallel()
 	r := require.New(t)
 
 	challenge := []byte("challenge")
@@ -117,6 +123,7 @@ func BadLabelHashFunc(data []byte) []byte {
 }
 
 func TestValidateFailLabelValidation(t *testing.T) {
+	t.Parallel()
 	r := require.New(t)
 
 	challenge := []byte("challenge")
