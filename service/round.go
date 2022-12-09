@@ -15,6 +15,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/opt"
 
 	"github.com/spacemeshos/poet/hash"
+	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
 )
@@ -165,6 +166,9 @@ func (r *round) isEmpty() bool {
 }
 
 func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer uint) error {
+	logger := logging.FromContext(ctx).WithFields(log.String("round", r.ID))
+	logger.Info("executing until %v...", end)
+
 	r.executionStarted = time.Now()
 	if err := r.saveState(); err != nil {
 		return err
@@ -201,6 +205,7 @@ func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer uint)
 
 	close(r.executionEndedChan)
 
+	logger.Info("execution ended, phi=%x, duration %v", r.execution.NIP.Root, time.Since(r.executionStarted))
 	return nil
 }
 

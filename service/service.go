@@ -233,6 +233,8 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) {
 			if result.err == nil {
 				broadcaster := s.broadcaster
 				go broadcastProof(s, result.round, result.round.execution, broadcaster)
+			} else {
+				logger.With().Warning("round execution failed", log.Err(result.err), log.String("round", result.round.ID))
 			}
 			delete(s.executingRounds, result.round.ID)
 
@@ -244,7 +246,8 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) {
 			end := s.roundEndTime(round)
 			minMemoryLayer := s.minMemoryLayer
 			eg.Go(func() error {
-				roundResults <- executeRound(ctx, round, end, minMemoryLayer)
+				err := round.execute(ctx, end, minMemoryLayer)
+				roundResults <- roundResult{round, err}
 				return nil
 			})
 
@@ -401,20 +404,6 @@ func (s *ServiceClient) SetChallengeVerifier(provider challenge_verifier.Verifie
 	s.challengeVerifier.Store(provider)
 }
 
-func executeRound(ctx context.Context, r *round, end time.Time, minMemoryLayer uint) roundResult {
-	logger := logging.FromContext(ctx).WithFields(log.String("round", r.ID))
-	logger.Info("executing until %v...", end)
-	start := time.Now()
-	err := r.execute(ctx, end, uint(minMemoryLayer))
-	if err == nil {
-		logger.Info("execution ended, phi=%x, duration %v", r.execution.NIP.Root, time.Since(start))
-	} else {
-		logger.With().Warning("execution failed", log.Err(err))
-	}
-
-	return roundResult{round: r, err: err}
-}
-
 func (s *ServiceClient) Submit(ctx context.Context, challenge, signature []byte) (string, []byte, error) {
 	if !s.serviceStarted.Load() {
 		return "", nil, ErrNotStarted
@@ -455,7 +444,7 @@ func (s *ServiceClient) Submit(ctx context.Context, challenge, signature []byte)
 		logger.With().Debug("submitted challenge for round", log.String("round", resp.round))
 		return resp.round, result.Hash, nil
 	case <-ctx.Done():
-		return "nil", nil, ctx.Err()
+		return "", nil, ctx.Err()
 	}
 }
 

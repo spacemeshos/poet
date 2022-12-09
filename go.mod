@@ -17,6 +17,7 @@ require (
 	github.com/stretchr/testify v1.8.1
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	go.uber.org/zap v1.24.0
+	golang.org/x/exp v0.0.0-20221208152030-732eee02a75a
 	golang.org/x/sync v0.1.0
 	google.golang.org/genproto v0.0.0-20221114212237-e4508ebdbee1
 	google.golang.org/grpc v1.51.0
