@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 )
 
+const serviceStateFileBaseName = "state.bin"
+
 func initialState() *serviceState {
 	_, priv, err := ed25519.GenerateKey(nil)
 	if err != nil {
@@ -21,7 +23,7 @@ func saveState(datadir string, privateKey ed25519.PrivateKey) error {
 }
 
 func state(datadir string) (*serviceState, error) {
-	filename := filepath.Join(datadir, roundStateFileBaseName)
+	filename := filepath.Join(datadir, serviceStateFileBaseName)
 	v := &serviceState{}
 
 	if err := load(filename, v); err != nil {

@@ -11,7 +11,7 @@ import (
 	"github.com/spacemeshos/merkle-tree"
 )
 
-//go:generate scalegen -types MerkleProof
+//go:generate scalegen -types MerkleProof,ProofMessage,Proof
 
 const (
 	// T is the security param which determines the number of leaves
@@ -66,6 +66,25 @@ func MakeLabelFunc() func(hash func(data []byte) []byte, labelID uint64, leftSib
 		sum := hash(buffer[:offset])
 		return sum
 	}
+}
+
+type Proof struct {
+	// The actual proof.
+	MerkleProof
+
+	// Members is the ordered list of miners challenges which are included
+	// in the proof (by using the list hash digest as the proof generation input (the statement)).
+	Members [][]byte
+
+	// NumLeaves is the width of the proof-generation tree.
+	NumLeaves uint64
+}
+
+type ProofMessage struct {
+	Proof
+	ServicePubKey []byte
+	RoundID       string
+	Signature     []byte
 }
 
 type MerkleProof struct {

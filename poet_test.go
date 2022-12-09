@@ -130,7 +130,6 @@ func TestHarness_CrashRecovery(t *testing.T) {
 	req.NoError(err)
 	cfg.Genesis = time.Now().Add(5 * time.Second)
 	cfg.Reset = true
-	cfg.DisableBroadcast = true
 	cfg.GatewayAddresses = []string{target}
 	cfg.GtwConnTimeout = time.Second
 

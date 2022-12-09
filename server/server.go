@@ -2,10 +2,12 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,17 +22,68 @@ import (
 
 	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/gateway"
-	"github.com/spacemeshos/poet/gateway/broadcaster"
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
-	"github.com/spacemeshos/poet/release/proto/go/rpccore/apicore"
 	"github.com/spacemeshos/poet/rpc"
-	"github.com/spacemeshos/poet/rpccore"
 	"github.com/spacemeshos/poet/service"
 )
 
+type Server struct {
+	svc          *service.Service
+	cfg          config.Config
+	rpcListener  net.Listener
+	restListener net.Listener
+}
+
+func New(cfg config.Config) (*Server, error) {
+	rpcListener, err := net.Listen(cfg.RPCListener.Network(), cfg.RPCListener.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to listen: %v", err)
+	}
+
+	restListener, err := net.Listen(cfg.RESTListener.Network(), cfg.RESTListener.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to listen: %v", err)
+	}
+
+	if _, err := os.Stat(cfg.DataDir); os.IsNotExist(err) {
+		if err := os.Mkdir(cfg.DataDir, 0o700); err != nil {
+			return nil, err
+		}
+	}
+
+	svc, err := service.NewService(cfg.Service, cfg.DataDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Service: %v", err)
+	}
+
+	return &Server{
+		svc:          svc,
+		cfg:          cfg,
+		rpcListener:  rpcListener,
+		restListener: restListener,
+	}, nil
+}
+
+func (s *Server) Close() {
+	s.rpcListener.Close()
+	s.restListener.Close()
+}
+
+func (s *Server) Ready() bool {
+	return s.svc.Started()
+}
+
+func (s *Server) RpcAddr() net.Addr {
+	return s.rpcListener.Addr()
+}
+
+func (s *Server) RestPort() net.Addr {
+	return s.restListener.Addr()
+}
+
 // startServer starts the RPC server.
-func StartServer(ctx context.Context, cfg *config.Config) error {
+func (s *Server) Start(ctx context.Context) error {
 	ctx, stop := context.WithCancel(ctx)
 	defer stop()
 	serverGroup, ctx := errgroup.WithContext(ctx)
@@ -55,96 +108,72 @@ func StartServer(ctx context.Context, cfg *config.Config) error {
 		}),
 	}
 
-	if _, err := os.Stat(cfg.DataDir); os.IsNotExist(err) {
-		if err := os.Mkdir(cfg.DataDir, 0o700); err != nil {
-			return err
-		}
+	proofsDbPath := filepath.Join(s.cfg.DataDir, "proofs")
+	proofsDb, err := service.NewProofsDatabase(proofsDbPath, s.svc.ProofsChan())
+	if err != nil {
+		return fmt.Errorf("failed to create proofs DB: %w", err)
 	}
+	serverGroup.Go(func() error {
+		proofsDb.Run(ctx)
+		return nil
+	})
 
-	if cfg.CoreServiceMode {
-		rpcServer := rpccore.NewRPCServer(stop, cfg.DataDir)
-		grpcServer = grpc.NewServer(options...)
-
-		apicore.RegisterPoetCoreProverServer(grpcServer, rpcServer)
-		apicore.RegisterPoetVerifierServer(grpcServer, rpcServer)
-		proxyRegstr = append(proxyRegstr, apicore.RegisterPoetCoreProverHandlerFromEndpoint)
-		proxyRegstr = append(proxyRegstr, apicore.RegisterPoetVerifierHandlerFromEndpoint)
-	} else {
-		svc, err := service.NewService(cfg.Service, cfg.DataDir)
-		defer svc.Shutdown()
+	gtwConnCtx, cancel := context.WithTimeout(ctx, s.cfg.GtwConnTimeout)
+	defer cancel()
+	gtwManager, err := gateway.NewManager(gtwConnCtx, s.cfg.Service.GatewayAddresses, s.cfg.Service.ConnAcksThreshold)
+	if err == nil {
+		verifier, err := service.CreateChallengeVerifier(gtwManager.Connections())
 		if err != nil {
+			if err := gtwManager.Close(); err != nil {
+				logger.With().Warning("failed to close GRPC connections", log.Err(err))
+			}
+			return fmt.Errorf("failed to create challenge verifier: %w", err)
+		}
+
+		if err := s.svc.Start(verifier); err != nil {
 			return err
 		}
-		gtwConnCtx, cancel := context.WithTimeout(ctx, cfg.GtwConnTimeout)
-		defer cancel()
-		gtwManager, err := gateway.NewManager(gtwConnCtx, cfg.Service.GatewayAddresses, cfg.Service.ConnAcksThreshold)
-		if err == nil {
-			broadcaster, err := broadcaster.New(
-				gtwManager.Connections(),
-				cfg.Service.DisableBroadcast,
-				broadcaster.DefaultBroadcastTimeout,
-				cfg.Service.BroadcastAcksThreshold,
-			)
-			if err != nil {
-				if err := gtwManager.Close(); err != nil {
-					logger.With().Warning("failed to close GRPC connections", log.Err(err))
-				}
-				return err
-			}
-			verifier, err := service.CreateChallengeVerifier(gtwManager.Connections())
-			if err != nil {
-				if err := gtwManager.Close(); err != nil {
-					logger.With().Warning("failed to close GRPC connections", log.Err(err))
-				}
-				return fmt.Errorf("failed to create challenge verifier: %w", err)
-			}
-
-			if err := svc.Start(broadcaster, verifier); err != nil {
-				return err
-			}
-		} else {
-			logger.With().Info("Service not starting, waiting for start request", log.Err(err))
-			gtwManager = &gateway.Manager{}
-		}
-
-		rpcServer := rpc.NewServer(svc, gtwManager, *cfg)
-		grpcServer = grpc.NewServer(options...)
-
-		api.RegisterPoetServer(grpcServer, rpcServer)
-		proxyRegstr = append(proxyRegstr, api.RegisterPoetHandlerFromEndpoint)
+	} else {
+		logger.With().Info("Service not starting, waiting for start request", log.Err(err))
+		gtwManager = &gateway.Manager{}
 	}
+
+	rpcServer := rpc.NewServer(s.svc, proofsDb, gtwManager, s.cfg)
+	grpcServer = grpc.NewServer(options...)
+
+	api.RegisterPoetServer(grpcServer, rpcServer)
+	proxyRegstr = append(proxyRegstr, api.RegisterPoetHandlerFromEndpoint)
 
 	// Start the gRPC server listening for HTTP/2 connections.
-	lis, err := net.Listen(cfg.RPCListener.Network(), cfg.RPCListener.String())
-	if err != nil {
-		return fmt.Errorf("failed to listen: %v", err)
-	}
-	defer lis.Close()
-
 	serverGroup.Go(func() error {
-		logger.Info("RPC server listening on %s", lis.Addr())
-		return grpcServer.Serve(lis)
+		logger.Info("RPC server listening on %s", s.rpcListener.Addr())
+		return grpcServer.Serve(s.rpcListener)
 	})
 
 	// Start the REST proxy for the gRPC server above.
 	mux := proxy.NewServeMux()
 	for _, r := range proxyRegstr {
-		err := r(ctx, mux, cfg.RPCListener.String(), []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())})
+		err := r(ctx, mux, s.rpcListener.Addr().String(), []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())})
 		if err != nil {
 			return err
 		}
 	}
 
-	server := &http.Server{Addr: cfg.RESTListener.String(), Handler: mux}
+	server := &http.Server{Handler: mux}
 	serverGroup.Go(func() error {
-		logger.Info("REST proxy start listening on %s", cfg.RESTListener.String())
-		return server.ListenAndServe()
+		logger.Info("REST proxy starts listening on %s", s.restListener.Addr())
+		err := server.Serve(s.restListener)
+		if errors.Is(err, http.ErrServerClosed) {
+			return nil
+		}
+		return err
 	})
 
 	// Wait for the server to shut down gracefully
 	<-ctx.Done()
 	grpcServer.GracefulStop()
 	server.Shutdown(ctx)
+	s.svc.Shutdown()
 	return serverGroup.Wait()
 }
 

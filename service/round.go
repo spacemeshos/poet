@@ -296,7 +296,9 @@ func (r *round) proof(wait bool) (*PoetProof, error) {
 	}, nil
 }
 
-func (r *round) broadcasted() {
+// Close closes the round.
+// FIXME(brozansk) Close it synchronously (https://github.com/spacemeshos/poet/issues/181)
+func (r *round) Close() {
 	close(r.broadcastedChan)
 }
 

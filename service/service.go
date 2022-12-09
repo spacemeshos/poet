@@ -1,7 +1,6 @@
 package service
 
 import (
-	"bytes"
 	"context"
 	"crypto/ed25519"
 	"encoding/hex"
@@ -14,7 +13,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/spacemeshos/go-scale"
 	mshared "github.com/spacemeshos/merkle-tree/shared"
 	"github.com/spacemeshos/smutil/log"
 	"golang.org/x/sync/errgroup"
@@ -27,26 +25,20 @@ import (
 )
 
 type Config struct {
-	Genesis                  string        `long:"genesis-time" description:"Genesis timestamp"`
-	EpochDuration            time.Duration `long:"epoch-duration" description:"Epoch duration"`
-	PhaseShift               time.Duration `long:"phase-shift"`
-	CycleGap                 time.Duration `long:"cycle-gap"`
-	MemoryLayers             uint          `long:"memory" description:"Number of top Merkle tree layers to cache in-memory"`
-	NoRecovery               bool          `long:"norecovery" description:"whether to disable a potential recovery procedure"`
-	Reset                    bool          `long:"reset" description:"whether to reset the service state by deleting the datadir"`
-	GatewayAddresses         []string      `long:"gateway" description:"list of Spacemesh gateway nodes RPC listeners (host:port) for broadcasting of proofs"`
-	DisableBroadcast         bool          `long:"disablebroadcast" description:"whether to disable broadcasting of proofs"`
-	ConnAcksThreshold        uint          `long:"conn-acks" description:"number of required successful connections to Spacemesh gateway nodes"`
-	BroadcastAcksThreshold   uint          `long:"broadcast-acks" description:"number of required successful broadcasts via Spacemesh gateway nodes"`
-	BroadcastNumRetries      uint          `long:"broadcast-num-retries" description:"number of broadcast retries"`
-	BroadcastRetriesInterval time.Duration `long:"broadcast-retries-interval" description:"duration interval between broadcast retries"`
+	Genesis           string        `long:"genesis-time" description:"Genesis timestamp"`
+	EpochDuration     time.Duration `long:"epoch-duration" description:"Epoch duration"`
+	PhaseShift        time.Duration `long:"phase-shift"`
+	CycleGap          time.Duration `long:"cycle-gap"`
+	MemoryLayers      uint          `long:"memory" description:"Number of top Merkle tree layers to cache in-memory"`
+	NoRecovery        bool          `long:"norecovery" description:"whether to disable a potential recovery procedure"`
+	Reset             bool          `long:"reset" description:"whether to reset the service state by deleting the datadir"`
+	GatewayAddresses  []string      `long:"gateway" description:"list of Spacemesh gateway nodes RPC listeners (host:port) for broadcasting of proofs"`
+	ConnAcksThreshold uint          `long:"conn-acks" description:"number of required successful connections to Spacemesh gateway nodes"`
 }
 
 // estimatedLeavesPerSecond is used to computed estimated height of the proving tree
 // in the epoch, which is used for cache estimation.
 const estimatedLeavesPerSecond = 1 << 17
-
-const serviceStateFileBaseName = "state.bin"
 
 const ChallengeVerifierCacheSize = 1024
 
@@ -68,6 +60,7 @@ type ServiceClient struct {
 // Service is single-use, meaning it can be started with `Start()` and then stopped with `Shutdown()`
 // but it cannot be restarted. A new instance of `Service` must be created.
 type Service struct {
+	proofs   chan shared.ProofMessage
 	commands <-chan Command
 	ServiceClient
 
@@ -87,8 +80,6 @@ type Service struct {
 
 	PubKey  ed25519.PublicKey
 	privKey ed25519.PrivateKey
-
-	broadcaster Broadcaster
 
 	sync.Mutex
 }
@@ -113,32 +104,8 @@ var (
 	ErrNotStarted                = errors.New("service not started")
 	ErrAlreadyStarted            = errors.New("already started")
 	ErrChallengeAlreadySubmitted = errors.New("challenge is already submitted")
+	ErrRoundNotFinished          = errors.New("round is not finished yet")
 )
-
-type Broadcaster interface {
-	BroadcastProof(msg []byte, roundID string, members [][]byte) error
-}
-
-type GossipPoetProof struct {
-	// The actual proof.
-	shared.MerkleProof
-
-	// Members is the ordered list of miners challenges which are included
-	// in the proof (by using the list hash digest as the proof generation input (the statement)).
-	Members [][]byte
-
-	// NumLeaves is the width of the proof-generation tree.
-	NumLeaves uint64
-}
-
-//go:generate scalegen -types PoetProofMessage,GossipPoetProof
-
-type PoetProofMessage struct {
-	GossipPoetProof
-	ServicePubKey []byte
-	RoundID       string
-	Signature     []byte
-}
 
 func NewService(cfg *Config, datadir string) (*Service, error) {
 	genesis, err := time.Parse(time.RFC3339, cfg.Genesis)
@@ -172,11 +139,19 @@ func NewService(cfg *Config, datadir string) (*Service, error) {
 		}
 		state = initialState()
 	}
-
 	cmds := make(chan Command, 1)
 
 	privateKey := ed25519.NewKeyFromSeed(state.PrivKey[:32])
+
+	roundsDir := filepath.Join(datadir, "rounds")
+	if _, err := os.Stat(roundsDir); os.IsNotExist(err) {
+		if err := os.Mkdir(roundsDir, 0o700); err != nil {
+			return nil, err
+		}
+	}
+
 	s := &Service{
+		proofs:   make(chan shared.ProofMessage, 1),
 		commands: cmds,
 		ServiceClient: ServiceClient{
 			command: cmds,
@@ -201,12 +176,15 @@ type roundResult struct {
 	err   error
 }
 
+func (s *Service) ProofsChan() <-chan shared.ProofMessage {
+	return s.proofs
+}
+
 func (s *Service) loop(ctx context.Context, roundsToResume []*round) {
+	logger := logging.FromContext(ctx).WithName("worker")
+	ctx = logging.NewContext(ctx, logger)
 	var eg errgroup.Group
 	defer eg.Wait()
-
-	logger := log.AppLog.WithName("worker")
-	ctx = logging.NewContext(ctx, logger)
 
 	roundResults := make(chan roundResult, 1)
 
@@ -231,12 +209,12 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) {
 
 		case result := <-roundResults:
 			if result.err == nil {
-				broadcaster := s.broadcaster
-				go broadcastProof(s, result.round, result.round.execution, broadcaster)
+				s.reportNewProof(result.round.ID, result.round.execution)
 			} else {
-				logger.With().Warning("round execution failed", log.Err(result.err), log.String("round", result.round.ID))
+				logger.With().Error("round execution failed", log.Err(result.err), log.String("round", result.round.ID))
 			}
 			delete(s.executingRounds, result.round.ID)
+			result.round.Close()
 
 		case <-timer:
 			round := s.openRound
@@ -278,7 +256,7 @@ func (s *Service) scheduleRound(ctx context.Context, round *round) <-chan time.T
 	return timer
 }
 
-func (s *Service) Start(b Broadcaster, verifier challenge_verifier.Verifier) error {
+func (s *Service) Start(verifier challenge_verifier.Verifier) error {
 	s.Lock()
 	defer s.Unlock()
 	if s.Started() {
@@ -289,8 +267,6 @@ func (s *Service) Start(b Broadcaster, verifier challenge_verifier.Verifier) err
 	// This context will be canceled when Service is stopped.
 	ctx, stop := context.WithCancel(context.Background())
 	s.stop = stop
-
-	s.broadcaster = b
 
 	var toResume []*round
 	if s.cfg.NoRecovery {
@@ -341,9 +317,10 @@ func (s *Service) Started() bool {
 }
 
 func (s *Service) recover(ctx context.Context) (open *round, executing []*round, err error) {
+	roundsDir := filepath.Join(s.datadir, "rounds")
 	logger := log.AppLog.WithName("recovery")
 	logger.With().Info("Recovering service state", log.String("datadir", s.datadir))
-	entries, err := os.ReadDir(s.datadir)
+	entries, err := os.ReadDir(roundsDir)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -358,15 +335,14 @@ func (s *Service) recover(ctx context.Context) (open *round, executing []*round,
 		if err != nil {
 			return nil, nil, fmt.Errorf("entry is not a uint32 %s", entry.Name())
 		}
-		r := newRound(ctx, s.datadir, uint32(epoch))
+		r := newRound(ctx, roundsDir, uint32(epoch))
 		state, err := r.state()
 		if err != nil {
 			return nil, nil, fmt.Errorf("invalid round state: %v", err)
 		}
 
 		if state.isExecuted() {
-			logger.Info("found round %v in executed state. broadcasting...", r.ID)
-			go broadcastProof(s, r, state.Execution, s.broadcaster)
+			s.reportNewProof(r.ID, state.Execution)
 			continue
 		}
 
@@ -387,17 +363,6 @@ func (s *Service) recover(ctx context.Context) (open *round, executing []*round,
 	}
 
 	return open, executing, nil
-}
-
-func (s *ServiceClient) SetBroadcaster(b Broadcaster) {
-	// No need to wait for the Command to execute.
-	s.command <- func(s *Service) {
-		old := s.broadcaster
-		s.broadcaster = b
-		if old != nil {
-			log.Info("Service broadcaster updated")
-		}
-	}
 }
 
 func (s *ServiceClient) SetChallengeVerifier(provider challenge_verifier.Verifier) {
@@ -492,7 +457,8 @@ func (s *Service) newRound(ctx context.Context, epoch uint32) *round {
 	if err := saveState(s.datadir, s.privKey); err != nil {
 		panic(err)
 	}
-	r := newRound(ctx, s.datadir, epoch)
+	roundsDir := filepath.Join(s.datadir, "rounds")
+	r := newRound(ctx, roundsDir, epoch)
 	if err := r.open(); err != nil {
 		panic(fmt.Errorf("failed to open round: %v", err))
 	}
@@ -501,42 +467,17 @@ func (s *Service) newRound(ctx context.Context, epoch uint32) *round {
 	return r
 }
 
-func broadcastProof(s *Service, r *round, execution *executionState, broadcaster Broadcaster) {
-	msg, err := serializeProofMsg(s.PubKey, r.ID, execution)
-	if err != nil {
-		log.Error(err.Error())
-		return
-	}
-
-	bindFunc := func() error { return broadcaster.BroadcastProof(msg, r.ID, r.execution.Members) }
-	logger := func(msg string) { log.Error("Round %v: %v", r.ID, msg) }
-
-	if err := shared.Retry(bindFunc, int(s.cfg.BroadcastNumRetries), s.cfg.BroadcastRetriesInterval, logger); err != nil {
-		log.Error("Round %v proof broadcast failure: %v", r.ID, err)
-		return
-	}
-
-	r.broadcasted()
-}
-
-func serializeProofMsg(servicePubKey []byte, roundID string, execution *executionState) ([]byte, error) {
-	proofMessage := PoetProofMessage{
-		GossipPoetProof: GossipPoetProof{
+func (s *Service) reportNewProof(round string, execution *executionState) {
+	s.proofs <- shared.ProofMessage{
+		Proof: shared.Proof{
 			MerkleProof: *execution.NIP,
 			Members:     execution.Members,
 			NumLeaves:   execution.NumLeaves,
 		},
-		ServicePubKey: servicePubKey,
-		RoundID:       roundID,
+		ServicePubKey: s.PubKey,
+		RoundID:       round,
 		Signature:     nil,
 	}
-
-	var dataBuf bytes.Buffer
-	if _, err := proofMessage.EncodeScale(scale.NewEncoder(&dataBuf)); err != nil {
-		return nil, fmt.Errorf("failed to marshal proof message for round %v: %v", roundID, err)
-	}
-
-	return dataBuf.Bytes(), nil
 }
 
 // CreateChallengeVerifier creates a verifier connected to provided gateways.

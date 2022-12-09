@@ -24,7 +24,6 @@ type ServerConfig struct {
 	CycleGap         time.Duration
 	DebugLog         bool
 	Reset            bool
-	DisableBroadcast bool
 	RESTListen       string
 	GatewayAddresses []string
 	GtwConnTimeout   time.Duration
@@ -78,9 +77,6 @@ func (cfg *ServerConfig) genArgs() []string {
 	}
 	if cfg.Reset {
 		args = append(args, "--reset")
-	}
-	if cfg.DisableBroadcast {
-		args = append(args, "--disablebroadcast")
 	}
 
 	return args

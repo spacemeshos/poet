@@ -214,7 +214,7 @@ func TestRound_State(t *testing.T) {
 	req.Equal(r.execution, state.Execution)
 
 	// Trigger cleanup.
-	r.broadcasted()
+	r.Close()
 	req.NoError(r.waitTeardown(context.Background()))
 
 	// Verify cleanup.
