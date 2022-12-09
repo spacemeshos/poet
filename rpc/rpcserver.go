@@ -148,8 +148,9 @@ func (r *rpcServer) UpdateGateway(ctx context.Context, in *api.UpdateGatewayRequ
 	return &api.UpdateGatewayResponse{}, nil
 }
 
+// Submit implements api.Submit.
 func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.SubmitResponse, error) {
-	round, hash, err := r.s.Submit(ctx, in.Challenge, in.Signature)
+	result, err := r.s.Submit(ctx, in.Challenge, in.Signature)
 	switch {
 	case errors.Is(err, service.ErrNotStarted):
 		return nil, status.Error(codes.FailedPrecondition, "cannot submit a challenge because poet service is not started")
@@ -163,11 +164,13 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 	}
 
 	out := new(api.SubmitResponse)
-	out.RoundId = round
-	out.Hash = hash
+	out.RoundId = result.Round
+	out.Hash = result.Hash
+	out.RoundEnd = durationpb.New(result.RoundEnd)
 	return out, nil
 }
 
+// GetInfo implements api.GetInfo.
 func (r *rpcServer) GetInfo(ctx context.Context, in *api.GetInfoRequest) (*api.GetInfoResponse, error) {
 	info, err := r.s.Info(ctx)
 	if err != nil {

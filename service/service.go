@@ -404,9 +404,15 @@ func (s *ServiceClient) SetChallengeVerifier(provider challenge_verifier.Verifie
 	s.challengeVerifier.Store(provider)
 }
 
-func (s *ServiceClient) Submit(ctx context.Context, challenge, signature []byte) (string, []byte, error) {
+type SubmitResult struct {
+	Round    string
+	Hash     []byte
+	RoundEnd time.Duration
+}
+
+func (s *ServiceClient) Submit(ctx context.Context, challenge, signature []byte) (*SubmitResult, error) {
 	if !s.serviceStarted.Load() {
-		return "", nil, ErrNotStarted
+		return nil, ErrNotStarted
 	}
 	logger := logging.FromContext(ctx)
 
@@ -416,19 +422,23 @@ func (s *ServiceClient) Submit(ctx context.Context, challenge, signature []byte)
 	result, err := verifier.Verify(ctx, challenge, signature)
 	if err != nil {
 		logger.With().Debug("challenge verification failed", log.Err(err))
-		return "", nil, err
+		return nil, err
 	}
-	logger.With().Debug("verified challenge", log.String("hash", hex.EncodeToString(result.Hash)), log.String("node_id", hex.EncodeToString(result.NodeId)))
+	logger.With().Debug("verified challenge",
+		log.String("hash", hex.EncodeToString(result.Hash)),
+		log.String("node_id", hex.EncodeToString(result.NodeId)))
 
 	type response struct {
 		round string
 		err   error
+		end   time.Time
 	}
 	done := make(chan response, 1)
 	s.command <- func(s *Service) {
 		done <- response{
 			round: s.openRound.ID,
 			err:   s.openRound.submit(result.NodeId, result.Hash),
+			end:   s.roundEndTime(s.openRound),
 		}
 		close(done)
 	}
@@ -436,15 +446,19 @@ func (s *ServiceClient) Submit(ctx context.Context, challenge, signature []byte)
 	select {
 	case resp := <-done:
 		switch {
+		case resp.err == nil:
+			logger.With().Debug("submitted challenge for round", log.String("round", resp.round))
 		case errors.Is(resp.err, ErrChallengeAlreadySubmitted):
-			return resp.round, result.Hash, nil
-		case err != nil:
-			return "", nil, resp.err
+		case resp.err != nil:
+			return nil, err
 		}
-		logger.With().Debug("submitted challenge for round", log.String("round", resp.round))
-		return resp.round, result.Hash, nil
+		return &SubmitResult{
+			Round:    resp.round,
+			Hash:     result.Hash,
+			RoundEnd: time.Until(resp.end),
+		}, nil
 	case <-ctx.Done():
-		return "", nil, ctx.Err()
+		return nil, ctx.Err()
 	}
 }
 
