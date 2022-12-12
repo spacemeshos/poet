@@ -41,10 +41,6 @@ const estimatedLeavesPerSecond = 1 << 17
 
 const ChallengeVerifierCacheSize = 1024
 
-type serviceState struct {
-	PrivKey []byte
-}
-
 // ServiceClient is an interface for interacting with the Service actor.
 // It is created when the Service is started.
 type ServiceClient struct {
@@ -131,12 +127,15 @@ func NewService(cfg *Config, datadir string) (*Service, error) {
 		}
 	}
 
-	state, err := state(datadir)
+	state, err := loadServiceState(datadir)
 	if err != nil {
 		if !errors.Is(err, ErrFileIsMissing) {
 			return nil, err
 		}
-		state = initialState()
+		state = newServiceState()
+		if err := state.save(datadir); err != nil {
+			return nil, fmt.Errorf("failed to save state: %w", err)
+		}
 	}
 	cmds := make(chan Command, 1)
 
@@ -440,9 +439,6 @@ func (s *ServiceClient) Info(ctx context.Context) (*InfoResponse, error) {
 
 // newRound creates a new round with the given epoch.
 func (s *Service) newRound(ctx context.Context, epoch uint32) *round {
-	if err := saveState(s.datadir, s.privKey); err != nil {
-		panic(err)
-	}
 	roundsDir := filepath.Join(s.datadir, "rounds")
 	r := newRound(ctx, roundsDir, epoch)
 	if err := r.open(); err != nil {

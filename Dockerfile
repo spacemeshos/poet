@@ -7,7 +7,8 @@ COPY go.sum .
 RUN go mod download
 
 COPY . .
-RUN --mount=type=cache,id=build,target=/root/.cache/go-build make build
+ARG version
+RUN --mount=type=cache,id=build,target=/root/.cache/go-build make build VERSION=${version}
 
 FROM alpine
 COPY --from=build /build/poet /bin/poet
