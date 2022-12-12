@@ -74,10 +74,6 @@ func (s *Server) RpcAddr() net.Addr {
 	return s.rpcListener.Addr()
 }
 
-func (s *Server) RestPort() net.Addr {
-	return s.restListener.Addr()
-}
-
 // startServer starts the RPC server.
 func (s *Server) Start(ctx context.Context) error {
 	ctx, stop := context.WithCancel(ctx)

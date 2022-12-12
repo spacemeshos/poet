@@ -20,6 +20,8 @@ import (
 	"github.com/spacemeshos/poet/server"
 )
 
+const randomHost = "localhost:0"
+
 type gatewayService struct {
 	pb.UnimplementedGatewayServiceServer
 }
@@ -75,8 +77,8 @@ func TestPoetStart(t *testing.T) {
 
 	cfg := config.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
-	cfg.RawRPCListener = "localhost:0"
-	cfg.RawRESTListener = "localhost:0"
+	cfg.RawRPCListener = randomHost
+	cfg.RawRESTListener = randomHost
 	cfg.Service.GatewayAddresses = []string{gtw}
 
 	srv, client := spawnPoet(ctx, t, *cfg)
@@ -108,8 +110,8 @@ func TestSubmitAndGetProof(t *testing.T) {
 	cfg.Service.EpochDuration = time.Second
 	cfg.Service.PhaseShift = 0
 	cfg.Service.CycleGap = 0
-	cfg.RawRPCListener = "localhost:0"
-	cfg.RawRESTListener = "localhost:0"
+	cfg.RawRPCListener = randomHost
+	cfg.RawRESTListener = randomHost
 	cfg.Service.GatewayAddresses = []string{gtw}
 
 	srv, client := spawnPoet(ctx, t, *cfg)
