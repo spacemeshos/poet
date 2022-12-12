@@ -82,7 +82,7 @@ func (r *rpcServer) Start(ctx context.Context, in *api.StartRequest) (*api.Start
 
 	verifier, err := service.CreateChallengeVerifier(gtwManager.Connections())
 	if err != nil {
-		return nil, fmt.Errorf("failed to create ATX provider: %w", err)
+		return nil, fmt.Errorf("failed to create challenge verifier: %w", err)
 	}
 
 	// Swap the new and old gateway managers.
@@ -136,7 +136,7 @@ func (r *rpcServer) UpdateGateway(ctx context.Context, in *api.UpdateGatewayRequ
 
 	verifier, err := service.CreateChallengeVerifier(gtwManager.Connections())
 	if err != nil {
-		return nil, fmt.Errorf("failed to create ATX provider: %w", err)
+		return nil, fmt.Errorf("failed to create challenge verifier: %w", err)
 	}
 
 	// Swap the new and old gateway managers.
@@ -163,13 +163,13 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 	}
 
 	out := new(api.SubmitResponse)
-	out.RoundId = round.ID
+	out.RoundId = round
 	out.Hash = hash
 	return out, nil
 }
 
 func (r *rpcServer) GetInfo(ctx context.Context, in *api.GetInfoRequest) (*api.GetInfoResponse, error) {
-	info, err := r.s.Info()
+	info, err := r.s.Info(ctx)
 	if err != nil {
 		return nil, err
 	}

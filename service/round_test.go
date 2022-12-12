@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"path/filepath"
 	"testing"
@@ -11,6 +12,19 @@ import (
 
 	"github.com/spacemeshos/poet/prover"
 )
+
+func genChallenges(num int) ([][]byte, error) {
+	ch := make([][]byte, num)
+	for i := 0; i < num; i++ {
+		ch[i] = make([]byte, 32)
+		_, err := rand.Read(ch[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return ch, nil
+}
 
 // TestRound_Recovery test round recovery functionality.
 // The scenario proceeds as follows:
@@ -183,7 +197,7 @@ func TestRound_State(t *testing.T) {
 	req.Equal(prevState, state)
 
 	// Recover execution.
-	req.NoError(r.recoverExecution(ctx, state.Execution, time.Now().Add(100*time.Microsecond)))
+	req.NoError(r.recoverExecution(ctx, state.Execution, time.Now().Add(200*time.Millisecond)))
 
 	req.False(r.executionStarted.IsZero())
 	proof, err := r.proof(false)

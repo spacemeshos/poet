@@ -83,7 +83,7 @@ func (a *caching) Verify(ctx context.Context, challenge, signature []byte) (*Res
 	logger := logging.FromContext(ctx).WithFields(log.Field(zap.Binary("challenge", challengeHash[:])))
 	if result, ok := a.cache.Get(challengeHash); ok {
 		logger.Debug("retrieved challenge verifier result from the cache")
-		// SAFETY: type assertion will never panic as we insert only `*ATX` values.
+		// SAFETY: type assertion will never panic as we insert only `*challengeVerifierResult` values.
 		result := result.(*challengeVerifierResult)
 		return result.Result, result.err
 	}

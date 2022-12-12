@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/spacemeshos/merkle-tree"
@@ -16,6 +15,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/opt"
 
 	"github.com/spacemeshos/poet/hash"
+	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
 )
@@ -63,8 +63,6 @@ type round struct {
 	teardownChan         chan struct{}
 
 	stateCache *roundState
-
-	submitMtx sync.Mutex
 }
 
 func (r *round) Epoch() uint32 {
@@ -141,8 +139,6 @@ func (r *round) submit(key, challenge []byte) error {
 		return errors.New("round is not open")
 	}
 
-	r.submitMtx.Lock()
-	defer r.submitMtx.Unlock()
 	if has, err := r.challengesDb.Has(key); err != nil {
 		return err
 	} else if has {
@@ -170,6 +166,9 @@ func (r *round) isEmpty() bool {
 }
 
 func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer uint) error {
+	logger := logging.FromContext(ctx).WithFields(log.String("round", r.ID))
+	logger.Info("executing until %v...", end)
+
 	r.executionStarted = time.Now()
 	if err := r.saveState(); err != nil {
 		return err
@@ -177,13 +176,11 @@ func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer uint)
 
 	close(r.executionStartedChan)
 
-	r.submitMtx.Lock()
 	var err error
 	r.execution.Members, r.execution.Statement, err = r.calcMembersAndStatement()
 	if err != nil {
 		return err
 	}
-	r.submitMtx.Unlock()
 
 	if err := r.saveState(); err != nil {
 		return err
@@ -208,6 +205,7 @@ func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer uint)
 
 	close(r.executionEndedChan)
 
+	logger.Info("execution ended, phi=%x, duration %v", r.execution.NIP.Root, time.Since(r.executionStarted))
 	return nil
 }
 
