@@ -11,7 +11,6 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 
-	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/shared"
 )
 
@@ -83,8 +82,8 @@ func NewProofsDatabase(dbPath string, proofs <-chan shared.ProofMessage) (*Proof
 	return &ProofsDatabase{db, proofs}, nil
 }
 
-func (db *ProofsDatabase) Run(ctx context.Context) {
-	logger := logging.FromContext(ctx).WithName("proof-db")
+func (db *ProofsDatabase) Run(ctx context.Context) error {
+	logger := log.AppLog.WithName("proofs-db")
 	for {
 		select {
 		case proof := <-db.proofs:
@@ -100,7 +99,8 @@ func (db *ProofsDatabase) Run(ctx context.Context) {
 				log.Int("members", len(proof.Members)),
 				log.Uint64("leaves", proof.NumLeaves))
 		case <-ctx.Done():
-			return
+			logger.Info("shutting down proofs db")
+			return db.db.Close()
 		}
 	}
 }

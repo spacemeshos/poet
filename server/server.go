@@ -106,8 +106,7 @@ func (s *Server) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to create proofs DB: %w", err)
 	}
 	serverGroup.Go(func() error {
-		proofsDb.Run(ctx)
-		return nil
+		return proofsDb.Run(ctx)
 	})
 
 	serverGroup.Go(func() error {
