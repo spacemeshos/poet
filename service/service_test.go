@@ -12,6 +12,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/spacemeshos/go-scale"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/slices"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/spacemeshos/poet/gateway/challenge_verifier"
@@ -87,7 +88,7 @@ func TestService_Recovery(t *testing.T) {
 	req.Eventually(func() bool {
 		info, err := s.Info(context.Background())
 		req.NoError(err)
-		return info.OpenRoundID == "1"
+		return slices.Contains(info.ExecutingRoundsIds, "0")
 	}, cfg.EpochDuration*2, time.Millisecond*20)
 
 	// Submit challenges to open round (1).
