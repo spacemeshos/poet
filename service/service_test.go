@@ -3,7 +3,6 @@ package service_test
 import (
 	"context"
 	"crypto/rand"
-	"fmt"
 	"strconv"
 	"testing"
 	"time"
@@ -40,7 +39,12 @@ func TestService_Recovery(t *testing.T) {
 	// Create a new service instance.
 	s, err := service.NewService(cfg, tempdir)
 	req.NoError(err)
-	err = s.Start(verifier)
+	s.Start(verifier)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var eg errgroup.Group
+	eg.Go(func() error { return s.Run(ctx) })
 	req.NoError(err)
 
 	// Generate 4 groups of random challenges.
@@ -81,13 +85,18 @@ func TestService_Recovery(t *testing.T) {
 	// Submit challenges to open round (1).
 	submitChallenges("1", challengeGroups[1])
 
-	req.NoError(s.Shutdown())
+	cancel()
+	req.NoError(eg.Wait())
 
 	// Create a new service instance.
 	s, err = service.NewService(cfg, tempdir)
 	req.NoError(err)
+	s.Start(verifier)
 
-	err = s.Start(verifier)
+	ctx, cancel = context.WithCancel(context.Background())
+	defer cancel()
+	eg = errgroup.Group{}
+	eg.Go(func() error { return s.Run(ctx) })
 	req.NoError(err)
 
 	// Service instance should recover 2 rounds: round 0 in executing state, and round 1 in open state.
@@ -117,37 +126,8 @@ func TestService_Recovery(t *testing.T) {
 		}
 	}
 
-	req.NoError(s.Shutdown())
-}
-
-func TestConcurrentServiceStartAndShutdown(t *testing.T) {
-	t.Parallel()
-	req := require.New(t)
-
-	cfg := service.Config{
-		Genesis:       time.Now().Add(2 * time.Second).Format(time.RFC3339),
-		EpochDuration: time.Second,
-		PhaseShift:    time.Second / 2,
-		CycleGap:      time.Second / 4,
-	}
-	ctrl := gomock.NewController(t)
-	verifier := mocks.NewMockVerifier(ctrl)
-
-	for i := 0; i < 100; i += 1 {
-		t.Run(fmt.Sprintf("iteration %d", i), func(t *testing.T) {
-			t.Parallel()
-			s, err := service.NewService(&cfg, t.TempDir())
-			req.NoError(err)
-
-			var eg errgroup.Group
-			eg.Go(func() error {
-				req.NoError(s.Start(verifier))
-				return nil
-			})
-			req.Eventually(func() bool { return s.Shutdown() == nil }, time.Second, time.Millisecond*10)
-			eg.Wait()
-		})
-	}
+	cancel()
+	req.NoError(eg.Wait())
 }
 
 func TestNewService(t *testing.T) {
@@ -164,8 +144,12 @@ func TestNewService(t *testing.T) {
 	req.NoError(err)
 	ctrl := gomock.NewController(t)
 	verifier := mocks.NewMockVerifier(ctrl)
-	err = s.Start(verifier)
-	req.NoError(err)
+	s.Start(verifier)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var eg errgroup.Group
+	eg.Go(func() error { return s.Run(ctx) })
 
 	challengesCount := 8
 	challenges := make([]challenge, challengesCount)
@@ -230,7 +214,8 @@ func TestNewService(t *testing.T) {
 		req.Contains(proof.Members, ch.data)
 	}
 
-	req.NoError(s.Shutdown())
+	cancel()
+	req.NoError(eg.Wait())
 }
 
 func TestSubmitIdempotency(t *testing.T) {
@@ -249,8 +234,12 @@ func TestSubmitIdempotency(t *testing.T) {
 
 	verifier := mocks.NewMockVerifier(gomock.NewController(t))
 	verifier.EXPECT().Verify(gomock.Any(), challenge, signature).Times(2).Return(&challenge_verifier.Result{Hash: []byte("hash")}, nil)
-	err = s.Start(verifier)
-	req.NoError(err)
+	s.Start(verifier)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var eg errgroup.Group
+	eg.Go(func() error { return s.Run(ctx) })
 
 	// Submit challenge
 	result, err := s.Submit(context.Background(), challenge, signature)
@@ -262,5 +251,6 @@ func TestSubmitIdempotency(t *testing.T) {
 	req.NoError(err)
 	req.Equal(result.Hash, []byte("hash"))
 
-	req.NoError(s.Shutdown())
+	cancel()
+	req.NoError(eg.Wait())
 }

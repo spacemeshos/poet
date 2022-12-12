@@ -76,9 +76,7 @@ func (r *rpcServer) Start(ctx context.Context, in *api.StartRequest) (*api.Start
 	// Swap the new and old gateway managers.
 	// The old one will be closed in defer.
 	r.gtwManager, gtwManager = gtwManager, r.gtwManager
-	if err := r.s.Start(verifier); err != nil {
-		return nil, fmt.Errorf("failed to start service: %w", err)
-	}
+	r.s.Start(verifier)
 
 	return &api.StartResponse{}, nil
 }

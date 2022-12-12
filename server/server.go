@@ -70,10 +70,6 @@ func (s *Server) Close() {
 	s.restListener.Close()
 }
 
-func (s *Server) Ready() bool {
-	return s.svc.Started()
-}
-
 func (s *Server) RpcAddr() net.Addr {
 	return s.rpcListener.Addr()
 }
@@ -118,6 +114,10 @@ func (s *Server) Start(ctx context.Context) error {
 		return nil
 	})
 
+	serverGroup.Go(func() error {
+		return s.svc.Run(ctx)
+	})
+
 	gtwConnCtx, cancel := context.WithTimeout(ctx, s.cfg.GtwConnTimeout)
 	defer cancel()
 	gtwManager, err := gateway.NewManager(gtwConnCtx, s.cfg.Service.GatewayAddresses, s.cfg.Service.ConnAcksThreshold)
@@ -129,10 +129,7 @@ func (s *Server) Start(ctx context.Context) error {
 			}
 			return fmt.Errorf("failed to create challenge verifier: %w", err)
 		}
-
-		if err := s.svc.Start(verifier); err != nil {
-			return err
-		}
+		s.svc.Start(verifier)
 	} else {
 		logger.With().Info("Service not starting, waiting for start request", log.Err(err))
 		gtwManager = &gateway.Manager{}
@@ -173,7 +170,6 @@ func (s *Server) Start(ctx context.Context) error {
 	<-ctx.Done()
 	grpcServer.GracefulStop()
 	server.Shutdown(ctx)
-	s.svc.Shutdown()
 	return serverGroup.Wait()
 }
 

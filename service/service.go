@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -49,29 +48,29 @@ type serviceState struct {
 // ServiceClient is an interface for interacting with the Service actor.
 // It is created when the Service is started.
 type ServiceClient struct {
-	serviceStarted    *atomic.Bool
+	start             chan struct{}
 	command           chan<- Command
 	challengeVerifier atomic.Value // holds challenge_verifier.Verifier
 }
 
-// Service orchestrates rounds functionality; each responsible for accepting challenges,
-// generating a proof from their hash digest, and broadcasting the result to the Spacemesh network.
+// Service orchestrates rounds functionality
+// It is responsible for accepting challenges, generating a proof from their hash digest and persisting it.
 //
-// Service is single-use, meaning it can be started with `Start()` and then stopped with `Shutdown()`
-// but it cannot be restarted. A new instance of `Service` must be created.
+// `Service` is single-use, meaning it can be started with `Service::Run`.
+// It is stopped by canceling the context provided to `Service::Run`.
+// It mustn't be restarted. A new instance of `Service` must be created.
 type Service struct {
 	proofs   chan shared.ProofMessage
 	commands <-chan Command
 	ServiceClient
 
-	runningGroup errgroup.Group
-	stop         context.CancelFunc
-
 	cfg            *Config
 	datadir        string
 	genesis        time.Time
 	minMemoryLayer uint
-	started        atomic.Bool
+
+	// start channel is closed to trigger proofs generation
+	start chan struct{}
 
 	// openRound is the round which is currently open for accepting challenges registration from miners.
 	// At any given time there is one single open round.
@@ -80,8 +79,6 @@ type Service struct {
 
 	PubKey  ed25519.PublicKey
 	privKey ed25519.PrivateKey
-
-	sync.Mutex
 }
 
 // Command is a function that will be run in the main Service loop.
@@ -107,6 +104,8 @@ var (
 	ErrRoundNotFinished          = errors.New("round is not finished yet")
 )
 
+// NewService creates a new instance of Poet Service.
+// It should be started with `Service::Run`.
 func NewService(cfg *Config, datadir string) (*Service, error) {
 	genesis, err := time.Parse(time.RFC3339, cfg.Genesis)
 	if err != nil {
@@ -150,12 +149,15 @@ func NewService(cfg *Config, datadir string) (*Service, error) {
 		}
 	}
 
+	start := make(chan struct{})
 	s := &Service{
 		proofs:   make(chan shared.ProofMessage, 1),
 		commands: cmds,
 		ServiceClient: ServiceClient{
+			start:   start,
 			command: cmds,
 		},
+		start:           start,
 		cfg:             cfg,
 		minMemoryLayer:  uint(minMemoryLayer),
 		genesis:         genesis,
@@ -164,7 +166,6 @@ func NewService(cfg *Config, datadir string) (*Service, error) {
 		privKey:         privateKey,
 		PubKey:          privateKey.Public().(ed25519.PublicKey),
 	}
-	s.ServiceClient.serviceStarted = &s.started
 
 	log.Info("Service public key: %x", s.PubKey)
 
@@ -183,6 +184,16 @@ func (s *Service) ProofsChan() <-chan shared.ProofMessage {
 func (s *Service) loop(ctx context.Context, roundsToResume []*round) {
 	logger := logging.FromContext(ctx).WithName("worker")
 	ctx = logging.NewContext(ctx, logger)
+
+	// Make sure there is an open round
+	if s.openRound == nil {
+		epoch := uint32(0)
+		if d := time.Since(s.genesis); d > 0 {
+			epoch = uint32(d / s.cfg.EpochDuration)
+		}
+		s.openRound = s.newRound(ctx, uint32(epoch))
+	}
+
 	var eg errgroup.Group
 	defer eg.Wait()
 
@@ -200,10 +211,15 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) {
 		})
 	}
 
-	timer := s.scheduleRound(ctx, s.openRound)
+	var timer <-chan time.Time
 
 	for {
 		select {
+		case <-s.start:
+			logger.Info("starting proofs generation")
+			timer = s.scheduleRound(ctx, s.openRound)
+			s.start = nil
+
 		case cmd := <-s.commands:
 			cmd(s)
 
@@ -256,18 +272,9 @@ func (s *Service) scheduleRound(ctx context.Context, round *round) <-chan time.T
 	return timer
 }
 
-func (s *Service) Start(verifier challenge_verifier.Verifier) error {
-	s.Lock()
-	defer s.Unlock()
-	if s.Started() {
-		return ErrAlreadyStarted
-	}
-
-	// Create a context for the running Service.
-	// This context will be canceled when Service is stopped.
-	ctx, stop := context.WithCancel(context.Background())
-	s.stop = stop
-
+// Run starts the Service's actor event loop.
+// It stops when the `ctx` is canceled.
+func (s *Service) Run(ctx context.Context) error {
 	var toResume []*round
 	if s.cfg.NoRecovery {
 		log.Info("Recovery is disabled")
@@ -279,41 +286,24 @@ func (s *Service) Start(verifier challenge_verifier.Verifier) error {
 		}
 	}
 
-	now := time.Now()
-	epoch := time.Duration(0)
-	if d := now.Sub(s.genesis); d > 0 {
-		epoch = d / s.cfg.EpochDuration
-	}
-	if s.openRound == nil {
-		s.openRound = s.newRound(ctx, uint32(epoch))
-	}
-
-	s.ServiceClient.SetChallengeVerifier(verifier)
-
-	s.runningGroup.Go(func() error {
-		s.loop(ctx, toResume)
-		return nil
-	})
-	s.started.Store(true)
+	s.loop(ctx, toResume)
 	return nil
 }
 
-// Shutdown gracefully stops running Service and waits
-// for all processing to stop.
-func (s *Service) Shutdown() error {
-	if !s.Started() {
-		return ErrNotStarted
-	}
-	log.Info("service shutting down")
-	s.stop()
-	err := s.runningGroup.Wait()
-	s.started.Store(false)
-	log.Info("service shutdown complete")
-	return err
+// Start starts proofs generation.
+func (s *ServiceClient) Start(verifier challenge_verifier.Verifier) {
+	s.SetChallengeVerifier(verifier)
+	close(s.start)
 }
 
-func (s *Service) Started() bool {
-	return s.started.Load()
+// Started returns whether the `Service` is generating proofs.
+func (s *ServiceClient) Started() bool {
+	select {
+	case _, ok := <-s.start:
+		return !ok
+	default:
+		return false
+	}
 }
 
 func (s *Service) recover(ctx context.Context) (open *round, executing []*round, err error) {
@@ -376,7 +366,7 @@ type SubmitResult struct {
 }
 
 func (s *ServiceClient) Submit(ctx context.Context, challenge, signature []byte) (*SubmitResult, error) {
-	if !s.serviceStarted.Load() {
+	if !s.Started() {
 		return nil, ErrNotStarted
 	}
 	logger := logging.FromContext(ctx)
@@ -428,10 +418,6 @@ func (s *ServiceClient) Submit(ctx context.Context, challenge, signature []byte)
 }
 
 func (s *ServiceClient) Info(ctx context.Context) (*InfoResponse, error) {
-	if !s.serviceStarted.Load() {
-		return nil, ErrNotStarted
-	}
-
 	resp := make(chan *InfoResponse, 1)
 	s.command <- func(s *Service) {
 		defer close(resp)

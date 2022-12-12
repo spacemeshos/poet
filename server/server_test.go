@@ -86,8 +86,6 @@ func TestPoetStart(t *testing.T) {
 		return srv.Start(ctx)
 	})
 
-	req.Eventually(srv.Ready, time.Second*5, time.Millisecond*100)
-
 	resp, err := client.GetInfo(context.Background(), &api.GetInfoRequest{})
 	req.NoError(err)
 	req.Equal("0", resp.OpenRoundId)
@@ -120,7 +118,6 @@ func TestSubmitAndGetProof(t *testing.T) {
 	eg.Go(func() error {
 		return srv.Start(ctx)
 	})
-	req.Eventually(srv.Ready, time.Second*5, time.Millisecond*100)
 
 	// Submit a challenge
 	resp, err := client.Submit(context.Background(), &api.SubmitRequest{})

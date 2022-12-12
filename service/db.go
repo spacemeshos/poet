@@ -15,9 +15,7 @@ import (
 	"github.com/spacemeshos/poet/shared"
 )
 
-var (
-	ErrNotFound = leveldb.ErrNotFound
-)
+var ErrNotFound = leveldb.ErrNotFound
 
 type LevelDB struct {
 	*leveldb.DB
