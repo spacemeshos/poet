@@ -53,6 +53,12 @@ func TestFiatShamirReturnsCorrectNumOfIndices(t *testing.T) {
 	require.Len(t, FiatShamir(challenge, 20, 15), 15)
 }
 
+// This test used to hang.
+// See https://github.com/spacemeshos/poet/issues/173
+func TestFiatShamirLowSpaceSize(t *testing.T) {
+	FiatShamir([]byte("challenge this"), uint64(T)+1, T)
+}
+
 func TestMakeLabel(t *testing.T) {
 	r := require.New(t)
 	stringHash := func(data []byte) []byte {
