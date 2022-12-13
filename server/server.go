@@ -74,7 +74,7 @@ func (s *Server) RpcAddr() net.Addr {
 	return s.rpcListener.Addr()
 }
 
-// startServer starts the RPC server.
+// Start starts the RPC server.
 func (s *Server) Start(ctx context.Context) error {
 	ctx, stop := context.WithCancel(ctx)
 	defer stop()
@@ -124,7 +124,9 @@ func (s *Server) Start(ctx context.Context) error {
 			}
 			return fmt.Errorf("failed to create challenge verifier: %w", err)
 		}
-		s.svc.Start(verifier)
+		if err := s.svc.Start(ctx, verifier); err != nil {
+			return err
+		}
 	} else {
 		logger.With().Info("Service not starting, waiting for start request", log.Err(err))
 		gtwManager = &gateway.Manager{}

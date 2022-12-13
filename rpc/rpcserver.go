@@ -73,10 +73,12 @@ func (r *rpcServer) Start(ctx context.Context, in *api.StartRequest) (*api.Start
 		return nil, fmt.Errorf("failed to create challenge verifier: %w", err)
 	}
 
+	if err = r.s.Start(ctx, verifier); err != nil {
+		return nil, err
+	}
 	// Swap the new and old gateway managers.
 	// The old one will be closed in defer.
 	r.gtwManager, gtwManager = gtwManager, r.gtwManager
-	r.s.Start(verifier)
 
 	return &api.StartResponse{}, nil
 }

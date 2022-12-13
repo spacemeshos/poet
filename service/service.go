@@ -41,14 +41,6 @@ const estimatedLeavesPerSecond = 1 << 17
 
 const ChallengeVerifierCacheSize = 1024
 
-// ServiceClient is an interface for interacting with the Service actor.
-// It is created when the Service is started.
-type ServiceClient struct {
-	start             chan struct{}
-	command           chan<- Command
-	challengeVerifier atomic.Value // holds challenge_verifier.Verifier
-}
-
 // Service orchestrates rounds functionality
 // It is responsible for accepting challenges, generating a proof from their hash digest and persisting it.
 //
@@ -56,22 +48,21 @@ type ServiceClient struct {
 // It is stopped by canceling the context provided to `Service::Run`.
 // It mustn't be restarted. A new instance of `Service` must be created.
 type Service struct {
+	started  atomic.Bool
 	proofs   chan shared.ProofMessage
-	commands <-chan Command
-	ServiceClient
+	commands chan Command
+	timer    <-chan time.Time
 
 	cfg            *Config
 	datadir        string
 	genesis        time.Time
 	minMemoryLayer uint
 
-	// start channel is closed to trigger proofs generation
-	start chan struct{}
-
 	// openRound is the round which is currently open for accepting challenges registration from miners.
 	// At any given time there is one single open round.
-	openRound       *round
-	executingRounds map[string]struct{}
+	openRound         *round
+	executingRounds   map[string]struct{}
+	challengeVerifier atomic.Value // holds challenge_verifier.Verifier
 
 	PubKey  ed25519.PublicKey
 	privKey ed25519.PrivateKey
@@ -148,15 +139,9 @@ func NewService(cfg *Config, datadir string) (*Service, error) {
 		}
 	}
 
-	start := make(chan struct{})
 	s := &Service{
-		proofs:   make(chan shared.ProofMessage, 1),
-		commands: cmds,
-		ServiceClient: ServiceClient{
-			start:   start,
-			command: cmds,
-		},
-		start:           start,
+		proofs:          make(chan shared.ProofMessage, 1),
+		commands:        cmds,
 		cfg:             cfg,
 		minMemoryLayer:  uint(minMemoryLayer),
 		genesis:         genesis,
@@ -210,15 +195,8 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) {
 		})
 	}
 
-	var timer <-chan time.Time
-
 	for {
 		select {
-		case <-s.start:
-			logger.Info("starting proofs generation")
-			timer = s.scheduleRound(ctx, s.openRound)
-			s.start = nil
-
 		case cmd := <-s.commands:
 			cmd(s)
 
@@ -231,7 +209,7 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) {
 			delete(s.executingRounds, result.round.ID)
 			result.round.Close()
 
-		case <-timer:
+		case <-s.timer:
 			round := s.openRound
 			s.openRound = s.newRound(ctx, round.Epoch()+1)
 			s.executingRounds[round.ID] = struct{}{}
@@ -245,7 +223,7 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) {
 			})
 
 			// schedule the next round
-			timer = s.scheduleRound(ctx, s.openRound)
+			s.timer = s.scheduleRound(ctx, s.openRound)
 
 		case <-ctx.Done():
 			logger.Info("service shutting down")
@@ -290,19 +268,28 @@ func (s *Service) Run(ctx context.Context) error {
 }
 
 // Start starts proofs generation.
-func (s *ServiceClient) Start(verifier challenge_verifier.Verifier) {
-	s.SetChallengeVerifier(verifier)
-	close(s.start)
+func (s *Service) Start(ctx context.Context, verifier challenge_verifier.Verifier) error {
+	resp := make(chan error)
+	s.commands <- func(s *Service) {
+		defer close(resp)
+		if s.Started() {
+			resp <- ErrAlreadyStarted
+		}
+		s.SetChallengeVerifier(verifier)
+		s.timer = s.scheduleRound(ctx, s.openRound)
+		s.started.Store(true)
+	}
+	select {
+	case err := <-resp:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // Started returns whether the `Service` is generating proofs.
-func (s *ServiceClient) Started() bool {
-	select {
-	case _, ok := <-s.start:
-		return !ok
-	default:
-		return false
-	}
+func (s *Service) Started() bool {
+	return s.started.Load()
 }
 
 func (s *Service) recover(ctx context.Context) (open *round, executing []*round, err error) {
@@ -354,7 +341,7 @@ func (s *Service) recover(ctx context.Context) (open *round, executing []*round,
 	return open, executing, nil
 }
 
-func (s *ServiceClient) SetChallengeVerifier(provider challenge_verifier.Verifier) {
+func (s *Service) SetChallengeVerifier(provider challenge_verifier.Verifier) {
 	s.challengeVerifier.Store(provider)
 }
 
@@ -364,7 +351,7 @@ type SubmitResult struct {
 	RoundEnd time.Duration
 }
 
-func (s *ServiceClient) Submit(ctx context.Context, challenge, signature []byte) (*SubmitResult, error) {
+func (s *Service) Submit(ctx context.Context, challenge, signature []byte) (*SubmitResult, error) {
 	if !s.Started() {
 		return nil, ErrNotStarted
 	}
@@ -388,7 +375,7 @@ func (s *ServiceClient) Submit(ctx context.Context, challenge, signature []byte)
 		end   time.Time
 	}
 	done := make(chan response, 1)
-	s.command <- func(s *Service) {
+	s.commands <- func(s *Service) {
 		done <- response{
 			round: s.openRound.ID,
 			err:   s.openRound.submit(result.NodeId, result.Hash),
@@ -416,9 +403,9 @@ func (s *ServiceClient) Submit(ctx context.Context, challenge, signature []byte)
 	}
 }
 
-func (s *ServiceClient) Info(ctx context.Context) (*InfoResponse, error) {
+func (s *Service) Info(ctx context.Context) (*InfoResponse, error) {
 	resp := make(chan *InfoResponse, 1)
-	s.command <- func(s *Service) {
+	s.commands <- func(s *Service) {
 		defer close(resp)
 		ids := make([]string, 0, len(s.executingRounds))
 		for id := range s.executingRounds {

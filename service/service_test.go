@@ -39,13 +39,12 @@ func TestService_Recovery(t *testing.T) {
 	// Create a new service instance.
 	s, err := service.NewService(cfg, tempdir)
 	req.NoError(err)
-	s.Start(verifier)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var eg errgroup.Group
 	eg.Go(func() error { return s.Run(ctx) })
-	req.NoError(err)
+	req.NoError(s.Start(context.Background(), verifier))
 
 	// Generate 4 groups of random challenges.
 	challengeGroupSize := 10
@@ -91,13 +90,13 @@ func TestService_Recovery(t *testing.T) {
 	// Create a new service instance.
 	s, err = service.NewService(cfg, tempdir)
 	req.NoError(err)
-	s.Start(verifier)
 
 	ctx, cancel = context.WithCancel(context.Background())
 	defer cancel()
 	eg = errgroup.Group{}
 	eg.Go(func() error { return s.Run(ctx) })
 	req.NoError(err)
+	req.NoError(s.Start(context.Background(), verifier))
 
 	// Service instance should recover 2 rounds: round 0 in executing state, and round 1 in open state.
 	info, err := s.Info(context.Background())
@@ -144,12 +143,12 @@ func TestNewService(t *testing.T) {
 	req.NoError(err)
 	ctrl := gomock.NewController(t)
 	verifier := mocks.NewMockVerifier(ctrl)
-	s.Start(verifier)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var eg errgroup.Group
 	eg.Go(func() error { return s.Run(ctx) })
+	req.NoError(s.Start(context.Background(), verifier))
 
 	challengesCount := 8
 	challenges := make([]challenge, challengesCount)
@@ -234,12 +233,12 @@ func TestSubmitIdempotency(t *testing.T) {
 
 	verifier := mocks.NewMockVerifier(gomock.NewController(t))
 	verifier.EXPECT().Verify(gomock.Any(), challenge, signature).Times(2).Return(&challenge_verifier.Result{Hash: []byte("hash")}, nil)
-	s.Start(verifier)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var eg errgroup.Group
 	eg.Go(func() error { return s.Run(ctx) })
+	req.NoError(s.Start(context.Background(), verifier))
 
 	// Submit challenge
 	result, err := s.Submit(context.Background(), challenge, signature)

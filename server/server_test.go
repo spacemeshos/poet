@@ -106,7 +106,7 @@ func TestSubmitAndGetProof(t *testing.T) {
 
 	cfg := config.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
-	cfg.Service.Genesis = time.Now().Format(time.RFC3339)
+	cfg.Service.Genesis = time.Now().Add(time.Second).Format(time.RFC3339)
 	cfg.Service.EpochDuration = time.Second
 	cfg.Service.PhaseShift = 0
 	cfg.Service.CycleGap = 0

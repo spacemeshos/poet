@@ -89,15 +89,16 @@ func (db *ProofsDatabase) Run(ctx context.Context) error {
 		case proof := <-db.proofs:
 			serialized, err := serializeProofMsg(proof)
 			if err != nil {
-				logger.With().Error("failed serializing proof", log.Err(err))
+				return fmt.Errorf("failed serializing proof: %w", err)
 			}
 			if err := db.db.Put([]byte(proof.RoundID), serialized, &opt.WriteOptions{Sync: true}); err != nil {
 				logger.With().Error("failed storing proof in DB", log.Err(err))
+			} else {
+				logger.With().Info("Proof saved in DB",
+					log.String("round", proof.RoundID),
+					log.Int("members", len(proof.Members)),
+					log.Uint64("leaves", proof.NumLeaves))
 			}
-			logger.With().Info("Proof saved in DB",
-				log.String("round", proof.RoundID),
-				log.Int("members", len(proof.Members)),
-				log.Uint64("leaves", proof.NumLeaves))
 		case <-ctx.Done():
 			logger.Info("shutting down proofs db")
 			return db.db.Close()
