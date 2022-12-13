@@ -12,6 +12,7 @@ import (
 )
 
 func TestGetProof(t *testing.T) {
+	t.Parallel()
 	r := require.New(t)
 	tempdir := t.TempDir()
 

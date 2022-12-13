@@ -35,6 +35,7 @@ type challenge struct {
 }
 
 func TestService_Recovery(t *testing.T) {
+	t.Parallel()
 	req := require.New(t)
 	broadcaster := &MockBroadcaster{receivedMessages: make(chan []byte)}
 	cfg := &service.Config{
@@ -169,6 +170,7 @@ func TestConcurrentServiceStartAndShutdown(t *testing.T) {
 }
 
 func TestNewService(t *testing.T) {
+	t.Parallel()
 	req := require.New(t)
 	tempdir := t.TempDir()
 
@@ -257,6 +259,7 @@ func TestNewService(t *testing.T) {
 }
 
 func TestSubmitIdempotency(t *testing.T) {
+	t.Parallel()
 	req := require.New(t)
 	cfg := service.Config{
 		Genesis:       time.Now().Add(time.Second).Format(time.RFC3339),
