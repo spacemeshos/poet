@@ -18,6 +18,10 @@ import (
 	"github.com/spacemeshos/poet/server"
 )
 
+// Poet binary version.
+// It should be passed during the build with '-ldflags "-X main.version="'.
+var version = "unknown"
+
 // poetMain is the true entry point for poet. This function is required since
 // defers created in the top-level scope of a main method aren't executed if
 // os.Exit() is called.
@@ -57,7 +61,7 @@ func poetMain() error {
 	}()
 
 	// Show version at startup.
-	log.Info("Version: %s, dir: %v, datadir: %v, genesis: %v", version(), cfg.PoetDir, cfg.DataDir, cfg.Service.Genesis)
+	log.Info("Version: %s, dir: %v, datadir: %v, genesis: %v", version, cfg.PoetDir, cfg.DataDir, cfg.Service.Genesis)
 
 	// Enable http profiling server if requested.
 	if cfg.Profile != "" {

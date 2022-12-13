@@ -31,8 +31,11 @@ func FiatShamir(challenge []byte, spaceSize uint64, securityParam uint8) map[uin
 		}
 		return ret
 	}
-	for i := uint8(0); len(ret) < int(securityParam); i++ {
-		result := sha256.Sum256(append(challenge, i))
+
+	ib := make([]byte, 4)
+	for i := uint32(0); len(ret) < int(securityParam); i++ {
+		binary.BigEndian.PutUint32(ib, i)
+		result := sha256.Sum256(append(challenge, ib...))
 		id := binary.BigEndian.Uint64(result[:8]) % spaceSize
 		ret[id] = true
 	}

@@ -6,7 +6,13 @@ import (
 	"path/filepath"
 )
 
-func initialState() *serviceState {
+const serviceStateFileBaseName = "state.bin"
+
+type serviceState struct {
+	PrivKey []byte
+}
+
+func newServiceState() *serviceState {
 	_, priv, err := ed25519.GenerateKey(nil)
 	if err != nil {
 		panic(fmt.Errorf("failed to generate key: %v", err))
@@ -15,13 +21,12 @@ func initialState() *serviceState {
 	return &serviceState{PrivKey: priv}
 }
 
-func saveState(datadir string, privateKey ed25519.PrivateKey) error {
-	filename := filepath.Join(datadir, serviceStateFileBaseName)
-	return persist(filename, &serviceState{PrivKey: privateKey})
+func (s *serviceState) save(datadir string) error {
+	return persist(filepath.Join(datadir, serviceStateFileBaseName), s)
 }
 
-func state(datadir string) (*serviceState, error) {
-	filename := filepath.Join(datadir, roundStateFileBaseName)
+func loadServiceState(datadir string) (*serviceState, error) {
+	filename := filepath.Join(datadir, serviceStateFileBaseName)
 	v := &serviceState{}
 
 	if err := load(filename, v); err != nil {

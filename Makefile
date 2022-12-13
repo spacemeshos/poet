@@ -3,6 +3,7 @@ IMAGE ?= poet
 BINARY := poet
 PROJECT := poet
 BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
+VERSION ?= $(shell git describe --tags)
 
 GOLANGCI_LINT_VERSION := v1.50.0
 STATICCHECK_VERSION := v0.3.3
@@ -143,11 +144,11 @@ staticcheck:
 .PHONY: staticcheck
 
 build:
-	go build -o $(BINARY)
+	go build -ldflags "-X main.version=${VERSION}" -o $(BINARY)
 .PHONY: build
 
 docker:
-	@DOCKER_BUILDKIT=1 docker build -t $(ORG)/$(IMAGE):$(BRANCH) .
+	@DOCKER_BUILDKIT=1 docker build --build-arg version=${VERSION} -t $(ORG)/$(IMAGE):$(BRANCH) .
 .PHONY: docker
 
 push:
