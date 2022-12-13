@@ -26,9 +26,8 @@ func TestService_Recovery(t *testing.T) {
 	req := require.New(t)
 	cfg := &service.Config{
 		Genesis:       time.Now().Add(time.Second).Format(time.RFC3339),
-		EpochDuration: time.Second,
-		PhaseShift:    time.Second / 2,
-		CycleGap:      time.Second / 4,
+		EpochDuration: time.Second * 2,
+		PhaseShift:    time.Second,
 	}
 
 	ctrl := gomock.NewController(t)
@@ -135,9 +134,8 @@ func TestNewService(t *testing.T) {
 
 	cfg := new(service.Config)
 	cfg.Genesis = time.Now().Add(time.Second).Format(time.RFC3339)
-	cfg.EpochDuration = time.Second
-	cfg.PhaseShift = time.Second / 2
-	cfg.CycleGap = time.Second / 4
+	cfg.EpochDuration = time.Second * 2
+	cfg.PhaseShift = time.Second
 
 	s, err := service.NewService(cfg, tempdir)
 	req.NoError(err)
