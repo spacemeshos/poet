@@ -83,7 +83,7 @@ all: build
 .PHONY: all
 
 test:
-	$(GOTESTSUM) -- -race ./...
+	$(GOTESTSUM) -- -race -timeout 5m -p 1 ./...
 .PHONY: test
 
 install: install-buf install-protoc
@@ -136,7 +136,7 @@ lint-protos:
 .PHONY: lint-protos
 
 cover:
-	go test -coverprofile=cover.out ./...
+	go test -coverprofile=cover.out -timeout 0 -p 1 ./...
 .PHONY: cover
 
 staticcheck:

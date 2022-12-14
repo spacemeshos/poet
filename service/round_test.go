@@ -33,7 +33,6 @@ func genChallenges(num int) ([][]byte, error) {
 //   - Recover r2 execution, and request shutdown before completion.
 //   - Recover r2 execution again, and let it complete.
 func TestRound_Recovery(t *testing.T) {
-	t.Parallel()
 	req := require.New(t)
 
 	ctx, stop := context.WithCancel(context.Background())
@@ -103,7 +102,6 @@ func TestRound_Recovery(t *testing.T) {
 }
 
 func TestRound_State(t *testing.T) {
-	t.Parallel()
 	req := require.New(t)
 
 	ctx, stop := context.WithCancel(context.Background())
