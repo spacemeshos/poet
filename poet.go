@@ -97,7 +97,7 @@ func poetMain() error {
 		return fmt.Errorf("failed to create server: %w", err)
 	}
 	if err := server.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start server: %w", err)
+		return fmt.Errorf("failure in server: %w", err)
 	}
 
 	return nil

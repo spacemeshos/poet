@@ -53,7 +53,7 @@ service Poet {
     */
     rpc GetProof(GetProofRequest) returns (GetProofResponse) {
         option (google.api.http) = {
-            get: "/v1/proof/{round_id}"
+            get: "/v1/proofs/{round_id}"
         };
     }
 }
@@ -122,6 +122,4 @@ message GetProofRequest {
 
 message GetProofResponse {
     PoetProof proof = 1;
-    bytes pubkey = 2;
-    bytes signature = 3;
 }

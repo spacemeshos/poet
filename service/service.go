@@ -165,7 +165,7 @@ func (s *Service) ProofsChan() <-chan shared.ProofMessage {
 	return s.proofs
 }
 
-func (s *Service) loop(ctx context.Context, roundsToResume []*round) {
+func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 	logger := logging.FromContext(ctx).WithName("worker")
 	ctx = logging.NewContext(ctx, logger)
 
@@ -175,7 +175,11 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) {
 		if d := time.Since(s.genesis); d > 0 {
 			epoch = uint32(d / s.cfg.EpochDuration)
 		}
-		s.openRound = s.newRound(ctx, uint32(epoch))
+		newRound, err := s.newRound(ctx, uint32(epoch))
+		if err != nil {
+			return fmt.Errorf("failed to open round the first round: %w", err)
+		}
+		s.openRound = newRound
 	}
 
 	var eg errgroup.Group
@@ -211,7 +215,11 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) {
 
 		case <-s.timer:
 			round := s.openRound
-			s.openRound = s.newRound(ctx, round.Epoch()+1)
+			newRound, err := s.newRound(ctx, round.Epoch()+1)
+			if err != nil {
+				return fmt.Errorf("failed to open new round: %w", err)
+			}
+			s.openRound = newRound
 			s.executingRounds[round.ID] = struct{}{}
 
 			end := s.roundEndTime(round)
@@ -227,7 +235,7 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) {
 
 		case <-ctx.Done():
 			logger.Info("service shutting down")
-			return
+			return nil
 		}
 	}
 }
@@ -263,8 +271,7 @@ func (s *Service) Run(ctx context.Context) error {
 		}
 	}
 
-	s.loop(ctx, toResume)
-	return nil
+	return s.loop(ctx, toResume)
 }
 
 // Start starts proofs generation.
@@ -311,10 +318,14 @@ func (s *Service) recover(ctx context.Context) (open *round, executing []*round,
 		if err != nil {
 			return nil, nil, fmt.Errorf("entry is not a uint32 %s", entry.Name())
 		}
-		r := newRound(ctx, roundsDir, uint32(epoch))
+		r, err := newRound(ctx, roundsDir, uint32(epoch))
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create round: %w", err)
+		}
+
 		state, err := r.state()
 		if err != nil {
-			return nil, nil, fmt.Errorf("invalid round state: %v", err)
+			return nil, nil, fmt.Errorf("invalid round state: %w", err)
 		}
 
 		if state.isExecuted() {
@@ -325,7 +336,7 @@ func (s *Service) recover(ctx context.Context) (open *round, executing []*round,
 		if state.isOpen() {
 			logger.Info("found round %v in open state.", r.ID)
 			if err := r.open(); err != nil {
-				return nil, nil, fmt.Errorf("failed to open round: %v", err)
+				return nil, nil, fmt.Errorf("failed to open round: %w", err)
 			}
 
 			// Keep the last open round as openRound (multiple open rounds state is possible
@@ -425,15 +436,18 @@ func (s *Service) Info(ctx context.Context) (*InfoResponse, error) {
 }
 
 // newRound creates a new round with the given epoch.
-func (s *Service) newRound(ctx context.Context, epoch uint32) *round {
+func (s *Service) newRound(ctx context.Context, epoch uint32) (*round, error) {
 	roundsDir := filepath.Join(s.datadir, "rounds")
-	r := newRound(ctx, roundsDir, epoch)
+	r, err := newRound(ctx, roundsDir, epoch)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create a new round: %w", err)
+	}
 	if err := r.open(); err != nil {
-		panic(fmt.Errorf("failed to open round: %v", err))
+		return nil, fmt.Errorf("failed to open round: %w", err)
 	}
 
 	log.With().Info("Round opened", log.String("ID", r.ID))
-	return r
+	return r, nil
 }
 
 func (s *Service) reportNewProof(round string, execution *executionState) {
@@ -443,9 +457,7 @@ func (s *Service) reportNewProof(round string, execution *executionState) {
 			Members:     execution.Members,
 			NumLeaves:   execution.NumLeaves,
 		},
-		ServicePubKey: s.PubKey,
-		RoundID:       round,
-		Signature:     nil,
+		RoundID: round,
 	}
 }
 

@@ -142,7 +142,6 @@ func TestSubmitAndGetProof(t *testing.T) {
 	req.NotZero(proof.Proof.Leaves)
 	req.Len(proof.Proof.Members, 1)
 	req.Contains(proof.Proof.Members, []byte("hash"))
-	req.NotEmpty(proof.Pubkey)
 	cancel()
 	req.NoError(eg.Wait())
 }

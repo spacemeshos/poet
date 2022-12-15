@@ -2,10 +2,7 @@ package shared
 
 import (
 	"encoding/binary"
-	"errors"
-	"fmt"
 	"os"
-	"time"
 
 	"github.com/minio/sha256-simd"
 	"github.com/spacemeshos/merkle-tree"
@@ -85,31 +82,11 @@ type Proof struct {
 
 type ProofMessage struct {
 	Proof
-	ServicePubKey []byte
-	RoundID       string
-	Signature     []byte
+	RoundID string
 }
 
 type MerkleProof struct {
 	Root         []byte
 	ProvenLeaves [][]byte
 	ProofNodes   [][]byte
-}
-
-// Retry provides generic capability for retryable function execution.
-func Retry(retryable func() error, numRetries int, interval time.Duration, logger func(msg string)) error {
-	err := retryable()
-	if err == nil {
-		return nil
-	}
-
-	if numRetries < 1 {
-		logger(err.Error())
-		return errors.New("number of retries exceeded")
-	}
-
-	logger(fmt.Sprintf("%v | retrying in %v...", err, interval))
-	time.Sleep(interval)
-
-	return Retry(retryable, numRetries-1, interval, logger)
 }

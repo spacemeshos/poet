@@ -39,7 +39,7 @@
         ]
       }
     },
-    "/v1/proof/{roundId}": {
+    "/v1/proofs/{roundId}": {
       "get": {
         "summary": "GetProof returns the generated proof for given round id.",
         "operationId": "Poet_GetProof",
@@ -194,14 +194,6 @@
       "properties": {
         "proof": {
           "$ref": "#/definitions/apiPoetProof"
-        },
-        "pubkey": {
-          "type": "string",
-          "format": "byte"
-        },
-        "signature": {
-          "type": "string",
-          "format": "byte"
         }
       }
     },
