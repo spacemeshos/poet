@@ -73,7 +73,7 @@ func TestRound_Recovery(t *testing.T) {
 
 	stop()
 	req.ErrorIs(r2.execute(ctx, time.Now().Add(duration), prover.LowestMerkleMinMemoryLayer), prover.ErrShutdownRequested)
-	require.NoError(t, r2.waitTeardown(context.Background()))
+	req.NoError(r2.teardown(false))
 
 	// Recover r2 execution, and request shutdown before completion.
 	ctx, stop = context.WithCancel(context.Background())
@@ -87,10 +87,11 @@ func TestRound_Recovery(t *testing.T) {
 
 	stop()
 	req.ErrorIs(r2recovery1.recoverExecution(ctx, state.Execution, time.Now().Add(duration)), prover.ErrShutdownRequested)
-	require.NoError(t, r2recovery1.waitTeardown(context.Background()))
+	req.NoError(r2recovery1.teardown(false))
 
 	// Recover r2 execution again, and let it complete.
 	ctx, stop = context.WithCancel(context.Background())
+	defer stop()
 	r2recovery2, err := newRound(ctx, tmpdir, 1)
 	req.NoError(err)
 	req.Equal(len(challenges), r2recovery2.numChallenges())
@@ -99,10 +100,7 @@ func TestRound_Recovery(t *testing.T) {
 	req.NoError(err)
 
 	req.NoError(r2recovery2.recoverExecution(ctx, state.Execution, time.Now().Add(duration)))
-
-	// Request shutdown.
-	stop()
-	require.NoError(t, r2recovery2.waitTeardown(context.Background()))
+	req.NoError(r2recovery2.teardown(true))
 }
 
 func TestRound_State(t *testing.T) {
@@ -160,12 +158,11 @@ func TestRound_State(t *testing.T) {
 	req.Nil(state.Execution.NIP)
 
 	// Execute the round, and request shutdown before completion.
-	duration := time.Hour
 	go func() {
 		time.Sleep(time.Millisecond * 100)
 		stop()
 	}()
-	req.ErrorIs(r.execute(ctx, time.Now().Add(duration), prover.LowestMerkleMinMemoryLayer), prover.ErrShutdownRequested)
+	req.ErrorIs(r.execute(ctx, time.Now().Add(time.Hour), prover.LowestMerkleMinMemoryLayer), prover.ErrShutdownRequested)
 	req.False(r.isOpen())
 	req.False(r.opened.IsZero())
 	req.False(r.executionStarted.IsZero())
@@ -183,7 +180,7 @@ func TestRound_State(t *testing.T) {
 	req.Greater(state.Execution.NumLeaves, uint64(0))
 	req.NotNil(state.Execution.ParkedNodes)
 	req.Nil(state.Execution.NIP)
-	req.NoError(r.waitTeardown(context.Background()))
+	req.NoError(r.teardown(false))
 
 	// Create a new round instance of the same round.
 	ctx, stop = context.WithCancel(context.Background())
@@ -220,8 +217,7 @@ func TestRound_State(t *testing.T) {
 	req.Equal(r.execution, state.Execution)
 
 	// Trigger cleanup.
-	r.Close()
-	req.NoError(r.waitTeardown(context.Background()))
+	r.teardown(true)
 
 	// Verify cleanup.
 	state, err = r.state()

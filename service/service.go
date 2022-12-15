@@ -194,6 +194,9 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 		end := s.roundEndTime(round)
 		eg.Go(func() error {
 			err := round.recoverExecution(ctx, round.stateCache.Execution, end)
+			if err := round.teardown(err == nil); err != nil {
+				logger.With().Warning("round teardown failed", log.Err(err))
+			}
 			roundResults <- roundResult{round: round, err: err}
 			return nil
 		})
@@ -211,7 +214,6 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 				logger.With().Error("round execution failed", log.Err(result.err), log.String("round", result.round.ID))
 			}
 			delete(s.executingRounds, result.round.ID)
-			result.round.Close()
 
 		case <-s.timer:
 			round := s.openRound
@@ -226,6 +228,9 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 			minMemoryLayer := s.minMemoryLayer
 			eg.Go(func() error {
 				err := round.execute(ctx, end, minMemoryLayer)
+				if err := round.teardown(err == nil); err != nil {
+					logger.With().Warning("round teardown failed", log.Err(err))
+				}
 				roundResults <- roundResult{round, err}
 				return nil
 			})
@@ -235,6 +240,7 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 
 		case <-ctx.Done():
 			logger.Info("service shutting down")
+			s.openRound.teardown(false)
 			return nil
 		}
 	}
