@@ -57,6 +57,7 @@ func TestRound_Recovery(t *testing.T) {
 	req.False(r1.isEmpty())
 
 	req.NoError(r1.execute(ctx, time.Now().Add(duration), prover.LowestMerkleMinMemoryLayer))
+	req.NoError(r1.teardown(true))
 
 	// Execute r2, and request shutdown before completion.
 	r2, err := newRound(ctx, tmpdir, 1)
@@ -107,6 +108,7 @@ func TestRound_State(t *testing.T) {
 	req := require.New(t)
 
 	ctx, stop := context.WithCancel(context.Background())
+	defer stop()
 	tempdir := t.TempDir()
 
 	// Create a new round.
@@ -158,10 +160,8 @@ func TestRound_State(t *testing.T) {
 	req.Nil(state.Execution.NIP)
 
 	// Execute the round, and request shutdown before completion.
-	go func() {
-		time.Sleep(time.Millisecond * 100)
-		stop()
-	}()
+	ctx, cancel := context.WithTimeout(ctx, time.Millisecond*100)
+	defer cancel()
 	req.ErrorIs(r.execute(ctx, time.Now().Add(time.Hour), prover.LowestMerkleMinMemoryLayer), prover.ErrShutdownRequested)
 	req.False(r.isOpen())
 	req.False(r.opened.IsZero())
@@ -184,6 +184,7 @@ func TestRound_State(t *testing.T) {
 
 	// Create a new round instance of the same round.
 	ctx, stop = context.WithCancel(context.Background())
+	defer stop()
 	r, err = newRound(ctx, tempdir, 0)
 	req.NoError(err)
 	req.False(r.isOpen())
@@ -217,12 +218,10 @@ func TestRound_State(t *testing.T) {
 	req.Equal(r.execution, state.Execution)
 
 	// Trigger cleanup.
-	r.teardown(true)
+	req.NoError(r.teardown(true))
 
 	// Verify cleanup.
 	state, err = r.state()
 	req.EqualError(err, fmt.Sprintf("file is missing: %v", filepath.Join(r.datadir, roundStateFileBaseName)))
 	req.Nil(state)
-
-	stop()
 }
