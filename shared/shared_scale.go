@@ -69,6 +69,13 @@ func (t *ProofMessage) EncodeScale(enc *scale.Encoder) (total int, err error) {
 		total += n
 	}
 	{
+		n, err := scale.EncodeByteSlice(enc, t.ServicePubKey)
+		if err != nil {
+			return total, err
+		}
+		total += n
+	}
+	{
 		n, err := scale.EncodeString(enc, string(t.RoundID))
 		if err != nil {
 			return total, err
@@ -85,6 +92,14 @@ func (t *ProofMessage) DecodeScale(dec *scale.Decoder) (total int, err error) {
 			return total, err
 		}
 		total += n
+	}
+	{
+		field, n, err := scale.DecodeByteSlice(dec)
+		if err != nil {
+			return total, err
+		}
+		total += n
+		t.ServicePubKey = field
 	}
 	{
 		field, n, err := scale.DecodeString(dec)

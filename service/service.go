@@ -457,7 +457,8 @@ func (s *Service) reportNewProof(round string, execution *executionState) {
 			Members:     execution.Members,
 			NumLeaves:   execution.NumLeaves,
 		},
-		RoundID: round,
+		ServicePubKey: s.PubKey,
+		RoundID:       round,
 	}
 }
 

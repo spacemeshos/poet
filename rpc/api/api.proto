@@ -122,4 +122,5 @@ message GetProofRequest {
 
 message GetProofResponse {
     PoetProof proof = 1;
+    bytes pubkey = 2;
 }

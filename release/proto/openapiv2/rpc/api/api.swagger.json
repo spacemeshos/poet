@@ -194,6 +194,10 @@
       "properties": {
         "proof": {
           "$ref": "#/definitions/apiPoetProof"
+        },
+        "pubkey": {
+          "type": "string",
+          "format": "byte"
         }
       }
     },

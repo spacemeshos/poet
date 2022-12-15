@@ -82,7 +82,8 @@ type Proof struct {
 
 type ProofMessage struct {
 	Proof
-	RoundID string
+	ServicePubKey []byte
+	RoundID       string
 }
 
 type MerkleProof struct {

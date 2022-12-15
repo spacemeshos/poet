@@ -184,6 +184,7 @@ func (r *rpcServer) GetProof(ctx context.Context, in *api.GetProofRequest) (*api
 				Members: proof.Members,
 				Leaves:  proof.NumLeaves,
 			},
+			Pubkey: proof.ServicePubKey,
 		}
 
 		return &out, nil
