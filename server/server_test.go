@@ -5,10 +5,12 @@ package server_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	pb "github.com/spacemeshos/api/release/go/spacemesh/v1"
+	"github.com/spacemeshos/merkle-tree"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -16,8 +18,11 @@ import (
 
 	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/gateway"
+	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
 	"github.com/spacemeshos/poet/server"
+	"github.com/spacemeshos/poet/shared"
+	"github.com/spacemeshos/poet/verifier"
 )
 
 const randomHost = "localhost:0"
@@ -143,5 +148,33 @@ func TestSubmitAndGetProof(t *testing.T) {
 	req.Len(proof.Proof.Members, 1)
 	req.Contains(proof.Proof.Members, []byte("hash"))
 	cancel()
+
+	merkleProof := shared.MerkleProof{
+		Root:         proof.Proof.Proof.Root,
+		ProvenLeaves: proof.Proof.Proof.ProvenLeaves,
+		ProofNodes:   proof.Proof.Proof.ProofNodes,
+	}
+
+	root, err := calcRoot(proof.Proof.Members)
+	req.NoError(err)
+
+	labelHashFunc := hash.GenLabelHashFunc(root)
+	merkleHashFunc := hash.GenMerkleHashFunc(root)
+	req.NoError(verifier.Validate(merkleProof, labelHashFunc, merkleHashFunc, proof.Proof.Leaves, shared.T))
+
 	req.NoError(eg.Wait())
+}
+
+func calcRoot(leaves [][]byte) ([]byte, error) {
+	tree, err := merkle.NewTree()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate tree: %w", err)
+	}
+	for _, member := range leaves {
+		err := tree.AddLeaf(member)
+		if err != nil {
+			return nil, fmt.Errorf("failed to add leaf: %w", err)
+		}
+	}
+	return tree.Root(), nil
 }
