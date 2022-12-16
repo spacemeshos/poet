@@ -2,16 +2,13 @@ package shared
 
 import (
 	"encoding/binary"
-	"errors"
-	"fmt"
 	"os"
-	"time"
 
 	"github.com/minio/sha256-simd"
 	"github.com/spacemeshos/merkle-tree"
 )
 
-//go:generate scalegen -types MerkleProof
+//go:generate scalegen -types MerkleProof,ProofMessage,Proof
 
 const (
 	// T is the security param which determines the number of leaves
@@ -71,26 +68,26 @@ func MakeLabelFunc() func(hash func(data []byte) []byte, labelID uint64, leftSib
 	}
 }
 
+type Proof struct {
+	// The actual proof.
+	MerkleProof
+
+	// Members is the ordered list of miners challenges which are included
+	// in the proof (by using the list hash digest as the proof generation input (the statement)).
+	Members [][]byte
+
+	// NumLeaves is the width of the proof-generation tree.
+	NumLeaves uint64
+}
+
+type ProofMessage struct {
+	Proof
+	ServicePubKey []byte
+	RoundID       string
+}
+
 type MerkleProof struct {
 	Root         []byte
 	ProvenLeaves [][]byte
 	ProofNodes   [][]byte
-}
-
-// Retry provides generic capability for retryable function execution.
-func Retry(retryable func() error, numRetries int, interval time.Duration, logger func(msg string)) error {
-	err := retryable()
-	if err == nil {
-		return nil
-	}
-
-	if numRetries < 1 {
-		logger(err.Error())
-		return errors.New("number of retries exceeded")
-	}
-
-	logger(fmt.Sprintf("%v | retrying in %v...", err, interval))
-	time.Sleep(interval)
-
-	return Retry(retryable, numRetries-1, interval, logger)
 }

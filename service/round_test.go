@@ -44,7 +44,8 @@ func TestRound_Recovery(t *testing.T) {
 	req.NoError(err)
 
 	// Execute r1 as a reference round.
-	r1 := newRound(ctx, tmpdir, 0)
+	r1, err := newRound(ctx, tmpdir, 0)
+	req.NoError(err)
 	req.NoError(r1.open())
 	req.Equal(0, r1.numChallenges())
 	req.True(r1.isEmpty())
@@ -58,7 +59,8 @@ func TestRound_Recovery(t *testing.T) {
 	req.NoError(r1.execute(ctx, time.Now().Add(duration), prover.LowestMerkleMinMemoryLayer))
 
 	// Execute r2, and request shutdown before completion.
-	r2 := newRound(ctx, tmpdir, 1)
+	r2, err := newRound(ctx, tmpdir, 1)
+	req.NoError(err)
 	req.NoError(r2.open())
 	req.Equal(0, r2.numChallenges())
 	req.True(r2.isEmpty())
@@ -75,7 +77,8 @@ func TestRound_Recovery(t *testing.T) {
 
 	// Recover r2 execution, and request shutdown before completion.
 	ctx, stop = context.WithCancel(context.Background())
-	r2recovery1 := newRound(ctx, tmpdir, 1)
+	r2recovery1, err := newRound(ctx, tmpdir, 1)
+	req.NoError(err)
 	req.Equal(len(challenges), r2recovery1.numChallenges())
 	req.False(r2recovery1.isEmpty())
 
@@ -88,7 +91,8 @@ func TestRound_Recovery(t *testing.T) {
 
 	// Recover r2 execution again, and let it complete.
 	ctx, stop = context.WithCancel(context.Background())
-	r2recovery2 := newRound(ctx, tmpdir, 1)
+	r2recovery2, err := newRound(ctx, tmpdir, 1)
+	req.NoError(err)
 	req.Equal(len(challenges), r2recovery2.numChallenges())
 	req.False(r2recovery2.isEmpty())
 	state, err = r2recovery2.state()
@@ -108,11 +112,12 @@ func TestRound_State(t *testing.T) {
 	tempdir := t.TempDir()
 
 	// Create a new round.
-	r := newRound(ctx, tempdir, 0)
+	r, err := newRound(ctx, tempdir, 0)
+	req.NoError(err)
 	req.True(!r.isOpen())
 	req.True(r.opened.IsZero())
 	req.True(r.executionStarted.IsZero())
-	_, err := r.proof(false)
+	_, err = r.proof(false)
 	req.EqualError(err, "round wasn't open")
 
 	req.Nil(r.stateCache)
@@ -182,7 +187,8 @@ func TestRound_State(t *testing.T) {
 
 	// Create a new round instance of the same round.
 	ctx, stop = context.WithCancel(context.Background())
-	r = newRound(ctx, tempdir, 0)
+	r, err = newRound(ctx, tempdir, 0)
+	req.NoError(err)
 	req.False(r.isOpen())
 	req.True(r.opened.IsZero())
 	req.True(r.executionStarted.IsZero())
@@ -214,7 +220,7 @@ func TestRound_State(t *testing.T) {
 	req.Equal(r.execution, state.Execution)
 
 	// Trigger cleanup.
-	r.broadcasted()
+	r.Close()
 	req.NoError(r.waitTeardown(context.Background()))
 
 	// Verify cleanup.

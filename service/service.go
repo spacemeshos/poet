@@ -1,7 +1,6 @@
 package service
 
 import (
-	"bytes"
 	"context"
 	"crypto/ed25519"
 	"encoding/hex"
@@ -10,11 +9,9 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/spacemeshos/go-scale"
 	mshared "github.com/spacemeshos/merkle-tree/shared"
 	"github.com/spacemeshos/smutil/log"
 	"golang.org/x/sync/errgroup"
@@ -27,19 +24,15 @@ import (
 )
 
 type Config struct {
-	Genesis                  string        `long:"genesis-time" description:"Genesis timestamp"`
-	EpochDuration            time.Duration `long:"epoch-duration" description:"Epoch duration"`
-	PhaseShift               time.Duration `long:"phase-shift"`
-	CycleGap                 time.Duration `long:"cycle-gap"`
-	MemoryLayers             uint          `long:"memory" description:"Number of top Merkle tree layers to cache in-memory"`
-	NoRecovery               bool          `long:"norecovery" description:"whether to disable a potential recovery procedure"`
-	Reset                    bool          `long:"reset" description:"whether to reset the service state by deleting the datadir"`
-	GatewayAddresses         []string      `long:"gateway" description:"list of Spacemesh gateway nodes RPC listeners (host:port) for broadcasting of proofs"`
-	DisableBroadcast         bool          `long:"disablebroadcast" description:"whether to disable broadcasting of proofs"`
-	ConnAcksThreshold        uint          `long:"conn-acks" description:"number of required successful connections to Spacemesh gateway nodes"`
-	BroadcastAcksThreshold   uint          `long:"broadcast-acks" description:"number of required successful broadcasts via Spacemesh gateway nodes"`
-	BroadcastNumRetries      uint          `long:"broadcast-num-retries" description:"number of broadcast retries"`
-	BroadcastRetriesInterval time.Duration `long:"broadcast-retries-interval" description:"duration interval between broadcast retries"`
+	Genesis           string        `long:"genesis-time" description:"Genesis timestamp"`
+	EpochDuration     time.Duration `long:"epoch-duration" description:"Epoch duration"`
+	PhaseShift        time.Duration `long:"phase-shift"`
+	CycleGap          time.Duration `long:"cycle-gap"`
+	MemoryLayers      uint          `long:"memory" description:"Number of top Merkle tree layers to cache in-memory"`
+	NoRecovery        bool          `long:"norecovery" description:"whether to disable a potential recovery procedure"`
+	Reset             bool          `long:"reset" description:"whether to reset the service state by deleting the datadir"`
+	GatewayAddresses  []string      `long:"gateway" description:"list of Spacemesh gateway nodes RPC listeners (host:port) for broadcasting of proofs"`
+	ConnAcksThreshold uint          `long:"conn-acks" description:"number of required successful connections to Spacemesh gateway nodes"`
 }
 
 // estimatedLeavesPerSecond is used to computed estimated height of the proving tree
@@ -48,43 +41,31 @@ const estimatedLeavesPerSecond = 1 << 17
 
 const ChallengeVerifierCacheSize = 1024
 
-// ServiceClient is an interface for interacting with the Service actor.
-// It is created when the Service is started.
-type ServiceClient struct {
-	serviceStarted    *atomic.Bool
-	command           chan<- Command
-	challengeVerifier atomic.Value // holds challenge_verifier.Verifier
-}
-
-// Service orchestrates rounds functionality; each responsible for accepting challenges,
-// generating a proof from their hash digest, and broadcasting the result to the Spacemesh network.
+// Service orchestrates rounds functionality
+// It is responsible for accepting challenges, generating a proof from their hash digest and persisting it.
 //
-// Service is single-use, meaning it can be started with `Start()` and then stopped with `Shutdown()`
-// but it cannot be restarted. A new instance of `Service` must be created.
+// `Service` is single-use, meaning it can be started with `Service::Run`.
+// It is stopped by canceling the context provided to `Service::Run`.
+// It mustn't be restarted. A new instance of `Service` must be created.
 type Service struct {
-	commands <-chan Command
-	ServiceClient
-
-	runningGroup errgroup.Group
-	stop         context.CancelFunc
+	started  atomic.Bool
+	proofs   chan shared.ProofMessage
+	commands chan Command
+	timer    <-chan time.Time
 
 	cfg            *Config
 	datadir        string
 	genesis        time.Time
 	minMemoryLayer uint
-	started        atomic.Bool
 
 	// openRound is the round which is currently open for accepting challenges registration from miners.
 	// At any given time there is one single open round.
-	openRound       *round
-	executingRounds map[string]struct{}
+	openRound         *round
+	executingRounds   map[string]struct{}
+	challengeVerifier atomic.Value // holds challenge_verifier.Verifier
 
 	PubKey  ed25519.PublicKey
 	privKey ed25519.PrivateKey
-
-	broadcaster Broadcaster
-
-	sync.Mutex
 }
 
 // Command is a function that will be run in the main Service loop.
@@ -107,33 +88,11 @@ var (
 	ErrNotStarted                = errors.New("service not started")
 	ErrAlreadyStarted            = errors.New("already started")
 	ErrChallengeAlreadySubmitted = errors.New("challenge is already submitted")
+	ErrRoundNotFinished          = errors.New("round is not finished yet")
 )
 
-type Broadcaster interface {
-	BroadcastProof(msg []byte, roundID string, members [][]byte) error
-}
-
-type GossipPoetProof struct {
-	// The actual proof.
-	shared.MerkleProof
-
-	// Members is the ordered list of miners challenges which are included
-	// in the proof (by using the list hash digest as the proof generation input (the statement)).
-	Members [][]byte
-
-	// NumLeaves is the width of the proof-generation tree.
-	NumLeaves uint64
-}
-
-//go:generate scalegen -types PoetProofMessage,GossipPoetProof
-
-type PoetProofMessage struct {
-	GossipPoetProof
-	ServicePubKey []byte
-	RoundID       string
-	Signature     []byte
-}
-
+// NewService creates a new instance of Poet Service.
+// It should be started with `Service::Run`.
 func NewService(cfg *Config, datadir string) (*Service, error) {
 	genesis, err := time.Parse(time.RFC3339, cfg.Genesis)
 	if err != nil {
@@ -169,15 +128,20 @@ func NewService(cfg *Config, datadir string) (*Service, error) {
 			return nil, fmt.Errorf("failed to save state: %w", err)
 		}
 	}
-
 	cmds := make(chan Command, 1)
 
 	privateKey := ed25519.NewKeyFromSeed(state.PrivKey[:32])
+
+	roundsDir := filepath.Join(datadir, "rounds")
+	if _, err := os.Stat(roundsDir); os.IsNotExist(err) {
+		if err := os.Mkdir(roundsDir, 0o700); err != nil {
+			return nil, err
+		}
+	}
+
 	s := &Service{
-		commands: cmds,
-		ServiceClient: ServiceClient{
-			command: cmds,
-		},
+		proofs:          make(chan shared.ProofMessage, 1),
+		commands:        cmds,
 		cfg:             cfg,
 		minMemoryLayer:  uint(minMemoryLayer),
 		genesis:         genesis,
@@ -186,7 +150,6 @@ func NewService(cfg *Config, datadir string) (*Service, error) {
 		privKey:         privateKey,
 		PubKey:          privateKey.Public().(ed25519.PublicKey),
 	}
-	s.ServiceClient.serviceStarted = &s.started
 
 	log.Info("Service public key: %x", s.PubKey)
 
@@ -198,12 +161,29 @@ type roundResult struct {
 	err   error
 }
 
-func (s *Service) loop(ctx context.Context, roundsToResume []*round) {
+func (s *Service) ProofsChan() <-chan shared.ProofMessage {
+	return s.proofs
+}
+
+func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
+	logger := logging.FromContext(ctx).WithName("worker")
+	ctx = logging.NewContext(ctx, logger)
+
+	// Make sure there is an open round
+	if s.openRound == nil {
+		epoch := uint32(0)
+		if d := time.Since(s.genesis); d > 0 {
+			epoch = uint32(d / s.cfg.EpochDuration)
+		}
+		newRound, err := s.newRound(ctx, uint32(epoch))
+		if err != nil {
+			return fmt.Errorf("failed to open round the first round: %w", err)
+		}
+		s.openRound = newRound
+	}
+
 	var eg errgroup.Group
 	defer eg.Wait()
-
-	logger := log.AppLog.WithName("worker")
-	ctx = logging.NewContext(ctx, logger)
 
 	roundResults := make(chan roundResult, 1)
 
@@ -219,8 +199,6 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) {
 		})
 	}
 
-	timer := s.scheduleRound(ctx, s.openRound)
-
 	for {
 		select {
 		case cmd := <-s.commands:
@@ -228,16 +206,20 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) {
 
 		case result := <-roundResults:
 			if result.err == nil {
-				broadcaster := s.broadcaster
-				go broadcastProof(s, result.round, result.round.execution, broadcaster)
+				s.reportNewProof(result.round.ID, result.round.execution)
 			} else {
-				logger.With().Warning("round execution failed", log.Err(result.err), log.String("round", result.round.ID))
+				logger.With().Error("round execution failed", log.Err(result.err), log.String("round", result.round.ID))
 			}
 			delete(s.executingRounds, result.round.ID)
+			result.round.Close()
 
-		case <-timer:
+		case <-s.timer:
 			round := s.openRound
-			s.openRound = s.newRound(ctx, round.Epoch()+1)
+			newRound, err := s.newRound(ctx, round.Epoch()+1)
+			if err != nil {
+				return fmt.Errorf("failed to open new round: %w", err)
+			}
+			s.openRound = newRound
 			s.executingRounds[round.ID] = struct{}{}
 
 			end := s.roundEndTime(round)
@@ -249,11 +231,11 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) {
 			})
 
 			// schedule the next round
-			timer = s.scheduleRound(ctx, s.openRound)
+			s.timer = s.scheduleRound(ctx, s.openRound)
 
 		case <-ctx.Done():
 			logger.Info("service shutting down")
-			return
+			return nil
 		}
 	}
 }
@@ -275,20 +257,9 @@ func (s *Service) scheduleRound(ctx context.Context, round *round) <-chan time.T
 	return timer
 }
 
-func (s *Service) Start(b Broadcaster, verifier challenge_verifier.Verifier) error {
-	s.Lock()
-	defer s.Unlock()
-	if s.Started() {
-		return ErrAlreadyStarted
-	}
-
-	// Create a context for the running Service.
-	// This context will be canceled when Service is stopped.
-	ctx, stop := context.WithCancel(context.Background())
-	s.stop = stop
-
-	s.broadcaster = b
-
+// Run starts the Service's actor event loop.
+// It stops when the `ctx` is canceled.
+func (s *Service) Run(ctx context.Context) error {
 	var toResume []*round
 	if s.cfg.NoRecovery {
 		log.Info("Recovery is disabled")
@@ -300,47 +271,39 @@ func (s *Service) Start(b Broadcaster, verifier challenge_verifier.Verifier) err
 		}
 	}
 
-	now := time.Now()
-	epoch := time.Duration(0)
-	if d := now.Sub(s.genesis); d > 0 {
-		epoch = d / s.cfg.EpochDuration
-	}
-	if s.openRound == nil {
-		s.openRound = s.newRound(ctx, uint32(epoch))
-	}
-
-	s.ServiceClient.SetChallengeVerifier(verifier)
-
-	s.runningGroup.Go(func() error {
-		s.loop(ctx, toResume)
-		return nil
-	})
-	s.started.Store(true)
-	return nil
+	return s.loop(ctx, toResume)
 }
 
-// Shutdown gracefully stops running Service and waits
-// for all processing to stop.
-func (s *Service) Shutdown() error {
-	if !s.Started() {
-		return ErrNotStarted
+// Start starts proofs generation.
+func (s *Service) Start(ctx context.Context, verifier challenge_verifier.Verifier) error {
+	resp := make(chan error)
+	s.commands <- func(s *Service) {
+		defer close(resp)
+		if s.Started() {
+			resp <- ErrAlreadyStarted
+		}
+		s.SetChallengeVerifier(verifier)
+		s.timer = s.scheduleRound(ctx, s.openRound)
+		s.started.Store(true)
 	}
-	log.Info("service shutting down")
-	s.stop()
-	err := s.runningGroup.Wait()
-	s.started.Store(false)
-	log.Info("service shutdown complete")
-	return err
+	select {
+	case err := <-resp:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
+// Started returns whether the `Service` is generating proofs.
 func (s *Service) Started() bool {
 	return s.started.Load()
 }
 
 func (s *Service) recover(ctx context.Context) (open *round, executing []*round, err error) {
+	roundsDir := filepath.Join(s.datadir, "rounds")
 	logger := log.AppLog.WithName("recovery")
 	logger.With().Info("Recovering service state", log.String("datadir", s.datadir))
-	entries, err := os.ReadDir(s.datadir)
+	entries, err := os.ReadDir(roundsDir)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -355,22 +318,25 @@ func (s *Service) recover(ctx context.Context) (open *round, executing []*round,
 		if err != nil {
 			return nil, nil, fmt.Errorf("entry is not a uint32 %s", entry.Name())
 		}
-		r := newRound(ctx, s.datadir, uint32(epoch))
+		r, err := newRound(ctx, roundsDir, uint32(epoch))
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to create round: %w", err)
+		}
+
 		state, err := r.state()
 		if err != nil {
-			return nil, nil, fmt.Errorf("invalid round state: %v", err)
+			return nil, nil, fmt.Errorf("invalid round state: %w", err)
 		}
 
 		if state.isExecuted() {
-			logger.Info("found round %v in executed state. broadcasting...", r.ID)
-			go broadcastProof(s, r, state.Execution, s.broadcaster)
+			s.reportNewProof(r.ID, state.Execution)
 			continue
 		}
 
 		if state.isOpen() {
 			logger.Info("found round %v in open state.", r.ID)
 			if err := r.open(); err != nil {
-				return nil, nil, fmt.Errorf("failed to open round: %v", err)
+				return nil, nil, fmt.Errorf("failed to open round: %w", err)
 			}
 
 			// Keep the last open round as openRound (multiple open rounds state is possible
@@ -386,24 +352,19 @@ func (s *Service) recover(ctx context.Context) (open *round, executing []*round,
 	return open, executing, nil
 }
 
-func (s *ServiceClient) SetBroadcaster(b Broadcaster) {
-	// No need to wait for the Command to execute.
-	s.command <- func(s *Service) {
-		old := s.broadcaster
-		s.broadcaster = b
-		if old != nil {
-			log.Info("Service broadcaster updated")
-		}
-	}
-}
-
-func (s *ServiceClient) SetChallengeVerifier(provider challenge_verifier.Verifier) {
+func (s *Service) SetChallengeVerifier(provider challenge_verifier.Verifier) {
 	s.challengeVerifier.Store(provider)
 }
 
-func (s *ServiceClient) Submit(ctx context.Context, challenge, signature []byte) (string, []byte, error) {
-	if !s.serviceStarted.Load() {
-		return "", nil, ErrNotStarted
+type SubmitResult struct {
+	Round    string
+	Hash     []byte
+	RoundEnd time.Duration
+}
+
+func (s *Service) Submit(ctx context.Context, challenge, signature []byte) (*SubmitResult, error) {
+	if !s.Started() {
+		return nil, ErrNotStarted
 	}
 	logger := logging.FromContext(ctx)
 
@@ -413,19 +374,23 @@ func (s *ServiceClient) Submit(ctx context.Context, challenge, signature []byte)
 	result, err := verifier.Verify(ctx, challenge, signature)
 	if err != nil {
 		logger.With().Debug("challenge verification failed", log.Err(err))
-		return "", nil, err
+		return nil, err
 	}
-	logger.With().Debug("verified challenge", log.String("hash", hex.EncodeToString(result.Hash)), log.String("node_id", hex.EncodeToString(result.NodeId)))
+	logger.With().Debug("verified challenge",
+		log.String("hash", hex.EncodeToString(result.Hash)),
+		log.String("node_id", hex.EncodeToString(result.NodeId)))
 
 	type response struct {
 		round string
 		err   error
+		end   time.Time
 	}
 	done := make(chan response, 1)
-	s.command <- func(s *Service) {
+	s.commands <- func(s *Service) {
 		done <- response{
 			round: s.openRound.ID,
 			err:   s.openRound.submit(result.NodeId, result.Hash),
+			end:   s.roundEndTime(s.openRound),
 		}
 		close(done)
 	}
@@ -433,25 +398,25 @@ func (s *ServiceClient) Submit(ctx context.Context, challenge, signature []byte)
 	select {
 	case resp := <-done:
 		switch {
+		case resp.err == nil:
+			logger.With().Debug("submitted challenge for round", log.String("round", resp.round))
 		case errors.Is(resp.err, ErrChallengeAlreadySubmitted):
-			return resp.round, result.Hash, nil
-		case err != nil:
-			return "", nil, resp.err
+		case resp.err != nil:
+			return nil, err
 		}
-		logger.With().Debug("submitted challenge for round", log.String("round", resp.round))
-		return resp.round, result.Hash, nil
+		return &SubmitResult{
+			Round:    resp.round,
+			Hash:     result.Hash,
+			RoundEnd: time.Until(resp.end),
+		}, nil
 	case <-ctx.Done():
-		return "", nil, ctx.Err()
+		return nil, ctx.Err()
 	}
 }
 
-func (s *ServiceClient) Info(ctx context.Context) (*InfoResponse, error) {
-	if !s.serviceStarted.Load() {
-		return nil, ErrNotStarted
-	}
-
+func (s *Service) Info(ctx context.Context) (*InfoResponse, error) {
 	resp := make(chan *InfoResponse, 1)
-	s.command <- func(s *Service) {
+	s.commands <- func(s *Service) {
 		defer close(resp)
 		ids := make([]string, 0, len(s.executingRounds))
 		for id := range s.executingRounds {
@@ -471,52 +436,30 @@ func (s *ServiceClient) Info(ctx context.Context) (*InfoResponse, error) {
 }
 
 // newRound creates a new round with the given epoch.
-func (s *Service) newRound(ctx context.Context, epoch uint32) *round {
-	r := newRound(ctx, s.datadir, epoch)
+func (s *Service) newRound(ctx context.Context, epoch uint32) (*round, error) {
+	roundsDir := filepath.Join(s.datadir, "rounds")
+	r, err := newRound(ctx, roundsDir, epoch)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create a new round: %w", err)
+	}
 	if err := r.open(); err != nil {
-		panic(fmt.Errorf("failed to open round: %v", err))
+		return nil, fmt.Errorf("failed to open round: %w", err)
 	}
 
 	log.With().Info("Round opened", log.String("ID", r.ID))
-	return r
+	return r, nil
 }
 
-func broadcastProof(s *Service, r *round, execution *executionState, broadcaster Broadcaster) {
-	msg, err := serializeProofMsg(s.PubKey, r.ID, execution)
-	if err != nil {
-		log.Error(err.Error())
-		return
-	}
-
-	bindFunc := func() error { return broadcaster.BroadcastProof(msg, r.ID, r.execution.Members) }
-	logger := func(msg string) { log.Error("Round %v: %v", r.ID, msg) }
-
-	if err := shared.Retry(bindFunc, int(s.cfg.BroadcastNumRetries), s.cfg.BroadcastRetriesInterval, logger); err != nil {
-		log.Error("Round %v proof broadcast failure: %v", r.ID, err)
-		return
-	}
-
-	r.broadcasted()
-}
-
-func serializeProofMsg(servicePubKey []byte, roundID string, execution *executionState) ([]byte, error) {
-	proofMessage := PoetProofMessage{
-		GossipPoetProof: GossipPoetProof{
+func (s *Service) reportNewProof(round string, execution *executionState) {
+	s.proofs <- shared.ProofMessage{
+		Proof: shared.Proof{
 			MerkleProof: *execution.NIP,
 			Members:     execution.Members,
 			NumLeaves:   execution.NumLeaves,
 		},
-		ServicePubKey: servicePubKey,
-		RoundID:       roundID,
-		Signature:     nil,
+		ServicePubKey: s.PubKey,
+		RoundID:       round,
 	}
-
-	var dataBuf bytes.Buffer
-	if _, err := proofMessage.EncodeScale(scale.NewEncoder(&dataBuf)); err != nil {
-		return nil, fmt.Errorf("failed to marshal proof message for round %v: %v", roundID, err)
-	}
-
-	return dataBuf.Bytes(), nil
 }
 
 // CreateChallengeVerifier creates a verifier connected to provided gateways.

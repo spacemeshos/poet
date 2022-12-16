@@ -12,6 +12,7 @@ import (
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/merkle-tree/cache"
 	"github.com/spacemeshos/smutil/log"
+	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 
 	"github.com/spacemeshos/poet/hash"
@@ -50,7 +51,7 @@ type round struct {
 	datadir string
 	ID      string
 
-	challengesDb *LevelDB
+	challengesDb *leveldb.DB
 	execution    *executionState
 
 	opened           time.Time
@@ -69,7 +70,7 @@ func (r *round) Epoch() uint32 {
 	return r.execution.Epoch
 }
 
-func newRound(ctx context.Context, datadir string, epoch uint32) *round {
+func newRound(ctx context.Context, datadir string, epoch uint32) (*round, error) {
 	r := new(round)
 	r.ID = strconv.FormatUint(uint64(epoch), 10)
 	r.datadir = filepath.Join(datadir, r.ID)
@@ -79,8 +80,11 @@ func newRound(ctx context.Context, datadir string, epoch uint32) *round {
 	r.broadcastedChan = make(chan struct{})
 	r.teardownChan = make(chan struct{})
 
-	wo := &opt.WriteOptions{Sync: true}
-	r.challengesDb = NewLevelDbStore(filepath.Join(r.datadir, "challengesDb"), wo, nil) // This creates the datadir if it doesn't exist already.
+	db, err := leveldb.OpenFile(filepath.Join(r.datadir, "challengesDb"), nil)
+	if err != nil {
+		return nil, err
+	}
+	r.challengesDb = db
 
 	r.execution = new(executionState)
 	r.execution.Epoch = epoch
@@ -103,7 +107,7 @@ func newRound(ctx context.Context, datadir string, epoch uint32) *round {
 		log.Info("Round %v torn down (cleanup %v)", r.ID, cleanup)
 	}()
 
-	return r
+	return r, nil
 }
 
 func (r *round) open() error {
@@ -139,16 +143,16 @@ func (r *round) submit(key, challenge []byte) error {
 		return errors.New("round is not open")
 	}
 
-	if has, err := r.challengesDb.Has(key); err != nil {
+	if has, err := r.challengesDb.Has(key, nil); err != nil {
 		return err
 	} else if has {
 		return fmt.Errorf("%w: key: %X", ErrChallengeAlreadySubmitted, key)
 	}
-	return r.challengesDb.Put(key, challenge)
+	return r.challengesDb.Put(key, challenge, &opt.WriteOptions{Sync: true})
 }
 
 func (r *round) numChallenges() int {
-	iter := r.challengesDb.Iterator()
+	iter := r.challengesDb.NewIterator(nil, nil)
 	defer iter.Release()
 
 	var num int
@@ -160,7 +164,7 @@ func (r *round) numChallenges() int {
 }
 
 func (r *round) isEmpty() bool {
-	iter := r.challengesDb.Iterator()
+	iter := r.challengesDb.NewIterator(nil, nil)
 	defer iter.Release()
 	return !iter.Next()
 }
@@ -296,7 +300,9 @@ func (r *round) proof(wait bool) (*PoetProof, error) {
 	}, nil
 }
 
-func (r *round) broadcasted() {
+// Close closes the round.
+// FIXME(brozansk) Close it synchronously (https://github.com/spacemeshos/poet/issues/181)
+func (r *round) Close() {
 	close(r.broadcastedChan)
 }
 
@@ -332,7 +338,7 @@ func (r *round) calcMembersAndStatement() ([][]byte, []byte, error) {
 	}
 
 	members := make([][]byte, 0)
-	iter := r.challengesDb.Iterator()
+	iter := r.challengesDb.NewIterator(nil, nil)
 	defer iter.Release()
 	for iter.Next() {
 		challenge := iter.Value()

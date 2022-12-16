@@ -92,9 +92,12 @@ func poetMain() error {
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
-	if err := server.StartServer(ctx, cfg); err != nil {
-		log.Error("failed to start server: %v", err)
-		return err
+	server, err := server.New(*cfg)
+	if err != nil {
+		return fmt.Errorf("failed to create server: %w", err)
+	}
+	if err := server.Start(ctx); err != nil {
+		return fmt.Errorf("failure in server: %w", err)
 	}
 
 	return nil
