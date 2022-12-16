@@ -36,7 +36,7 @@ func TestRound_Recovery(t *testing.T) {
 	req := require.New(t)
 
 	ctx, stop := context.WithCancel(context.Background())
-
+	defer stop()
 	duration := 500 * time.Millisecond
 	tmpdir := t.TempDir()
 
@@ -78,6 +78,7 @@ func TestRound_Recovery(t *testing.T) {
 
 	// Recover r2 execution, and request shutdown before completion.
 	ctx, stop = context.WithCancel(context.Background())
+	defer stop()
 	r2recovery1, err := newRound(tmpdir, 1)
 	req.NoError(err)
 	req.Equal(len(challenges), r2recovery1.numChallenges())
