@@ -36,7 +36,7 @@ func TestRound_Recovery(t *testing.T) {
 	req := require.New(t)
 
 	ctx, stop := context.WithCancel(context.Background())
-
+	defer stop()
 	duration := 500 * time.Millisecond
 	tmpdir := t.TempDir()
 
@@ -44,7 +44,7 @@ func TestRound_Recovery(t *testing.T) {
 	req.NoError(err)
 
 	// Execute r1 as a reference round.
-	r1, err := newRound(ctx, tmpdir, 0)
+	r1, err := newRound(tmpdir, 0)
 	req.NoError(err)
 	req.NoError(r1.open())
 	req.Equal(0, r1.numChallenges())
@@ -57,9 +57,10 @@ func TestRound_Recovery(t *testing.T) {
 	req.False(r1.isEmpty())
 
 	req.NoError(r1.execute(ctx, time.Now().Add(duration), prover.LowestMerkleMinMemoryLayer))
+	req.NoError(r1.teardown(true))
 
 	// Execute r2, and request shutdown before completion.
-	r2, err := newRound(ctx, tmpdir, 1)
+	r2, err := newRound(tmpdir, 1)
 	req.NoError(err)
 	req.NoError(r2.open())
 	req.Equal(0, r2.numChallenges())
@@ -73,11 +74,12 @@ func TestRound_Recovery(t *testing.T) {
 
 	stop()
 	req.ErrorIs(r2.execute(ctx, time.Now().Add(duration), prover.LowestMerkleMinMemoryLayer), prover.ErrShutdownRequested)
-	require.NoError(t, r2.waitTeardown(context.Background()))
+	req.NoError(r2.teardown(false))
 
 	// Recover r2 execution, and request shutdown before completion.
 	ctx, stop = context.WithCancel(context.Background())
-	r2recovery1, err := newRound(ctx, tmpdir, 1)
+	defer stop()
+	r2recovery1, err := newRound(tmpdir, 1)
 	req.NoError(err)
 	req.Equal(len(challenges), r2recovery1.numChallenges())
 	req.False(r2recovery1.isEmpty())
@@ -87,11 +89,12 @@ func TestRound_Recovery(t *testing.T) {
 
 	stop()
 	req.ErrorIs(r2recovery1.recoverExecution(ctx, state.Execution, time.Now().Add(duration)), prover.ErrShutdownRequested)
-	require.NoError(t, r2recovery1.waitTeardown(context.Background()))
+	req.NoError(r2recovery1.teardown(false))
 
 	// Recover r2 execution again, and let it complete.
 	ctx, stop = context.WithCancel(context.Background())
-	r2recovery2, err := newRound(ctx, tmpdir, 1)
+	defer stop()
+	r2recovery2, err := newRound(tmpdir, 1)
 	req.NoError(err)
 	req.Equal(len(challenges), r2recovery2.numChallenges())
 	req.False(r2recovery2.isEmpty())
@@ -99,20 +102,18 @@ func TestRound_Recovery(t *testing.T) {
 	req.NoError(err)
 
 	req.NoError(r2recovery2.recoverExecution(ctx, state.Execution, time.Now().Add(duration)))
-
-	// Request shutdown.
-	stop()
-	require.NoError(t, r2recovery2.waitTeardown(context.Background()))
+	req.NoError(r2recovery2.teardown(true))
 }
 
 func TestRound_State(t *testing.T) {
 	req := require.New(t)
 
 	ctx, stop := context.WithCancel(context.Background())
+	defer stop()
 	tempdir := t.TempDir()
 
 	// Create a new round.
-	r, err := newRound(ctx, tempdir, 0)
+	r, err := newRound(tempdir, 0)
 	req.NoError(err)
 	req.True(!r.isOpen())
 	req.True(r.opened.IsZero())
@@ -160,12 +161,9 @@ func TestRound_State(t *testing.T) {
 	req.Nil(state.Execution.NIP)
 
 	// Execute the round, and request shutdown before completion.
-	duration := time.Hour
-	go func() {
-		time.Sleep(time.Millisecond * 100)
-		stop()
-	}()
-	req.ErrorIs(r.execute(ctx, time.Now().Add(duration), prover.LowestMerkleMinMemoryLayer), prover.ErrShutdownRequested)
+	ctx, cancel := context.WithTimeout(ctx, time.Millisecond*100)
+	defer cancel()
+	req.ErrorIs(r.execute(ctx, time.Now().Add(time.Hour), prover.LowestMerkleMinMemoryLayer), prover.ErrShutdownRequested)
 	req.False(r.isOpen())
 	req.False(r.opened.IsZero())
 	req.False(r.executionStarted.IsZero())
@@ -183,11 +181,12 @@ func TestRound_State(t *testing.T) {
 	req.Greater(state.Execution.NumLeaves, uint64(0))
 	req.NotNil(state.Execution.ParkedNodes)
 	req.Nil(state.Execution.NIP)
-	req.NoError(r.waitTeardown(context.Background()))
+	req.NoError(r.teardown(false))
 
 	// Create a new round instance of the same round.
 	ctx, stop = context.WithCancel(context.Background())
-	r, err = newRound(ctx, tempdir, 0)
+	defer stop()
+	r, err = newRound(tempdir, 0)
 	req.NoError(err)
 	req.False(r.isOpen())
 	req.True(r.opened.IsZero())
@@ -220,13 +219,10 @@ func TestRound_State(t *testing.T) {
 	req.Equal(r.execution, state.Execution)
 
 	// Trigger cleanup.
-	r.Close()
-	req.NoError(r.waitTeardown(context.Background()))
+	req.NoError(r.teardown(true))
 
 	// Verify cleanup.
 	state, err = r.state()
 	req.EqualError(err, fmt.Sprintf("file is missing: %v", filepath.Join(r.datadir, roundStateFileBaseName)))
 	req.Nil(state)
-
-	stop()
 }
