@@ -44,7 +44,7 @@ func TestRound_Recovery(t *testing.T) {
 	req.NoError(err)
 
 	// Execute r1 as a reference round.
-	r1, err := newRound(ctx, tmpdir, 0)
+	r1, err := newRound(tmpdir, 0)
 	req.NoError(err)
 	req.NoError(r1.open())
 	req.Equal(0, r1.numChallenges())
@@ -60,7 +60,7 @@ func TestRound_Recovery(t *testing.T) {
 	req.NoError(r1.teardown(true))
 
 	// Execute r2, and request shutdown before completion.
-	r2, err := newRound(ctx, tmpdir, 1)
+	r2, err := newRound(tmpdir, 1)
 	req.NoError(err)
 	req.NoError(r2.open())
 	req.Equal(0, r2.numChallenges())
@@ -78,7 +78,7 @@ func TestRound_Recovery(t *testing.T) {
 
 	// Recover r2 execution, and request shutdown before completion.
 	ctx, stop = context.WithCancel(context.Background())
-	r2recovery1, err := newRound(ctx, tmpdir, 1)
+	r2recovery1, err := newRound(tmpdir, 1)
 	req.NoError(err)
 	req.Equal(len(challenges), r2recovery1.numChallenges())
 	req.False(r2recovery1.isEmpty())
@@ -93,7 +93,7 @@ func TestRound_Recovery(t *testing.T) {
 	// Recover r2 execution again, and let it complete.
 	ctx, stop = context.WithCancel(context.Background())
 	defer stop()
-	r2recovery2, err := newRound(ctx, tmpdir, 1)
+	r2recovery2, err := newRound(tmpdir, 1)
 	req.NoError(err)
 	req.Equal(len(challenges), r2recovery2.numChallenges())
 	req.False(r2recovery2.isEmpty())
@@ -112,7 +112,7 @@ func TestRound_State(t *testing.T) {
 	tempdir := t.TempDir()
 
 	// Create a new round.
-	r, err := newRound(ctx, tempdir, 0)
+	r, err := newRound(tempdir, 0)
 	req.NoError(err)
 	req.True(!r.isOpen())
 	req.True(r.opened.IsZero())
@@ -185,7 +185,7 @@ func TestRound_State(t *testing.T) {
 	// Create a new round instance of the same round.
 	ctx, stop = context.WithCancel(context.Background())
 	defer stop()
-	r, err = newRound(ctx, tempdir, 0)
+	r, err = newRound(tempdir, 0)
 	req.NoError(err)
 	req.False(r.isOpen())
 	req.True(r.opened.IsZero())

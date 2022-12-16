@@ -175,7 +175,7 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 		if d := time.Since(s.genesis); d > 0 {
 			epoch = uint32(d / s.cfg.EpochDuration)
 		}
-		newRound, err := s.newRound(ctx, uint32(epoch))
+		newRound, err := s.newRound(uint32(epoch))
 		if err != nil {
 			return fmt.Errorf("failed to open round the first round: %w", err)
 		}
@@ -217,7 +217,7 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 
 		case <-s.timer:
 			round := s.openRound
-			newRound, err := s.newRound(ctx, round.Epoch()+1)
+			newRound, err := s.newRound(round.Epoch() + 1)
 			if err != nil {
 				return fmt.Errorf("failed to open new round: %w", err)
 			}
@@ -324,7 +324,7 @@ func (s *Service) recover(ctx context.Context) (open *round, executing []*round,
 		if err != nil {
 			return nil, nil, fmt.Errorf("entry is not a uint32 %s", entry.Name())
 		}
-		r, err := newRound(ctx, roundsDir, uint32(epoch))
+		r, err := newRound(roundsDir, uint32(epoch))
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to create round: %w", err)
 		}
@@ -442,9 +442,9 @@ func (s *Service) Info(ctx context.Context) (*InfoResponse, error) {
 }
 
 // newRound creates a new round with the given epoch.
-func (s *Service) newRound(ctx context.Context, epoch uint32) (*round, error) {
+func (s *Service) newRound(epoch uint32) (*round, error) {
 	roundsDir := filepath.Join(s.datadir, "rounds")
-	r, err := newRound(ctx, roundsDir, epoch)
+	r, err := newRound(roundsDir, epoch)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a new round: %w", err)
 	}

@@ -68,7 +68,7 @@ func (r *round) Epoch() uint32 {
 	return r.execution.Epoch
 }
 
-func newRound(ctx context.Context, datadir string, epoch uint32) (*round, error) {
+func newRound(datadir string, epoch uint32) (*round, error) {
 	r := new(round)
 	r.ID = strconv.FormatUint(uint64(epoch), 10)
 	r.datadir = filepath.Join(datadir, r.ID)
