@@ -60,8 +60,6 @@ type round struct {
 	openedChan           chan struct{}
 	executionStartedChan chan struct{}
 	executionEndedChan   chan struct{}
-	broadcastedChan      chan struct{}
-	teardownChan         chan struct{}
 
 	stateCache *roundState
 }
@@ -70,15 +68,13 @@ func (r *round) Epoch() uint32 {
 	return r.execution.Epoch
 }
 
-func newRound(ctx context.Context, datadir string, epoch uint32) (*round, error) {
+func newRound(datadir string, epoch uint32) (*round, error) {
 	r := new(round)
 	r.ID = strconv.FormatUint(uint64(epoch), 10)
 	r.datadir = filepath.Join(datadir, r.ID)
 	r.openedChan = make(chan struct{})
 	r.executionStartedChan = make(chan struct{})
 	r.executionEndedChan = make(chan struct{})
-	r.broadcastedChan = make(chan struct{})
-	r.teardownChan = make(chan struct{})
 
 	db, err := leveldb.OpenFile(filepath.Join(r.datadir, "challengesDb"), nil)
 	if err != nil {
@@ -89,23 +85,6 @@ func newRound(ctx context.Context, datadir string, epoch uint32) (*round, error)
 	r.execution = new(executionState)
 	r.execution.Epoch = epoch
 	r.execution.SecurityParam = shared.T
-
-	go func() {
-		defer close(r.teardownChan)
-		var cleanup bool
-		select {
-		case <-ctx.Done():
-		case <-r.broadcastedChan:
-			cleanup = true
-		}
-
-		if err := r.teardown(cleanup); err != nil {
-			log.Error("Round %v tear down error: %v", r.ID, err)
-			return
-		}
-
-		log.Info("Round %v torn down (cleanup %v)", r.ID, cleanup)
-	}()
 
 	return r, nil
 }
@@ -123,15 +102,6 @@ func (r *round) open() error {
 	close(r.openedChan)
 
 	return nil
-}
-
-func (r *round) waitTeardown(ctx context.Context) error {
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-r.teardownChan:
-		return nil
-	}
 }
 
 func (r *round) isOpen() bool {
@@ -298,12 +268,6 @@ func (r *round) proof(wait bool) (*PoetProof, error) {
 		Statement: r.execution.Statement,
 		Proof:     r.execution.NIP,
 	}, nil
-}
-
-// Close closes the round.
-// FIXME(brozansk) Close it synchronously (https://github.com/spacemeshos/poet/issues/181)
-func (r *round) Close() {
-	close(r.broadcastedChan)
 }
 
 func (r *round) state() (*roundState, error) {
