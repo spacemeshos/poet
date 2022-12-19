@@ -271,8 +271,7 @@ func (s *Service) Run(ctx context.Context) error {
 		}
 	}
 
-	err := s.loop(ctx, toResume)
-	return err
+	return s.loop(ctx, toResume)
 }
 
 // Start starts proofs generation.
