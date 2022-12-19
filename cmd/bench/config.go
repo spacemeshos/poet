@@ -15,7 +15,7 @@ const (
 
 // config defines the configuration options for bench.
 type config struct {
-	Duration time.Duration `short:"duration" description:"benchmark duration"`
+	Duration time.Duration `short:"d" description:"benchmark duration"`
 	CPU      bool          `short:"c" description:"whether to enable CPU profiling"`
 }
 
