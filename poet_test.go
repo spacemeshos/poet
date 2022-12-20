@@ -85,7 +85,7 @@ func TestHarness(t *testing.T) {
 	r.EqualError(err, "rpc error: code = FailedPrecondition desc = cannot submit a challenge because poet service is not started")
 
 	_, err = h.Start(ctx, &api.StartRequest{GatewayAddresses: []string{"666"}})
-	r.EqualError(err, "rpc error: code = Unknown desc = failed to connect to gateway grpc server 666 (context deadline exceeded)")
+	r.ErrorContains(err, "failed to connect to gateway grpc server 666 (context deadline exceeded)")
 
 	_, err = h.Start(ctx, &api.StartRequest{DisableBroadcast: true, GatewayAddresses: []string{target}})
 	r.NoError(err)
