@@ -25,10 +25,6 @@ type harnessTestCase struct {
 	test func(ctx context.Context, h *integration.Harness, assert *require.Assertions)
 }
 
-// TODO(moshababo): create a mock for the node which the harness poet server
-// is broadcasting to. Without it, since the latest API change,
-// these tests are quite meaningless.
-
 var testCases = []*harnessTestCase{
 	{name: "info", test: testInfo},
 	{name: "submit", test: testSubmit},
@@ -87,10 +83,10 @@ func TestHarness(t *testing.T) {
 	_, err = h.Start(ctx, &api.StartRequest{GatewayAddresses: []string{"666"}})
 	r.EqualError(err, "rpc error: code = Unknown desc = failed to connect to gateway grpc server 666 (context deadline exceeded)")
 
-	_, err = h.Start(ctx, &api.StartRequest{DisableBroadcast: true, GatewayAddresses: []string{target}})
+	_, err = h.Start(ctx, &api.StartRequest{GatewayAddresses: []string{target}})
 	r.NoError(err)
 
-	_, err = h.Start(ctx, &api.StartRequest{DisableBroadcast: true})
+	_, err = h.Start(ctx, &api.StartRequest{})
 	r.EqualError(err, "rpc error: code = Unknown desc = already started")
 
 	for _, testCase := range testCases {
@@ -208,7 +204,6 @@ func TestHarness_CrashRecovery(t *testing.T) {
 	req.Equal(roundsID[0], info.ExecutingRoundsIds[0])
 	req.Equal(roundsID[1], info.OpenRoundId)
 
-	// TODO(moshababo): Wait until rounds 0 and 1 execution completes. listen to their proof broadcast and save it as a reference.
 	req.NoError(h.TearDown(false))
 
 	// Create a new server harness instance.

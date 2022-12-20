@@ -201,7 +201,7 @@ func TestNewService(t *testing.T) {
 		return currRoundID >= prevRoundID+1
 	}, time.Second, time.Millisecond*20)
 
-	// Wait for proof message broadcast.
+	// Wait for proof message.
 	proof := <-s.ProofsChan()
 
 	req.Equal(currentRound, proof.RoundID)
