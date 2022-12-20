@@ -1,12 +1,12 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "rpc/api/api.proto",
+    "title": "rpc/api/v1/api.proto",
     "version": "version not set"
   },
   "tags": [
     {
-      "name": "Poet"
+      "name": "PoetService"
     }
   ],
   "consumes": [
@@ -19,12 +19,12 @@
     "/v1/info": {
       "get": {
         "summary": "GetInfo returns general information concerning the service,\nincluding its identity pubkey.",
-        "operationId": "Poet_GetInfo",
+        "operationId": "PoetService_GetInfo",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/apiGetInfoResponse"
+              "$ref": "#/definitions/v1GetInfoResponse"
             }
           },
           "default": {
@@ -35,19 +35,19 @@
           }
         },
         "tags": [
-          "Poet"
+          "PoetService"
         ]
       }
     },
     "/v1/proofs/{roundId}": {
       "get": {
         "summary": "GetProof returns the generated proof for given round id.",
-        "operationId": "Poet_GetProof",
+        "operationId": "PoetService_GetProof",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/apiGetProofResponse"
+              "$ref": "#/definitions/v1GetProofResponse"
             }
           },
           "default": {
@@ -66,19 +66,19 @@
           }
         ],
         "tags": [
-          "Poet"
+          "PoetService"
         ]
       }
     },
     "/v1/start": {
       "post": {
         "summary": "Start is used to start the service.",
-        "operationId": "Poet_Start",
+        "operationId": "PoetService_Start",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/apiStartResponse"
+              "$ref": "#/definitions/v1StartResponse"
             }
           },
           "default": {
@@ -94,24 +94,24 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/apiStartRequest"
+              "$ref": "#/definitions/v1StartRequest"
             }
           }
         ],
         "tags": [
-          "Poet"
+          "PoetService"
         ]
       }
     },
     "/v1/submit": {
       "post": {
         "summary": "Submit adds a challenge to the service's current open round,\nto be included its later generated proof.",
-        "operationId": "Poet_Submit",
+        "operationId": "PoetService_Submit",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/apiSubmitResponse"
+              "$ref": "#/definitions/v1SubmitResponse"
             }
           },
           "default": {
@@ -127,24 +127,24 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/apiSubmitRequest"
+              "$ref": "#/definitions/v1SubmitRequest"
             }
           }
         ],
         "tags": [
-          "Poet"
+          "PoetService"
         ]
       }
     },
     "/v1/updategateway": {
       "post": {
         "summary": "UpdateGateway allows to update the list of gateway addresses (with additional broadcasting config),\nsimilar to the Start rpc, but after the service already started.",
-        "operationId": "Poet_UpdateGateway",
+        "operationId": "PoetService_UpdateGateway",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/apiUpdateGatewayResponse"
+              "$ref": "#/definitions/v1UpdateGatewayResponse"
             }
           },
           "default": {
@@ -160,167 +160,17 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/apiUpdateGatewayRequest"
+              "$ref": "#/definitions/v1UpdateGatewayRequest"
             }
           }
         ],
         "tags": [
-          "Poet"
+          "PoetService"
         ]
       }
     }
   },
   "definitions": {
-    "apiGetInfoResponse": {
-      "type": "object",
-      "properties": {
-        "openRoundId": {
-          "type": "string"
-        },
-        "executingRoundsIds": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "servicePubKey": {
-          "type": "string",
-          "format": "byte"
-        }
-      }
-    },
-    "apiGetProofResponse": {
-      "type": "object",
-      "properties": {
-        "proof": {
-          "$ref": "#/definitions/apiPoetProof"
-        },
-        "pubkey": {
-          "type": "string",
-          "format": "byte"
-        }
-      }
-    },
-    "apiMerkleProof": {
-      "type": "object",
-      "properties": {
-        "root": {
-          "type": "string",
-          "format": "byte"
-        },
-        "provenLeaves": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "format": "byte"
-          }
-        },
-        "proofNodes": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "format": "byte"
-          }
-        }
-      }
-    },
-    "apiPoetProof": {
-      "type": "object",
-      "properties": {
-        "proof": {
-          "$ref": "#/definitions/apiMerkleProof"
-        },
-        "members": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "format": "byte"
-          }
-        },
-        "leaves": {
-          "type": "string",
-          "format": "uint64"
-        }
-      }
-    },
-    "apiStartRequest": {
-      "type": "object",
-      "properties": {
-        "gatewayAddresses": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "disableBroadcast": {
-          "type": "boolean"
-        },
-        "connAcksThreshold": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "broadcastAcksThreshold": {
-          "type": "integer",
-          "format": "int32"
-        }
-      }
-    },
-    "apiStartResponse": {
-      "type": "object"
-    },
-    "apiSubmitRequest": {
-      "type": "object",
-      "properties": {
-        "challenge": {
-          "type": "string",
-          "format": "byte"
-        },
-        "signature": {
-          "type": "string",
-          "format": "byte"
-        }
-      }
-    },
-    "apiSubmitResponse": {
-      "type": "object",
-      "properties": {
-        "roundId": {
-          "type": "string"
-        },
-        "hash": {
-          "type": "string",
-          "format": "byte"
-        },
-        "roundEnd": {
-          "type": "string"
-        }
-      }
-    },
-    "apiUpdateGatewayRequest": {
-      "type": "object",
-      "properties": {
-        "gatewayAddresses": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "disableBroadcast": {
-          "type": "boolean"
-        },
-        "connAcksThreshold": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "broadcastAcksThreshold": {
-          "type": "integer",
-          "format": "int32"
-        }
-      }
-    },
-    "apiUpdateGatewayResponse": {
-      "type": "object"
-    },
     "protobufAny": {
       "type": "object",
       "properties": {
@@ -347,6 +197,156 @@
           }
         }
       }
+    },
+    "v1GetInfoResponse": {
+      "type": "object",
+      "properties": {
+        "openRoundId": {
+          "type": "string"
+        },
+        "executingRoundsIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "servicePubkey": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "v1GetProofResponse": {
+      "type": "object",
+      "properties": {
+        "proof": {
+          "$ref": "#/definitions/v1PoetProof"
+        },
+        "pubkey": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "v1MerkleProof": {
+      "type": "object",
+      "properties": {
+        "root": {
+          "type": "string",
+          "format": "byte"
+        },
+        "provenLeaves": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
+          }
+        },
+        "proofNodes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
+          }
+        }
+      }
+    },
+    "v1PoetProof": {
+      "type": "object",
+      "properties": {
+        "proof": {
+          "$ref": "#/definitions/v1MerkleProof"
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
+          }
+        },
+        "leaves": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "v1StartRequest": {
+      "type": "object",
+      "properties": {
+        "gatewayAddresses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "disableBroadcast": {
+          "type": "boolean"
+        },
+        "connAcksThreshold": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "broadcastAcksThreshold": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "v1StartResponse": {
+      "type": "object"
+    },
+    "v1SubmitRequest": {
+      "type": "object",
+      "properties": {
+        "challenge": {
+          "type": "string",
+          "format": "byte"
+        },
+        "signature": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "v1SubmitResponse": {
+      "type": "object",
+      "properties": {
+        "roundId": {
+          "type": "string"
+        },
+        "hash": {
+          "type": "string",
+          "format": "byte"
+        },
+        "roundEnd": {
+          "type": "string"
+        }
+      }
+    },
+    "v1UpdateGatewayRequest": {
+      "type": "object",
+      "properties": {
+        "gatewayAddresses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "disableBroadcast": {
+          "type": "boolean"
+        },
+        "connAcksThreshold": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "broadcastAcksThreshold": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "v1UpdateGatewayResponse": {
+      "type": "object"
     }
   }
 }

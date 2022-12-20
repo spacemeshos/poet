@@ -16,7 +16,7 @@ import (
 	"github.com/spacemeshos/poet/gateway"
 	"github.com/spacemeshos/poet/gateway/challenge_verifier"
 	"github.com/spacemeshos/poet/logging"
-	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
+	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
 	"github.com/spacemeshos/poet/service"
 )
 
@@ -31,7 +31,7 @@ type rpcServer struct {
 
 // A compile time check to ensure that rpcService fully implements
 // the PoetServer gRPC rpc.
-var _ api.PoetServer = (*rpcServer)(nil)
+var _ api.PoetServiceServer = (*rpcServer)(nil)
 
 // NewServer creates and returns a new instance of the rpcServer.
 func NewServer(svc *service.Service, proofsDb *service.ProofsDatabase, gtwManager *gateway.Manager, cfg config.Config) *rpcServer {
@@ -156,7 +156,7 @@ func (r *rpcServer) GetInfo(ctx context.Context, in *api.GetInfoRequest) (*api.G
 	ids := make([]string, len(info.ExecutingRoundsIds))
 	copy(ids, info.ExecutingRoundsIds)
 	out.ExecutingRoundsIds = ids
-	out.ServicePubKey = r.s.PubKey
+	out.ServicePubkey = r.s.PubKey
 
 	return out, nil
 }

@@ -15,7 +15,7 @@ import (
 
 	"github.com/spacemeshos/poet/gateway"
 	"github.com/spacemeshos/poet/integration"
-	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
+	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
 )
 
 // harnessTestCase represents a test-case which utilizes an instance

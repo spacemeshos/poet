@@ -61,7 +61,6 @@ jobs:
         run: make lint-github-action
       - name: Lint protos
         run: make lint-protos
-        continue-on-error: true
 
   unittests:
     runs-on: ${{ matrix.os }}

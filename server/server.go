@@ -23,7 +23,7 @@ import (
 	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/gateway"
 	"github.com/spacemeshos/poet/logging"
-	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
+	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
 	"github.com/spacemeshos/poet/rpc"
 	"github.com/spacemeshos/poet/service"
 )
@@ -135,8 +135,8 @@ func (s *Server) Start(ctx context.Context) error {
 	rpcServer := rpc.NewServer(s.svc, proofsDb, gtwManager, s.cfg)
 	grpcServer = grpc.NewServer(options...)
 
-	api.RegisterPoetServer(grpcServer, rpcServer)
-	proxyRegstr = append(proxyRegstr, api.RegisterPoetHandlerFromEndpoint)
+	api.RegisterPoetServiceServer(grpcServer, rpcServer)
+	proxyRegstr = append(proxyRegstr, api.RegisterPoetServiceHandlerFromEndpoint)
 
 	// Start the gRPC server listening for HTTP/2 connections.
 	serverGroup.Go(func() error {
