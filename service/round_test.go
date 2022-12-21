@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/spacemeshos/poet/hash"
@@ -50,9 +51,7 @@ func newTestRound(t *testing.T) *round {
 	t.Helper()
 	round, err := newRound(t.TempDir(), rand.Uint32())
 	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, round.teardown(true))
-	})
+	t.Cleanup(func() { assert.NoError(t, round.teardown(true)) })
 	return round
 }
 
@@ -60,12 +59,7 @@ func newTestRound(t *testing.T) *round {
 func validateProof(t *testing.T, execution *executionState) {
 	t.Helper()
 	req := require.New(t)
-	req.NotEmpty(execution.Statement)
 	req.NotNil(execution.NIP)
-	req.NotEmpty(execution.NIP.Root)
-	req.NotEmpty(execution.NIP.ProvenLeaves)
-	req.NotEmpty(execution.NIP.ProofNodes)
-
 	req.NoError(
 		verifier.Validate(
 			*execution.NIP,
@@ -118,9 +112,7 @@ func TestRound_New(t *testing.T) {
 	// Act
 	round, err := newRound(t.TempDir(), 7)
 	req.NoError(err)
-	t.Cleanup(func() {
-		req.NoError(round.teardown(true))
-	})
+	t.Cleanup(func() { assert.NoError(t, round.teardown(true)) })
 
 	// Verify
 	req.EqualValues(7, round.Epoch())
@@ -148,11 +140,11 @@ func TestRound_Submit(t *testing.T) {
 		}
 
 		// Verify
-		req.EqualValues(len(challenges), numChallenges(round))
+		req.Equal(len(challenges), numChallenges(round))
 		for _, ch := range challenges {
 			challengeInDb, err := round.challengesDb.Get(ch, nil)
 			req.NoError(err)
-			req.EqualValues(ch, challengeInDb)
+			req.Equal(ch, challengeInDb)
 		}
 	})
 	t.Run("submit challenges with same key", func(t *testing.T) {
@@ -168,10 +160,10 @@ func TestRound_Submit(t *testing.T) {
 
 		// Verify
 		req.ErrorIs(err, ErrChallengeAlreadySubmitted)
-		req.EqualValues(1, numChallenges(round))
+		req.Equal(1, numChallenges(round))
 		challenge, err := round.challengesDb.Get([]byte("key"), nil)
 		req.NoError(err)
-		req.EqualValues(challenges[0], challenge)
+		req.Equal(challenges[0], challenge)
 	})
 	t.Run("cannot submit to round in execution", func(t *testing.T) {
 		t.Parallel()
@@ -206,7 +198,7 @@ func TestRound_Execute(t *testing.T) {
 	)
 
 	// Verify
-	req.EqualValues(shared.T, round.Execution.SecurityParam)
+	req.Equal(shared.T, round.Execution.SecurityParam)
 	req.Len(round.Execution.Members, 1)
 	req.Empty(round.Execution.ParkedNodes)
 	req.NotZero(round.Execution.NumLeaves)
@@ -228,7 +220,7 @@ func TestRound_StateRecovery(t *testing.T) {
 		// Act
 		recovered, err := newRound(tmpdir, 0)
 		req.NoError(err)
-		t.Cleanup(func() { req.NoError(recovered.teardown(false)) })
+		t.Cleanup(func() { assert.NoError(t, recovered.teardown(false)) })
 		req.NoError(recovered.loadState())
 
 		// Verify
@@ -253,7 +245,7 @@ func TestRound_StateRecovery(t *testing.T) {
 		// Act
 		recovered, err := newRound(tmpdir, 0)
 		req.NoError(err)
-		t.Cleanup(func() { req.NoError(recovered.teardown(false)) })
+		t.Cleanup(func() { assert.NoError(t, recovered.teardown(false)) })
 		req.NoError(recovered.loadState())
 
 		// Verify
