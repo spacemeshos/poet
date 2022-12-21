@@ -19,7 +19,7 @@ import (
 	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/gateway"
 	"github.com/spacemeshos/poet/hash"
-	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
+	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
 	"github.com/spacemeshos/poet/server"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/verifier"
@@ -52,7 +52,7 @@ func spawnMockGateway(t *testing.T) (target string) {
 	return server.Target()
 }
 
-func spawnPoet(ctx context.Context, t *testing.T, cfg config.Config) (*server.Server, api.PoetClient) {
+func spawnPoet(ctx context.Context, t *testing.T, cfg config.Config) (*server.Server, api.PoetServiceClient) {
 	t.Helper()
 	req := require.New(t)
 
@@ -69,7 +69,7 @@ func spawnPoet(ctx context.Context, t *testing.T, cfg config.Config) (*server.Se
 	req.NoError(err)
 	t.Cleanup(func() { conn.Close() })
 
-	return srv, api.NewPoetClient(conn)
+	return srv, api.NewPoetServiceClient(conn)
 }
 
 // Test poet service startup.
