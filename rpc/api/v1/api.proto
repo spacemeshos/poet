@@ -3,9 +3,9 @@ syntax = "proto3";
 import "google/api/annotations.proto";
 import "google/protobuf/duration.proto";
 
-package api;
+package rpc.api.v1;
 
-service Poet {
+service PoetService {
     /**
     Start is used to start the service.
     */
@@ -59,16 +59,16 @@ service Poet {
 }
 
 message StartRequest {
-    repeated string gatewayAddresses = 1;
-    int32 connAcksThreshold = 2;
+    repeated string gateway_addresses = 1;
+    int32 conn_acks_threshold = 2;
 }
 
 message StartResponse {
 }
 
 message UpdateGatewayRequest {
-    repeated string gatewayAddresses = 1;
-    int32 connAcksThreshold = 3;
+    repeated string gateway_addresses = 1;
+    int32 conn_acks_threshold = 2;
 }
 
 message UpdateGatewayResponse {
@@ -80,7 +80,7 @@ message SubmitRequest {
 }
 
 message SubmitResponse {
-    string roundId = 1;
+    string round_id = 1;
     bytes hash = 2;
     google.protobuf.Duration round_end = 3;
 }
@@ -89,9 +89,9 @@ message GetInfoRequest {
 }
 
 message GetInfoResponse {
-    string openRoundId = 1;
-    repeated string executingRoundsIds = 2;
-    bytes servicePubKey = 3;
+    string open_round_id = 1;
+    repeated string executing_rounds_ids = 2;
+    bytes service_pubkey = 3;
 }
 
 message MembershipProof {
