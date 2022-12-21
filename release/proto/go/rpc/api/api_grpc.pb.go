@@ -24,7 +24,7 @@ const _ = grpc.SupportPackageIsVersion7
 type PoetClient interface {
 	// Start is used to start the service.
 	Start(ctx context.Context, in *StartRequest, opts ...grpc.CallOption) (*StartResponse, error)
-	// UpdateGateway allows to update the list of gateway addresses (with additional broadcasting config),
+	// UpdateGateway allows to update the list of gateway addresses,
 	// similar to the Start rpc, but after the service already started.
 	UpdateGateway(ctx context.Context, in *UpdateGatewayRequest, opts ...grpc.CallOption) (*UpdateGatewayResponse, error)
 	// Submit adds a challenge to the service's current open round,
@@ -96,7 +96,7 @@ func (c *poetClient) GetProof(ctx context.Context, in *GetProofRequest, opts ...
 type PoetServer interface {
 	// Start is used to start the service.
 	Start(context.Context, *StartRequest) (*StartResponse, error)
-	// UpdateGateway allows to update the list of gateway addresses (with additional broadcasting config),
+	// UpdateGateway allows to update the list of gateway addresses,
 	// similar to the Start rpc, but after the service already started.
 	UpdateGateway(context.Context, *UpdateGatewayRequest) (*UpdateGatewayResponse, error)
 	// Submit adds a challenge to the service's current open round,

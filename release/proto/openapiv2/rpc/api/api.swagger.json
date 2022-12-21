@@ -138,7 +138,7 @@
     },
     "/v1/updategateway": {
       "post": {
-        "summary": "UpdateGateway allows to update the list of gateway addresses (with additional broadcasting config),\nsimilar to the Start rpc, but after the service already started.",
+        "summary": "UpdateGateway allows to update the list of gateway addresses,\nsimilar to the Start rpc, but after the service already started.",
         "operationId": "Poet_UpdateGateway",
         "responses": {
           "200": {
@@ -252,14 +252,7 @@
             "type": "string"
           }
         },
-        "disableBroadcast": {
-          "type": "boolean"
-        },
         "connAcksThreshold": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "broadcastAcksThreshold": {
           "type": "integer",
           "format": "int32"
         }
@@ -305,14 +298,7 @@
             "type": "string"
           }
         },
-        "disableBroadcast": {
-          "type": "boolean"
-        },
         "connAcksThreshold": {
-          "type": "integer",
-          "format": "int32"
-        },
-        "broadcastAcksThreshold": {
           "type": "integer",
           "format": "int32"
         }
