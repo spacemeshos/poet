@@ -17,7 +17,7 @@ service PoetService {
     }
 
     /**
-    UpdateGateway allows to update the list of gateway addresses (with additional broadcasting config),
+    UpdateGateway allows to update the list of gateway addresses,
     similar to the Start rpc, but after the service already started.
     */
     rpc UpdateGateway (UpdateGatewayRequest) returns (UpdateGatewayResponse) {
@@ -60,9 +60,7 @@ service PoetService {
 
 message StartRequest {
     repeated string gateway_addresses = 1;
-    bool disable_broadcast = 2;
-    int32 conn_acks_threshold = 3;
-    int32 broadcast_acks_threshold = 4;
+    int32 conn_acks_threshold = 2;
 }
 
 message StartResponse {
@@ -70,9 +68,7 @@ message StartResponse {
 
 message UpdateGatewayRequest {
     repeated string gateway_addresses = 1;
-    bool disable_broadcast = 2;
-    int32 conn_acks_threshold = 3;
-    int32 broadcast_acks_threshold = 4;
+    int32 conn_acks_threshold = 2;
 }
 
 message UpdateGatewayResponse {
