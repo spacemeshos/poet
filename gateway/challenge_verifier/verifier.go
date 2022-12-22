@@ -129,7 +129,7 @@ func (v *retrying) Verify(ctx context.Context, challenge, signature []byte) (*Re
 			delay = MaxBackoff
 		}
 		timer.Reset(delay)
-		logger.Sugar().Info("Retrying for %d time, waiting %v", retry+1, delay)
+		logger.Sugar().Infof("Retrying for %d time, waiting %v", retry+1, delay)
 		select {
 		case <-timer.C:
 		case <-ctx.Done():

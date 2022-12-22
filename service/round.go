@@ -141,7 +141,7 @@ func (r *round) isEmpty() bool {
 
 func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer uint) error {
 	logger := logging.FromContext(ctx).With(zap.String("round", r.ID))
-	logger.Sugar().Info("executing until %v...", end)
+	logger.Sugar().Infof("executing until %v...", end)
 
 	r.executionStarted = time.Now()
 	if err := r.saveState(); err != nil {
@@ -179,12 +179,12 @@ func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer uint)
 
 	close(r.executionEndedChan)
 
-	logger.Sugar().Info("execution ended, phi=%x, duration %v", r.execution.NIP.Root, time.Since(r.executionStarted))
+	logger.Sugar().Infof("execution ended, phi=%x, duration %v", r.execution.NIP.Root, time.Since(r.executionStarted))
 	return nil
 }
 
 func (r *round) persistExecution(tree *merkle.Tree, treeCache *cache.Writer, numLeaves uint64) error {
-	logging.FromContext(context.Background()).Sugar().With(zap.String("round", r.ID)).Info("persisting execution state (done: %d)", numLeaves)
+	logging.FromContext(context.Background()).Sugar().With(zap.String("round", r.ID)).Infof("persisting execution state (done: %d)", numLeaves)
 
 	// Call GetReader() so that the cache would flush and validate structure.
 	if _, err := treeCache.GetReader(); err != nil {

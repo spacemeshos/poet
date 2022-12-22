@@ -59,7 +59,7 @@ func (mf *ReadWriterMetaFactory) Cleanup() {
 	for filename := range mf.filesCreated {
 		err := os.Remove(filename)
 		if err != nil {
-			logging.FromContext(context.Background()).Sugar().Error("could not remove temp file %v: %v", filename, err)
+			logging.FromContext(context.Background()).Sugar().Errorf("could not remove temp file %v: %v", filename, err)
 			failedRemovals[filename] = true
 		}
 	}

@@ -315,7 +315,7 @@ func (s *Service) recover(ctx context.Context) (open *round, executing []*round,
 	}
 
 	for _, entry := range entries {
-		logger.Sugar().Info("recovering entry %s", entry.Name())
+		logger.Sugar().Infof("recovering entry %s", entry.Name())
 		if !entry.IsDir() {
 			continue
 		}
