@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/spacemeshos/smutil/log"
+	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -64,7 +64,7 @@ func (r *rpcServer) Start(ctx context.Context, in *api.StartRequest) (*api.Start
 	}
 	defer func() {
 		if err := gtwManager.Close(); err != nil {
-			logging.FromContext(ctx).With().Warning("failed to close GRPC connections", log.Err(err))
+			logging.FromContext(ctx).Warn("failed to close GRPC connections", zap.Error(err))
 		}
 	}()
 
@@ -104,7 +104,7 @@ func (r *rpcServer) UpdateGateway(ctx context.Context, in *api.UpdateGatewayRequ
 	}
 	defer func() {
 		if err := gtwManager.Close(); err != nil {
-			logging.FromContext(ctx).With().Warning("failed to close GRPC connections", log.Err(err))
+			logging.FromContext(ctx).Warn("failed to close GRPC connections", zap.Error(err))
 		}
 	}()
 
@@ -132,7 +132,7 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 	case errors.Is(err, challenge_verifier.ErrCouldNotVerify):
 		return nil, status.Error(codes.Unavailable, "failed to verify the challenge, consider retrying")
 	case err != nil:
-		logging.FromContext(ctx).With().Warning("unknown error during challenge validation", log.Err(err))
+		logging.FromContext(ctx).Warn("unknown error during challenge validation", zap.Error(err))
 		return nil, status.Error(codes.Internal, "unknown error during challenge validation")
 	}
 

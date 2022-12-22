@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/spacemeshos/smutil/log"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
+
+	"github.com/spacemeshos/poet/logging"
 )
 
 // Manager aggregates GRPC connections to gateways.
@@ -54,7 +56,8 @@ func NewManager(ctx context.Context, gateways []string, minSuccesfulConns uint) 
 // Connect tries to connect to gateways at provided addresses.
 // Returns list of connections and errors for connection failures.
 func connect(ctx context.Context, gateways []string) ([]*grpc.ClientConn, []error) {
-	log.Info("Attempting to connect to Spacemesh gateway nodes at %v", gateways)
+	logger := logging.FromContext(ctx)
+	logger.Info("Attempting to connect to Spacemesh gateway nodes", zap.Strings("gateways", gateways))
 	connections := make([]*grpc.ClientConn, 0, len(gateways))
 	errors := make([]error, 0)
 
@@ -82,7 +85,7 @@ func connect(ctx context.Context, gateways []string) ([]*grpc.ClientConn, []erro
 			if err != nil {
 				errorsChan <- fmt.Errorf("failed to connect to gateway grpc server %s (%w)", target, err)
 			} else {
-				log.With().Info("Successfully connected to gateway node", log.String("target", conn.Target()))
+				logger.Info("Successfully connected to gateway node", zap.String("target", conn.Target()))
 				connsChan <- conn
 			}
 			return nil

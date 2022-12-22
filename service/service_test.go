@@ -50,7 +50,7 @@ func TestService_Recovery(t *testing.T) {
 	}
 
 	// Create a new service instance.
-	s, err := service.NewService(cfg, tempdir)
+	s, err := service.NewService(context.Background(), cfg, tempdir)
 	req.NoError(err)
 
 	submitChallenges := func(roundID string, challenges []challenge) {
@@ -86,7 +86,7 @@ func TestService_Recovery(t *testing.T) {
 	req.NoError(eg.Wait())
 
 	// Create a new service instance.
-	s, err = service.NewService(cfg, tempdir)
+	s, err = service.NewService(context.Background(), cfg, tempdir)
 	req.NoError(err)
 
 	ctx, cancel = context.WithCancel(context.Background())
@@ -135,7 +135,7 @@ func TestNewService(t *testing.T) {
 	cfg.EpochDuration = time.Second * 2
 	cfg.PhaseShift = time.Second
 
-	s, err := service.NewService(cfg, tempdir)
+	s, err := service.NewService(context.Background(), cfg, tempdir)
 	req.NoError(err)
 	ctrl := gomock.NewController(t)
 	verifier := mocks.NewMockVerifier(ctrl)
@@ -224,7 +224,7 @@ func TestSubmitIdempotency(t *testing.T) {
 	challenge := []byte("challenge")
 	signature := []byte("signature")
 
-	s, err := service.NewService(&cfg, t.TempDir())
+	s, err := service.NewService(context.Background(), &cfg, t.TempDir())
 	req.NoError(err)
 
 	verifier := mocks.NewMockVerifier(gomock.NewController(t))

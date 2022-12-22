@@ -8,13 +8,15 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"runtime/pprof"
 
 	"github.com/jessevdk/go-flags"
-	"github.com/spacemeshos/smutil/log"
+	"go.uber.org/zap"
 
 	"github.com/spacemeshos/poet/config"
+	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/server"
 )
 
@@ -52,20 +54,24 @@ func poetMain() error {
 		return err
 	}
 
-	log.DebugMode(cfg.DebugLog)
-	log.JSONLog(cfg.JSONLog)
-	log.InitSpacemeshLoggingSystem(cfg.LogDir, "poet.log")
+	// Initialize logging
+	logLevel := zap.InfoLevel
+	if cfg.DebugLog {
+		logLevel = zap.DebugLevel
+	}
+	logger := logging.New(logLevel, filepath.Join(cfg.LogDir, "poet.log"), cfg.JSONLog)
+	ctx := logging.NewContext(context.Background(), logger)
 
 	defer func() {
-		log.Info("Shutdown complete")
+		logger.Info("shutdown complete")
 	}()
 
 	// Show version at startup.
-	log.Info("Version: %s, dir: %v, datadir: %v, genesis: %v", version, cfg.PoetDir, cfg.DataDir, cfg.Service.Genesis)
+	logger.Sugar().Infof("version: %s, dir: %v, datadir: %v, genesis: %v", version, cfg.PoetDir, cfg.DataDir, cfg.Service.Genesis)
 
 	// Enable http profiling server if requested.
 	if cfg.Profile != "" {
-		log.Info("Starting HTTP profiling on port %v", cfg.Profile)
+		logger.Sugar().Info("starting HTTP profiling on port %v", cfg.Profile)
 		go func() {
 			listenAddr := net.JoinHostPort("", cfg.Profile)
 			profileRedirect := http.RedirectHandler("/debug/pprof",
@@ -81,18 +87,18 @@ func poetMain() error {
 	if cfg.CPUProfile != "" {
 		f, err := os.Create(cfg.CPUProfile)
 		if err != nil {
-			log.Error("Could not create CPU profile: ", err)
+			logger.With(zap.Error(err)).Error("could not create CPU profile")
 		}
 		defer f.Close()
 		if err := pprof.StartCPUProfile(f); err != nil {
-			log.Error("Could not start CPU profile: ", err)
+			logger.With(zap.Error(err)).Error("could not start CPU profile")
 		}
 		defer pprof.StopCPUProfile()
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, stop := signal.NotifyContext(ctx, os.Interrupt)
 	defer stop()
-	server, err := server.New(*cfg)
+	server, err := server.New(ctx, *cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create server: %w", err)
 	}

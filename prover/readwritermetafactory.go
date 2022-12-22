@@ -1,13 +1,15 @@
 package prover
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/spacemeshos/merkle-tree/cache"
 	"github.com/spacemeshos/merkle-tree/cache/readwriters"
-	"github.com/spacemeshos/smutil/log"
+
+	"github.com/spacemeshos/poet/logging"
 )
 
 // ReadWriterMetaFactory generates Merkle LayerFactory functions. The functions it creates generate file read-writers
@@ -57,7 +59,7 @@ func (mf *ReadWriterMetaFactory) Cleanup() {
 	for filename := range mf.filesCreated {
 		err := os.Remove(filename)
 		if err != nil {
-			log.Error("could not remove temp file %v: %v", filename, err)
+			logging.FromContext(context.Background()).Sugar().Error("could not remove temp file %v: %v", filename, err)
 			failedRemovals[filename] = true
 		}
 	}

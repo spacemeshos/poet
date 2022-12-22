@@ -12,7 +12,6 @@ import (
 
 	"github.com/google/uuid"
 	proxy "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	"github.com/spacemeshos/smutil/log"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -35,7 +34,7 @@ type Server struct {
 	restListener net.Listener
 }
 
-func New(cfg config.Config) (*Server, error) {
+func New(ctx context.Context, cfg config.Config) (*Server, error) {
 	rpcListener, err := net.Listen(cfg.RPCListener.Network(), cfg.RPCListener.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen: %v", err)
@@ -52,7 +51,7 @@ func New(cfg config.Config) (*Server, error) {
 		}
 	}
 
-	svc, err := service.NewService(cfg.Service, cfg.DataDir)
+	svc, err := service.NewService(ctx, cfg.Service, cfg.DataDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Service: %v", err)
 	}
@@ -80,14 +79,13 @@ func (s *Server) Start(ctx context.Context) error {
 	defer stop()
 	serverGroup, ctx := errgroup.WithContext(ctx)
 
-	logger := log.AppLog.WithName("StartServer")
-	ctx = logging.NewContext(ctx, logger)
+	logger := logging.FromContext(ctx)
 
 	// Initialize and register the implementation of gRPC interface
 	var grpcServer *grpc.Server
 	var proxyRegstr []func(context.Context, *proxy.ServeMux, string, []grpc.DialOption) error
 	options := []grpc.ServerOption{
-		grpc.UnaryInterceptor(loggerInterceptor()),
+		grpc.UnaryInterceptor(loggerInterceptor(logger)),
 		// XXX: this is done to prevent routers from cleaning up our connections (e.g aws load balances..)
 		// TODO: these parameters work for now but we might need to revisit or add them as configuration
 		// TODO: Configure maxconns, maxconcurrentcons ..
@@ -120,7 +118,7 @@ func (s *Server) Start(ctx context.Context) error {
 		verifier, err := service.CreateChallengeVerifier(gtwManager.Connections())
 		if err != nil {
 			if err := gtwManager.Close(); err != nil {
-				logger.With().Warning("failed to close GRPC connections", log.Err(err))
+				logger.Warn("failed to close GRPC connections", zap.Error(err))
 			}
 			return fmt.Errorf("failed to create challenge verifier: %w", err)
 		}
@@ -128,7 +126,7 @@ func (s *Server) Start(ctx context.Context) error {
 			return err
 		}
 	} else {
-		logger.With().Info("Service not starting, waiting for start request", log.Err(err))
+		logger.Info("Service not starting, waiting for start request", zap.Error(err))
 		gtwManager = &gateway.Manager{}
 	}
 
@@ -140,7 +138,7 @@ func (s *Server) Start(ctx context.Context) error {
 
 	// Start the gRPC server listening for HTTP/2 connections.
 	serverGroup.Go(func() error {
-		logger.Info("RPC server listening on %s", s.rpcListener.Addr())
+		logger.Sugar().Infof("RPC server listening on %s", s.rpcListener.Addr())
 		return grpcServer.Serve(s.rpcListener)
 	})
 
@@ -155,7 +153,7 @@ func (s *Server) Start(ctx context.Context) error {
 
 	server := &http.Server{Handler: mux}
 	serverGroup.Go(func() error {
-		logger.Info("REST proxy starts listening on %s", s.restListener.Addr())
+		logger.Sugar().Infof("REST proxy starts listening on %s", s.restListener.Addr())
 		err := server.Serve(s.restListener)
 		if errors.Is(err, http.ErrServerClosed) {
 			return nil
@@ -171,20 +169,20 @@ func (s *Server) Start(ctx context.Context) error {
 }
 
 // loggerInterceptor returns UnaryServerInterceptor handler to log all RPC server incoming requests.
-func loggerInterceptor() func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+func loggerInterceptor(logger *zap.Logger) func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		peer, _ := peer.FromContext(ctx)
 
-		logger := log.AppLog.WithName(info.FullMethod).WithFields(log.Field(zap.Stringer("request_id", uuid.New())))
+		logger := logger.Named(info.FullMethod).With(zap.Stringer("request_id", uuid.New()))
 		ctx = logging.NewContext(ctx, logger)
 
 		if msg, ok := req.(fmt.Stringer); ok {
-			logger.With().Debug("new GRPC", log.Field(zap.Stringer("from", peer.Addr)), log.Field(zap.Stringer("message", msg)))
+			logger.Debug("new GRPC", zap.Stringer("from", peer.Addr), zap.Stringer("message", msg))
 		}
 
 		resp, err := handler(ctx, req)
 		if err != nil {
-			logger.With().Info("FAILURE", log.Err(err))
+			logger.Info("FAILURE", zap.Error(err))
 		}
 		return resp, err
 	}

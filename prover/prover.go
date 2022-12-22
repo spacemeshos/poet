@@ -13,8 +13,8 @@ import (
 
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/merkle-tree/cache"
-	"github.com/spacemeshos/smutil/log"
 
+	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/shared"
 )
 
@@ -154,7 +154,7 @@ func makeRecoveryProofTree(
 		// If file is longer than expected, truncate the file.
 		if expectedWidth < width {
 			filename := filepath.Join(datadir, file)
-			log.Info("Recovery: layer %v cache file width is ahead of the last known merkle tree state. expected: %d, found: %d. Truncating file...", layer, expectedWidth, width)
+			logging.FromContext(context.Background()).Sugar().Info("Recovery: layer %v cache file width is ahead of the last known merkle tree state. expected: %d, found: %d. Truncating file...", layer, expectedWidth, width)
 			if err := os.Truncate(filename, int64(expectedWidth*merkle.NodeSize)); err != nil {
 				return nil, nil, fmt.Errorf("failed to truncate file: %v", err)
 			}
@@ -227,7 +227,7 @@ func generateProof(
 		leaves++
 	}
 
-	log.Info("Merkle tree construction finished with %d leaves, generating proof...", leaves)
+	logging.FromContext(ctx).Sugar().Info("Merkle tree construction finished with %d leaves, generating proof...", leaves)
 
 	root := tree.Root()
 

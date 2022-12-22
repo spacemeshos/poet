@@ -4,7 +4,7 @@ import (
 	"context"
 
 	pb "github.com/spacemeshos/api/release/go/spacemesh/v1"
-	"github.com/spacemeshos/smutil/log"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -18,7 +18,7 @@ type grpcChallengeVerifierClient struct {
 }
 
 func (c *grpcChallengeVerifierClient) Verify(ctx context.Context, challenge, signature []byte) (*Result, error) {
-	logger := logging.FromContext(ctx).WithFields(log.String("gateway", c.gateway))
+	logger := logging.FromContext(ctx).With(zap.String("gateway", c.gateway))
 
 	resp, err := c.client.VerifyChallenge(ctx, &pb.VerifyChallengeRequest{
 		Challenge: challenge,
@@ -33,10 +33,10 @@ func (c *grpcChallengeVerifierClient) Verify(ctx context.Context, challenge, sig
 			NodeId: resp.NodeId,
 		}, nil
 	case codes.InvalidArgument:
-		logger.With().Debug("challenge is invalid", log.String("message", st.Message()))
+		logger.Debug("challenge is invalid", zap.String("message", st.Message()))
 		return nil, ErrChallengeInvalid
 	default:
-		logger.With().Debug("could not verify challenge", log.String("message", st.Message()))
+		logger.Debug("could not verify challenge", zap.String("message", st.Message()))
 		return nil, ErrCouldNotVerify
 	}
 }

@@ -7,7 +7,6 @@ import (
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/minio/sha256-simd"
-	"github.com/spacemeshos/smutil/log"
 	"go.uber.org/zap"
 
 	"github.com/spacemeshos/poet/logging"
@@ -80,7 +79,7 @@ func (a *caching) Verify(ctx context.Context, challenge, signature []byte) (*Res
 	hasher.Write(signature)
 	hasher.Sum(challengeHash[:0])
 
-	logger := logging.FromContext(ctx).WithFields(log.Field(zap.Binary("challenge", challengeHash[:])))
+	logger := logging.FromContext(ctx).With(zap.Binary("challenge", challengeHash[:]))
 	if result, ok := a.cache.Get(challengeHash); ok {
 		logger.Debug("retrieved challenge verifier result from the cache")
 		// SAFETY: type assertion will never panic as we insert only `*challengeVerifierResult` values.
@@ -130,7 +129,7 @@ func (v *retrying) Verify(ctx context.Context, challenge, signature []byte) (*Re
 			delay = MaxBackoff
 		}
 		timer.Reset(delay)
-		logger.Info("Retrying for %d time, waiting %v", retry+1, delay)
+		logger.Sugar().Info("Retrying for %d time, waiting %v", retry+1, delay)
 		select {
 		case <-timer.C:
 		case <-ctx.Done():

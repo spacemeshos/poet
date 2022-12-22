@@ -13,7 +13,7 @@ import (
 	"time"
 
 	mshared "github.com/spacemeshos/merkle-tree/shared"
-	"github.com/spacemeshos/smutil/log"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 
@@ -93,7 +93,7 @@ var (
 
 // NewService creates a new instance of Poet Service.
 // It should be started with `Service::Run`.
-func NewService(cfg *Config, datadir string) (*Service, error) {
+func NewService(ctx context.Context, cfg *Config, datadir string) (*Service, error) {
 	genesis, err := time.Parse(time.RFC3339, cfg.Genesis)
 	if err != nil {
 		return nil, err
@@ -104,7 +104,7 @@ func NewService(cfg *Config, datadir string) (*Service, error) {
 	if minMemoryLayer < prover.LowestMerkleMinMemoryLayer {
 		minMemoryLayer = prover.LowestMerkleMinMemoryLayer
 	}
-	log.Info("creating poet service. min memory layer: %v. genesis: %s", minMemoryLayer, cfg.Genesis)
+	logging.FromContext(ctx).Sugar().Infof("creating poet service. min memory layer: %v. genesis: %s", minMemoryLayer, cfg.Genesis)
 
 	if cfg.Reset {
 		entries, err := os.ReadDir(datadir)
@@ -151,7 +151,7 @@ func NewService(cfg *Config, datadir string) (*Service, error) {
 		PubKey:          privateKey.Public().(ed25519.PublicKey),
 	}
 
-	log.Info("Service public key: %x", s.PubKey)
+	logging.FromContext(ctx).Sugar().Infof("service public key: %x", s.PubKey)
 
 	return s, nil
 }
@@ -166,7 +166,7 @@ func (s *Service) ProofsChan() <-chan shared.ProofMessage {
 }
 
 func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
-	logger := logging.FromContext(ctx).WithName("worker")
+	logger := logging.FromContext(ctx).Named("worker")
 	ctx = logging.NewContext(ctx, logger)
 
 	// Make sure there is an open round
@@ -175,7 +175,7 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 		if d := time.Since(s.genesis); d > 0 {
 			epoch = uint32(d / s.cfg.EpochDuration)
 		}
-		newRound, err := s.newRound(uint32(epoch))
+		newRound, err := s.newRound(ctx, uint32(epoch))
 		if err != nil {
 			return fmt.Errorf("failed to open round the first round: %w", err)
 		}
@@ -195,7 +195,7 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 		eg.Go(func() error {
 			err := round.recoverExecution(ctx, round.stateCache.Execution, end)
 			if err := round.teardown(err == nil); err != nil {
-				logger.With().Warning("round teardown failed", log.Err(err))
+				logger.Warn("round teardown failed", zap.Error(err))
 			}
 			roundResults <- roundResult{round: round, err: err}
 			return nil
@@ -211,13 +211,13 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 			if result.err == nil {
 				s.reportNewProof(result.round.ID, result.round.execution)
 			} else {
-				logger.With().Error("round execution failed", log.Err(result.err), log.String("round", result.round.ID))
+				logger.Error("round execution failed", zap.Error(result.err), zap.String("round", result.round.ID))
 			}
 			delete(s.executingRounds, result.round.ID)
 
 		case <-s.timer:
 			round := s.openRound
-			newRound, err := s.newRound(round.Epoch() + 1)
+			newRound, err := s.newRound(ctx, round.Epoch()+1)
 			if err != nil {
 				return fmt.Errorf("failed to open new round: %w", err)
 			}
@@ -229,7 +229,7 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 			eg.Go(func() error {
 				err := round.execute(ctx, end, minMemoryLayer)
 				if err := round.teardown(err == nil); err != nil {
-					logger.With().Warning("round teardown failed", log.Err(err))
+					logger.Warn("round teardown failed", zap.Error(err))
 				}
 				roundResults <- roundResult{round, err}
 				return nil
@@ -258,7 +258,7 @@ func (s *Service) scheduleRound(ctx context.Context, round *round) <-chan time.T
 	waitTime := time.Until(s.roundStartTime(round))
 	timer := time.After(waitTime)
 	if waitTime > 0 {
-		logging.FromContext(ctx).With().Info("waiting for execution to start", log.Duration("wait time", waitTime), log.String("round", round.ID))
+		logging.FromContext(ctx).Info("waiting for execution to start", zap.Duration("wait time", waitTime), zap.String("round", round.ID))
 	}
 	return timer
 }
@@ -268,7 +268,7 @@ func (s *Service) scheduleRound(ctx context.Context, round *round) <-chan time.T
 func (s *Service) Run(ctx context.Context) error {
 	var toResume []*round
 	if s.cfg.NoRecovery {
-		log.Info("Recovery is disabled")
+		logging.FromContext(ctx).Info("Recovery is disabled")
 	} else {
 		var err error
 		s.openRound, toResume, err = s.recover(ctx)
@@ -307,15 +307,15 @@ func (s *Service) Started() bool {
 
 func (s *Service) recover(ctx context.Context) (open *round, executing []*round, err error) {
 	roundsDir := filepath.Join(s.datadir, "rounds")
-	logger := log.AppLog.WithName("recovery")
-	logger.With().Info("Recovering service state", log.String("datadir", s.datadir))
+	logger := logging.FromContext(ctx).Named("recovery")
+	logger.Info("Recovering service state", zap.String("datadir", s.datadir))
 	entries, err := os.ReadDir(roundsDir)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	for _, entry := range entries {
-		logger.Info("recovering entry %s", entry.Name())
+		logger.Sugar().Info("recovering entry %s", entry.Name())
 		if !entry.IsDir() {
 			continue
 		}
@@ -340,7 +340,7 @@ func (s *Service) recover(ctx context.Context) (open *round, executing []*round,
 		}
 
 		if state.isOpen() {
-			logger.Info("found round %v in open state.", r.ID)
+			logger.Info("found round in open state.", zap.String("ID", r.ID))
 			if err := r.open(); err != nil {
 				return nil, nil, fmt.Errorf("failed to open round: %w", err)
 			}
@@ -351,7 +351,7 @@ func (s *Service) recover(ctx context.Context) (open *round, executing []*round,
 			continue
 		}
 
-		logger.Info("found round %v in executing state.", r.ID)
+		logger.Info("found round in executing state.", zap.String("ID", r.ID))
 		executing = append(executing, r)
 	}
 
@@ -379,12 +379,12 @@ func (s *Service) Submit(ctx context.Context, challenge, signature []byte) (*Sub
 	verifier := s.challengeVerifier.Load().(challenge_verifier.Verifier)
 	result, err := verifier.Verify(ctx, challenge, signature)
 	if err != nil {
-		logger.With().Debug("challenge verification failed", log.Err(err))
+		logger.Debug("challenge verification failed", zap.Error(err))
 		return nil, err
 	}
-	logger.With().Debug("verified challenge",
-		log.String("hash", hex.EncodeToString(result.Hash)),
-		log.String("node_id", hex.EncodeToString(result.NodeId)))
+	logger.Debug("verified challenge",
+		zap.String("hash", hex.EncodeToString(result.Hash)),
+		zap.String("node_id", hex.EncodeToString(result.NodeId)))
 
 	type response struct {
 		round string
@@ -405,7 +405,7 @@ func (s *Service) Submit(ctx context.Context, challenge, signature []byte) (*Sub
 	case resp := <-done:
 		switch {
 		case resp.err == nil:
-			logger.With().Debug("submitted challenge for round", log.String("round", resp.round))
+			logger.Debug("submitted challenge for round", zap.String("round", resp.round))
 		case errors.Is(resp.err, ErrChallengeAlreadySubmitted):
 		case resp.err != nil:
 			return nil, err
@@ -442,7 +442,7 @@ func (s *Service) Info(ctx context.Context) (*InfoResponse, error) {
 }
 
 // newRound creates a new round with the given epoch.
-func (s *Service) newRound(epoch uint32) (*round, error) {
+func (s *Service) newRound(ctx context.Context, epoch uint32) (*round, error) {
 	roundsDir := filepath.Join(s.datadir, "rounds")
 	r, err := newRound(roundsDir, epoch)
 	if err != nil {
@@ -452,7 +452,7 @@ func (s *Service) newRound(epoch uint32) (*round, error) {
 		return nil, fmt.Errorf("failed to open round: %w", err)
 	}
 
-	log.With().Info("Round opened", log.String("ID", r.ID))
+	logging.FromContext(ctx).Info("Round opened", zap.String("ID", r.ID))
 	return r, nil
 }
 

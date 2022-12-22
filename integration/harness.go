@@ -13,11 +13,12 @@ import (
 	"time"
 
 	_ "github.com/jessevdk/go-flags"
-	"github.com/spacemeshos/smutil/log"
 	_ "github.com/syndtr/goleveldb/leveldb/table"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	"github.com/spacemeshos/poet/logging"
 	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
 )
 
@@ -70,7 +71,7 @@ func NewHarness(ctx context.Context, cfg *ServerConfig) (*Harness, error) {
 // directories are removed.
 func (h *Harness) TearDown(cleanup bool) error {
 	if err := h.conn.Close(); err != nil {
-		log.Warning("failed to close connection: %v", err)
+		logging.FromContext(context.Background()).Warn("failed to close connection", zap.Error(err))
 	}
 
 	if err := h.server.shutdown(cleanup); err != nil {

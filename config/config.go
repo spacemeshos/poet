@@ -5,6 +5,7 @@
 package config
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -16,9 +17,10 @@ import (
 	"time"
 
 	"github.com/jessevdk/go-flags"
-	"github.com/spacemeshos/smutil/log"
+	"go.uber.org/zap"
 
 	"github.com/spacemeshos/poet/appdata"
+	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/service"
 )
 
@@ -144,7 +146,7 @@ func ReadConfigFile(preCfg *Config) (*Config, error) {
 	// done. This prevents the warning on help messages and invalid
 	// options.
 	if configFileError != nil {
-		log.Warning("%v", configFileError)
+		logging.FromContext(context.Background()).Warn("failed to read config file", zap.Error(configFileError))
 	}
 
 	return cfg, nil
