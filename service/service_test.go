@@ -32,21 +32,10 @@ func TestService_Recovery(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	verifier := mocks.NewMockVerifier(ctrl)
-
 	tempdir := t.TempDir()
 
-	// Create a new service instance.
-	s, err := service.NewService(cfg, tempdir)
-	req.NoError(err)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	var eg errgroup.Group
-	eg.Go(func() error { return s.Run(ctx) })
-	req.NoError(s.Start(context.Background(), verifier))
-
-	// Generate 4 groups of random challenges.
-	challengeGroupSize := 10
+	// Generate groups of random challenges.
+	challengeGroupSize := 5
 	challengeGroups := make([][]challenge, 3)
 	for i := 0; i < 3; i++ {
 		challengeGroup := make([]challenge, challengeGroupSize)
@@ -60,6 +49,10 @@ func TestService_Recovery(t *testing.T) {
 		challengeGroups[i] = challengeGroup
 	}
 
+	// Create a new service instance.
+	s, err := service.NewService(cfg, tempdir)
+	req.NoError(err)
+
 	submitChallenges := func(roundID string, challenges []challenge) {
 		for _, challenge := range challenges {
 			verifier.EXPECT().Verify(gomock.Any(), challenge.data, nil).Return(&challenge_verifier.Result{Hash: challenge.data, NodeId: challenge.nodeID}, nil)
@@ -70,6 +63,12 @@ func TestService_Recovery(t *testing.T) {
 		}
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var eg errgroup.Group
+	eg.Go(func() error { return s.Run(ctx) })
+	req.NoError(s.Start(context.Background(), verifier))
+
 	// Submit challenges to open round (0).
 	submitChallenges("0", challengeGroups[0])
 
@@ -78,7 +77,7 @@ func TestService_Recovery(t *testing.T) {
 		info, err := s.Info(context.Background())
 		req.NoError(err)
 		return slices.Contains(info.ExecutingRoundsIds, "0")
-	}, cfg.EpochDuration*2, time.Millisecond*20)
+	}, cfg.EpochDuration*2, time.Millisecond*100)
 
 	// Submit challenges to open round (1).
 	submitChallenges("1", challengeGroups[1])
@@ -94,8 +93,6 @@ func TestService_Recovery(t *testing.T) {
 	defer cancel()
 	eg = errgroup.Group{}
 	eg.Go(func() error { return s.Run(ctx) })
-	req.NoError(err)
-	req.NoError(s.Start(context.Background(), verifier))
 
 	// Service instance should recover 2 rounds: round 0 in executing state, and round 1 in open state.
 	info, err := s.Info(context.Background())
@@ -105,12 +102,13 @@ func TestService_Recovery(t *testing.T) {
 	req.Contains(info.ExecutingRoundsIds, "0")
 	req.Equal([]string{"0"}, info.ExecutingRoundsIds)
 
+	req.NoError(s.Start(context.Background(), verifier))
 	// Wait for round 2 to open
 	req.Eventually(func() bool {
 		info, err := s.Info(context.Background())
 		req.NoError(err)
 		return info.OpenRoundID == "2"
-	}, cfg.EpochDuration*2, time.Millisecond*20)
+	}, cfg.EpochDuration*2, time.Millisecond*100)
 
 	submitChallenges("2", challengeGroups[2])
 
@@ -188,7 +186,7 @@ func TestNewService(t *testing.T) {
 			}
 		}
 		return false
-	}, cfg.EpochDuration*2, time.Millisecond*20)
+	}, cfg.EpochDuration*2, time.Millisecond*100)
 
 	// Wait for end of execution.
 	req.Eventually(func() bool {
@@ -199,9 +197,9 @@ func TestNewService(t *testing.T) {
 		currRoundID, err := strconv.Atoi(info.OpenRoundID)
 		req.NoError(err)
 		return currRoundID >= prevRoundID+1
-	}, time.Second, time.Millisecond*20)
+	}, time.Second, time.Millisecond*100)
 
-	// Wait for proof message broadcast.
+	// Wait for proof message.
 	proof := <-s.ProofsChan()
 
 	req.Equal(currentRound, proof.RoundID)

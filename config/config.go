@@ -33,9 +33,6 @@ const (
 	defaultRESTPort                 = 8080
 	defaultMemoryLayers             = 26 // Up to (1 << 26) * 2 - 1 Merkle tree cache nodes (32 bytes each) will be held in-memory
 	defaultConnAcksThreshold        = 1
-	defaultBroadcastAcksThreshold   = 1
-	defaultBroadcastNumRetries      = 100
-	defaultBroadcastRetriesInterval = 5 * time.Minute
 	defaultGatewayConnectionTimeout = 30 * time.Second
 )
 

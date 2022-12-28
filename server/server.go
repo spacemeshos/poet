@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	proxy "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/hashicorp/go-multierror"
 	"github.com/spacemeshos/smutil/log"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -23,7 +24,7 @@ import (
 	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/gateway"
 	"github.com/spacemeshos/poet/logging"
-	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
+	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
 	"github.com/spacemeshos/poet/rpc"
 	"github.com/spacemeshos/poet/service"
 )
@@ -65,9 +66,10 @@ func New(cfg config.Config) (*Server, error) {
 	}, nil
 }
 
-func (s *Server) Close() {
-	s.rpcListener.Close()
-	s.restListener.Close()
+func (s *Server) Close() error {
+	result := multierror.Append(nil, s.rpcListener.Close())
+	result = multierror.Append(result, s.restListener.Close())
+	return result
 }
 
 func (s *Server) RpcAddr() net.Addr {
@@ -135,8 +137,8 @@ func (s *Server) Start(ctx context.Context) error {
 	rpcServer := rpc.NewServer(s.svc, proofsDb, gtwManager, s.cfg)
 	grpcServer = grpc.NewServer(options...)
 
-	api.RegisterPoetServer(grpcServer, rpcServer)
-	proxyRegstr = append(proxyRegstr, api.RegisterPoetHandlerFromEndpoint)
+	api.RegisterPoetServiceServer(grpcServer, rpcServer)
+	proxyRegstr = append(proxyRegstr, api.RegisterPoetServiceHandlerFromEndpoint)
 
 	// Start the gRPC server listening for HTTP/2 connections.
 	serverGroup.Go(func() error {

@@ -18,7 +18,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/spacemeshos/poet/release/proto/go/rpc/api"
+	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
 )
 
 // Harness fully encapsulates an active poet server process to provide a unified
@@ -27,7 +27,7 @@ import (
 type Harness struct {
 	server *server
 	conn   *grpc.ClientConn
-	api.PoetClient
+	api.PoetServiceClient
 }
 
 // NewHarness creates and initializes a new instance of Harness.
@@ -57,9 +57,9 @@ func NewHarness(ctx context.Context, cfg *ServerConfig) (*Harness, error) {
 	}
 
 	h := &Harness{
-		server:     server,
-		conn:       conn,
-		PoetClient: api.NewPoetClient(conn),
+		server:            server,
+		conn:              conn,
+		PoetServiceClient: api.NewPoetServiceClient(conn),
 	}
 
 	return h, nil
