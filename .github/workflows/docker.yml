@@ -12,13 +12,11 @@ jobs:
     steps:
       - name: Git Checkout
         uses: actions/checkout@v3
-      - name: Find Tag
+      - name: Find tag
         id: tagger
-        uses: digital-ai/query-tag-action@v2
+        uses: jimschubert/query-tag-action@v1
         with:
           include: "v*"
-          commit-ish: "HEAD"
-          exact-match: "true"
       - name: Show docker image tag
         run: |
           echo 'Building spacemeshos/poet:${{steps.tagger.outputs.tag}} docker image'
