@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	proxy "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -64,9 +65,10 @@ func New(ctx context.Context, cfg config.Config) (*Server, error) {
 	}, nil
 }
 
-func (s *Server) Close() {
-	s.rpcListener.Close()
-	s.restListener.Close()
+func (s *Server) Close() error {
+	result := multierror.Append(nil, s.rpcListener.Close())
+	result = multierror.Append(result, s.restListener.Close())
+	return result
 }
 
 func (s *Server) RpcAddr() net.Addr {

@@ -3,6 +3,7 @@ package challenge_verifier
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
@@ -124,10 +125,6 @@ func (v *retrying) Verify(ctx context.Context, challenge, signature []byte) (*Re
 		} else if errors.Is(err, ErrChallengeInvalid) {
 			return nil, err
 		}
-		delay = time.Duration(float64(delay) * v.backoffMultiplier)
-		if delay > MaxBackoff {
-			delay = MaxBackoff
-		}
 		timer.Reset(delay)
 		logger.Sugar().Infof("Retrying for %d time, waiting %v", retry+1, delay)
 		select {
@@ -136,7 +133,12 @@ func (v *retrying) Verify(ctx context.Context, challenge, signature []byte) (*Re
 			if !timer.Stop() {
 				<-timer.C
 			}
-			return nil, ErrCouldNotVerify
+			logger.Debug("Retry interrupted", zap.Error(ctx.Err()))
+			return nil, fmt.Errorf("%w: %v", ErrCouldNotVerify, ctx.Err())
+		}
+		delay = time.Duration(float64(delay) * v.backoffMultiplier)
+		if delay > MaxBackoff {
+			delay = MaxBackoff
 		}
 	}
 	return nil, ErrCouldNotVerify
