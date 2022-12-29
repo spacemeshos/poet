@@ -12,13 +12,12 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
 	_ "github.com/jessevdk/go-flags"
 	_ "github.com/syndtr/goleveldb/leveldb/table"
-	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/spacemeshos/poet/logging"
 	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
 )
 
@@ -70,15 +69,16 @@ func NewHarness(ctx context.Context, cfg *ServerConfig) (*Harness, error) {
 // The created process is killed, and the temporary
 // directories are removed.
 func (h *Harness) TearDown(cleanup bool) error {
+	var result *multierror.Error
 	if err := h.conn.Close(); err != nil {
-		logging.FromContext(context.Background()).Warn("failed to close connection", zap.Error(err))
+		result = multierror.Append(fmt.Errorf("failed to close connection: %w", err))
 	}
 
 	if err := h.server.shutdown(cleanup); err != nil {
-		return fmt.Errorf("failed to shut down: %w", err)
+		result = multierror.Append(fmt.Errorf("failed to shut down: %w", err))
 	}
 
-	return nil
+	return result.ErrorOrNil()
 }
 
 // StderrPipe returns an stderr reader for the server process.

@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -38,9 +40,14 @@ func poetMain() error {
 	}
 	// Load configuration file overwriting defaults with any specified options
 	// Parse CLI options and overwrite/add any specified options
-	cfg, err = config.ReadConfigFile(cfg)
-	if err != nil {
+	newCfg, err := config.ReadConfigFile(cfg)
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		fmt.Println(err.Error())
+	case err != nil:
 		return err
+	default:
+		cfg = newCfg
 	}
 
 	cfg, err = config.SetupConfig(cfg)
@@ -87,11 +94,11 @@ func poetMain() error {
 	if cfg.CPUProfile != "" {
 		f, err := os.Create(cfg.CPUProfile)
 		if err != nil {
-			logger.With(zap.Error(err)).Error("could not create CPU profile")
+			logger.Error("could not create CPU profile", zap.Error(err))
 		}
 		defer f.Close()
 		if err := pprof.StartCPUProfile(f); err != nil {
-			logger.With(zap.Error(err)).Error("could not start CPU profile")
+			logger.Error("could not start CPU profile", zap.Error(err))
 		}
 		defer pprof.StopCPUProfile()
 	}

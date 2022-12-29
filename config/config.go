@@ -5,7 +5,6 @@
 package config
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -17,10 +16,8 @@ import (
 	"time"
 
 	"github.com/jessevdk/go-flags"
-	"go.uber.org/zap"
 
 	"github.com/spacemeshos/poet/appdata"
-	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/service"
 )
 
@@ -116,37 +113,19 @@ func ParseFlags(preCfg *Config) (*Config, error) {
 }
 
 // ReadConfigFile reads values from a conf file.
-func ReadConfigFile(preCfg *Config) (*Config, error) {
-	preCfg.PoetDir = cleanAndExpandPath(preCfg.PoetDir)
-	preCfg.ConfigFile = cleanAndExpandPath(preCfg.ConfigFile)
-	if preCfg.PoetDir != defaultPoetDir {
-		if preCfg.ConfigFile == defaultConfigFile {
-			preCfg.ConfigFile = filepath.Join(
-				preCfg.PoetDir, defaultConfigFilename,
+func ReadConfigFile(cfg *Config) (*Config, error) {
+	cfg.PoetDir = cleanAndExpandPath(cfg.PoetDir)
+	cfg.ConfigFile = cleanAndExpandPath(cfg.ConfigFile)
+	if cfg.PoetDir != defaultPoetDir {
+		if cfg.ConfigFile == defaultConfigFile {
+			cfg.ConfigFile = filepath.Join(
+				cfg.PoetDir, defaultConfigFilename,
 			)
 		}
 	}
 
-	// Next, load any additional configuration options from the file.
-	var configFileError error
-	cfg := preCfg
-	if err := flags.IniParse(preCfg.ConfigFile, cfg); err != nil {
-		// If it's a parsing related error, then we'll return
-		// immediately, otherwise we can proceed as possibly the Config
-		// file doesn't exist which is OK.
-		var iniError *flags.IniError
-		if errors.As(err, &iniError) {
-			return nil, err
-		}
-
-		configFileError = err
-	}
-
-	// Warn about missing Config file only after all other configuration is
-	// done. This prevents the warning on help messages and invalid
-	// options.
-	if configFileError != nil {
-		logging.FromContext(context.Background()).Warn("failed to read config file", zap.Error(configFileError))
+	if err := flags.IniParse(cfg.ConfigFile, cfg); err != nil {
+		return nil, fmt.Errorf("failed to read config from file: %w", err)
 	}
 
 	return cfg, nil
@@ -167,7 +146,7 @@ func SetupConfig(cfg *Config) (*Config, error) {
 		// linked to a directory that does not exist (probably because
 		// it's not mounted).
 		var pathError *fs.PathError
-		if errors.As(err, &pathError) && os.IsExist(err) {
+		if errors.As(err, &pathError) && errors.Is(err, fs.ErrExist) {
 			if link, lerr := os.Readlink(pathError.Path); lerr == nil {
 				err = fmt.Errorf("is symlink %s -> %s mounted?", pathError.Path, link)
 			}
