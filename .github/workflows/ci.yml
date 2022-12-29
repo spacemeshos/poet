@@ -36,6 +36,8 @@ jobs:
           make test-generate
       - name: staticcheck
         run: make staticcheck
+      - name: Check for vulnerabilities
+        run: make vulncheck
 
   lint:
     runs-on: ubuntu-latest
