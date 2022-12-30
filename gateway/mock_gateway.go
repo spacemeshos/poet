@@ -29,10 +29,10 @@ type MockGrpcServer struct {
 }
 
 func NewMockGrpcServer(t *testing.T) *MockGrpcServer {
-	lis, err := net.Listen("tcp", ":0")
+	lis, err := net.Listen("tcp", "localhost:0")
 	require.NoError(t, err)
 
-	port, err := strconv.ParseUint(strings.TrimPrefix(lis.Addr().String(), "[::]:"), 10, 16)
+	port, err := strconv.ParseUint(strings.TrimPrefix(lis.Addr().String(), "127.0.0.1:"), 10, 16)
 	require.NoError(t, err)
 
 	s := grpc.NewServer()

@@ -240,7 +240,9 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 
 		case <-ctx.Done():
 			logger.Info("service shutting down")
-			s.openRound.teardown(false)
+			if err := s.openRound.teardown(false); err != nil {
+				return fmt.Errorf("tearing down open round: %w", err)
+			}
 			return nil
 		}
 	}

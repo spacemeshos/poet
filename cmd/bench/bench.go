@@ -36,7 +36,7 @@ func main() {
 		profFilePath := path.Join(dir, "./CPU.prof")
 		fmt.Printf("CPU profile: %s\n", profFilePath)
 
-		f, err := os.Create(profFilePath)
+		f, err := os.Create(profFilePath) //#nosec G304
 		if err != nil {
 			log.Fatal("could not create CPU profile: ", err)
 		}

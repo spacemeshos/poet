@@ -113,7 +113,7 @@ func (s *server) start() error {
 	s.quit = make(chan struct{})
 
 	args := s.cfg.genArgs()
-	s.cmd = exec.Command(s.cfg.exe, args...)
+	s.cmd = exec.Command(s.cfg.exe, args...) //#nosec G204
 
 	// Get stderr and stdout pipes in case the caller wants to read them.
 	// We also save a copy of stderr output here, and check it below.

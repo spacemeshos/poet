@@ -11,6 +11,7 @@ import (
 
 	pb "github.com/spacemeshos/api/release/go/spacemesh/v1"
 	"github.com/spacemeshos/merkle-tree"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -44,7 +45,7 @@ func spawnMockGateway(t *testing.T) (target string) {
 	pb.RegisterGatewayServiceServer(server.Server, &gatewayService{})
 
 	var eg errgroup.Group
-	t.Cleanup(func() { require.NoError(t, eg.Wait()) })
+	t.Cleanup(func() { assert.NoError(t, eg.Wait()) })
 
 	eg.Go(server.Serve)
 	t.Cleanup(server.Stop)
@@ -67,7 +68,7 @@ func spawnPoet(ctx context.Context, t *testing.T, cfg config.Config) (*server.Se
 		srv.RpcAddr().String(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()))
 	req.NoError(err)
-	t.Cleanup(func() { conn.Close() })
+	t.Cleanup(func() { assert.NoError(t, conn.Close()) })
 
 	return srv, api.NewPoetServiceClient(conn)
 }
