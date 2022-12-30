@@ -48,7 +48,10 @@ endif
 # messing up with global environment.
 export GOBIN := $(BIN_DIR)
 GOTESTSUM := $(GOBIN)/gotestsum
+GOVULNCHECK := $(GOBIN)/govulncheck
 
+$(GOVULNCHECK):
+	@go install golang.org/x/vuln/cmd/govulncheck
 
 $(BIN_DIR)/mockgen:
 	go install github.com/golang/mock/mockgen@v1.6.0
@@ -120,6 +123,10 @@ clear-test-cache:
 lint:
 	golangci-lint run --config .golangci.yml
 .PHONY: lint
+
+vulncheck: $(GOVULNCHECK)
+	$(GOVULNCHECK) ./...
+.PHONY: vulncheck
 
 # Auto-fixes golangci-lint issues where possible.
 lint-fix:
