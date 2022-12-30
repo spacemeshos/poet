@@ -13,8 +13,8 @@ import (
 
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/merkle-tree/cache"
-	"github.com/spacemeshos/smutil/log"
 
+	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/shared"
 )
 
@@ -32,9 +32,9 @@ const (
 
 var ErrShutdownRequested = errors.New("shutdown requested")
 
-type persistFunc func(tree *merkle.Tree, treeCache *cache.Writer, nextLeafId uint64) error
+type persistFunc func(ctx context.Context, tree *merkle.Tree, treeCache *cache.Writer, nextLeafId uint64) error
 
-var persist persistFunc = func(tree *merkle.Tree, treeCache *cache.Writer, nextLeafId uint64) error { return nil }
+var persist persistFunc = func(context.Context, *merkle.Tree, *cache.Writer, uint64) error { return nil }
 
 // GenerateProof computes the PoET DAG, uses Fiat-Shamir to derive a challenge from the Merkle root and generates a Merkle
 // proof using the challenge and the DAG.
@@ -69,7 +69,7 @@ func GenerateProofRecovery(
 	parkedNodes [][]byte,
 	persist persistFunc,
 ) (uint64, *shared.MerkleProof, error) {
-	treeCache, tree, err := makeRecoveryProofTree(datadir, merkleHashFunc, nextLeafID, parkedNodes)
+	treeCache, tree, err := makeRecoveryProofTree(ctx, datadir, merkleHashFunc, nextLeafID, parkedNodes)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -115,6 +115,7 @@ func makeProofTree(
 }
 
 func makeRecoveryProofTree(
+	ctx context.Context,
 	datadir string,
 	merkleHashFunc func(lChild, rChild []byte) []byte,
 	nextLeafID uint64,
@@ -154,7 +155,7 @@ func makeRecoveryProofTree(
 		// If file is longer than expected, truncate the file.
 		if expectedWidth < width {
 			filename := filepath.Join(datadir, file)
-			log.Info("Recovery: layer %v cache file width is ahead of the last known merkle tree state. expected: %d, found: %d. Truncating file...", layer, expectedWidth, width)
+			logging.FromContext(ctx).Sugar().Infof("Recovery: layer %v cache file width is ahead of the last known merkle tree state. expected: %d, found: %d. Truncating file...", layer, expectedWidth, width)
 			if err := os.Truncate(filename, int64(expectedWidth*merkle.NodeSize)); err != nil {
 				return nil, nil, fmt.Errorf("failed to truncate file: %v", err)
 			}
@@ -206,7 +207,7 @@ func generateProof(
 		// Handle persistence.
 		select {
 		case <-ctx.Done():
-			if err := persist(tree, treeCache, leafID); err != nil {
+			if err := persist(ctx, tree, treeCache, leafID); err != nil {
 				return 0, nil, fmt.Errorf("%w: error happened during persisting: %v", ErrShutdownRequested, err)
 			}
 			return 0, nil, ErrShutdownRequested
@@ -214,7 +215,7 @@ func generateProof(
 		}
 
 		if leafID != 0 && leafID%hardShutdownCheckpointRate == 0 {
-			if err := persist(tree, treeCache, leafID); err != nil {
+			if err := persist(ctx, tree, treeCache, leafID); err != nil {
 				return 0, nil, err
 			}
 		}
@@ -227,7 +228,7 @@ func generateProof(
 		leaves++
 	}
 
-	log.Info("Merkle tree construction finished with %d leaves, generating proof...", leaves)
+	logging.FromContext(ctx).Sugar().Infof("Merkle tree construction finished with %d leaves, generating proof...", leaves)
 
 	root := tree.Root()
 

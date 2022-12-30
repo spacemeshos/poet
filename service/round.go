@@ -11,9 +11,9 @@ import (
 
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/merkle-tree/cache"
-	"github.com/spacemeshos/smutil/log"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
+	"go.uber.org/zap"
 
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/logging"
@@ -140,8 +140,8 @@ func (r *round) isEmpty() bool {
 }
 
 func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer uint) error {
-	logger := logging.FromContext(ctx).WithFields(log.String("round", r.ID))
-	logger.Info("executing until %v...", end)
+	logger := logging.FromContext(ctx).With(zap.String("round", r.ID))
+	logger.Sugar().Infof("executing until %v...", end)
 
 	r.executionStarted = time.Now()
 	if err := r.saveState(); err != nil {
@@ -179,12 +179,12 @@ func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer uint)
 
 	close(r.executionEndedChan)
 
-	logger.Info("execution ended, phi=%x, duration %v", r.execution.NIP.Root, time.Since(r.executionStarted))
+	logger.Sugar().Infof("execution ended, phi=%x, duration %v", r.execution.NIP.Root, time.Since(r.executionStarted))
 	return nil
 }
 
-func (r *round) persistExecution(tree *merkle.Tree, treeCache *cache.Writer, numLeaves uint64) error {
-	log.Info("Round %v: persisting execution state (done: %d)", r.ID, numLeaves)
+func (r *round) persistExecution(ctx context.Context, tree *merkle.Tree, treeCache *cache.Writer, numLeaves uint64) error {
+	logging.FromContext(ctx).Info("persisting execution state", zap.Uint64("numLeaves", numLeaves), zap.String("round", r.ID))
 
 	// Call GetReader() so that the cache would flush and validate structure.
 	if _, err := treeCache.GetReader(); err != nil {

@@ -6,10 +6,11 @@ import (
 	"fmt"
 
 	"github.com/spacemeshos/go-scale"
-	"github.com/spacemeshos/smutil/log"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
+	"go.uber.org/zap"
 
+	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/shared"
 )
 
@@ -43,7 +44,7 @@ func NewProofsDatabase(dbPath string, proofs <-chan shared.ProofMessage) (*Proof
 }
 
 func (db *ProofsDatabase) Run(ctx context.Context) error {
-	logger := log.AppLog.WithName("proofs-db")
+	logger := logging.FromContext(ctx).Named("proofs-db")
 	for {
 		select {
 		case proof := <-db.proofs:
@@ -52,12 +53,12 @@ func (db *ProofsDatabase) Run(ctx context.Context) error {
 				return fmt.Errorf("failed serializing proof: %w", err)
 			}
 			if err := db.db.Put([]byte(proof.RoundID), serialized, &opt.WriteOptions{Sync: true}); err != nil {
-				logger.With().Error("failed storing proof in DB", log.Err(err))
+				logger.Error("failed storing proof in DB", zap.Error(err))
 			} else {
-				logger.With().Info("Proof saved in DB",
-					log.String("round", proof.RoundID),
-					log.Int("members", len(proof.Members)),
-					log.Uint64("leaves", proof.NumLeaves))
+				logger.Info("Proof saved in DB",
+					zap.String("round", proof.RoundID),
+					zap.Int("members", len(proof.Members)),
+					zap.Uint64("leaves", proof.NumLeaves))
 			}
 		case <-ctx.Done():
 			logger.Info("shutting down proofs db")
