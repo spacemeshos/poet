@@ -59,7 +59,7 @@ func spawnPoet(ctx context.Context, t *testing.T, cfg config.Config) (*server.Se
 	_, err := config.SetupConfig(&cfg)
 	req.NoError(err)
 
-	srv, err := server.New(cfg)
+	srv, err := server.New(context.Background(), cfg)
 	req.NoError(err)
 
 	conn, err := grpc.DialContext(
