@@ -132,7 +132,7 @@ func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer uint)
 		return err
 	}
 
-	logger.Sugar().Sugar().Infoff("execution ended, phi=%x, duration %v", r.Execution.NIP.Root, time.Since(r.ExecutionStarted))
+	logger.Sugar().Infof("execution ended, phi=%x, duration %v", r.Execution.NIP.Root, time.Since(r.ExecutionStarted))
 	return nil
 }
 
