@@ -101,7 +101,7 @@ func (s *Server) Start(ctx context.Context) error {
 	}
 
 	proofsDbPath := filepath.Join(s.cfg.DataDir, "proofs")
-	proofsDb, err := service.NewProofsDatabase(proofsDbPath, s.svc.ProofsChan())
+	proofsDb, err := service.NewServiceDatabase(proofsDbPath, s.svc.ProofsChan(), s.svc.RoundsDataChan())
 	if err != nil {
 		return fmt.Errorf("failed to create proofs DB: %w", err)
 	}

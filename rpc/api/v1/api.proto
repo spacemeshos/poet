@@ -56,6 +56,15 @@ service PoetService {
             get: "/v1/proofs/{round_id}"
         };
     }
+
+    /**
+    GetRound returns details about the given round
+    */
+    rpc GetRound(GetRoundRequest) returns (GetRoundResponse) {
+        option (google.api.http) = {
+            get: "/v1/rounds/{round_id}"
+        };
+    }
 }
 
 message StartRequest {
@@ -108,8 +117,7 @@ message MerkleProof {
 
 message PoetProof {
     MerkleProof proof = 1;
-    repeated bytes members = 2;
-    uint64 leaves = 3;
+    uint64 leaves = 2;
 }
 
 message GetProofRequest {
@@ -119,4 +127,12 @@ message GetProofRequest {
 message GetProofResponse {
     PoetProof proof = 1;
     bytes pubkey = 2;
+}
+
+message GetRoundRequest {
+    string round_id = 1;
+}
+
+message GetRoundResponse {
+    repeated bytes members = 1;
 }

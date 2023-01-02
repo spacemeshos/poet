@@ -22,7 +22,7 @@ import (
 
 // rpcServer is a gRPC, RPC front end to poet.
 type rpcServer struct {
-	proofsDb   *service.ProofsDatabase
+	serviceDB  *service.ServiceDatabase
 	s          *service.Service
 	gtwManager *gateway.Manager
 	cfg        config.Config
@@ -34,9 +34,9 @@ type rpcServer struct {
 var _ api.PoetServiceServer = (*rpcServer)(nil)
 
 // NewServer creates and returns a new instance of the rpcServer.
-func NewServer(svc *service.Service, proofsDb *service.ProofsDatabase, gtwManager *gateway.Manager, cfg config.Config) *rpcServer {
+func NewServer(svc *service.Service, proofsDb *service.ServiceDatabase, gtwManager *gateway.Manager, cfg config.Config) *rpcServer {
 	return &rpcServer{
-		proofsDb:   proofsDb,
+		serviceDB:  proofsDb,
 		s:          svc,
 		cfg:        cfg,
 		gtwManager: gtwManager,
@@ -169,7 +169,7 @@ func (r *rpcServer) GetProof(ctx context.Context, in *api.GetProofRequest) (*api
 		}
 	}
 
-	proof, err := r.proofsDb.Get(ctx, in.RoundId)
+	proof, err := r.serviceDB.GetProof(ctx, in.RoundId)
 	switch {
 	case errors.Is(err, service.ErrNotFound):
 		return nil, status.Error(codes.NotFound, "proof not found")
@@ -181,11 +181,25 @@ func (r *rpcServer) GetProof(ctx context.Context, in *api.GetProofRequest) (*api
 					ProvenLeaves: proof.ProvenLeaves,
 					ProofNodes:   proof.ProofNodes,
 				},
-				Members: proof.Members,
-				Leaves:  proof.NumLeaves,
+				Leaves: proof.NumLeaves,
 			},
 			Pubkey: proof.ServicePubKey,
 		}
+
+		return &out, nil
+	default:
+		return nil, status.Error(codes.Internal, err.Error())
+	}
+}
+
+// GetRound implements apiv1.PoetServiceServer.
+func (r *rpcServer) GetRound(ctx context.Context, in *api.GetRoundRequest) (*api.GetRoundResponse, error) {
+	members, err := r.serviceDB.GetRoundMembers(ctx, in.RoundId)
+	switch {
+	case errors.Is(err, service.ErrNotFound):
+		return nil, status.Error(codes.NotFound, "round not found")
+	case err == nil:
+		out := api.GetRoundResponse{Members: members}
 
 		return &out, nil
 	default:

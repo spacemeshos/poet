@@ -121,13 +121,6 @@ func (t *Proof) EncodeScale(enc *scale.Encoder) (total int, err error) {
 		total += n
 	}
 	{
-		n, err := scale.EncodeSliceOfByteSlice(enc, t.Members)
-		if err != nil {
-			return total, err
-		}
-		total += n
-	}
-	{
 		n, err := scale.EncodeCompact64(enc, uint64(t.NumLeaves))
 		if err != nil {
 			return total, err
@@ -144,14 +137,6 @@ func (t *Proof) DecodeScale(dec *scale.Decoder) (total int, err error) {
 			return total, err
 		}
 		total += n
-	}
-	{
-		field, n, err := scale.DecodeSliceOfByteSlice(dec)
-		if err != nil {
-			return total, err
-		}
-		total += n
-		t.Members = field
 	}
 	{
 		field, n, err := scale.DecodeCompact64(dec)

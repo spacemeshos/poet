@@ -115,11 +115,6 @@ func TestService_Recovery(t *testing.T) {
 	for i := 0; i < len(challengeGroups); i++ {
 		proof := <-s.ProofsChan()
 		req.Equal(strconv.Itoa(i), proof.RoundID)
-		// Verify the submitted challenges.
-		req.Len(proof.Members, len(challengeGroups[i]), "round: %v i: %d", proof.RoundID, i)
-		for _, ch := range challengeGroups[i] {
-			req.Contains(proof.Members, ch.data, "round: %v, i: %d", proof.RoundID, i)
-		}
 	}
 
 	cancel()
@@ -188,6 +183,15 @@ func TestNewService(t *testing.T) {
 		return false
 	}, cfg.EpochDuration*2, time.Millisecond*100)
 
+	// Receive the round data
+	round := <-s.RoundsDataChan()
+	req.Equal(currentRound, round.ID)
+	// Verify the submitted challenges.
+	req.Len(round.Members, len(challenges))
+	for _, ch := range challenges {
+		req.Contains(round.Members, ch.data)
+	}
+
 	// Wait for end of execution.
 	req.Eventually(func() bool {
 		info, err := s.Info(context.Background())
@@ -201,13 +205,7 @@ func TestNewService(t *testing.T) {
 
 	// Wait for proof message.
 	proof := <-s.ProofsChan()
-
 	req.Equal(currentRound, proof.RoundID)
-	// Verify the submitted challenges.
-	req.Len(proof.Members, len(challenges))
-	for _, ch := range challenges {
-		req.Contains(proof.Members, ch.data)
-	}
 
 	cancel()
 	req.NoError(eg.Wait())

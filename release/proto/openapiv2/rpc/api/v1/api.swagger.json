@@ -70,6 +70,37 @@
         ]
       }
     },
+    "/v1/rounds/{roundId}": {
+      "get": {
+        "summary": "GetRound returns details about the given round",
+        "operationId": "PoetService_GetRound",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1GetRoundResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "roundId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "PoetService"
+        ]
+      }
+    },
     "/v1/start": {
       "post": {
         "summary": "Start is used to start the service.",
@@ -228,6 +259,18 @@
         }
       }
     },
+    "v1GetRoundResponse": {
+      "type": "object",
+      "properties": {
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
+          }
+        }
+      }
+    },
     "v1MerkleProof": {
       "type": "object",
       "properties": {
@@ -256,13 +299,6 @@
       "properties": {
         "proof": {
           "$ref": "#/definitions/v1MerkleProof"
-        },
-        "members": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "format": "byte"
-          }
         },
         "leaves": {
           "type": "string",

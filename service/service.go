@@ -23,6 +23,13 @@ import (
 	"github.com/spacemeshos/poet/shared"
 )
 
+type RoundData struct {
+	ID string
+	// Members is the ordered list of miners challenges which are included
+	// in the proof (by using the list hash digest as the proof generation input (the statement)).
+	Members [][]byte
+}
+
 type Config struct {
 	Genesis           string        `long:"genesis-time" description:"Genesis timestamp"`
 	EpochDuration     time.Duration `long:"epoch-duration" description:"Epoch duration"`
@@ -50,6 +57,7 @@ const ChallengeVerifierCacheSize = 1024
 type Service struct {
 	started  atomic.Bool
 	proofs   chan shared.ProofMessage
+	rounds   chan RoundData
 	commands chan Command
 	timer    <-chan time.Time
 
@@ -141,6 +149,7 @@ func NewService(ctx context.Context, cfg *Config, datadir string) (*Service, err
 
 	s := &Service{
 		proofs:          make(chan shared.ProofMessage, 1),
+		rounds:          make(chan RoundData, 1),
 		commands:        cmds,
 		cfg:             cfg,
 		minMemoryLayer:  uint(minMemoryLayer),
@@ -163,6 +172,10 @@ type roundResult struct {
 
 func (s *Service) ProofsChan() <-chan shared.ProofMessage {
 	return s.proofs
+}
+
+func (s *Service) RoundsDataChan() <-chan RoundData {
+	return s.rounds
 }
 
 func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
@@ -225,6 +238,16 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 			s.executingRounds[round.ID] = struct{}{}
 
 			end := s.roundEndTime(round)
+
+			select {
+			case s.rounds <- RoundData{
+				ID:      round.ID,
+				Members: round.Members(),
+			}:
+			default:
+				logger.Debug("could not push round data, the receiving end might've hang")
+			}
+
 			minMemoryLayer := s.minMemoryLayer
 			eg.Go(func() error {
 				err := round.execute(ctx, end, minMemoryLayer)
@@ -460,7 +483,6 @@ func (s *Service) reportNewProof(round string, execution *executionState) {
 	s.proofs <- shared.ProofMessage{
 		Proof: shared.Proof{
 			MerkleProof: *execution.NIP,
-			Members:     execution.Members,
 			NumLeaves:   execution.NumLeaves,
 		},
 		ServicePubKey: s.PubKey,

@@ -134,6 +134,15 @@ func TestSubmitAndGetProof(t *testing.T) {
 	roundEnd := resp.RoundEnd.AsDuration()
 	req.NotZero(roundEnd)
 
+	// Query for round details
+	var round *api.GetRoundResponse
+	req.Eventually(func() bool {
+		round, err = client.GetRound(context.Background(), &api.GetRoundRequest{RoundId: resp.RoundId})
+		return err == nil
+	}, time.Second*2, time.Millisecond*100)
+
+	req.Equal(round.Members, [][]byte{[]byte("hash")})
+
 	// Wait for round to end
 	<-time.After(roundEnd)
 
@@ -145,8 +154,6 @@ func TestSubmitAndGetProof(t *testing.T) {
 	}, time.Second, time.Millisecond*100)
 
 	req.NotZero(proof.Proof.Leaves)
-	req.Len(proof.Proof.Members, 1)
-	req.Contains(proof.Proof.Members, []byte("hash"))
 	cancel()
 
 	merkleProof := shared.MerkleProof{
@@ -155,7 +162,7 @@ func TestSubmitAndGetProof(t *testing.T) {
 		ProofNodes:   proof.Proof.Proof.ProofNodes,
 	}
 
-	root, err := calcRoot(proof.Proof.Members)
+	root, err := calcRoot(round.Members)
 	req.NoError(err)
 
 	labelHashFunc := hash.GenLabelHashFunc(root)

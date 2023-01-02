@@ -295,12 +295,7 @@ func (r *round) saveState() error {
 	return persist(filename, v)
 }
 
-func (r *round) calcMembersAndStatement() ([][]byte, []byte, error) {
-	mtree, err := merkle.NewTree()
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to initialize merkle tree: %v", err)
-	}
-
+func (r *round) Members() [][]byte {
 	members := make([][]byte, 0)
 	iter := r.challengesDb.NewIterator(nil, nil)
 	defer iter.Release()
@@ -308,9 +303,20 @@ func (r *round) calcMembersAndStatement() ([][]byte, []byte, error) {
 		challenge := iter.Value()
 		challengeCopy := make([]byte, len(challenge))
 		copy(challengeCopy, challenge)
-
 		members = append(members, challengeCopy)
-		if err := mtree.AddLeaf(challengeCopy); err != nil {
+	}
+
+	return members
+}
+
+func (r *round) calcMembersAndStatement() ([][]byte, []byte, error) {
+	mtree, err := merkle.NewTree()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to initialize merkle tree: %v", err)
+	}
+	members := r.Members()
+	for _, challenge := range members {
+		if err := mtree.AddLeaf(challenge); err != nil {
 			return nil, nil, err
 		}
 	}

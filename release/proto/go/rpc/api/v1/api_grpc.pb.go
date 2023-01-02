@@ -35,6 +35,8 @@ type PoetServiceClient interface {
 	GetInfo(ctx context.Context, in *GetInfoRequest, opts ...grpc.CallOption) (*GetInfoResponse, error)
 	// GetProof returns the generated proof for given round id.
 	GetProof(ctx context.Context, in *GetProofRequest, opts ...grpc.CallOption) (*GetProofResponse, error)
+	// GetRound returns details about the given round
+	GetRound(ctx context.Context, in *GetRoundRequest, opts ...grpc.CallOption) (*GetRoundResponse, error)
 }
 
 type poetServiceClient struct {
@@ -90,6 +92,15 @@ func (c *poetServiceClient) GetProof(ctx context.Context, in *GetProofRequest, o
 	return out, nil
 }
 
+func (c *poetServiceClient) GetRound(ctx context.Context, in *GetRoundRequest, opts ...grpc.CallOption) (*GetRoundResponse, error) {
+	out := new(GetRoundResponse)
+	err := c.cc.Invoke(ctx, "/rpc.api.v1.PoetService/GetRound", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // PoetServiceServer is the server API for PoetService service.
 // All implementations should embed UnimplementedPoetServiceServer
 // for forward compatibility
@@ -107,6 +118,8 @@ type PoetServiceServer interface {
 	GetInfo(context.Context, *GetInfoRequest) (*GetInfoResponse, error)
 	// GetProof returns the generated proof for given round id.
 	GetProof(context.Context, *GetProofRequest) (*GetProofResponse, error)
+	// GetRound returns details about the given round
+	GetRound(context.Context, *GetRoundRequest) (*GetRoundResponse, error)
 }
 
 // UnimplementedPoetServiceServer should be embedded to have forward compatible implementations.
@@ -127,6 +140,9 @@ func (UnimplementedPoetServiceServer) GetInfo(context.Context, *GetInfoRequest) 
 }
 func (UnimplementedPoetServiceServer) GetProof(context.Context, *GetProofRequest) (*GetProofResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetProof not implemented")
+}
+func (UnimplementedPoetServiceServer) GetRound(context.Context, *GetRoundRequest) (*GetRoundResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetRound not implemented")
 }
 
 // UnsafePoetServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -230,6 +246,24 @@ func _PoetService_GetProof_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _PoetService_GetRound_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRoundRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PoetServiceServer).GetRound(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpc.api.v1.PoetService/GetRound",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PoetServiceServer).GetRound(ctx, req.(*GetRoundRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // PoetService_ServiceDesc is the grpc.ServiceDesc for PoetService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -256,6 +290,10 @@ var PoetService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetProof",
 			Handler:    _PoetService_GetProof_Handler,
+		},
+		{
+			MethodName: "GetRound",
+			Handler:    _PoetService_GetRound_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
