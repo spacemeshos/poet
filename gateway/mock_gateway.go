@@ -1,10 +1,7 @@
 package gateway
 
 import (
-	"fmt"
 	"net"
-	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -25,22 +22,15 @@ import (
 type MockGrpcServer struct {
 	listener net.Listener
 	*grpc.Server
-	Port uint16
 }
 
 func NewMockGrpcServer(t *testing.T) *MockGrpcServer {
 	lis, err := net.Listen("tcp", "localhost:0")
 	require.NoError(t, err)
 
-	port, err := strconv.ParseUint(strings.TrimPrefix(lis.Addr().String(), "127.0.0.1:"), 10, 16)
-	require.NoError(t, err)
-
-	s := grpc.NewServer()
-
 	return &MockGrpcServer{
 		listener: lis,
-		Server:   s,
-		Port:     uint16(port),
+		Server:   grpc.NewServer(),
 	}
 }
 
@@ -49,5 +39,5 @@ func (s *MockGrpcServer) Serve() error {
 }
 
 func (s *MockGrpcServer) Target() string {
-	return fmt.Sprintf("localhost:%d", s.Port)
+	return s.listener.Addr().String()
 }
