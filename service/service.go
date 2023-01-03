@@ -17,12 +17,12 @@ import (
 	mshared "github.com/spacemeshos/merkle-tree/shared"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"golang.org/x/sys/unix"
 	"google.golang.org/grpc"
 
 	"github.com/spacemeshos/poet/gateway/challenge_verifier"
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/prover"
+	"github.com/spacemeshos/poet/service/tid"
 	"github.com/spacemeshos/poet/shared"
 )
 
@@ -260,7 +260,7 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 func lockOSThread(ctx context.Context, tidFile string) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	if err := os.WriteFile(tidFile, []byte(strconv.Itoa(unix.Gettid())), os.ModePerm); err != nil {
+	if err := os.WriteFile(tidFile, []byte(strconv.Itoa(tid.Gettid())), os.ModePerm); err != nil {
 		logging.FromContext(ctx).Warn("failed to write goroutine thread id to file", zap.Error(err))
 	}
 }
