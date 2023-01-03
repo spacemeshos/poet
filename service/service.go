@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -15,6 +17,7 @@ import (
 	mshared "github.com/spacemeshos/merkle-tree/shared"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/sys/unix"
 	"google.golang.org/grpc"
 
 	"github.com/spacemeshos/poet/gateway/challenge_verifier"
@@ -187,12 +190,16 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 
 	roundResults := make(chan roundResult, 1)
 
+	// file that round's thread ID is written to
+	roundTidFile := path.Join(s.datadir, "round.tid")
+
 	// Resume recovered rounds
 	for _, round := range roundsToResume {
 		round := round
 		s.executingRounds[round.ID] = struct{}{}
 		end := s.roundEndTime(round)
 		eg.Go(func() error {
+			lockOSThread(ctx, roundTidFile)
 			err := round.recoverExecution(ctx, round.stateCache.Execution, end)
 			if err := round.teardown(err == nil); err != nil {
 				logger.Warn("round teardown failed", zap.Error(err))
@@ -227,6 +234,7 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 			end := s.roundEndTime(round)
 			minMemoryLayer := s.minMemoryLayer
 			eg.Go(func() error {
+				lockOSThread(ctx, roundTidFile)
 				err := round.execute(ctx, end, minMemoryLayer)
 				if err := round.teardown(err == nil); err != nil {
 					logger.Warn("round teardown failed", zap.Error(err))
@@ -243,6 +251,17 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 			s.openRound.teardown(false)
 			return nil
 		}
+	}
+}
+
+// lockOSThread:
+// - locks current goroutine to OS thread,
+// - writes the current TID to `tidFile`.
+func lockOSThread(ctx context.Context, tidFile string) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	if err := os.WriteFile(tidFile, []byte(strconv.Itoa(unix.Gettid())), os.ModePerm); err != nil {
+		logging.FromContext(ctx).Warn("failed to write goroutine thread id to file", zap.Error(err))
 	}
 }
 
