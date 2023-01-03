@@ -199,7 +199,8 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 		s.executingRounds[round.ID] = struct{}{}
 		end := s.roundEndTime(round)
 		eg.Go(func() error {
-			lockOSThread(ctx, roundTidFile)
+			unlock := lockOSThread(ctx, roundTidFile)
+			defer unlock()
 			err := round.recoverExecution(ctx, round.stateCache.Execution, end)
 			if err := round.teardown(err == nil); err != nil {
 				logger.Warn("round teardown failed", zap.Error(err))
@@ -234,7 +235,8 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 			end := s.roundEndTime(round)
 			minMemoryLayer := s.minMemoryLayer
 			eg.Go(func() error {
-				lockOSThread(ctx, roundTidFile)
+				unlock := lockOSThread(ctx, roundTidFile)
+				defer unlock()
 				err := round.execute(ctx, end, minMemoryLayer)
 				if err := round.teardown(err == nil); err != nil {
 					logger.Warn("round teardown failed", zap.Error(err))
@@ -257,12 +259,15 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 // lockOSThread:
 // - locks current goroutine to OS thread,
 // - writes the current TID to `tidFile`.
-func lockOSThread(ctx context.Context, tidFile string) {
+// The caller must call the returned `unlock` to unlock OS thread.
+func lockOSThread(ctx context.Context, tidFile string) (unlock func()) {
 	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
+
 	if err := os.WriteFile(tidFile, []byte(strconv.Itoa(tid.Gettid())), os.ModePerm); err != nil {
 		logging.FromContext(ctx).Warn("failed to write goroutine thread id to file", zap.Error(err))
 	}
+
+	return runtime.UnlockOSThread
 }
 
 func (s *Service) roundStartTime(round *round) time.Time {
