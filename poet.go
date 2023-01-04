@@ -15,6 +15,7 @@ import (
 	"runtime/pprof"
 
 	"github.com/jessevdk/go-flags"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 
 	"github.com/spacemeshos/poet/config"
@@ -102,6 +103,18 @@ func poetMain() error {
 		}
 		defer pprof.StopCPUProfile()
 	}
+
+	// Start Prometheus
+	lis, err := net.Listen("tcp", "localhost:2112")
+	if err != nil {
+		return err
+	}
+	logger.Info("spawning Prometheus", zap.String("endpoint", fmt.Sprintf("http://%s", lis.Addr().String())))
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.Handler())
+	go func() {
+		http.Serve(lis, mux)
+	}()
 
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt)
 	defer stop()

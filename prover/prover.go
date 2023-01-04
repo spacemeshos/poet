@@ -11,8 +11,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/merkle-tree/cache"
+	"go.uber.org/zap"
 
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/shared"
@@ -29,6 +32,25 @@ const (
 	// to allow potential crash recovery.
 	hardShutdownCheckpointRate = 1 << 24
 )
+
+var (
+	leavesPerSecondUpdateInterval = time.Minute
+	leavesPerSecond               = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "poet_leaves_per_second",
+		Help: "Leaves calculation rate per second",
+	})
+)
+
+func init() {
+	lpsStr := os.Getenv("POET_LEAVES_PER_SECOND_INTERVAL")
+	if lpsStr != "" {
+		if lps, err := time.ParseDuration(lpsStr); err == nil {
+			leavesPerSecondUpdateInterval = lps
+		} else {
+			fmt.Printf("failed parsing POET_LEAVES_PER_SECOND_INTERVAL: %v", err)
+		}
+	}
+}
 
 var ErrShutdownRequested = errors.New("shutdown requested")
 
@@ -203,6 +225,11 @@ func generateProof(
 ) (uint64, *shared.MerkleProof, error) {
 	makeLabel := shared.MakeLabelFunc()
 	leaves := nextLeafID
+	lastLeaves := leaves
+	lastLPSTimestamp := time.Now()
+	logger := logging.FromContext(ctx)
+	logger.Info("generating proof", zap.Time("end", end), zap.Uint64("nextLeafID", nextLeafID))
+
 	for leafID := nextLeafID; time.Until(end) > 0; leafID++ {
 		// Handle persistence.
 		select {
@@ -218,6 +245,15 @@ func generateProof(
 			if err := persist(ctx, tree, treeCache, leafID); err != nil {
 				return 0, nil, err
 			}
+		}
+
+		now := time.Now()
+		if elapsed := now.Sub(lastLPSTimestamp); elapsed >= leavesPerSecondUpdateInterval {
+			lps := float64(leaves-lastLeaves) / elapsed.Seconds()
+			lastLPSTimestamp = now
+			lastLeaves = leaves
+			logger.Info("calculated leaves per second", zap.Float64("rate", lps))
+			leavesPerSecond.Set(lps)
 		}
 
 		// Generate the next leaf.
