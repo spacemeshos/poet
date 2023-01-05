@@ -223,6 +223,7 @@ func generateProof(
 	securityParam uint8,
 	persist persistFunc,
 ) (uint64, *shared.MerkleProof, error) {
+	var parkedNodes [][]byte
 	makeLabel := shared.MakeLabelFunc()
 	leaves := nextLeafID
 	lastLeaves := leaves
@@ -257,7 +258,9 @@ func generateProof(
 		}
 
 		// Generate the next leaf.
-		err := tree.AddLeaf(makeLabel(labelHashFunc, leafID, tree.GetParkedNodes()))
+
+		parkedNodes = tree.GetParkedNodes(parkedNodes[:0])
+		err := tree.AddLeaf(makeLabel(labelHashFunc, leafID, parkedNodes))
 		if err != nil {
 			return 0, nil, err
 		}

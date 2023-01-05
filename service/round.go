@@ -191,8 +191,9 @@ func (r *round) persistExecution(ctx context.Context, tree *merkle.Tree, treeCac
 		return err
 	}
 
+	var parkedNodes [][]byte
 	r.execution.NumLeaves = numLeaves
-	r.execution.ParkedNodes = tree.GetParkedNodes()
+	r.execution.ParkedNodes = tree.GetParkedNodes(parkedNodes)
 	if err := r.saveState(); err != nil {
 		return err
 	}
