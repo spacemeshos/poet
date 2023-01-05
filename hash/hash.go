@@ -41,3 +41,18 @@ func GenLabelHashFunc(challenge []byte) func(data []byte) []byte {
 		return message
 	}
 }
+
+func NewGenLabelHashFunc(challenge []byte) func(data []byte) []byte {
+	var message []byte
+	message = append(message, challenge...)
+	return func(data []byte) []byte {
+		message = append(message[:len(challenge)], data...)
+
+		hash := sha256.Sum256(message)
+
+		for i := 1; i < LabelHashNestingDepth; i++ {
+			hash = sha256.Sum256(hash[:])
+		}
+		return hash[:]
+	}
+}
