@@ -163,7 +163,7 @@ func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer uint)
 	r.execution.NumLeaves, r.execution.NIP, err = prover.GenerateProof(
 		ctx,
 		r.datadir,
-		hash.GenLabelHashFunc(r.execution.Statement),
+		hash.NewGenLabelHashFunc(r.execution.Statement),
 		hash.GenMerkleHashFunc(r.execution.Statement),
 		end,
 		r.execution.SecurityParam,
@@ -223,7 +223,7 @@ func (r *round) recoverExecution(ctx context.Context, state *executionState, end
 	r.execution.NumLeaves, r.execution.NIP, err = prover.GenerateProofRecovery(
 		ctx,
 		r.datadir,
-		hash.GenLabelHashFunc(state.Statement),
+		hash.NewGenLabelHashFunc(state.Statement),
 		hash.GenMerkleHashFunc(state.Statement),
 		end,
 		state.SecurityParam,
