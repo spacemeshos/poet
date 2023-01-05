@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"log"
 	"os"
@@ -18,15 +17,16 @@ import (
 )
 
 func main() {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	runtime.MemProfileRate = 0
-	println("Memory profiling disabled.")
 
 	cfg, err := loadConfig()
 	if err != nil {
 		os.Exit(1)
 	}
 
-	// Enable memory profiling
+	// Enable cpu profiling
 	if cfg.CPU {
 		dir, err := os.Getwd()
 		if err != nil {
@@ -48,33 +48,27 @@ func main() {
 		println("Cpu profiling enabled and started...")
 	}
 
-	challenge := make([]byte, 20)
-	_, err = rand.Read(challenge)
-	if err != nil {
-		panic("no entropy")
-	}
-
-	end := time.Now().Add(cfg.Duration)
+	challenge := []byte("1234567890abcdefghij")
 	securityParam := shared.T
 
-	t1 := time.Now()
-	println("Computing dag...")
 	tempdir, _ := os.MkdirTemp("", "poet-test")
-	leafs, merkleProof, err := prover.GenerateProofWithoutPersistency(context.Background(), tempdir, hash.NewGenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), end, securityParam, prover.LowestMerkleMinMemoryLayer)
+	proofGenStarted := time.Now()
+	end := proofGenStarted.Add(cfg.Duration)
+	leafs, merkleProof, err := prover.GenerateProofWithoutPersistency(context.Background(), tempdir, hash.NewGenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), end, securityParam, 2)
 	if err != nil {
 		panic(fmt.Sprintf("failed to generate proof: %v", err))
 	}
 
-	e := time.Since(t1)
-	fmt.Printf("Proof from %d leafs generated in %s (%d/s)\n", leafs, e, leafs/uint64(e.Seconds()))
+	proofGenDuration := time.Since(proofGenStarted)
+	fmt.Printf("Proof with %d leafs generated in %s (%d/s)\n", leafs, proofGenDuration, leafs/uint64(proofGenDuration.Seconds()))
 	fmt.Printf("Dag root label: %x\n", merkleProof.Root)
 
-	t1 = time.Now()
-	err = verifier.Validate(*merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafs, securityParam)
+	proofValidStarted := time.Now()
+	err = verifier.Validate(*merkleProof, hash.NewGenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafs, securityParam)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to verify nip: %v", err))
 	}
 
-	e = time.Since(t1)
-	fmt.Printf("Proof verified in %s (%f)\n", e, e.Seconds())
+	proofValidDuration := time.Since(proofValidStarted)
+	fmt.Printf("Proof verified in %s\n", proofValidDuration)
 }
