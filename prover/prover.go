@@ -34,7 +34,7 @@ const (
 )
 
 var (
-	leavesPerSecondUpdateInterval = time.Minute
+	leavesPerSecondUpdateInterval = uint64(1_000_000)
 	leavesPerSecond               = promauto.NewGauge(prometheus.GaugeOpts{
 		Name: "poet_leaves_per_second",
 		Help: "Leaves calculation rate per second",
@@ -44,10 +44,10 @@ var (
 func init() {
 	lpsStr := os.Getenv("POET_LEAVES_PER_SECOND_INTERVAL")
 	if lpsStr != "" {
-		if lps, err := time.ParseDuration(lpsStr); err == nil {
-			leavesPerSecondUpdateInterval = lps
+		if lps, err := strconv.Atoi(lpsStr); err == nil {
+			leavesPerSecondUpdateInterval = uint64(lps)
 		} else {
-			fmt.Printf("failed parsing POET_LEAVES_PER_SECOND_INTERVAL: %v", err)
+			fmt.Printf("failed parsing POET_LEAVES_PER_SECOND_INTERVAL as int: %v", err)
 		}
 	}
 }
@@ -213,6 +213,57 @@ func makeRecoveryProofTree(
 	return treeCache, tree, nil
 }
 
+func proofGenLoop(
+	ctx context.Context,
+	labelHashFunc func(data []byte) []byte,
+	tree *merkle.Tree,
+	treeCache *cache.Writer,
+	nextLeafID uint64,
+	securityParam uint8,
+	persist persistFunc,
+) (uint64, error) {
+	var parkedNodes [][]byte
+	makeLabel := shared.MakeLabelFunc()
+	leaves := nextLeafID
+	lastLeaves := leaves
+	lastLPSTimestamp := time.Now()
+	logger := logging.FromContext(ctx)
+
+	for leafID := nextLeafID; ; leafID++ {
+		select {
+		case <-ctx.Done():
+			if err := persist(ctx, tree, treeCache, leafID); err != nil {
+				return 0, fmt.Errorf("%w: error happened during persisting: %v", ErrShutdownRequested, err)
+			}
+			return leaves, nil
+		default:
+		}
+
+		if leafID != 0 && leafID%hardShutdownCheckpointRate == 0 {
+			if err := persist(ctx, tree, treeCache, leafID); err != nil {
+				return 0, err
+			}
+		}
+
+		if generated := leaves - lastLeaves; generated >= leavesPerSecondUpdateInterval {
+			now := time.Now()
+			lps := float64(leaves-lastLeaves) / now.Sub(lastLPSTimestamp).Seconds()
+			lastLPSTimestamp = now
+			lastLeaves = leaves
+			logger.Info("calculated leaves per second", zap.Float64("rate", lps))
+			leavesPerSecond.Set(lps)
+		}
+
+		// Generate the next leaf.
+		parkedNodes = tree.GetParkedNodes(parkedNodes[:0])
+		err := tree.AddLeaf(makeLabel(labelHashFunc, leafID, parkedNodes))
+		if err != nil {
+			return 0, err
+		}
+		leaves++
+	}
+}
+
 func generateProof(
 	ctx context.Context,
 	labelHashFunc func(data []byte) []byte,
@@ -223,48 +274,19 @@ func generateProof(
 	securityParam uint8,
 	persist persistFunc,
 ) (uint64, *shared.MerkleProof, error) {
-	var parkedNodes [][]byte
-	makeLabel := shared.MakeLabelFunc()
-	leaves := nextLeafID
-	lastLeaves := leaves
-	lastLPSTimestamp := time.Now()
 	logger := logging.FromContext(ctx)
 	logger.Info("generating proof", zap.Time("end", end), zap.Uint64("nextLeafID", nextLeafID))
 
-	for leafID := nextLeafID; time.Until(end) > 0; leafID++ {
-		// Handle persistence.
-		select {
-		case <-ctx.Done():
-			if err := persist(ctx, tree, treeCache, leafID); err != nil {
-				return 0, nil, fmt.Errorf("%w: error happened during persisting: %v", ErrShutdownRequested, err)
-			}
-			return 0, nil, ErrShutdownRequested
-		default:
-		}
-
-		if leafID != 0 && leafID%hardShutdownCheckpointRate == 0 {
-			if err := persist(ctx, tree, treeCache, leafID); err != nil {
-				return 0, nil, err
-			}
-		}
-
-		now := time.Now()
-		if elapsed := now.Sub(lastLPSTimestamp); elapsed >= leavesPerSecondUpdateInterval {
-			lps := float64(leaves-lastLeaves) / elapsed.Seconds()
-			lastLPSTimestamp = now
-			lastLeaves = leaves
-			logger.Info("calculated leaves per second", zap.Float64("rate", lps))
-			leavesPerSecond.Set(lps)
-		}
-
-		// Generate the next leaf.
-
-		parkedNodes = tree.GetParkedNodes(parkedNodes[:0])
-		err := tree.AddLeaf(makeLabel(labelHashFunc, leafID, parkedNodes))
-		if err != nil {
-			return 0, nil, err
-		}
-		leaves++
+	proofCtx, cancel := context.WithDeadline(ctx, end)
+	defer cancel()
+	leaves, err := proofGenLoop(proofCtx, labelHashFunc, tree, treeCache, nextLeafID, securityParam, persist)
+	if err != nil {
+		return 0, nil, err
+	}
+	select {
+	case <-ctx.Done():
+		return 0, nil, ErrShutdownRequested
+	default:
 	}
 
 	logging.FromContext(ctx).Sugar().Infof("Merkle tree construction finished with %d leaves, generating proof...", leaves)
