@@ -4,11 +4,40 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spacemeshos/merkle-tree/cache"
 	"github.com/spacemeshos/merkle-tree/cache/readwriters"
 )
+
+var (
+	filesReadWriterBufferSize = 1024 * 1024 * 256
+	cachedReadWriterSize      = 1024
+)
+
+func init() {
+	{
+		sizeStr := os.Getenv("POET_FILES_LAYER_WRITER_BUF_SIZE")
+		if sizeStr != "" {
+			if bufSize, err := strconv.Atoi(sizeStr); err == nil {
+				filesReadWriterBufferSize = bufSize
+			} else {
+				fmt.Printf("failed parsing POET_FILES_LAYER_WRITER_BUF_SIZE as int: %v", err)
+			}
+		}
+	}
+	{
+		sizeStr := os.Getenv("POET_CACHED_LAYER_WRITER_SLICE_SIZE")
+		if sizeStr != "" {
+			if sliceSize, err := strconv.Atoi(sizeStr); err == nil {
+				cachedReadWriterSize = sliceSize
+			} else {
+				fmt.Printf("failed parsing POET_CACHED_LAYER_WRITER_SLICE_SIZE as int: %v", err)
+			}
+		}
+	}
+}
 
 // ReadWriterMetaFactory generates Merkle LayerFactory functions. The functions it creates generate file read-writers
 // starting from the base layer and up to minMemoryLayer-1. From minMemoryLayer and up the functions generate slice
@@ -39,7 +68,7 @@ func (mf *ReadWriterMetaFactory) GetFactory() cache.LayerFactory {
 				return nil, err
 			}
 
-			readWriter, err := readwriters.NewFileReadWriter(fileName)
+			readWriter, err := readwriters.NewFileReadWriter(fileName, filesReadWriterBufferSize)
 			if err != nil {
 				return nil, err
 			}
@@ -47,7 +76,7 @@ func (mf *ReadWriterMetaFactory) GetFactory() cache.LayerFactory {
 			mf.filesCreated[fileName] = true
 			return readWriter, nil
 		}
-		return &readwriters.SliceReadWriter{}, nil
+		return readwriters.NewSliceReadWriter(cachedReadWriterSize), nil
 	}
 }
 
