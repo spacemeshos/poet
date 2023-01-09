@@ -14,7 +14,7 @@ require (
 	github.com/prometheus/client_golang v1.14.0
 	github.com/spacemeshos/api/release/go v1.5.6
 	github.com/spacemeshos/go-scale v1.1.2
-	github.com/spacemeshos/merkle-tree v0.1.1-0.20230105171413-8ffe8a561e21
+	github.com/spacemeshos/merkle-tree v0.1.1-0.20230109121422-a860b4cbfd2f
 	github.com/stretchr/testify v1.8.1
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	go.uber.org/zap v1.24.0

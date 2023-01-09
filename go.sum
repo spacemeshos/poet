@@ -250,8 +250,8 @@ github.com/spacemeshos/api/release/go v1.5.6 h1:ubcUppvafyRLyq+yvOzXS3u7//rxEkJ8
 github.com/spacemeshos/api/release/go v1.5.6/go.mod h1:4EIC5bex4jpz6RbP3i1KhacBLn+2g5xGA4Rw1JfYfZI=
 github.com/spacemeshos/go-scale v1.1.2 h1:XYGvgyyYB0bvnbx1WoYQoakt+7mhlBb8A39DyKwVQcQ=
 github.com/spacemeshos/go-scale v1.1.2/go.mod h1:sGaC6ImP82aAsAZA3RgcQbo4gkOhZUshH7/y5/53nYI=
-github.com/spacemeshos/merkle-tree v0.1.1-0.20230105171413-8ffe8a561e21 h1:ezVkuCnN1DJ1PLIXJKQgI/qj0TLGipbLX4KHy7s7d/8=
-github.com/spacemeshos/merkle-tree v0.1.1-0.20230105171413-8ffe8a561e21/go.mod h1:uGtTEKksCgRdSMyeDdHM1W2d/rI7CxYlzNnKP1GU5Mw=
+github.com/spacemeshos/merkle-tree v0.1.1-0.20230109121422-a860b4cbfd2f h1:HzOIoS/t7XozTkuPwiW6VLGSUo0CcRtEgGpNHmLrRJ0=
+github.com/spacemeshos/merkle-tree v0.1.1-0.20230109121422-a860b4cbfd2f/go.mod h1:uGtTEKksCgRdSMyeDdHM1W2d/rI7CxYlzNnKP1GU5Mw=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.1.1/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.4.0/go.mod h1:YvHI0jy2hoMjB+UWwv71VJQ9isScKT/TqJzVSSt89Yw=
