@@ -39,6 +39,10 @@ var (
 		Name: "poet_leaves_per_second",
 		Help: "Leaves calculation rate per second",
 	})
+	leavesCounter = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "poet_leaves",
+		Help: "Number of generated leaves",
+	})
 )
 
 func init() {
@@ -213,7 +217,7 @@ func makeRecoveryProofTree(
 	return treeCache, tree, nil
 }
 
-func proofGenLoop(
+func doSequentialWork(
 	ctx context.Context,
 	labelHashFunc func(data []byte) []byte,
 	tree *merkle.Tree,
@@ -249,9 +253,10 @@ func proofGenLoop(
 			now := time.Now()
 			lps := float64(leaves-lastLeaves) / now.Sub(lastLPSTimestamp).Seconds()
 			lastLPSTimestamp = now
-			lastLeaves = leaves
-			logger.Info("calculated leaves per second", zap.Float64("rate", lps))
+			logger.Info("calculated leaves per second", zap.Float64("rate", lps), zap.Uint64("total", leaves))
 			leavesPerSecond.Set(lps)
+			leavesCounter.Add(float64(leaves - lastLeaves))
+			lastLeaves = leaves
 		}
 
 		// Generate the next leaf.
@@ -279,7 +284,7 @@ func generateProof(
 
 	proofCtx, cancel := context.WithDeadline(ctx, end)
 	defer cancel()
-	leaves, err := proofGenLoop(proofCtx, labelHashFunc, tree, treeCache, nextLeafID, securityParam, persist)
+	leaves, err := doSequentialWork(proofCtx, labelHashFunc, tree, treeCache, nextLeafID, securityParam, persist)
 	if err != nil {
 		return 0, nil, err
 	}
