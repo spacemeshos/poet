@@ -227,23 +227,22 @@ func MakeLabelFunc(challenge []byte) func(labelID uint64, leftSiblings [][]byte)
 	hasher := sha256.New().(*sha256.Digest)
 	var h [32]byte
 	labelBuffer := make([]byte, 8)
+	hasher.Write(challenge)
 	return func(labelID uint64, leftSiblings [][]byte) []byte {
-		hasher.Reset()
-		hasher.Write(challenge)
-
+		hasherCopy := *hasher
 		binary.BigEndian.PutUint64(labelBuffer, labelID)
-		hasher.Write(labelBuffer)
+		hasherCopy.Write(labelBuffer)
 
 		for _, sibling := range leftSiblings {
-			hasher.Write(sibling)
+			hasherCopy.Write(sibling)
 		}
 
-		h = hasher.CheckSum()
+		h = hasherCopy.CheckSum()
 
 		for i := 1; i < hash.LabelHashNestingDepth; i++ {
-			hasher.Reset()
-			hasher.Write(h[:])
-			h = hasher.CheckSum()
+			hasherCopy.Reset()
+			hasherCopy.Write(h[:])
+			h = hasherCopy.CheckSum()
 		}
 		return h[:]
 	}
