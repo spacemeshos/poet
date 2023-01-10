@@ -4,8 +4,8 @@ import (
 	"encoding/binary"
 	"os"
 
-	"github.com/minio/sha256-simd"
 	"github.com/spacemeshos/merkle-tree"
+	"github.com/spacemeshos/sha256-simd"
 )
 
 //go:generate scalegen -types MerkleProof,ProofMessage,Proof

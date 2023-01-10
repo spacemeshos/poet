@@ -46,4 +46,6 @@ func TestGenMerkleHashFunc(t *testing.T) {
 
 	// different children (e.g. different order) -> different hash
 	r.NotEqual(GenMerkleHashFunc(aChallenge)(lChild, rChild), GenMerkleHashFunc(aChallenge)(rChild, lChild))
+
+	r.Equal(GenMerkleHashFunc(aChallenge)(lChild, rChild), NewGenMerkleHashFunc(aChallenge)(lChild, rChild))
 }

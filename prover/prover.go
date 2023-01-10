@@ -2,6 +2,7 @@ package prover
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"os"
@@ -15,8 +16,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/merkle-tree/cache"
+	"github.com/spacemeshos/sha256-simd"
 	"go.uber.org/zap"
 
+	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/shared"
 )
@@ -67,7 +70,8 @@ var persist persistFunc = func(context.Context, *merkle.Tree, *cache.Writer, uin
 func GenerateProof(
 	ctx context.Context,
 	datadir string,
-	labelHashFunc func(data []byte) []byte,
+	// labelHashFunc func(data []byte) []byte,
+	statement []byte,
 	merkleHashFunc func(lChild, rChild []byte) []byte,
 	limit time.Time,
 	securityParam uint8,
@@ -80,14 +84,15 @@ func GenerateProof(
 	}
 	defer treeCache.Close()
 
-	return generateProof(ctx, labelHashFunc, tree, treeCache, limit, 0, securityParam, persist)
+	return generateProof(ctx, statement, tree, treeCache, limit, 0, securityParam, persist)
 }
 
 // GenerateProofRecovery recovers proof generation, from a given 'nextLeafID' and for a given 'parkedNodes' snapshot.
 func GenerateProofRecovery(
 	ctx context.Context,
 	datadir string,
-	labelHashFunc func(data []byte) []byte,
+	// labelHashFunc func(data []byte) []byte,
+	statement []byte,
 	merkleHashFunc func(lChild, rChild []byte) []byte,
 	limit time.Time,
 	securityParam uint8,
@@ -101,7 +106,7 @@ func GenerateProofRecovery(
 	}
 	defer treeCache.Close()
 
-	return generateProof(ctx, labelHashFunc, tree, treeCache, limit, nextLeafID, securityParam, persist)
+	return generateProof(ctx, statement, tree, treeCache, limit, nextLeafID, securityParam, persist)
 }
 
 // GenerateProofWithoutPersistency calls GenerateProof with disabled persistency functionality
@@ -109,13 +114,14 @@ func GenerateProofRecovery(
 func GenerateProofWithoutPersistency(
 	ctx context.Context,
 	datadir string,
-	labelHashFunc func(data []byte) []byte,
+	// labelHashFunc func(data []byte) []byte,
+	statement []byte,
 	merkleHashFunc func(lChild, rChild []byte) []byte,
 	limit time.Time,
 	securityParam uint8,
 	minMemoryLayer uint,
 ) (uint64, *shared.MerkleProof, error) {
-	return GenerateProof(ctx, datadir, labelHashFunc, merkleHashFunc, limit, securityParam, minMemoryLayer, persist)
+	return GenerateProof(ctx, datadir, statement, merkleHashFunc, limit, securityParam, minMemoryLayer, persist)
 }
 
 func makeProofTree(
@@ -217,9 +223,36 @@ func makeRecoveryProofTree(
 	return treeCache, tree, nil
 }
 
+func MakeLabelFunc(challenge []byte) func(labelID uint64, leftSiblings [][]byte) []byte {
+	hasher := sha256.New().(*sha256.Digest)
+	var h [32]byte
+	labelBuffer := make([]byte, 8)
+	return func(labelID uint64, leftSiblings [][]byte) []byte {
+		hasher.Reset()
+		hasher.Write(challenge)
+
+		binary.BigEndian.PutUint64(labelBuffer, labelID)
+		hasher.Write(labelBuffer)
+
+		for _, sibling := range leftSiblings {
+			hasher.Write(sibling)
+		}
+
+		h = hasher.CheckSum()
+
+		for i := 1; i < hash.LabelHashNestingDepth; i++ {
+			hasher.Reset()
+			hasher.Write(h[:])
+			h = hasher.CheckSum()
+		}
+		return h[:]
+	}
+}
+
 func doSequentialWork(
 	ctx context.Context,
-	labelHashFunc func(data []byte) []byte,
+	// labelHashFunc func(data []byte) []byte,
+	statement []byte,
 	tree *merkle.Tree,
 	treeCache *cache.Writer,
 	nextLeafID uint64,
@@ -227,7 +260,7 @@ func doSequentialWork(
 	persist persistFunc,
 ) (uint64, error) {
 	var parkedNodes [][]byte
-	makeLabel := shared.MakeLabelFunc()
+	makeLabel := MakeLabelFunc(statement)
 	leaves := nextLeafID
 	lastLeaves := leaves
 	lastLPSTimestamp := time.Now()
@@ -261,7 +294,7 @@ func doSequentialWork(
 
 		// Generate the next leaf.
 		parkedNodes = tree.GetParkedNodes(parkedNodes[:0])
-		err := tree.AddLeaf(makeLabel(labelHashFunc, leafID, parkedNodes))
+		err := tree.AddLeaf(makeLabel(leafID, parkedNodes))
 		if err != nil {
 			return 0, err
 		}
@@ -271,7 +304,8 @@ func doSequentialWork(
 
 func generateProof(
 	ctx context.Context,
-	labelHashFunc func(data []byte) []byte,
+	// labelHashFunc func(data []byte) []byte,
+	statement []byte,
 	tree *merkle.Tree,
 	treeCache *cache.Writer,
 	end time.Time,
@@ -284,7 +318,7 @@ func generateProof(
 
 	proofCtx, cancel := context.WithDeadline(ctx, end)
 	defer cancel()
-	leaves, err := doSequentialWork(proofCtx, labelHashFunc, tree, treeCache, nextLeafID, securityParam, persist)
+	leaves, err := doSequentialWork(proofCtx, statement, tree, treeCache, nextLeafID, securityParam, persist)
 	if err != nil {
 		return 0, nil, err
 	}

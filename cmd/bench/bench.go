@@ -54,7 +54,8 @@ func main() {
 	tempdir, _ := os.MkdirTemp("", "poet-test")
 	proofGenStarted := time.Now()
 	end := proofGenStarted.Add(cfg.Duration)
-	leafs, merkleProof, err := prover.GenerateProofWithoutPersistency(context.Background(), tempdir, hash.NewGenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), end, securityParam, 2)
+	leafs, merkleProof, err := prover.GenerateProofWithoutPersistency(context.Background(), tempdir, challenge, hash.NewGenMerkleHashFunc(challenge), end, securityParam, 2)
+	pprof.StopCPUProfile()
 	if err != nil {
 		panic(fmt.Sprintf("failed to generate proof: %v", err))
 	}
@@ -64,7 +65,7 @@ func main() {
 	fmt.Printf("Dag root label: %x\n", merkleProof.Root)
 
 	proofValidStarted := time.Now()
-	err = verifier.Validate(*merkleProof, hash.NewGenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafs, securityParam)
+	err = verifier.Validate(*merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafs, securityParam)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to verify nip: %v", err))
 	}

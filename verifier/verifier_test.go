@@ -19,7 +19,7 @@ func testValidate(t *testing.T, minMemoryLayer uint) {
 	leaves, merkleProof, err := prover.GenerateProofWithoutPersistency(
 		context.Background(),
 		t.TempDir(),
-		hash.GenLabelHashFunc(challenge),
+		challenge,
 		hash.GenMerkleHashFunc(challenge),
 		time.Now().Add(100*time.Millisecond),
 		securityParam,
@@ -92,7 +92,7 @@ func TestValidateWrongRoot(t *testing.T) {
 	leafs, merkleProof, err := prover.GenerateProofWithoutPersistency(
 		context.Background(),
 		t.TempDir(),
-		hash.GenLabelHashFunc(challenge),
+		challenge,
 		hash.GenMerkleHashFunc(challenge),
 		time.Now().Add(duration),
 		securityParam,
@@ -125,7 +125,7 @@ func TestValidateFailLabelValidation(t *testing.T) {
 	leafs, merkleProof, err := prover.GenerateProofWithoutPersistency(
 		context.Background(),
 		t.TempDir(),
-		hash.GenLabelHashFunc(challenge),
+		challenge,
 		hash.GenMerkleHashFunc(challenge),
 		time.Now().Add(duration),
 		securityParam,
