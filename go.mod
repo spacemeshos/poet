@@ -13,7 +13,7 @@ require (
 	github.com/prometheus/client_golang v1.14.0
 	github.com/spacemeshos/api/release/go v1.5.6
 	github.com/spacemeshos/go-scale v1.1.2
-	github.com/spacemeshos/merkle-tree v0.1.1-0.20230110080749-1a5539d1b7aa
+	github.com/spacemeshos/merkle-tree v0.1.1-0.20230110151459-a6b526f66644
 	github.com/spacemeshos/sha256-simd v0.0.0-20230110081604-d09df14d322d
 	github.com/stretchr/testify v1.8.1
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
@@ -41,7 +41,7 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/hashicorp/errwrap v1.0.0 // indirect
+	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect

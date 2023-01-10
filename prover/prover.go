@@ -225,24 +225,25 @@ func makeRecoveryProofTree(
 
 func MakeLabelFunc(challenge []byte) func(labelID uint64, leftSiblings [][]byte) []byte {
 	hasher := sha256.New().(*sha256.Digest)
+	var labelBuffer [8]byte
 	var h [32]byte
-	labelBuffer := make([]byte, 8)
-	hasher.Write(challenge)
 	return func(labelID uint64, leftSiblings [][]byte) []byte {
-		hasherCopy := *hasher
-		binary.BigEndian.PutUint64(labelBuffer, labelID)
-		hasherCopy.Write(labelBuffer)
+		hasher.Reset()
+		hasher.Write(challenge)
+
+		binary.BigEndian.PutUint64(labelBuffer[:], labelID)
+		hasher.Write(labelBuffer[:])
 
 		for _, sibling := range leftSiblings {
-			hasherCopy.Write(sibling)
+			hasher.Write(sibling)
 		}
 
-		h = hasherCopy.CheckSum()
+		h = hasher.CheckSum()
 
 		for i := 1; i < hash.LabelHashNestingDepth; i++ {
-			hasherCopy.Reset()
-			hasherCopy.Write(h[:])
-			h = hasherCopy.CheckSum()
+			hasher.Reset()
+			hasher.Write(h[:])
+			h = hasher.CheckSum()
 		}
 		return h[:]
 	}

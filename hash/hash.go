@@ -32,13 +32,14 @@ func NewGenMerkleHashFunc(challenge []byte) func(lChild, rChild []byte) []byte {
 	// De-virtualize the call to sha256 hasher
 	switch h := sha256.New().(type) {
 	case *sha256.Digest:
+		var hashBuffer [sha256.Size]byte
 		return func(lChild, rChild []byte) []byte {
 			h.Reset()
 			h.Write(challenge)
 			h.Write(lChild)
 			h.Write(rChild)
-			hash := h.CheckSum()
-			return hash[:]
+			hashBuffer = h.CheckSum()
+			return hashBuffer[:]
 		}
 	default:
 		return func(lChild, rChild []byte) []byte {
