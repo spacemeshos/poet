@@ -13,7 +13,7 @@ require (
 	github.com/prometheus/client_golang v1.14.0
 	github.com/spacemeshos/api/release/go v1.5.6
 	github.com/spacemeshos/go-scale v1.1.2
-	github.com/spacemeshos/merkle-tree v0.1.1-0.20230110151459-a6b526f66644
+	github.com/spacemeshos/merkle-tree v0.1.1-0.20230110164459-91ab5a2c3326
 	github.com/spacemeshos/sha256-simd v0.0.0-20230110081604-d09df14d322d
 	github.com/stretchr/testify v1.8.1
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
