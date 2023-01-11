@@ -21,7 +21,7 @@ require (
 	golang.org/x/sync v0.1.0
 	golang.org/x/vuln v0.0.0-20221222221150-61d83dad62c1
 	google.golang.org/genproto v0.0.0-20221207170731-23e4bf6bdc37
-	google.golang.org/grpc v1.51.0
+	google.golang.org/grpc v1.52.0
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v1.2.0
 	google.golang.org/protobuf v1.28.1
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
