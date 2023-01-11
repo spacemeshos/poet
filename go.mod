@@ -12,7 +12,7 @@ require (
 	github.com/minio/sha256-simd v1.0.0
 	github.com/nullstyle/go-xdr v0.0.0-20180726165426-f4c839f75077
 	github.com/spacemeshos/api/release/go v1.5.6
-	github.com/spacemeshos/go-scale v1.1.2
+	github.com/spacemeshos/go-scale v1.1.3
 	github.com/spacemeshos/merkle-tree v0.1.0
 	github.com/stretchr/testify v1.8.1
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
