@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path"
 	"runtime"
 	"runtime/pprof"
 	"time"
@@ -17,6 +16,8 @@ import (
 	"github.com/spacemeshos/poet/verifier"
 )
 
+const profFilePath = "./CPU.prof"
+
 func main() {
 	runtime.MemProfileRate = 0
 	println("Memory profiling disabled.")
@@ -26,17 +27,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Enable memory profiling
+	// Enable cpu profiling
 	if cfg.CPU {
-		dir, err := os.Getwd()
-		if err != nil {
-			log.Fatal("cant get current dir", err)
-		}
-
-		profFilePath := path.Join(dir, "./CPU.prof")
 		fmt.Printf("CPU profile: %s\n", profFilePath)
-
-		f, err := os.Create(profFilePath) //#nosec G304
+		f, err := os.Create(profFilePath)
 		if err != nil {
 			log.Fatal("could not create CPU profile: ", err)
 		}
