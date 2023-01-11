@@ -330,8 +330,8 @@ func generateProof(
 
 	logging.FromContext(ctx).Sugar().Infof("Merkle tree construction finished with %d leaves, generating proof...", leaves)
 
+	started := time.Now()
 	root := tree.Root()
-
 	cacheReader, err := treeCache.GetReader()
 	if err != nil {
 		return 0, nil, err
@@ -341,6 +341,8 @@ func generateProof(
 	if err != nil {
 		return 0, nil, err
 	}
+
+	logging.FromContext(ctx).Sugar().Infof("Proof generated, it took: %v", time.Since(started))
 
 	return leaves, &shared.MerkleProof{
 		Root:         root,
