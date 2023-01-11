@@ -30,9 +30,9 @@ func GenMerkleHashFunc(challenge []byte) func(lChild, rChild []byte) []byte {
 
 func NewGenMerkleHashFunc(challenge []byte) func(lChild, rChild []byte) []byte {
 	// De-virtualize the call to sha256 hasher
+	var hashBuffer [sha256.Size]byte
 	switch h := sha256.New().(type) {
 	case *sha256.Digest:
-		var hashBuffer [sha256.Size]byte
 		return func(lChild, rChild []byte) []byte {
 			h.Reset()
 			h.Write(challenge)
@@ -47,7 +47,7 @@ func NewGenMerkleHashFunc(challenge []byte) func(lChild, rChild []byte) []byte {
 			h.Write(challenge)
 			h.Write(lChild)
 			h.Write(rChild)
-			return h.Sum(nil) // TODO reuse buffer (impossible right not because it is persisted in merkle-tree)
+			return h.Sum(hashBuffer[:0])
 		}
 	}
 }
