@@ -13,22 +13,6 @@ const LabelHashNestingDepth = 100
 // ⚠️ The resulting function is NOT thread-safe, however different generated instances are independent.
 // The code is optimized for performance and memory allocations.
 func GenMerkleHashFunc(challenge []byte) func(lChild, rChild []byte) []byte {
-	var buffer []byte
-	return func(lChild, rChild []byte) []byte {
-		size := len(challenge) + len(lChild) + len(rChild)
-		if len(buffer) < size {
-			buffer = make([]byte, size)
-		}
-		copy(buffer, challenge)
-		copy(buffer[len(challenge):], lChild)
-		copy(buffer[len(challenge)+len(lChild):], rChild)
-
-		result := sha256.Sum256(buffer[:size])
-		return result[:]
-	}
-}
-
-func NewGenMerkleHashFunc(challenge []byte) func(lChild, rChild []byte) []byte {
 	// De-virtualize the call to sha256 hasher
 	switch h := sha256.New().(type) {
 	case *sha256.Digest:
@@ -54,20 +38,8 @@ func NewGenMerkleHashFunc(challenge []byte) func(lChild, rChild []byte) []byte {
 // GenLabelHashFunc generates hash functions for computing labels. The challenge is prepended to the data and the result
 // is hashed using Sha256. TODO: use nested hashes based on a difficulty param.
 func GenLabelHashFunc(challenge []byte) func(data []byte) []byte {
-	return func(data []byte) []byte {
-		message := append(challenge, data...)
-		var res [32]byte
-		for i := 0; i < LabelHashNestingDepth; i++ {
-			res = sha256.Sum256(message)
-			message = res[:]
-		}
-		return message
-	}
-}
-
-func NewGenLabelHashFunc(challenge []byte) func(data []byte) []byte {
 	var hashBuf [32]byte
-	// De-virtualize the call to sha256 hasher
+	// Try to de-virtualize the call to sha256 hasher
 	switch h := sha256.New().(type) {
 	case *sha256.Digest:
 		return func(data []byte) []byte {
