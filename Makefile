@@ -5,6 +5,8 @@ PROJECT := poet
 BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 VERSION ?= $(shell git describe --tags)
 
+GO ?= go
+
 GOLANGCI_LINT_VERSION := v1.50.0
 STATICCHECK_VERSION := v0.3.3
 GOTESTSUM_VERSION := v1.8.2
@@ -51,10 +53,10 @@ GOTESTSUM := $(GOBIN)/gotestsum
 GOVULNCHECK := $(GOBIN)/govulncheck
 
 $(GOVULNCHECK):
-	@go install golang.org/x/vuln/cmd/govulncheck
+	@$(GO) install golang.org/x/vuln/cmd/govulncheck
 
 $(BIN_DIR)/mockgen:
-	go install github.com/golang/mock/mockgen@v1.6.0
+	$(GO) install github.com/golang/mock/mockgen@v1.6.0
 
 install-buf:
 	@mkdir -p $(BIN_DIR)
@@ -75,7 +77,7 @@ endif
 
 # Download protoc plugins
 protoc-plugins:
-	@go install \
+	@$(GO) install \
 		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
 		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2 \
 		google.golang.org/protobuf/cmd/protoc-gen-go \
@@ -90,15 +92,15 @@ test:
 .PHONY: test
 
 install: install-buf install-protoc
-	@go mod download
+	@$(GO) mod download
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s $(GOLANGCI_LINT_VERSION)
-	@go install honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
-	@go install gotest.tools/gotestsum@$(GOTESTSUM_VERSION)
-	@go install github.com/spacemeshos/go-scale/scalegen@$(GOSCALE_VERSION)
+	@$(GO) install honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
+	@$(GO) install gotest.tools/gotestsum@$(GOTESTSUM_VERSION)
+	@$(GO) install github.com/spacemeshos/go-scale/scalegen@$(GOSCALE_VERSION)
 .PHONY: install
 
 tidy:
-	go mod tidy
+	$(GO) mod tidy
 .PHONY: tidy
 
 test-tidy:
@@ -112,12 +114,12 @@ test-tidy:
 test-fmt:
 	@git diff --quiet || (echo "\033[0;31mWorking directory not clean!\033[0m" && git --no-pager diff && exit 1)
 	# We expect `go fmt` not to change anything, the test should fail otherwise
-	@go fmt ./...
+	@$(GO) fmt ./...
 	@git diff --exit-code || (git --no-pager diff && git checkout . && exit 1)
 .PHONY: test-fmt
 
 clear-test-cache:
-	go clean -testcache
+	$(GO) clean -testcache
 .PHONY: clear-test-cache
 
 lint:
@@ -143,7 +145,7 @@ lint-protos:
 .PHONY: lint-protos
 
 cover:
-	go test -coverprofile=cover.out -timeout 0 -p 1 ./...
+	$(GO) test -coverprofile=cover.out -timeout 0 -p 1 ./...
 .PHONY: cover
 
 staticcheck:
@@ -151,7 +153,7 @@ staticcheck:
 .PHONY: staticcheck
 
 build:
-	go build -ldflags "-X main.version=${VERSION}" -o $(BINARY)
+	$(GO) build -ldflags "-X main.version=${VERSION}" -o $(BINARY)
 .PHONY: build
 
 docker:
@@ -164,7 +166,7 @@ push:
 
 # Rebuild .proto files
 generate: $(BIN_DIR)/mockgen
-	go generate ./...
+	$(GO) generate ./...
 	buf generate
 .PHONY: generate
 
