@@ -203,7 +203,7 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 
 		case result := <-roundResults:
 			if result.err == nil {
-				s.reportNewProof(result.round.ID, result.round.Execution)
+				s.reportNewProof(result.round.ID, result.round.execution)
 			} else {
 				logger.Error("round execution failed", zap.Error(result.err), zap.String("round", result.round.ID))
 			}
@@ -329,7 +329,7 @@ func (s *Service) recover(ctx context.Context) (open *round, executing []*round,
 		}
 
 		if r.isExecuted() {
-			s.reportNewProof(r.ID, r.Execution)
+			s.reportNewProof(r.ID, r.execution)
 			continue
 		}
 

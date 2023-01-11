@@ -118,7 +118,7 @@ func TestRound_New(t *testing.T) {
 	req.EqualValues(7, round.Epoch())
 	req.True(round.isOpen())
 	req.False(round.isExecuted())
-	req.Zero(round.roundState.ExecutionStarted)
+	req.Zero(round.executionStarted)
 	req.Zero(numChallenges(round))
 }
 
@@ -198,11 +198,11 @@ func TestRound_Execute(t *testing.T) {
 	)
 
 	// Verify
-	req.Equal(shared.T, round.Execution.SecurityParam)
-	req.Len(round.Execution.Members, 1)
-	req.Empty(round.Execution.ParkedNodes)
-	req.NotZero(round.Execution.NumLeaves)
-	validateProof(t, round.Execution)
+	req.Equal(shared.T, round.execution.SecurityParam)
+	req.Len(round.execution.Members, 1)
+	req.Empty(round.execution.ParkedNodes)
+	req.NotZero(round.execution.NumLeaves)
+	validateProof(t, round.execution)
 }
 
 func TestRound_StateRecovery(t *testing.T) {
@@ -251,7 +251,7 @@ func TestRound_StateRecovery(t *testing.T) {
 		// Verify
 		req.False(recovered.isOpen())
 		req.False(recovered.isExecuted())
-		req.NotZero(recovered.ExecutionStarted)
+		req.NotZero(recovered.executionStarted)
 	})
 }
 
@@ -309,7 +309,7 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 		req.NoError(round.loadState())
 
 		req.NoError(round.recoverExecution(context.Background(), time.Now().Add(100*time.Millisecond)))
-		validateProof(t, round.Execution)
+		validateProof(t, round.execution)
 		req.NoError(round.teardown(true))
 	}
 }

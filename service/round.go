@@ -39,21 +39,21 @@ type roundState struct {
 	Execution        *executionState
 }
 
-func (r *roundState) isOpen() bool {
-	return r.ExecutionStarted.IsZero()
+func (r *round) isOpen() bool {
+	return r.executionStarted.IsZero()
 }
 
-func (r *roundState) isExecuted() bool {
-	return r.Execution.NIP != nil
+func (r *round) isExecuted() bool {
+	return r.execution.NIP != nil
 }
 
 type round struct {
-	epoch   uint32
-	datadir string
-	ID      string
-
-	challengesDb *leveldb.DB
-	roundState
+	epoch            uint32
+	datadir          string
+	ID               string
+	challengesDb     *leveldb.DB
+	executionStarted time.Time
+	execution        *executionState
 }
 
 func (r *round) Epoch() uint32 {
@@ -74,10 +74,8 @@ func newRound(datadir string, epoch uint32) (*round, error) {
 		datadir:      datadir,
 		ID:           id,
 		challengesDb: db,
-		roundState: roundState{
-			Execution: &executionState{
-				SecurityParam: shared.T,
-			},
+		execution: &executionState{
+			SecurityParam: shared.T,
 		},
 	}, nil
 }
@@ -99,7 +97,7 @@ func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer uint)
 	logger := logging.FromContext(ctx).With(zap.String("round", r.ID))
 	logger.Sugar().Infof("executing until %v...", end)
 
-	r.ExecutionStarted = time.Now()
+	r.executionStarted = time.Now()
 	if err := r.saveState(); err != nil {
 		return err
 	}
@@ -107,7 +105,7 @@ func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer uint)
 	if members, statement, err := r.calcMembersAndStatement(); err != nil {
 		return err
 	} else {
-		r.Execution.Members, r.Execution.Statement = members, statement
+		r.execution.Members, r.execution.Statement = members, statement
 	}
 
 	if err := r.saveState(); err != nil {
@@ -117,22 +115,22 @@ func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer uint)
 	numLeaves, nip, err := prover.GenerateProof(
 		ctx,
 		r.datadir,
-		hash.GenLabelHashFunc(r.Execution.Statement),
-		hash.GenMerkleHashFunc(r.Execution.Statement),
+		hash.GenLabelHashFunc(r.execution.Statement),
+		hash.GenMerkleHashFunc(r.execution.Statement),
 		end,
-		r.Execution.SecurityParam,
+		r.execution.SecurityParam,
 		minMemoryLayer,
 		r.persistExecution,
 	)
 	if err != nil {
 		return err
 	}
-	r.Execution.NumLeaves, r.Execution.NIP = numLeaves, nip
+	r.execution.NumLeaves, r.execution.NIP = numLeaves, nip
 	if err := r.saveState(); err != nil {
 		return err
 	}
 
-	logger.Sugar().Infof("execution ended, phi=%x, duration %v", r.Execution.NIP.Root, time.Since(r.ExecutionStarted))
+	logger.Sugar().Infof("execution ended, phi=%x, duration %v", r.execution.NIP.Root, time.Since(r.executionStarted))
 	return nil
 }
 
@@ -144,8 +142,8 @@ func (r *round) persistExecution(ctx context.Context, tree *merkle.Tree, treeCac
 		return err
 	}
 
-	r.Execution.NumLeaves = numLeaves
-	r.Execution.ParkedNodes = tree.GetParkedNodes()
+	r.execution.NumLeaves = numLeaves
+	r.execution.ParkedNodes = tree.GetParkedNodes()
 	if err := r.saveState(); err != nil {
 		return err
 	}
@@ -159,13 +157,13 @@ func (r *round) recoverExecution(ctx context.Context, end time.Time) error {
 
 	started := time.Now()
 
-	if r.Execution.Members == nil || r.Execution.Statement == nil {
+	if r.execution.Members == nil || r.execution.Statement == nil {
 		logger.Debug("calculating members and statement")
 		members, statement, err := r.calcMembersAndStatement()
 		if err != nil {
 			return fmt.Errorf("failed to calculate members and statement")
 		}
-		r.Execution.Members, r.Execution.Statement = members, statement
+		r.execution.Members, r.execution.Statement = members, statement
 		if err := r.saveState(); err != nil {
 			return err
 		}
@@ -174,18 +172,18 @@ func (r *round) recoverExecution(ctx context.Context, end time.Time) error {
 	numLeaves, nip, err := prover.GenerateProofRecovery(
 		ctx,
 		r.datadir,
-		hash.GenLabelHashFunc(r.Execution.Statement),
-		hash.GenMerkleHashFunc(r.Execution.Statement),
+		hash.GenLabelHashFunc(r.execution.Statement),
+		hash.GenMerkleHashFunc(r.execution.Statement),
 		end,
-		r.Execution.SecurityParam,
-		r.Execution.NumLeaves,
-		r.Execution.ParkedNodes,
+		r.execution.SecurityParam,
+		r.execution.NumLeaves,
+		r.execution.ParkedNodes,
 		r.persistExecution,
 	)
 	if err != nil {
 		return err
 	}
-	r.Execution.NumLeaves, r.Execution.NIP = numLeaves, nip
+	r.execution.NumLeaves, r.execution.NIP = numLeaves, nip
 	if err := r.saveState(); err != nil {
 		return err
 	}
@@ -202,17 +200,21 @@ func (r *round) loadState() error {
 	if err := load(filename, &state); err != nil {
 		return err
 	}
-	if r.Execution.SecurityParam != state.Execution.SecurityParam {
+	if r.execution.SecurityParam != state.Execution.SecurityParam {
 		return errors.New("SecurityParam config mismatch")
 	}
-	r.roundState = state
+	r.execution = state.Execution
+	r.executionStarted = state.ExecutionStarted
 
 	return nil
 }
 
 func (r *round) saveState() error {
 	filename := filepath.Join(r.datadir, roundStateFileBaseName)
-	return persist(filename, &r.roundState)
+	return persist(filename, &roundState{
+		ExecutionStarted: r.executionStarted,
+		Execution:        r.execution,
+	})
 }
 
 func (r *round) calcMembersAndStatement() ([][]byte, []byte, error) {
