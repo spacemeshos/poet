@@ -2,227 +2,314 @@ package service
 
 import (
 	"context"
-	"crypto/rand"
-	"fmt"
-	"path/filepath"
+	"math/rand"
+	"os"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/prover"
+	"github.com/spacemeshos/poet/shared"
+	"github.com/spacemeshos/poet/verifier"
 )
+
+func genChallenge() ([]byte, error) {
+	challenge := make([]byte, 32)
+	_, err := rand.Read(challenge)
+	return challenge, err
+}
 
 func genChallenges(num int) ([][]byte, error) {
 	ch := make([][]byte, num)
 	for i := 0; i < num; i++ {
-		ch[i] = make([]byte, 32)
-		_, err := rand.Read(ch[i])
+		challenge, err := genChallenge()
 		if err != nil {
 			return nil, err
 		}
+		ch[i] = challenge
 	}
 
 	return ch, nil
 }
 
-// TestRound_Recovery test round recovery functionality.
-// The scenario proceeds as follows:
-//   - Execute r1 as a reference round.
-//   - Execute r2, and request shutdown before completion.
-//   - Recover r2 execution, and request shutdown before completion.
-//   - Recover r2 execution again, and let it complete.
-func TestRound_Recovery(t *testing.T) {
-	req := require.New(t)
+func numChallenges(r *round) int {
+	iter := r.challengesDb.NewIterator(nil, nil)
+	defer iter.Release()
 
-	ctx, stop := context.WithCancel(context.Background())
-	defer stop()
-	duration := 500 * time.Millisecond
-	tmpdir := t.TempDir()
-
-	challenges, err := genChallenges(32)
-	req.NoError(err)
-
-	// Execute r1 as a reference round.
-	r1, err := newRound(tmpdir, 0)
-	req.NoError(err)
-	req.NoError(r1.open())
-	req.Equal(0, r1.numChallenges())
-	req.True(r1.isEmpty())
-
-	for _, ch := range challenges {
-		req.NoError(r1.submit(ch, ch))
+	var num int
+	for iter.Next() {
+		num++
 	}
-	req.Equal(len(challenges), r1.numChallenges())
-	req.False(r1.isEmpty())
 
-	req.NoError(r1.execute(ctx, time.Now().Add(duration), prover.LowestMerkleMinMemoryLayer))
-	req.NoError(r1.teardown(true))
-
-	// Execute r2, and request shutdown before completion.
-	r2, err := newRound(tmpdir, 1)
-	req.NoError(err)
-	req.NoError(r2.open())
-	req.Equal(0, r2.numChallenges())
-	req.True(r2.isEmpty())
-
-	for _, ch := range challenges {
-		req.NoError(r2.submit(ch, ch))
-	}
-	req.Equal(len(challenges), r2.numChallenges())
-	req.False(r2.isEmpty())
-
-	stop()
-	req.ErrorIs(r2.execute(ctx, time.Now().Add(duration), prover.LowestMerkleMinMemoryLayer), prover.ErrShutdownRequested)
-	req.NoError(r2.teardown(false))
-
-	// Recover r2 execution, and request shutdown before completion.
-	ctx, stop = context.WithCancel(context.Background())
-	defer stop()
-	r2recovery1, err := newRound(tmpdir, 1)
-	req.NoError(err)
-	req.Equal(len(challenges), r2recovery1.numChallenges())
-	req.False(r2recovery1.isEmpty())
-
-	state, err := r2recovery1.state()
-	req.NoError(err)
-
-	stop()
-	req.ErrorIs(r2recovery1.recoverExecution(ctx, state.Execution, time.Now().Add(duration)), prover.ErrShutdownRequested)
-	req.NoError(r2recovery1.teardown(false))
-
-	// Recover r2 execution again, and let it complete.
-	ctx, stop = context.WithCancel(context.Background())
-	defer stop()
-	r2recovery2, err := newRound(tmpdir, 1)
-	req.NoError(err)
-	req.Equal(len(challenges), r2recovery2.numChallenges())
-	req.False(r2recovery2.isEmpty())
-	state, err = r2recovery2.state()
-	req.NoError(err)
-
-	req.NoError(r2recovery2.recoverExecution(ctx, state.Execution, time.Now().Add(duration)))
-	req.NoError(r2recovery2.teardown(true))
+	return num
 }
 
-func TestRound_State(t *testing.T) {
+func newTestRound(t *testing.T) *round {
+	t.Helper()
+	round, err := newRound(t.TempDir(), rand.Uint32())
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, round.teardown(true)) })
+	return round
+}
+
+// validateProof validates proof from round's execution state.
+func validateProof(t *testing.T, execution *executionState) {
+	t.Helper()
+	req := require.New(t)
+	req.NotNil(execution.NIP)
+	req.NoError(
+		verifier.Validate(
+			*execution.NIP,
+			hash.GenLabelHashFunc(execution.Statement),
+			hash.GenMerkleHashFunc(execution.Statement),
+			execution.NumLeaves,
+			shared.T,
+		),
+	)
+}
+
+func TestRound_TearDown(t *testing.T) {
+	t.Parallel()
 	req := require.New(t)
 
-	ctx, stop := context.WithCancel(context.Background())
-	defer stop()
-	tempdir := t.TempDir()
+	t.Run("no cleanup", func(t *testing.T) {
+		t.Parallel()
+		// Arrange
+		round, err := newRound(t.TempDir(), 0)
+		req.NoError(err)
 
-	// Create a new round.
-	r, err := newRound(tempdir, 0)
+		// Act
+		req.NoError(round.teardown(false))
+
+		// Verify
+		_, err = os.Stat(round.datadir)
+		req.NoError(err)
+	})
+
+	t.Run("cleanup", func(t *testing.T) {
+		t.Parallel()
+		// Arrange
+		round, err := newRound(t.TempDir(), 0)
+		req.NoError(err)
+
+		// Act
+		req.NoError(round.teardown(true))
+
+		// Verify
+		_, err = os.Stat(round.datadir)
+		req.ErrorIs(err, os.ErrNotExist)
+	})
+}
+
+// Test creating new round.
+func TestRound_New(t *testing.T) {
+	t.Parallel()
+	req := require.New(t)
+
+	// Act
+	round, err := newRound(t.TempDir(), 7)
 	req.NoError(err)
-	req.True(!r.isOpen())
-	req.True(r.opened.IsZero())
-	req.True(r.executionStarted.IsZero())
-	_, err = r.proof(false)
-	req.EqualError(err, "round wasn't open")
+	t.Cleanup(func() { assert.NoError(t, round.teardown(true)) })
 
-	req.Nil(r.stateCache)
-	state, err := r.state()
-	req.EqualError(err, fmt.Sprintf("file is missing: %v", filepath.Join(r.datadir, roundStateFileBaseName)))
-	req.Nil(state)
+	// Verify
+	req.EqualValues(7, round.Epoch())
+	req.True(round.isOpen())
+	req.False(round.isExecuted())
+	req.Zero(round.executionStarted)
+	req.Zero(numChallenges(round))
+}
 
+// Test submitting many challenges.
+func TestRound_Submit(t *testing.T) {
+	t.Parallel()
+	req := require.New(t)
+
+	t.Run("submit many different challenges", func(t *testing.T) {
+		t.Parallel()
+		// Arrange
+		round := newTestRound(t)
+		challenges, err := genChallenges(32)
+		req.NoError(err)
+
+		// Act
+		for _, ch := range challenges {
+			req.NoError(round.submit(ch, ch))
+		}
+
+		// Verify
+		req.Equal(len(challenges), numChallenges(round))
+		for _, ch := range challenges {
+			challengeInDb, err := round.challengesDb.Get(ch, nil)
+			req.NoError(err)
+			req.Equal(ch, challengeInDb)
+		}
+	})
+	t.Run("submit challenges with same key", func(t *testing.T) {
+		t.Parallel()
+		// Arrange
+		round := newTestRound(t)
+		challenges, err := genChallenges(2)
+		req.NoError(err)
+
+		// Act
+		req.NoError(round.submit([]byte("key"), challenges[0]))
+		err = round.submit([]byte("key"), challenges[1])
+
+		// Verify
+		req.ErrorIs(err, ErrChallengeAlreadySubmitted)
+		req.Equal(1, numChallenges(round))
+		challenge, err := round.challengesDb.Get([]byte("key"), nil)
+		req.NoError(err)
+		req.Equal(challenges[0], challenge)
+	})
+	t.Run("cannot submit to round in execution", func(t *testing.T) {
+		t.Parallel()
+		// Arrange
+		round := newTestRound(t)
+		challenge, err := genChallenge()
+		req.NoError(err)
+		round.execute(context.Background(), time.Now(), 1)
+
+		// Act
+		err = round.submit([]byte("key"), challenge)
+
+		// Verify
+		req.ErrorIs(err, ErrRoundIsNotOpen)
+	})
+}
+
+// Test round execution.
+func TestRound_Execute(t *testing.T) {
+	t.Parallel()
+	req := require.New(t)
+
+	// Arrange
+	round := newTestRound(t)
+	challenge, err := genChallenge()
+	req.NoError(err)
+	req.NoError(round.submit([]byte("key"), challenge))
+
+	// Act
+	req.NoError(
+		round.execute(context.Background(), time.Now().Add(100*time.Millisecond), 1),
+	)
+
+	// Verify
+	req.Equal(shared.T, round.execution.SecurityParam)
+	req.Len(round.execution.Members, 1)
+	req.Empty(round.execution.ParkedNodes)
+	req.NotZero(round.execution.NumLeaves)
+	validateProof(t, round.execution)
+}
+
+func TestRound_StateRecovery(t *testing.T) {
+	t.Parallel()
+	req := require.New(t)
+	t.Run("Recover open round", func(t *testing.T) {
+		t.Parallel()
+		tmpdir := t.TempDir()
+
+		// Arrange
+		round, err := newRound(tmpdir, 0)
+		req.NoError(err)
+		req.NoError(round.teardown(false))
+
+		// Act
+		recovered, err := newRound(tmpdir, 0)
+		req.NoError(err)
+		t.Cleanup(func() { assert.NoError(t, recovered.teardown(false)) })
+		req.NoError(recovered.loadState())
+
+		// Verify
+		req.True(recovered.isOpen())
+		req.False(recovered.isExecuted())
+	})
+	t.Run("Recover executing round", func(t *testing.T) {
+		t.Parallel()
+		tmpdir := t.TempDir()
+
+		// Arrange
+		round, err := newRound(tmpdir, 0)
+		req.NoError(err)
+		challenge, err := genChallenge()
+		req.NoError(err)
+		req.NoError(round.submit([]byte("key"), challenge))
+		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
+		defer cancel()
+		req.ErrorIs(round.execute(ctx, time.Now().Add(time.Hour), 1), prover.ErrShutdownRequested)
+		req.NoError(round.teardown(false))
+
+		// Act
+		recovered, err := newRound(tmpdir, 0)
+		req.NoError(err)
+		t.Cleanup(func() { assert.NoError(t, recovered.teardown(false)) })
+		req.NoError(recovered.loadState())
+
+		// Verify
+		req.False(recovered.isOpen())
+		req.False(recovered.isExecuted())
+		req.NotZero(recovered.executionStarted)
+	})
+}
+
+// TestRound_Recovery test round recovery functionality.
+// The scenario proceeds as follows:
+//   - Execute round and request shutdown before completion.
+//   - Recover execution, and request shutdown before completion.
+//   - Recover execution again, and let it complete.
+func TestRound_ExecutionRecovery(t *testing.T) {
+	t.Parallel()
+	req := require.New(t)
+	tmpdir := t.TempDir()
+
+	// Arrange
 	challenges, err := genChallenges(32)
 	req.NoError(err)
 
-	req.EqualError(r.submit(challenges[0], challenges[0]), "round is not open")
+	// Execute round, and request shutdown before completion.
+	{
+		round, err := newRound(tmpdir, 1)
+		req.NoError(err)
+		req.Zero(0, numChallenges(round))
 
-	// Open the round.
-	req.NoError(r.open())
-	req.True(r.isOpen())
-	_, err = r.proof(false)
-	req.EqualError(err, "round is open")
-	req.Equal(0, r.numChallenges())
-	req.True(r.isEmpty())
+		for _, ch := range challenges {
+			req.NoError(round.submit(ch, ch))
+		}
 
-	for _, ch := range challenges {
-		req.NoError(r.submit(ch, ch))
+		ctx, stop := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer stop()
+		req.ErrorIs(
+			round.execute(ctx, time.Now().Add(time.Hour), 1),
+			prover.ErrShutdownRequested,
+		)
+		req.NoError(round.teardown(false))
 	}
-	req.Len(challenges, r.numChallenges())
-	req.False(r.isEmpty())
 
-	req.Nil(r.stateCache)
-	state, err = r.state()
-	req.NoError(err)
-	req.NotNil(state)
-	req.Equal(state, r.stateCache)
+	// Recover round execution and request shutdown before completion.
+	{
+		round, err := newRound(tmpdir, 1)
+		req.NoError(err)
+		req.Equal(len(challenges), numChallenges(round))
+		req.NoError(round.loadState())
 
-	req.True(state.isOpen())
-	req.False(state.isExecuted())
-	req.NotNil(state.Execution)
-	req.NotZero(state.Execution.SecurityParam)
-	req.Nil(state.Execution.Statement)
-	req.Zero(state.Execution.NumLeaves)
-	req.Nil(state.Execution.ParkedNodes)
-	req.Nil(state.Execution.NIP)
+		ctx, stop := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		defer stop()
+		req.ErrorIs(round.recoverExecution(ctx, time.Now().Add(time.Hour)), prover.ErrShutdownRequested)
+		req.NoError(round.teardown(false))
+	}
 
-	// Execute the round, and request shutdown before completion.
-	ctx, cancel := context.WithTimeout(ctx, time.Millisecond*100)
-	defer cancel()
-	req.ErrorIs(r.execute(ctx, time.Now().Add(time.Hour), prover.LowestMerkleMinMemoryLayer), prover.ErrShutdownRequested)
-	req.False(r.isOpen())
-	req.False(r.opened.IsZero())
-	req.False(r.executionStarted.IsZero())
-	_, err = r.proof(false)
-	req.EqualError(err, "round is executing") // TODO: support an explicit "crashed" state?
+	// Recover r2 execution again, and let it complete.
+	{
+		round, err := newRound(tmpdir, 1)
+		req.NoError(err)
+		req.Equal(len(challenges), numChallenges(round))
+		req.NoError(round.loadState())
 
-	state, err = r.state()
-	req.NoError(err)
-	req.NotNil(state)
-	req.False(state.isOpen())
-	req.False(state.isExecuted())
-	req.NotNil(state.Execution)
-	req.NotZero(state.Execution.SecurityParam)
-	req.Len(state.Execution.Statement, 32)
-	req.Greater(state.Execution.NumLeaves, uint64(0))
-	req.NotNil(state.Execution.ParkedNodes)
-	req.Nil(state.Execution.NIP)
-	req.NoError(r.teardown(false))
-
-	// Create a new round instance of the same round.
-	ctx, stop = context.WithCancel(context.Background())
-	defer stop()
-	r, err = newRound(tempdir, 0)
-	req.NoError(err)
-	req.False(r.isOpen())
-	req.True(r.opened.IsZero())
-	req.True(r.executionStarted.IsZero())
-	req.Len(challenges, r.numChallenges())
-	req.False(r.isEmpty())
-	_, err = r.proof(false)
-	req.EqualError(err, "round wasn't open")
-
-	prevState := state
-	state, err = r.state()
-	req.NoError(err)
-	req.Equal(prevState, state)
-
-	// Recover execution.
-	req.NoError(r.recoverExecution(ctx, state.Execution, time.Now().Add(200*time.Millisecond)))
-
-	req.False(r.executionStarted.IsZero())
-	proof, err := r.proof(false)
-	req.NoError(err)
-
-	req.Equal(r.execution.NIP, proof.Proof)
-	req.Equal(r.execution.Statement, proof.Statement)
-
-	// Verify round execution state.
-	state, err = r.state()
-	req.NoError(err)
-	req.False(state.isOpen())
-	req.True(state.isExecuted())
-	req.Equal(r.execution, state.Execution)
-
-	// Trigger cleanup.
-	req.NoError(r.teardown(true))
-
-	// Verify cleanup.
-	state, err = r.state()
-	req.EqualError(err, fmt.Sprintf("file is missing: %v", filepath.Join(r.datadir, roundStateFileBaseName)))
-	req.Nil(state)
+		req.NoError(round.recoverExecution(context.Background(), time.Now().Add(100*time.Millisecond)))
+		validateProof(t, round.execution)
+		req.NoError(round.teardown(true))
+	}
 }
