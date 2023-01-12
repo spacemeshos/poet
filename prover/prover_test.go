@@ -28,10 +28,10 @@ func BenchmarkGetProof(b *testing.B) {
 
 	challenge := []byte("challenge this! challenge this! ")
 	securityParam := shared.T
-	duration := 10 * time.Millisecond
+	duration := 20 * time.Second
 	leafs, _, err := GenerateProofWithoutPersistency(context.Background(), tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(duration), securityParam, LowestMerkleMinMemoryLayer)
 	if err != nil {
 		b.Fatal(err)
 	}
-	b.ReportMetric(float64(leafs), "leafs/op")
+	b.ReportMetric(float64(leafs)/duration.Seconds(), "leafs/sec")
 }

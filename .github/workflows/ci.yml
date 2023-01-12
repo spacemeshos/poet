@@ -64,6 +64,41 @@ jobs:
       - name: Lint protos
         run: make lint-protos
 
+  benchmark:
+    name: Run prover benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.go-version }}
+      - name: Run benchmark
+        run: |
+          echo "Benchmark results:" > benchoutput.txt
+          go test -benchmem -run '^$' -bench '^BenchmarkGetProof$' github.com/spacemeshos/poet/prover | tee -a benchoutput.txt
+
+      - name: Find benchmark comment
+        uses: peter-evans/find-comment@v2
+        id: fc
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: "github-actions[bot]"
+          body-includes: "Benchmark results:"
+
+      - name: Create comment
+        if: steps.fc.outputs.comment-id == ''
+        uses: peter-evans/create-or-update-comment@v2
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          body-file: benchoutput.txt
+
+      - name: Update comment
+        if: steps.fc.outputs.comment-id != ''
+        uses: peter-evans/create-or-update-comment@v2
+        with:
+          comment-id: ${{ steps.fc.outputs.comment-id }}
+          body-file: benchoutput.txt
+
   unittests:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
