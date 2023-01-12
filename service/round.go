@@ -21,8 +21,9 @@ import (
 	"github.com/spacemeshos/poet/shared"
 )
 
+var ErrRoundIsNotOpen = errors.New("round is not open")
+
 type executionState struct {
-	Epoch         uint32
 	SecurityParam uint8
 	Members       [][]byte
 	Statement     []byte
@@ -34,83 +35,54 @@ type executionState struct {
 const roundStateFileBaseName = "state.bin"
 
 type roundState struct {
-	Opened           time.Time
 	ExecutionStarted time.Time
 	Execution        *executionState
 }
 
-func (r *roundState) isOpen() bool {
-	return !r.Opened.IsZero() && r.ExecutionStarted.IsZero()
+func (r *round) isOpen() bool {
+	return r.executionStarted.IsZero()
 }
 
-func (r *roundState) isExecuted() bool {
-	return r.Execution.NIP != nil
+func (r *round) isExecuted() bool {
+	return r.execution.NIP != nil
 }
 
 type round struct {
-	datadir string
-	ID      string
-
-	challengesDb *leveldb.DB
-	execution    *executionState
-
-	opened           time.Time
+	epoch            uint32
+	datadir          string
+	ID               string
+	challengesDb     *leveldb.DB
 	executionStarted time.Time
-
-	openedChan           chan struct{}
-	executionStartedChan chan struct{}
-	executionEndedChan   chan struct{}
-
-	stateCache *roundState
+	execution        *executionState
 }
 
 func (r *round) Epoch() uint32 {
-	return r.execution.Epoch
+	return r.epoch
 }
 
 func newRound(datadir string, epoch uint32) (*round, error) {
-	r := new(round)
-	r.ID = strconv.FormatUint(uint64(epoch), 10)
-	r.datadir = filepath.Join(datadir, r.ID)
-	r.openedChan = make(chan struct{})
-	r.executionStartedChan = make(chan struct{})
-	r.executionEndedChan = make(chan struct{})
+	id := strconv.FormatUint(uint64(epoch), 10)
+	datadir = filepath.Join(datadir, id)
 
-	db, err := leveldb.OpenFile(filepath.Join(r.datadir, "challengesDb"), nil)
+	db, err := leveldb.OpenFile(filepath.Join(datadir, "challengesDb"), nil)
 	if err != nil {
 		return nil, err
 	}
-	r.challengesDb = db
 
-	r.execution = new(executionState)
-	r.execution.Epoch = epoch
-	r.execution.SecurityParam = shared.T
-
-	return r, nil
-}
-
-func (r *round) open() error {
-	if r.stateCache != nil {
-		r.opened = r.stateCache.Opened
-	} else {
-		r.opened = time.Now()
-		if err := r.saveState(); err != nil {
-			return err
-		}
-	}
-
-	close(r.openedChan)
-
-	return nil
-}
-
-func (r *round) isOpen() bool {
-	return !r.opened.IsZero() && r.executionStarted.IsZero()
+	return &round{
+		epoch:        epoch,
+		datadir:      datadir,
+		ID:           id,
+		challengesDb: db,
+		execution: &executionState{
+			SecurityParam: shared.T,
+		},
+	}, nil
 }
 
 func (r *round) submit(key, challenge []byte) error {
 	if !r.isOpen() {
-		return errors.New("round is not open")
+		return ErrRoundIsNotOpen
 	}
 
 	if has, err := r.challengesDb.Has(key, nil); err != nil {
@@ -119,24 +91,6 @@ func (r *round) submit(key, challenge []byte) error {
 		return fmt.Errorf("%w: key: %X", ErrChallengeAlreadySubmitted, key)
 	}
 	return r.challengesDb.Put(key, challenge, &opt.WriteOptions{Sync: true})
-}
-
-func (r *round) numChallenges() int {
-	iter := r.challengesDb.NewIterator(nil, nil)
-	defer iter.Release()
-
-	var num int
-	for iter.Next() {
-		num++
-	}
-
-	return num
-}
-
-func (r *round) isEmpty() bool {
-	iter := r.challengesDb.NewIterator(nil, nil)
-	defer iter.Release()
-	return !iter.Next()
 }
 
 func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer uint) error {
@@ -148,19 +102,17 @@ func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer uint)
 		return err
 	}
 
-	close(r.executionStartedChan)
-
-	var err error
-	r.execution.Members, r.execution.Statement, err = r.calcMembersAndStatement()
-	if err != nil {
+	if members, statement, err := r.calcMembersAndStatement(); err != nil {
 		return err
+	} else {
+		r.execution.Members, r.execution.Statement = members, statement
 	}
 
 	if err := r.saveState(); err != nil {
 		return err
 	}
 
-	r.execution.NumLeaves, r.execution.NIP, err = prover.GenerateProof(
+	numLeaves, nip, err := prover.GenerateProof(
 		ctx,
 		r.datadir,
 		hash.GenLabelHashFunc(r.execution.Statement),
@@ -173,11 +125,10 @@ func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer uint)
 	if err != nil {
 		return err
 	}
+	r.execution.NumLeaves, r.execution.NIP = numLeaves, nip
 	if err := r.saveState(); err != nil {
 		return err
 	}
-
-	close(r.executionEndedChan)
 
 	logger.Sugar().Infof("execution ended, phi=%x, duration %v", r.execution.NIP.Root, time.Since(r.executionStarted))
 	return nil
@@ -200,99 +151,70 @@ func (r *round) persistExecution(ctx context.Context, tree *merkle.Tree, treeCac
 	return nil
 }
 
-func (r *round) recoverExecution(ctx context.Context, state *executionState, end time.Time) error {
-	r.executionStarted = r.stateCache.ExecutionStarted
-	close(r.executionStartedChan)
+func (r *round) recoverExecution(ctx context.Context, end time.Time) error {
+	logger := logging.FromContext(ctx).With(zap.String("round", r.ID))
+	logger.With().Info("recovering execution", zap.Time("end", end))
 
-	if state.Members != nil && state.Statement != nil {
-		r.execution.Members = state.Members
-		r.execution.Statement = state.Statement
-	} else {
-		var err error
-		r.execution.Members, r.execution.Statement, err = r.calcMembersAndStatement()
+	started := time.Now()
+
+	if r.execution.Members == nil || r.execution.Statement == nil {
+		logger.Debug("calculating members and statement")
+		members, statement, err := r.calcMembersAndStatement()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to calculate members and statement")
 		}
+		r.execution.Members, r.execution.Statement = members, statement
 		if err := r.saveState(); err != nil {
 			return err
 		}
 	}
 
-	var err error
-	r.execution.NumLeaves, r.execution.NIP, err = prover.GenerateProofRecovery(
+	numLeaves, nip, err := prover.GenerateProofRecovery(
 		ctx,
 		r.datadir,
-		hash.GenLabelHashFunc(state.Statement),
-		hash.GenMerkleHashFunc(state.Statement),
+		hash.GenLabelHashFunc(r.execution.Statement),
+		hash.GenMerkleHashFunc(r.execution.Statement),
 		end,
-		state.SecurityParam,
-		state.NumLeaves,
-		state.ParkedNodes,
+		r.execution.SecurityParam,
+		r.execution.NumLeaves,
+		r.execution.ParkedNodes,
 		r.persistExecution,
 	)
 	if err != nil {
 		return err
 	}
+	r.execution.NumLeaves, r.execution.NIP = numLeaves, nip
 	if err := r.saveState(); err != nil {
 		return err
 	}
 
-	close(r.executionEndedChan)
+	logger.With().Info("finished round recovered execution", zap.Duration("duration", time.Since(started)))
 
 	return nil
 }
 
-func (r *round) proof(wait bool) (*PoetProof, error) {
-	if wait {
-		<-r.executionEndedChan
-	} else {
-		select {
-		case <-r.executionEndedChan:
-		default:
-			select {
-			case <-r.executionStartedChan:
-				return nil, errors.New("round is executing")
-			default:
-				select {
-				case <-r.openedChan:
-					return nil, errors.New("round is open")
-				default:
-					return nil, errors.New("round wasn't open")
-				}
-			}
-		}
-	}
-
-	return &PoetProof{
-		N:         uint(r.execution.NumLeaves),
-		Statement: r.execution.Statement,
-		Proof:     r.execution.NIP,
-	}, nil
-}
-
-func (r *round) state() (*roundState, error) {
+// loadState recovers persisted state from disk.
+func (r *round) loadState() error {
 	filename := filepath.Join(r.datadir, roundStateFileBaseName)
-	s := &roundState{}
-
-	if err := load(filename, s); err != nil {
-		return nil, err
+	state := roundState{}
+	if err := load(filename, &state); err != nil {
+		return err
 	}
-	if r.execution.SecurityParam != s.Execution.SecurityParam {
-		return nil, errors.New("SecurityParam config mismatch")
+	if r.execution.SecurityParam != state.Execution.SecurityParam {
+		return errors.New("SecurityParam config mismatch")
 	}
-	r.stateCache = s
+	r.execution = state.Execution
+	r.executionStarted = state.ExecutionStarted
 
-	return s, nil
+	return nil
 }
 
 func (r *round) saveState() error {
 	filename := filepath.Join(r.datadir, roundStateFileBaseName)
-	v := &roundState{
-		Opened:           r.opened,
+	return persist(filename, &roundState{
 		ExecutionStarted: r.executionStarted,
 		Execution:        r.execution,
-	}
-	return persist(filename, v)
+	})
 }
 
 func (r *round) calcMembersAndStatement() ([][]byte, []byte, error) {
@@ -327,6 +249,8 @@ func (r *round) teardown(cleanup bool) error {
 		if err := os.RemoveAll(r.datadir); err != nil {
 			return err
 		}
+	} else {
+		return r.saveState()
 	}
 
 	return nil
