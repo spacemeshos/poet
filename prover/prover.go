@@ -13,6 +13,7 @@ import (
 
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/merkle-tree/cache"
+	"go.uber.org/zap"
 
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/shared"
@@ -191,6 +192,42 @@ func makeRecoveryProofTree(
 	return treeCache, tree, nil
 }
 
+func sequentialWork(
+	ctx context.Context,
+	labelHashFunc func(data []byte) []byte,
+	tree *merkle.Tree,
+	treeCache *cache.Writer,
+	nextLeafID uint64,
+	securityParam uint8,
+	persist persistFunc,
+) (uint64, error) {
+	leaves := nextLeafID
+	makeLabel := shared.MakeLabelFunc()
+	for leafID := nextLeafID; ; leafID++ {
+		select {
+		case <-ctx.Done():
+			if err := persist(ctx, tree, treeCache, leafID); err != nil {
+				return 0, fmt.Errorf("persisting execution state: %w", err)
+			}
+			return leaves, nil
+		default:
+		}
+
+		if leafID != 0 && leafID%hardShutdownCheckpointRate == 0 {
+			if err := persist(ctx, tree, treeCache, leafID); err != nil {
+				return 0, err
+			}
+		}
+
+		// Generate the next leaf.
+		err := tree.AddLeaf(makeLabel(labelHashFunc, leafID, tree.GetParkedNodes()))
+		if err != nil {
+			return 0, err
+		}
+		leaves++
+	}
+}
+
 func generateProof(
 	ctx context.Context,
 	labelHashFunc func(data []byte) []byte,
@@ -201,37 +238,28 @@ func generateProof(
 	securityParam uint8,
 	persist persistFunc,
 ) (uint64, *shared.MerkleProof, error) {
-	makeLabel := shared.MakeLabelFunc()
-	leaves := nextLeafID
-	for leafID := nextLeafID; time.Until(end) > 0; leafID++ {
-		// Handle persistence.
-		select {
-		case <-ctx.Done():
-			if err := persist(ctx, tree, treeCache, leafID); err != nil {
-				return 0, nil, fmt.Errorf("%w: error happened during persisting: %v", ErrShutdownRequested, err)
-			}
-			return 0, nil, ErrShutdownRequested
-		default:
-		}
+	logger := logging.FromContext(ctx)
+	logger.Info("generating proof", zap.Time("end", end), zap.Uint64("nextLeafID", nextLeafID))
 
-		if leafID != 0 && leafID%hardShutdownCheckpointRate == 0 {
-			if err := persist(ctx, tree, treeCache, leafID); err != nil {
-				return 0, nil, err
-			}
-		}
-
-		// Generate the next leaf.
-		err := tree.AddLeaf(makeLabel(labelHashFunc, leafID, tree.GetParkedNodes()))
+	poswCtx, cancel := context.WithDeadline(ctx, end)
+	defer cancel()
+	leaves, err := sequentialWork(poswCtx, labelHashFunc, tree, treeCache, nextLeafID, securityParam, persist)
+	select {
+	case <-ctx.Done():
 		if err != nil {
-			return 0, nil, err
+			return 0, nil, fmt.Errorf("%w: %v", ErrShutdownRequested, err)
 		}
-		leaves++
+		return 0, nil, ErrShutdownRequested
+	default:
+	}
+	if err != nil {
+		return 0, nil, err
 	}
 
-	logging.FromContext(ctx).Sugar().Infof("Merkle tree construction finished with %d leaves, generating proof...", leaves)
+	logger.Sugar().Infof("merkle tree construction finished with %d leaves, generating proof...", leaves)
 
+	started := time.Now()
 	root := tree.Root()
-
 	cacheReader, err := treeCache.GetReader()
 	if err != nil {
 		return 0, nil, err
@@ -241,6 +269,7 @@ func generateProof(
 	if err != nil {
 		return 0, nil, err
 	}
+	logger.Sugar().Infof("proof generated, it took: %v", time.Since(started))
 
 	return leaves, &shared.MerkleProof{
 		Root:         root,
