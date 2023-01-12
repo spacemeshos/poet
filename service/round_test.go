@@ -2,7 +2,7 @@ package service
 
 import (
 	"context"
-	"math/rand"
+	"crypto/rand"
 	"os"
 	"testing"
 	"time"
@@ -49,7 +49,7 @@ func numChallenges(r *round) int {
 
 func newTestRound(t *testing.T) *round {
 	t.Helper()
-	round, err := newRound(t.TempDir(), rand.Uint32())
+	round, err := newRound(t.TempDir(), 7)
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, round.teardown(true)) })
 	return round
@@ -171,7 +171,10 @@ func TestRound_Submit(t *testing.T) {
 		round := newTestRound(t)
 		challenge, err := genChallenge()
 		req.NoError(err)
-		round.execute(context.Background(), time.Now(), 1)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*50)
+		defer cancel()
+		err = round.execute(ctx, time.Now().Add(time.Hour), 1)
+		req.ErrorIs(err, prover.ErrShutdownRequested)
 
 		// Act
 		err = round.submit([]byte("key"), challenge)

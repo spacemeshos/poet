@@ -307,14 +307,14 @@ linters-settings:
     # Filter out the issues with a lower severity than the given value.
     # Valid options are: low, medium, high.
     # Default: low
-    severity: medium
+    # severity: medium
     # Filter out the issues with a lower confidence than the given value.
     # Valid options are: low, medium, high.
     # Default: low
-    confidence: medium
+    # confidence: low
     # Concurrency value.
     # Default: the number of logical CPUs usable by the current process.
-    concurrency: 12
+    # concurrency: 12
 
   whitespace:
     # Enforces newlines (or comments) after every multi-line if statement.
@@ -361,12 +361,12 @@ linters:
     # - whitespace
     # - wrapcheck
     # - errcheck
-    # - gosec
+    - gosec
     # - nakedret
     # - gocyclo
     # - lll
     # - prealloc
-  
+
   # Enable all available linters.
   # Default: false
   enable-all: false
@@ -374,7 +374,7 @@ linters:
   # Disable specific linter
   # https://golangci-lint.run/usage/linters/#disabled-by-default
   # disable:
-    
+
   # Run only fast linters from enabled linters set (first run won't be fast)
   # Default: false
   fast: false

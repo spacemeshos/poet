@@ -29,7 +29,7 @@ func persist(filename string, v any) error {
 }
 
 func load(filename string, v any) error {
-	data, err := os.ReadFile(filename)
+	data, err := os.ReadFile(filename) //#nosec G304
 	if err != nil {
 		if os.IsNotExist(err) {
 			return fmt.Errorf("%w: %v", ErrFileIsMissing, filename)

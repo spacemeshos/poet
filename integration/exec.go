@@ -39,9 +39,7 @@ func poetExecutablePath(baseDir string) (string, error) {
 		outputPath += ".exe"
 	}
 
-	cmd := exec.Command(
-		"go", "build", "-o", outputPath, "github.com/spacemeshos/poet",
-	)
+	cmd := exec.Command("go", "build", "-o", outputPath, "github.com/spacemeshos/poet") //#nosec G204
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return "", fmt.Errorf("failed to build poet: failed to get stderr: %s", err)
