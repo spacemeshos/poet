@@ -153,7 +153,7 @@ func (s *Server) Start(ctx context.Context) error {
 		}
 	}
 
-	server := &http.Server{Handler: mux}
+	server := &http.Server{Handler: mux, ReadHeaderTimeout: time.Second * 5}
 	serverGroup.Go(func() error {
 		logger.Sugar().Infof("REST proxy starts listening on %s", s.restListener.Addr())
 		err := server.Serve(s.restListener)
@@ -166,8 +166,9 @@ func (s *Server) Start(ctx context.Context) error {
 	// Wait for the server to shut down gracefully
 	<-ctx.Done()
 	grpcServer.GracefulStop()
-	server.Shutdown(ctx)
-	return serverGroup.Wait()
+	result := multierror.Append(nil, server.Shutdown(context.Background()))
+	result = multierror.Append(result, serverGroup.Wait())
+	return result.ErrorOrNil()
 }
 
 // loggerInterceptor returns UnaryServerInterceptor handler to log all RPC server incoming requests.

@@ -175,7 +175,7 @@ For example, the root node's label is `lε = Hx(bytes(""), l0, l1)` as it has 2 
 
 ##### Computing node parents ids
 
-Given a node i in a DAG(n), we need a way determine its set of parent nodes. For example, we use the set to compute its label. This can be implemented without having to store all DAG edges in storage.
+Given a node i in a DAG(n), we need a way to determine its set of parent nodes. For example, we use the set to compute its label. This can be implemented without having to store all DAG edges in storage.
 
 Note that with this binary string labeling scheme we get the following properties:
 
@@ -192,7 +192,7 @@ Note that with this binary string labeling scheme we get the following propertie
 
 ##### DAG Construction (See section 4, Lemma 3)
 
-- Compute the label of each DAG node, and store only the labels of of the DAG from the root up to level m
+- Compute the label of each DAG node, and store only the labels of the DAG from the root up to level m
 - Computing the labels of the DAG should use up to w * (n + 1) bits of RAM
 - The following is a possible algorithm that satisfies these requirements. However, any implementation that satisfies them (with equivalent or better computational complexity) is also acceptable.
 
@@ -224,7 +224,7 @@ The size of a subtree under a node is simply `2^{height+1}-1` * the label size. 
 
 #### Commitment
 
-arbitrary length bytes. Verifier implementation should just use H(commitment) to create a commitment that is in range (0, 1)^w . So the actually commitment can be sha256(commitment) when w=256.
+arbitrary length bytes. Verifier implementation should just use H(commitment) to create a commitment that is in range (0, 1)^w . So the actual commitment can be sha256(commitment) when w=256.
 
 #### Challenge
 
@@ -233,7 +233,7 @@ Note that the binary string should always be n bytes long, including trailing `0
 
 #### Proof (See section 5.2)
 
-A proof needs includes the following data:
+A proof needs to include the following data:
 
 1. φ - the label of the root node.
 2. For each identifier i in a challenge (0 <= i < t), an ordered list of labels which includes:

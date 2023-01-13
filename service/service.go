@@ -81,12 +81,6 @@ type InfoResponse struct {
 	ExecutingRoundsIds []string
 }
 
-type PoetProof struct {
-	N         uint
-	Statement []byte
-	Proof     *shared.MerkleProof
-}
-
 var (
 	ErrNotStarted                = errors.New("service not started")
 	ErrAlreadyStarted            = errors.New("already started")
@@ -201,7 +195,7 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 		eg.Go(func() error {
 			unlock := lockOSThread(ctx, roundTidFile)
 			defer unlock()
-			err := round.recoverExecution(ctx, round.stateCache.Execution, end)
+			err := round.recoverExecution(ctx, end)
 			if err := round.teardown(err == nil); err != nil {
 				logger.Warn("round teardown failed", zap.Error(err))
 			}
@@ -250,7 +244,9 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 
 		case <-ctx.Done():
 			logger.Info("service shutting down")
-			s.openRound.teardown(false)
+			if err := s.openRound.teardown(false); err != nil {
+				return fmt.Errorf("tearing down open round: %w", err)
+			}
 			return nil
 		}
 	}
@@ -353,22 +349,18 @@ func (s *Service) recover(ctx context.Context) (open *round, executing []*round,
 			return nil, nil, fmt.Errorf("failed to create round: %w", err)
 		}
 
-		state, err := r.state()
+		err = r.loadState()
 		if err != nil {
 			return nil, nil, fmt.Errorf("invalid round state: %w", err)
 		}
 
-		if state.isExecuted() {
-			s.reportNewProof(r.ID, state.Execution)
+		if r.isExecuted() {
+			s.reportNewProof(r.ID, r.execution)
 			continue
 		}
 
-		if state.isOpen() {
+		if r.isOpen() {
 			logger.Info("found round in open state.", zap.String("ID", r.ID))
-			if err := r.open(); err != nil {
-				return nil, nil, fmt.Errorf("failed to open round: %w", err)
-			}
-
 			// Keep the last open round as openRound (multiple open rounds state is possible
 			// only if recovery was previously disabled).
 			open = r
@@ -471,9 +463,6 @@ func (s *Service) newRound(ctx context.Context, epoch uint32) (*round, error) {
 	r, err := newRound(roundsDir, epoch)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a new round: %w", err)
-	}
-	if err := r.open(); err != nil {
-		return nil, fmt.Errorf("failed to open round: %w", err)
 	}
 
 	logging.FromContext(ctx).Info("Round opened", zap.String("ID", r.ID))
