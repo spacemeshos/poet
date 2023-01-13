@@ -24,15 +24,15 @@ import (
 )
 
 type Config struct {
-	Genesis           string        `long:"genesis-time" description:"Genesis timestamp"`
+	Genesis           string        `long:"genesis-time"   description:"Genesis timestamp"`
 	EpochDuration     time.Duration `long:"epoch-duration" description:"Epoch duration"`
 	PhaseShift        time.Duration `long:"phase-shift"`
 	CycleGap          time.Duration `long:"cycle-gap"`
-	MemoryLayers      uint          `long:"memory" description:"Number of top Merkle tree layers to cache in-memory"`
-	NoRecovery        bool          `long:"norecovery" description:"whether to disable a potential recovery procedure"`
-	Reset             bool          `long:"reset" description:"whether to reset the service state by deleting the datadir"`
-	GatewayAddresses  []string      `long:"gateway" description:"addresses of Spacemesh gateway nodes"`
-	ConnAcksThreshold uint          `long:"conn-acks" description:"number of required successful connections to Spacemesh gateway nodes"`
+	MemoryLayers      uint          `long:"memory"         description:"Number of top Merkle tree layers to cache in-memory"`
+	NoRecovery        bool          `long:"norecovery"     description:"whether to disable a potential recovery procedure"`
+	Reset             bool          `long:"reset"          description:"whether to reset the service state by deleting the datadir"`
+	GatewayAddresses  []string      `long:"gateway"        description:"addresses of Spacemesh gateway nodes"`
+	ConnAcksThreshold uint          `long:"conn-acks"      description:"number of required successful connections to Spacemesh gateway nodes"`
 }
 
 // estimatedLeavesPerSecond is used to computed estimated height of the proving tree
@@ -92,13 +92,15 @@ func NewService(ctx context.Context, cfg *Config, datadir string) (*Service, err
 	if err != nil {
 		return nil, err
 	}
-	minMemoryLayer := int(mshared.RootHeightFromWidth(
-		uint64(cfg.EpochDuration.Seconds()*estimatedLeavesPerSecond),
-	)) - int(cfg.MemoryLayers)
+	minMemoryLayer := int(
+		mshared.RootHeightFromWidth(uint64(cfg.EpochDuration.Seconds()*estimatedLeavesPerSecond)),
+	) - int(cfg.MemoryLayers)
 	if minMemoryLayer < prover.LowestMerkleMinMemoryLayer {
 		minMemoryLayer = prover.LowestMerkleMinMemoryLayer
 	}
-	logging.FromContext(ctx).Sugar().Infof("creating poet service. min memory layer: %v. genesis: %s", minMemoryLayer, cfg.Genesis)
+	logging.FromContext(ctx).
+		Sugar().
+		Infof("creating poet service. min memory layer: %v. genesis: %s", minMemoryLayer, cfg.Genesis)
 
 	if cfg.Reset {
 		entries, err := os.ReadDir(datadir)
@@ -254,7 +256,8 @@ func (s *Service) scheduleRound(ctx context.Context, round *round) <-chan time.T
 	waitTime := time.Until(s.roundStartTime(round))
 	timer := time.After(waitTime)
 	if waitTime > 0 {
-		logging.FromContext(ctx).Info("waiting for execution to start", zap.Duration("wait time", waitTime), zap.String("round", round.ID))
+		logging.FromContext(ctx).
+			Info("waiting for execution to start", zap.Duration("wait time", waitTime), zap.String("round", round.ID))
 	}
 	return timer
 }

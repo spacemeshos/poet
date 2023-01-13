@@ -75,7 +75,8 @@ func poetMain() (err error) {
 	}()
 
 	// Show version at startup.
-	logger.Sugar().Infof("version: %s, dir: %v, datadir: %v, genesis: %v", version, cfg.PoetDir, cfg.DataDir, cfg.Service.Genesis)
+	logger.Sugar().
+		Infof("version: %s, dir: %v, datadir: %v, genesis: %v", version, cfg.PoetDir, cfg.DataDir, cfg.Service.Genesis)
 
 	// Enable http profiling server if requested.
 	if cfg.Profile != "" {

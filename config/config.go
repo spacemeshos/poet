@@ -55,22 +55,22 @@ type coreServiceConfig struct {
 // See loadConfig for further details regarding the
 // configuration loading+parsing process.
 type Config struct {
-	PoetDir         string `long:"poetdir" description:"The base directory that contains poet's data, logs, configuration file, etc."`
-	ConfigFile      string `short:"c" long:"configfile" description:"Path to configuration file"`
-	DataDir         string `short:"b" long:"datadir" description:"The directory to store poet's data within"`
-	LogDir          string `long:"logdir" description:"Directory to log output."`
-	DebugLog        bool   `long:"debuglog" description:"Enable debug logs"`
-	JSONLog         bool   `long:"jsonlog" description:"Whether to log in JSON format"`
-	MaxLogFiles     int    `long:"maxlogfiles" description:"Maximum logfiles to keep (0 for no rotation)"`
-	MaxLogFileSize  int    `long:"maxlogfilesize" description:"Maximum logfile size in MB"`
-	RawRPCListener  string `short:"r" long:"rpclisten" description:"The interface/port/socket to listen for RPC connections"`
-	RawRESTListener string `short:"w" long:"restlisten" description:"The interface/port/socket to listen for REST connections"`
+	PoetDir         string `long:"poetdir"                description:"The base directory that contains poet's data, logs, configuration file, etc."`
+	ConfigFile      string `long:"configfile"             description:"Path to configuration file"                                                   short:"c"`
+	DataDir         string `long:"datadir"                description:"The directory to store poet's data within"                                    short:"b"`
+	LogDir          string `long:"logdir"                 description:"Directory to log output."`
+	DebugLog        bool   `long:"debuglog"               description:"Enable debug logs"`
+	JSONLog         bool   `long:"jsonlog"                description:"Whether to log in JSON format"`
+	MaxLogFiles     int    `long:"maxlogfiles"            description:"Maximum logfiles to keep (0 for no rotation)"`
+	MaxLogFileSize  int    `long:"maxlogfilesize"         description:"Maximum logfile size in MB"`
+	RawRPCListener  string `long:"rpclisten"              description:"The interface/port/socket to listen for RPC connections"                      short:"r"`
+	RawRESTListener string `long:"restlisten"             description:"The interface/port/socket to listen for REST connections"                     short:"w"`
 	RPCListener     net.Addr
 	RESTListener    net.Addr
 	GtwConnTimeout  time.Duration `long:"gtw-connection-timeout" description:"Timeout for connecting to gateway"`
 
 	CPUProfile string `long:"cpuprofile" description:"Write CPU profile to the specified file"`
-	Profile    string `long:"profile" description:"Enable HTTP profiling on given port -- must be between 1024 and 65535"`
+	Profile    string `long:"profile"    description:"Enable HTTP profiling on given port -- must be between 1024 and 65535"`
 
 	CoreServiceMode bool `long:"core" description:"Enable poet in core service mode"`
 
