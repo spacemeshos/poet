@@ -16,7 +16,15 @@ func TestGetProof(t *testing.T) {
 	tempdir := t.TempDir()
 
 	challenge := []byte("challenge this")
-	leafs, merkleProof, err := GenerateProofWithoutPersistency(context.Background(), tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(100*time.Millisecond), 5, LowestMerkleMinMemoryLayer)
+	leafs, merkleProof, err := GenerateProofWithoutPersistency(
+		context.Background(),
+		tempdir,
+		hash.GenLabelHashFunc(challenge),
+		hash.GenMerkleHashFunc(challenge),
+		time.Now().Add(100*time.Millisecond),
+		5,
+		LowestMerkleMinMemoryLayer,
+	)
 	r.NoError(err)
 	t.Logf("root: %x", merkleProof.Root)
 	t.Logf("proof: %x", merkleProof.ProvenLeaves)
@@ -29,7 +37,15 @@ func BenchmarkGetProof(b *testing.B) {
 	challenge := []byte("challenge this! challenge this! ")
 	securityParam := shared.T
 	duration := 10 * time.Millisecond
-	leafs, _, err := GenerateProofWithoutPersistency(context.Background(), tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(duration), securityParam, LowestMerkleMinMemoryLayer)
+	leafs, _, err := GenerateProofWithoutPersistency(
+		context.Background(),
+		tempdir,
+		hash.GenLabelHashFunc(challenge),
+		hash.GenMerkleHashFunc(challenge),
+		time.Now().Add(duration),
+		securityParam,
+		LowestMerkleMinMemoryLayer,
+	)
 	if err != nil {
 		b.Fatal(err)
 	}
