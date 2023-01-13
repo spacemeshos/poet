@@ -109,10 +109,14 @@ test-tidy:
 	@git diff --exit-code || (git --no-pager diff && git checkout . && exit 1)
 .PHONY: test-tidy
 
+fmt:
+	@go fmt ./...
+	@golines -m 120 --shorten-comments -w .
+
 test-fmt:
 	@git diff --quiet || (echo "\033[0;31mWorking directory not clean!\033[0m" && git --no-pager diff && exit 1)
-	# We expect `go fmt` not to change anything, the test should fail otherwise
-	@go fmt ./...
+	# We expect `go fmt` and `golines` not to change anything, the test should fail otherwise
+	@make fmt
 	@git diff --exit-code || (git --no-pager diff && git checkout . && exit 1)
 .PHONY: test-fmt
 
