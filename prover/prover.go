@@ -2,7 +2,6 @@ package prover
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -30,8 +29,6 @@ const (
 	// to allow potential crash recovery.
 	hardShutdownCheckpointRate = 1 << 24
 )
-
-var ErrShutdownRequested = errors.New("shutdown requested")
 
 type persistFunc func(ctx context.Context, tree *merkle.Tree, treeCache *cache.Writer, nextLeafId uint64) error
 
@@ -197,34 +194,43 @@ func sequentialWork(
 	labelHashFunc func(data []byte) []byte,
 	tree *merkle.Tree,
 	treeCache *cache.Writer,
+	end time.Time,
 	nextLeafID uint64,
 	securityParam uint8,
 	persist persistFunc,
 ) (uint64, error) {
-	leaves := nextLeafID
 	makeLabel := shared.MakeLabelFunc()
-	for leafID := nextLeafID; ; leafID++ {
-		select {
-		case <-ctx.Done():
-			if err := persist(ctx, tree, treeCache, leafID); err != nil {
-				return 0, fmt.Errorf("persisting execution state: %w", err)
-			}
-			return leaves, nil
-		default:
-		}
 
-		if leafID != 0 && leafID%hardShutdownCheckpointRate == 0 {
-			if err := persist(ctx, tree, treeCache, leafID); err != nil {
-				return 0, err
-			}
-		}
+	finished := time.NewTimer(time.Until(end))
+	defer finished.Stop()
 
+	for {
 		// Generate the next leaf.
-		err := tree.AddLeaf(makeLabel(labelHashFunc, leafID, tree.GetParkedNodes()))
+		err := tree.AddLeaf(makeLabel(labelHashFunc, nextLeafID, tree.GetParkedNodes()))
 		if err != nil {
 			return 0, err
 		}
-		leaves++
+		nextLeafID++
+
+		select {
+		case <-ctx.Done():
+			if err := persist(ctx, tree, treeCache, nextLeafID); err != nil {
+				return 0, fmt.Errorf("persisting execution state: %w", err)
+			}
+			return nextLeafID, ctx.Err()
+		case <-finished.C:
+			if err := persist(ctx, tree, treeCache, nextLeafID); err != nil {
+				return 0, fmt.Errorf("persisting execution state: %w", err)
+			}
+			return nextLeafID, nil
+		default:
+		}
+
+		if nextLeafID%hardShutdownCheckpointRate == 0 {
+			if err := persist(ctx, tree, treeCache, nextLeafID); err != nil {
+				return 0, err
+			}
+		}
 	}
 }
 
@@ -241,17 +247,7 @@ func generateProof(
 	logger := logging.FromContext(ctx)
 	logger.Info("generating proof", zap.Time("end", end), zap.Uint64("nextLeafID", nextLeafID))
 
-	poswCtx, cancel := context.WithDeadline(ctx, end)
-	defer cancel()
-	leaves, err := sequentialWork(poswCtx, labelHashFunc, tree, treeCache, nextLeafID, securityParam, persist)
-	select {
-	case <-ctx.Done():
-		if err != nil {
-			return 0, nil, fmt.Errorf("%w: %v", ErrShutdownRequested, err)
-		}
-		return 0, nil, ErrShutdownRequested
-	default:
-	}
+	leaves, err := sequentialWork(ctx, labelHashFunc, tree, treeCache, end, nextLeafID, securityParam, persist)
 	if err != nil {
 		return 0, nil, err
 	}
