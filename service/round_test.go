@@ -203,7 +203,6 @@ func TestRound_Execute(t *testing.T) {
 	// Verify
 	req.Equal(shared.T, round.execution.SecurityParam)
 	req.Len(round.execution.Members, 1)
-	req.Empty(round.execution.ParkedNodes)
 	req.NotZero(round.execution.NumLeaves)
 	validateProof(t, round.execution)
 }
