@@ -49,9 +49,13 @@ endif
 export GOBIN := $(BIN_DIR)
 GOTESTSUM := $(GOBIN)/gotestsum
 GOVULNCHECK := $(GOBIN)/govulncheck
+GOLINES := $(GOBIN)/golines
 
 $(GOVULNCHECK):
 	@go install golang.org/x/vuln/cmd/govulncheck
+
+$(GOLINES):
+	@go install github.com/segmentio/golines
 
 $(BIN_DIR)/mockgen:
 	go install github.com/golang/mock/mockgen@v1.6.0
@@ -89,7 +93,7 @@ test:
 	$(GOTESTSUM) -- -race -timeout 5m -p 1 ./...
 .PHONY: test
 
-install: install-buf install-protoc
+install: install-buf install-protoc $(GOVULNCHECK) $(GOLINES)
 	@go mod download
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s $(GOLANGCI_LINT_VERSION)
 	@go install honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
@@ -109,9 +113,9 @@ test-tidy:
 	@git diff --exit-code || (git --no-pager diff && git checkout . && exit 1)
 .PHONY: test-tidy
 
-fmt:
+fmt: $(GOLINES)
 	@go fmt ./...
-	@golines -m 120 --shorten-comments -w .
+	@$(GOLINES) -m 120 --shorten-comments -w .
 .PHONY: fmt
 
 test-fmt:
