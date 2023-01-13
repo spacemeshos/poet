@@ -112,6 +112,7 @@ test-tidy:
 fmt:
 	@go fmt ./...
 	@golines -m 120 --shorten-comments -w .
+.PHONY: fmt
 
 test-fmt:
 	@git diff --quiet || (echo "\033[0;31mWorking directory not clean!\033[0m" && git --no-pager diff && exit 1)
