@@ -32,7 +32,10 @@ type gatewayService struct {
 	pb.UnimplementedGatewayServiceServer
 }
 
-func (*gatewayService) VerifyChallenge(ctx context.Context, req *pb.VerifyChallengeRequest) (*pb.VerifyChallengeResponse, error) {
+func (*gatewayService) VerifyChallenge(
+	ctx context.Context,
+	req *pb.VerifyChallengeRequest,
+) (*pb.VerifyChallengeResponse, error) {
 	return &pb.VerifyChallengeResponse{
 		Hash:   []byte("hash"),
 		NodeId: []byte("nodeID"),

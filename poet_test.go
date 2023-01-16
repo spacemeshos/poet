@@ -34,7 +34,10 @@ type gatewayService struct {
 	pb.UnimplementedGatewayServiceServer
 }
 
-func (*gatewayService) VerifyChallenge(ctx context.Context, req *pb.VerifyChallengeRequest) (*pb.VerifyChallengeResponse, error) {
+func (*gatewayService) VerifyChallenge(
+	ctx context.Context,
+	req *pb.VerifyChallengeRequest,
+) (*pb.VerifyChallengeResponse, error) {
 	return &pb.VerifyChallengeResponse{
 		Hash: []byte("hash"),
 	}, nil
@@ -78,7 +81,10 @@ func TestHarness(t *testing.T) {
 
 	ctx := context.Background()
 	_, err = h.Submit(ctx, &api.SubmitRequest{Challenge: []byte("this is a commitment")})
-	r.EqualError(err, "rpc error: code = FailedPrecondition desc = cannot submit a challenge because poet service is not started")
+	r.EqualError(
+		err,
+		"rpc error: code = FailedPrecondition desc = cannot submit a challenge because poet service is not started",
+	)
 
 	_, err = h.Start(ctx, &api.StartRequest{GatewayAddresses: []string{"666"}})
 	r.ErrorContains(err, "failed to connect to gateway grpc server 666 (context deadline exceeded)")
@@ -149,7 +155,10 @@ func TestHarness_CrashRecovery(t *testing.T) {
 	}
 
 	submitChallenges := func(h *integration.Harness, roundIndex int) {
-		ctx, cancel := context.WithDeadline(context.Background(), cfg.Genesis.Add(cfg.EpochDuration*time.Duration(roundIndex)))
+		ctx, cancel := context.WithDeadline(
+			context.Background(),
+			cfg.Genesis.Add(cfg.EpochDuration*time.Duration(roundIndex)),
+		)
 		defer cancel()
 		roundChallenges := roundsChallenges[roundIndex]
 		for i := 0; i < len(roundChallenges); i++ {

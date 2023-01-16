@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/spacemeshos/poet/hash"
-	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/verifier"
 )
@@ -171,10 +170,10 @@ func TestRound_Submit(t *testing.T) {
 		round := newTestRound(t)
 		challenge, err := genChallenge()
 		req.NoError(err)
-		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*50)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*10)
 		defer cancel()
 		err = round.execute(ctx, time.Now().Add(time.Hour), 1)
-		req.ErrorIs(err, prover.ErrShutdownRequested)
+		req.ErrorIs(err, context.DeadlineExceeded)
 
 		// Act
 		err = round.submit([]byte("key"), challenge)
@@ -196,14 +195,11 @@ func TestRound_Execute(t *testing.T) {
 	req.NoError(round.submit([]byte("key"), challenge))
 
 	// Act
-	req.NoError(
-		round.execute(context.Background(), time.Now().Add(100*time.Millisecond), 1),
-	)
+	req.NoError(round.execute(context.Background(), time.Now().Add(100*time.Millisecond), 1))
 
 	// Verify
 	req.Equal(shared.T, round.execution.SecurityParam)
 	req.Len(round.execution.Members, 1)
-	req.Empty(round.execution.ParkedNodes)
 	req.NotZero(round.execution.NumLeaves)
 	validateProof(t, round.execution)
 }
@@ -240,9 +236,9 @@ func TestRound_StateRecovery(t *testing.T) {
 		challenge, err := genChallenge()
 		req.NoError(err)
 		req.NoError(round.submit([]byte("key"), challenge))
-		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*10)
 		defer cancel()
-		req.ErrorIs(round.execute(ctx, time.Now().Add(time.Hour), 1), prover.ErrShutdownRequested)
+		req.ErrorIs(round.execute(ctx, time.Now().Add(time.Hour), 1), context.DeadlineExceeded)
 		req.NoError(round.teardown(false))
 
 		// Act
@@ -282,11 +278,11 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 			req.NoError(round.submit(ch, ch))
 		}
 
-		ctx, stop := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		ctx, stop := context.WithTimeout(context.Background(), 10*time.Millisecond)
 		defer stop()
 		req.ErrorIs(
 			round.execute(ctx, time.Now().Add(time.Hour), 1),
-			prover.ErrShutdownRequested,
+			context.DeadlineExceeded,
 		)
 		req.NoError(round.teardown(false))
 	}
@@ -298,9 +294,9 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 		req.Equal(len(challenges), numChallenges(round))
 		req.NoError(round.loadState())
 
-		ctx, stop := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		ctx, stop := context.WithTimeout(context.Background(), 10*time.Millisecond)
 		defer stop()
-		req.ErrorIs(round.recoverExecution(ctx, time.Now().Add(time.Hour)), prover.ErrShutdownRequested)
+		req.ErrorIs(round.recoverExecution(ctx, time.Now().Add(time.Hour)), context.DeadlineExceeded)
 		req.NoError(round.teardown(false))
 	}
 

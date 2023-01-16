@@ -2,7 +2,6 @@ package prover
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/merkle-tree/cache"
+	"go.uber.org/zap"
 
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/shared"
@@ -30,14 +30,12 @@ const (
 	hardShutdownCheckpointRate = 1 << 24
 )
 
-var ErrShutdownRequested = errors.New("shutdown requested")
-
 type persistFunc func(ctx context.Context, tree *merkle.Tree, treeCache *cache.Writer, nextLeafId uint64) error
 
 var persist persistFunc = func(context.Context, *merkle.Tree, *cache.Writer, uint64) error { return nil }
 
-// GenerateProof computes the PoET DAG, uses Fiat-Shamir to derive a challenge from the Merkle root and generates a Merkle
-// proof using the challenge and the DAG.
+// GenerateProof computes the PoET DAG, uses Fiat-Shamir to derive a challenge from the Merkle root and generates a
+// Merkle proof using the challenge and the DAG.
 func GenerateProof(
 	ctx context.Context,
 	datadir string,
@@ -155,7 +153,12 @@ func makeRecoveryProofTree(
 		// If file is longer than expected, truncate the file.
 		if expectedWidth < width {
 			filename := filepath.Join(datadir, file)
-			logging.FromContext(ctx).Sugar().Infof("Recovery: layer %v cache file width is ahead of the last known merkle tree state. expected: %d, found: %d. Truncating file...", layer, expectedWidth, width)
+			logging.FromContext(ctx).
+				Warn("Recovery: cache file width is ahead of the last known merkle tree state. Truncating file",
+					zap.String("file", filename),
+					zap.Uint("layer", layer),
+					zap.Uint64("expected", expectedWidth),
+					zap.Uint64("actual", width))
 			if err := os.Truncate(filename, int64(expectedWidth*merkle.NodeSize)); err != nil {
 				return nil, nil, fmt.Errorf("failed to truncate file: %v", err)
 			}
@@ -163,7 +166,12 @@ func makeRecoveryProofTree(
 
 		// If file is shorter than expected, proof cannot be recovered.
 		if expectedWidth > width {
-			return nil, nil, fmt.Errorf("layer %d cache file invalid width. expected: %d, found: %d", layer, expectedWidth, width)
+			return nil, nil, fmt.Errorf(
+				"layer %d cache file invalid width. expected: %d, found: %d",
+				layer,
+				expectedWidth,
+				width,
+			)
 		}
 	}
 
@@ -191,6 +199,51 @@ func makeRecoveryProofTree(
 	return treeCache, tree, nil
 }
 
+func sequentialWork(
+	ctx context.Context,
+	labelHashFunc func(data []byte) []byte,
+	tree *merkle.Tree,
+	treeCache *cache.Writer,
+	end time.Time,
+	nextLeafID uint64,
+	securityParam uint8,
+	persist persistFunc,
+) (uint64, error) {
+	makeLabel := shared.MakeLabelFunc()
+
+	finished := time.NewTimer(time.Until(end))
+	defer finished.Stop()
+
+	for {
+		// Generate the next leaf.
+		err := tree.AddLeaf(makeLabel(labelHashFunc, nextLeafID, tree.GetParkedNodes()))
+		if err != nil {
+			return 0, err
+		}
+		nextLeafID++
+
+		select {
+		case <-ctx.Done():
+			if err := persist(ctx, tree, treeCache, nextLeafID); err != nil {
+				return 0, fmt.Errorf("persisting execution state: %w", err)
+			}
+			return nextLeafID, ctx.Err()
+		case <-finished.C:
+			if err := persist(ctx, tree, treeCache, nextLeafID); err != nil {
+				return 0, fmt.Errorf("persisting execution state: %w", err)
+			}
+			return nextLeafID, nil
+		default:
+		}
+
+		if nextLeafID%hardShutdownCheckpointRate == 0 {
+			if err := persist(ctx, tree, treeCache, nextLeafID); err != nil {
+				return 0, err
+			}
+		}
+	}
+}
+
 func generateProof(
 	ctx context.Context,
 	labelHashFunc func(data []byte) []byte,
@@ -201,37 +254,18 @@ func generateProof(
 	securityParam uint8,
 	persist persistFunc,
 ) (uint64, *shared.MerkleProof, error) {
-	makeLabel := shared.MakeLabelFunc()
-	leaves := nextLeafID
-	for leafID := nextLeafID; time.Until(end) > 0; leafID++ {
-		// Handle persistence.
-		select {
-		case <-ctx.Done():
-			if err := persist(ctx, tree, treeCache, leafID); err != nil {
-				return 0, nil, fmt.Errorf("%w: error happened during persisting: %v", ErrShutdownRequested, err)
-			}
-			return 0, nil, ErrShutdownRequested
-		default:
-		}
+	logger := logging.FromContext(ctx)
+	logger.Info("generating proof", zap.Time("end", end), zap.Uint64("nextLeafID", nextLeafID))
 
-		if leafID != 0 && leafID%hardShutdownCheckpointRate == 0 {
-			if err := persist(ctx, tree, treeCache, leafID); err != nil {
-				return 0, nil, err
-			}
-		}
-
-		// Generate the next leaf.
-		err := tree.AddLeaf(makeLabel(labelHashFunc, leafID, tree.GetParkedNodes()))
-		if err != nil {
-			return 0, nil, err
-		}
-		leaves++
+	leaves, err := sequentialWork(ctx, labelHashFunc, tree, treeCache, end, nextLeafID, securityParam, persist)
+	if err != nil {
+		return 0, nil, err
 	}
 
-	logging.FromContext(ctx).Sugar().Infof("Merkle tree construction finished with %d leaves, generating proof...", leaves)
+	logger.Sugar().Infof("merkle tree construction finished with %d leaves, generating proof...", leaves)
 
+	started := time.Now()
 	root := tree.Root()
-
 	cacheReader, err := treeCache.GetReader()
 	if err != nil {
 		return 0, nil, err
@@ -241,6 +275,7 @@ func generateProof(
 	if err != nil {
 		return 0, nil, err
 	}
+	logger.Sugar().Infof("proof generated, it took: %v", time.Since(started))
 
 	return leaves, &shared.MerkleProof{
 		Root:         root,

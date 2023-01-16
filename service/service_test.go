@@ -55,7 +55,9 @@ func TestService_Recovery(t *testing.T) {
 
 	submitChallenges := func(roundID string, challenges []challenge) {
 		for _, challenge := range challenges {
-			verifier.EXPECT().Verify(gomock.Any(), challenge.data, nil).Return(&challenge_verifier.Result{Hash: challenge.data, NodeId: challenge.nodeID}, nil)
+			verifier.EXPECT().
+				Verify(gomock.Any(), challenge.data, nil).
+				Return(&challenge_verifier.Result{Hash: challenge.data, NodeId: challenge.nodeID}, nil)
 			result, err := s.Submit(context.Background(), challenge.data, nil)
 			req.NoError(err)
 			req.Equal(challenge.data, result.Hash)
@@ -164,7 +166,9 @@ func TestNewService(t *testing.T) {
 
 	// Submit challenges.
 	for i := 0; i < len(challenges); i++ {
-		verifier.EXPECT().Verify(gomock.Any(), challenges[i].data, nil).Return(&challenge_verifier.Result{Hash: challenges[i].data, NodeId: challenges[i].nodeID}, nil)
+		verifier.EXPECT().
+			Verify(gomock.Any(), challenges[i].data, nil).
+			Return(&challenge_verifier.Result{Hash: challenges[i].data, NodeId: challenges[i].nodeID}, nil)
 		result, err := s.Submit(context.Background(), challenges[i].data, nil)
 		req.NoError(err)
 		req.Equal(challenges[i].data, result.Hash)
@@ -228,7 +232,10 @@ func TestSubmitIdempotency(t *testing.T) {
 	req.NoError(err)
 
 	verifier := mocks.NewMockVerifier(gomock.NewController(t))
-	verifier.EXPECT().Verify(gomock.Any(), challenge, signature).Times(2).Return(&challenge_verifier.Result{Hash: []byte("hash")}, nil)
+	verifier.EXPECT().
+		Verify(gomock.Any(), challenge, signature).
+		Times(2).
+		Return(&challenge_verifier.Result{Hash: []byte("hash")}, nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

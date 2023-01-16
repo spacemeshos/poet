@@ -134,8 +134,14 @@ func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer uint)
 	return nil
 }
 
-func (r *round) persistExecution(ctx context.Context, tree *merkle.Tree, treeCache *cache.Writer, numLeaves uint64) error {
-	logging.FromContext(ctx).Info("persisting execution state", zap.Uint64("numLeaves", numLeaves), zap.String("round", r.ID))
+func (r *round) persistExecution(
+	ctx context.Context,
+	tree *merkle.Tree,
+	treeCache *cache.Writer,
+	numLeaves uint64,
+) error {
+	logging.FromContext(ctx).
+		Info("persisting execution state", zap.Uint64("numLeaves", numLeaves), zap.String("round", r.ID))
 
 	// Call GetReader() so that the cache would flush and validate structure.
 	if _, err := treeCache.GetReader(); err != nil {
