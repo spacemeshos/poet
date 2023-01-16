@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -20,6 +22,7 @@ import (
 	"github.com/spacemeshos/poet/gateway/challenge_verifier"
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/prover"
+	"github.com/spacemeshos/poet/service/tid"
 	"github.com/spacemeshos/poet/shared"
 )
 
@@ -183,12 +186,17 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 
 	roundResults := make(chan roundResult, 1)
 
+	// file that round's thread ID is written to
+	roundTidFile := path.Join(s.datadir, "round.tid")
+
 	// Resume recovered rounds
 	for _, round := range roundsToResume {
 		round := round
 		s.executingRounds[round.ID] = struct{}{}
 		end := s.roundEndTime(round)
 		eg.Go(func() error {
+			unlock := lockOSThread(ctx, roundTidFile)
+			defer unlock()
 			err := round.recoverExecution(ctx, end)
 			if err := round.teardown(err == nil); err != nil {
 				logger.Warn("round teardown failed", zap.Error(err))
@@ -223,6 +231,8 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 			end := s.roundEndTime(round)
 			minMemoryLayer := s.minMemoryLayer
 			eg.Go(func() error {
+				unlock := lockOSThread(ctx, roundTidFile)
+				defer unlock()
 				err := round.execute(ctx, end, minMemoryLayer)
 				if err := round.teardown(err == nil); err != nil {
 					logger.Warn("round teardown failed", zap.Error(err))
@@ -242,6 +252,20 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 			return nil
 		}
 	}
+}
+
+// lockOSThread:
+// - locks current goroutine to OS thread,
+// - writes the current TID to `tidFile`.
+// The caller must call the returned `unlock` to unlock OS thread.
+func lockOSThread(ctx context.Context, tidFile string) (unlock func()) {
+	runtime.LockOSThread()
+
+	if err := os.WriteFile(tidFile, []byte(strconv.Itoa(tid.Gettid())), os.ModePerm); err != nil {
+		logging.FromContext(ctx).Warn("failed to write goroutine thread id to file", zap.Error(err))
+	}
+
+	return runtime.UnlockOSThread
 }
 
 func (s *Service) roundStartTime(round *round) time.Time {
