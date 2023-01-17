@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/merkle-tree/cache"
 	"go.uber.org/zap"
@@ -28,6 +29,9 @@ const (
 	// The rate, in leaves, in which the proof generation state snapshot will be saved to disk
 	// to allow potential crash recovery.
 	hardShutdownCheckpointRate = 1 << 24
+
+	// Update Prometheus leaves counter every N leaves.
+	leavesCounterUpdateRate = 1_000_000
 )
 
 type persistFunc func(ctx context.Context, tree *merkle.Tree, treeCache *cache.Writer, nextLeafId uint64) error
@@ -214,6 +218,18 @@ func sequentialWork(
 	finished := time.NewTimer(time.Until(end))
 	defer finished.Stop()
 
+	leavesCounter := prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "poet_leaves",
+		Help: "Number of generated leaves",
+	})
+	leavesCounter.Add(float64(nextLeafID))
+	lastCounterUpdate := nextLeafID
+
+	if err := prometheus.Register(leavesCounter); err != nil {
+		logging.FromContext(ctx).Error("failed to register prometheus leaves counter", zap.Error(err))
+	}
+	defer prometheus.Unregister(leavesCounter)
+
 	for {
 		// Generate the next leaf.
 		err := tree.AddLeaf(makeLabel(labelHashFunc, nextLeafID, tree.GetParkedNodes()))
@@ -221,6 +237,10 @@ func sequentialWork(
 			return 0, err
 		}
 		nextLeafID++
+		if nextLeafID%leavesCounterUpdateRate == 0 {
+			leavesCounter.Add(float64(nextLeafID - lastCounterUpdate))
+			lastCounterUpdate = nextLeafID
+		}
 
 		select {
 		case <-ctx.Done():
