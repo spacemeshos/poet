@@ -55,17 +55,17 @@ type coreServiceConfig struct {
 // See loadConfig for further details regarding the
 // configuration loading+parsing process.
 type Config struct {
-	PoetDir         string  `long:"poetdir"                description:"The base directory that contains poet's data, logs, configuration file, etc."`
-	ConfigFile      string  `long:"configfile"             description:"Path to configuration file"                                                   short:"c"`
-	DataDir         string  `long:"datadir"                description:"The directory to store poet's data within"                                    short:"b"`
-	LogDir          string  `long:"logdir"                 description:"Directory to log output."`
-	DebugLog        bool    `long:"debuglog"               description:"Enable debug logs"`
-	JSONLog         bool    `long:"jsonlog"                description:"Whether to log in JSON format"`
-	MaxLogFiles     int     `long:"maxlogfiles"            description:"Maximum logfiles to keep (0 for no rotation)"`
-	MaxLogFileSize  int     `long:"maxlogfilesize"         description:"Maximum logfile size in MB"`
-	RawRPCListener  string  `long:"rpclisten"              description:"The interface/port/socket to listen for RPC connections"                      short:"r"`
-	RawRESTListener string  `long:"restlisten"             description:"The interface/port/socket to listen for REST connections"                     short:"w"`
-	MetricsPort     *uint16 `long:"metrics-port"           description:"The port to expose metrics"`
+	PoetDir         string  `long:"poetdir"        description:"The base directory that contains poet's data, logs, configuration file, etc."`
+	ConfigFile      string  `long:"configfile"     description:"Path to configuration file"                                                   short:"c"`
+	DataDir         string  `long:"datadir"        description:"The directory to store poet's data within"                                    short:"b"`
+	LogDir          string  `long:"logdir"         description:"Directory to log output."`
+	DebugLog        bool    `long:"debuglog"       description:"Enable debug logs"`
+	JSONLog         bool    `long:"jsonlog"        description:"Whether to log in JSON format"`
+	MaxLogFiles     int     `long:"maxlogfiles"    description:"Maximum logfiles to keep (0 for no rotation)"`
+	MaxLogFileSize  int     `long:"maxlogfilesize" description:"Maximum logfile size in MB"`
+	RawRPCListener  string  `long:"rpclisten"      description:"The interface/port/socket to listen for RPC connections"                      short:"r"`
+	RawRESTListener string  `long:"restlisten"     description:"The interface/port/socket to listen for REST connections"                     short:"w"`
+	MetricsPort     *uint16 `long:"metrics-port"   description:"The port to expose metrics"`
 
 	RPCListener    net.Addr
 	RESTListener   net.Addr
