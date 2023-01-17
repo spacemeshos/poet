@@ -17,6 +17,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/jessevdk/go-flags"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 
 	"github.com/spacemeshos/poet/config"
@@ -78,6 +79,21 @@ func poetMain() (err error) {
 	logger.Sugar().
 		Infof("version: %s, dir: %v, datadir: %v, genesis: %v", version, cfg.PoetDir, cfg.DataDir, cfg.Service.Genesis)
 
+	if cfg.MetricsPort != nil {
+		// Start Prometheus
+		lis, err := net.Listen("tcp", fmt.Sprintf(":%v", *cfg.MetricsPort))
+		if err != nil {
+			return err
+		}
+		logger.Info("spawning Prometheus", zap.String("endpoint", fmt.Sprintf("http://%s", lis.Addr().String())))
+		go func() {
+			mux := http.NewServeMux()
+			mux.Handle("/metrics", promhttp.Handler())
+			server := &http.Server{Handler: mux, ReadHeaderTimeout: time.Second * 5}
+			err := server.Serve(lis)
+			logger.With().Info("Metrics server stopped", zap.Error(err))
+		}()
+	}
 	// Enable http profiling server if requested.
 	if cfg.Profile != "" {
 		logger.Sugar().Info("starting HTTP profiling on port %v", cfg.Profile)
