@@ -221,7 +221,7 @@ func TestSubmitIdempotency(t *testing.T) {
 	req := require.New(t)
 	cfg := service.Config{
 		Genesis:       time.Now().Add(time.Second).Format(time.RFC3339),
-		EpochDuration: time.Second,
+		EpochDuration: time.Hour,
 		PhaseShift:    time.Second / 2,
 		CycleGap:      time.Second / 4,
 	}
