@@ -14,7 +14,11 @@ import (
 
 	"github.com/spacemeshos/poet/gateway/challenge_verifier"
 	"github.com/spacemeshos/poet/gateway/challenge_verifier/mocks"
+	"github.com/spacemeshos/poet/hash"
+	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/service"
+	"github.com/spacemeshos/poet/shared"
+	"github.com/spacemeshos/poet/verifier"
 )
 
 type challenge struct {
@@ -31,7 +35,7 @@ func TestService_Recovery(t *testing.T) {
 	}
 
 	ctrl := gomock.NewController(t)
-	verifier := mocks.NewMockVerifier(ctrl)
+	challengeVerifier := mocks.NewMockVerifier(ctrl)
 	tempdir := t.TempDir()
 
 	// Generate groups of random challenges.
@@ -55,7 +59,7 @@ func TestService_Recovery(t *testing.T) {
 
 	submitChallenges := func(roundID string, challenges []challenge) {
 		for _, challenge := range challenges {
-			verifier.EXPECT().
+			challengeVerifier.EXPECT().
 				Verify(gomock.Any(), challenge.data, nil).
 				Return(&challenge_verifier.Result{Hash: challenge.data, NodeId: challenge.nodeID}, nil)
 			result, err := s.Submit(context.Background(), challenge.data, nil)
@@ -69,7 +73,7 @@ func TestService_Recovery(t *testing.T) {
 	defer cancel()
 	var eg errgroup.Group
 	eg.Go(func() error { return s.Run(ctx) })
-	req.NoError(s.Start(context.Background(), verifier))
+	req.NoError(s.Start(context.Background(), challengeVerifier))
 
 	// Submit challenges to open round (0).
 	submitChallenges("0", challengeGroups[0])
@@ -104,7 +108,7 @@ func TestService_Recovery(t *testing.T) {
 	req.Contains(info.ExecutingRoundsIds, "0")
 	req.Equal([]string{"0"}, info.ExecutingRoundsIds)
 
-	req.NoError(s.Start(context.Background(), verifier))
+	req.NoError(s.Start(context.Background(), challengeVerifier))
 	// Wait for round 2 to open
 	req.Eventually(func() bool {
 		info, err := s.Info(context.Background())
@@ -122,6 +126,18 @@ func TestService_Recovery(t *testing.T) {
 		for _, ch := range challengeGroups[i] {
 			req.Contains(proof.Members, ch.data, "round: %v, i: %d", proof.RoundID, i)
 		}
+
+		challenge, err := prover.CalcTreeRoot(proof.Members)
+		req.NoError(err)
+
+		err = verifier.Validate(
+			proof.MerkleProof,
+			hash.GenLabelHashFunc(challenge),
+			hash.GenMerkleHashFunc(challenge),
+			proof.NumLeaves,
+			shared.T,
+		)
+		req.NoError(err)
 	}
 
 	cancel()
@@ -140,13 +156,13 @@ func TestNewService(t *testing.T) {
 	s, err := service.NewService(context.Background(), cfg, tempdir)
 	req.NoError(err)
 	ctrl := gomock.NewController(t)
-	verifier := mocks.NewMockVerifier(ctrl)
+	challengeVerifier := mocks.NewMockVerifier(ctrl)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var eg errgroup.Group
 	eg.Go(func() error { return s.Run(ctx) })
-	req.NoError(s.Start(context.Background(), verifier))
+	req.NoError(s.Start(context.Background(), challengeVerifier))
 
 	challengesCount := 8
 	challenges := make([]challenge, challengesCount)
@@ -166,7 +182,7 @@ func TestNewService(t *testing.T) {
 
 	// Submit challenges.
 	for i := 0; i < len(challenges); i++ {
-		verifier.EXPECT().
+		challengeVerifier.EXPECT().
 			Verify(gomock.Any(), challenges[i].data, nil).
 			Return(&challenge_verifier.Result{Hash: challenges[i].data, NodeId: challenges[i].nodeID}, nil)
 		result, err := s.Submit(context.Background(), challenges[i].data, nil)
@@ -212,6 +228,18 @@ func TestNewService(t *testing.T) {
 	for _, ch := range challenges {
 		req.Contains(proof.Members, ch.data)
 	}
+
+	challenge, err := prover.CalcTreeRoot(proof.Members)
+	req.NoError(err)
+
+	err = verifier.Validate(
+		proof.MerkleProof,
+		hash.GenLabelHashFunc(challenge),
+		hash.GenMerkleHashFunc(challenge),
+		proof.NumLeaves,
+		shared.T,
+	)
+	req.NoError(err)
 
 	cancel()
 	req.NoError(eg.Wait())
