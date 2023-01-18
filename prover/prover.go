@@ -44,7 +44,7 @@ func GenerateProof(
 	ctx context.Context,
 	datadir string,
 	labelHashFunc func(data []byte) []byte,
-	merkleHashFunc func(lChild, rChild []byte) []byte,
+	merkleHashFunc merkle.HashFunc,
 	limit time.Time,
 	securityParam uint8,
 	minMemoryLayer uint,
@@ -64,7 +64,7 @@ func GenerateProofRecovery(
 	ctx context.Context,
 	datadir string,
 	labelHashFunc func(data []byte) []byte,
-	merkleHashFunc func(lChild, rChild []byte) []byte,
+	merkleHashFunc merkle.HashFunc,
 	limit time.Time,
 	securityParam uint8,
 	nextLeafID uint64,
@@ -86,7 +86,7 @@ func GenerateProofWithoutPersistency(
 	ctx context.Context,
 	datadir string,
 	labelHashFunc func(data []byte) []byte,
-	merkleHashFunc func(lChild, rChild []byte) []byte,
+	merkleHashFunc merkle.HashFunc,
 	limit time.Time,
 	securityParam uint8,
 	minMemoryLayer uint,
@@ -96,7 +96,7 @@ func GenerateProofWithoutPersistency(
 
 func makeProofTree(
 	datadir string,
-	merkleHashFunc func(lChild, rChild []byte) []byte,
+	merkleHashFunc merkle.HashFunc,
 	minMemoryLayer uint,
 ) (*merkle.Tree, *cache.Writer, error) {
 	metaFactory := NewReadWriterMetaFactory(minMemoryLayer, datadir)
@@ -119,7 +119,7 @@ func makeProofTree(
 func makeRecoveryProofTree(
 	ctx context.Context,
 	datadir string,
-	merkleHashFunc func(lChild, rChild []byte) []byte,
+	merkleHashFunc merkle.HashFunc,
 	nextLeafID uint64,
 	parkedNodes [][]byte,
 ) (*cache.Writer, *merkle.Tree, error) {
@@ -213,6 +213,7 @@ func sequentialWork(
 	securityParam uint8,
 	persist persistFunc,
 ) (uint64, error) {
+	var parkedNodes [][]byte
 	makeLabel := shared.MakeLabelFunc()
 
 	finished := time.NewTimer(time.Until(end))
@@ -232,7 +233,8 @@ func sequentialWork(
 
 	for {
 		// Generate the next leaf.
-		err := tree.AddLeaf(makeLabel(labelHashFunc, nextLeafID, tree.GetParkedNodes()))
+		parkedNodes = tree.GetParkedNodes(parkedNodes[:0])
+		err := tree.AddLeaf(makeLabel(labelHashFunc, nextLeafID, parkedNodes))
 		if err != nil {
 			return 0, err
 		}
