@@ -15,11 +15,6 @@ import (
 	"github.com/spacemeshos/poet/verifier"
 )
 
-const (
-	cpuProfFilePath = "./cpu.prof"
-	memProfFilePath = "./mem.prof"
-)
-
 func main() {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
@@ -30,9 +25,9 @@ func main() {
 	}
 
 	// Enable cpu profiling
-	if cfg.CPU {
-		fmt.Printf("CPU profile: %s\n", cpuProfFilePath)
-		f, err := os.Create(cpuProfFilePath)
+	if cfg.CpuProfile != nil {
+		fmt.Printf("Starting CPU profile: %s\n", *cfg.CpuProfile)
+		f, err := os.Create(*cfg.CpuProfile)
 		if err != nil {
 			log.Fatal("could not create CPU profile: ", err)
 		}
@@ -41,8 +36,6 @@ func main() {
 		}
 		defer pprof.StopCPUProfile()
 		defer func() { _ = f.Close() }()
-		defer println("closed proifiling")
-		println("Cpu profiling enabled and started...")
 	}
 
 	challenge := []byte("1234567890abcdefghij")
@@ -65,15 +58,17 @@ func main() {
 		panic(fmt.Sprintf("failed to generate proof: %v", err))
 	}
 
-	fmt.Printf("Memory profile: %s\n", memProfFilePath)
-	f, err := os.Create(memProfFilePath)
-	if err != nil {
-		log.Fatal("could not create memory profile: ", err)
-	}
-	defer func() { _ = f.Close() }()
-	runtime.GC() // get up-to-date statistics
-	if err := pprof.WriteHeapProfile(f); err != nil {
-		log.Fatal("could not write memory profile: ", err)
+	if cfg.Memprofile != nil {
+		fmt.Printf("Collecting memory profile to %s\n", *cfg.Memprofile)
+		f, err := os.Create(*cfg.Memprofile)
+		if err != nil {
+			log.Fatal("could not create memory profile: ", err)
+		}
+		defer func() { _ = f.Close() }()
+		runtime.GC() // get up-to-date statistics
+		if err := pprof.WriteHeapProfile(f); err != nil {
+			log.Fatal("could not write memory profile: ", err)
+		}
 	}
 
 	proofGenDuration := time.Since(proofGenStarted)
