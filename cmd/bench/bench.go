@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"log"
 	"os"
@@ -16,11 +15,9 @@ import (
 	"github.com/spacemeshos/poet/verifier"
 )
 
-const profFilePath = "./CPU.prof"
-
 func main() {
-	runtime.MemProfileRate = 0
-	println("Memory profiling disabled.")
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 
 	cfg, err := loadConfig()
 	if err != nil {
@@ -28,9 +25,9 @@ func main() {
 	}
 
 	// Enable cpu profiling
-	if cfg.CPU {
-		fmt.Printf("CPU profile: %s\n", profFilePath)
-		f, err := os.Create(profFilePath)
+	if cfg.CpuProfile != nil {
+		fmt.Printf("Starting CPU profile: %s\n", *cfg.CpuProfile)
+		f, err := os.Create(*cfg.CpuProfile)
 		if err != nil {
 			log.Fatal("could not create CPU profile: ", err)
 		}
@@ -38,22 +35,15 @@ func main() {
 			log.Fatal("could not start CPU profile: ", err)
 		}
 		defer pprof.StopCPUProfile()
-
-		println("Cpu profiling enabled and started...")
+		defer func() { _ = f.Close() }()
 	}
 
-	challenge := make([]byte, 20)
-	_, err = rand.Read(challenge)
-	if err != nil {
-		panic("no entropy")
-	}
-
-	end := time.Now().Add(cfg.Duration)
+	challenge := []byte("1234567890abcdefghij")
 	securityParam := shared.T
 
-	t1 := time.Now()
-	println("Computing dag...")
 	tempdir, _ := os.MkdirTemp("", "poet-test")
+	proofGenStarted := time.Now()
+	end := proofGenStarted.Add(cfg.Duration)
 	leafs, merkleProof, err := prover.GenerateProofWithoutPersistency(
 		context.Background(),
 		tempdir,
@@ -63,15 +53,34 @@ func main() {
 		securityParam,
 		prover.LowestMerkleMinMemoryLayer,
 	)
+	pprof.StopCPUProfile()
 	if err != nil {
-		panic("failed to generate proof")
+		panic(fmt.Sprintf("failed to generate proof: %v", err))
 	}
 
-	e := time.Since(t1)
-	fmt.Printf("Proof from %d leafs generated in %s (%f)\n", leafs, e, e.Seconds())
+	if cfg.Memprofile != nil {
+		fmt.Printf("Collecting memory profile to %s\n", *cfg.Memprofile)
+		f, err := os.Create(*cfg.Memprofile)
+		if err != nil {
+			log.Fatal("could not create memory profile: ", err)
+		}
+		defer func() { _ = f.Close() }()
+		runtime.GC() // get up-to-date statistics
+		if err := pprof.WriteHeapProfile(f); err != nil {
+			log.Fatal("could not write memory profile: ", err)
+		}
+	}
+
+	proofGenDuration := time.Since(proofGenStarted)
+	fmt.Printf(
+		"Proof with %d leafs generated in %s (%d/s)\n",
+		leafs,
+		proofGenDuration,
+		leafs/uint64(proofGenDuration.Seconds()),
+	)
 	fmt.Printf("Dag root label: %x\n", merkleProof.Root)
 
-	t1 = time.Now()
+	proofValidStarted := time.Now()
 	err = verifier.Validate(
 		*merkleProof,
 		hash.GenLabelHashFunc(challenge),
@@ -80,9 +89,9 @@ func main() {
 		securityParam,
 	)
 	if err != nil {
-		panic("Failed to verify nip")
+		panic(fmt.Sprintf("Failed to verify nip: %v", err))
 	}
 
-	e = time.Since(t1)
-	fmt.Printf("Proof verified in %s (%f)\n", e, e.Seconds())
+	proofValidDuration := time.Since(proofValidStarted)
+	fmt.Printf("Proof verified in %s\n", proofValidDuration)
 }
