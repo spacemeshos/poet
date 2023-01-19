@@ -172,7 +172,7 @@ func TestRound_Submit(t *testing.T) {
 		req.NoError(err)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*10)
 		defer cancel()
-		err = round.execute(ctx, time.Now().Add(time.Hour), 1)
+		err = round.execute(ctx, time.Now().Add(time.Hour), 1, 0)
 		req.ErrorIs(err, context.DeadlineExceeded)
 
 		// Act
@@ -195,7 +195,7 @@ func TestRound_Execute(t *testing.T) {
 	req.NoError(round.submit([]byte("key"), challenge))
 
 	// Act
-	req.NoError(round.execute(context.Background(), time.Now().Add(100*time.Millisecond), 1))
+	req.NoError(round.execute(context.Background(), time.Now().Add(100*time.Millisecond), 1, 0))
 
 	// Verify
 	req.Equal(shared.T, round.execution.SecurityParam)
@@ -238,7 +238,7 @@ func TestRound_StateRecovery(t *testing.T) {
 		req.NoError(round.submit([]byte("key"), challenge))
 		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*10)
 		defer cancel()
-		req.ErrorIs(round.execute(ctx, time.Now().Add(time.Hour), 1), context.DeadlineExceeded)
+		req.ErrorIs(round.execute(ctx, time.Now().Add(time.Hour), 1, 0), context.DeadlineExceeded)
 		req.NoError(round.teardown(false))
 
 		// Act
@@ -281,7 +281,7 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 		ctx, stop := context.WithTimeout(context.Background(), 10*time.Millisecond)
 		defer stop()
 		req.ErrorIs(
-			round.execute(ctx, time.Now().Add(time.Hour), 1),
+			round.execute(ctx, time.Now().Add(time.Hour), 1, 0),
 			context.DeadlineExceeded,
 		)
 		req.NoError(round.teardown(false))
@@ -296,7 +296,7 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 
 		ctx, stop := context.WithTimeout(context.Background(), 10*time.Millisecond)
 		defer stop()
-		req.ErrorIs(round.recoverExecution(ctx, time.Now().Add(time.Hour)), context.DeadlineExceeded)
+		req.ErrorIs(round.recoverExecution(ctx, time.Now().Add(time.Hour), 0), context.DeadlineExceeded)
 		req.NoError(round.teardown(false))
 	}
 
@@ -307,7 +307,7 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 		req.Equal(len(challenges), numChallenges(round))
 		req.NoError(round.loadState())
 
-		req.NoError(round.recoverExecution(context.Background(), time.Now().Add(100*time.Millisecond)))
+		req.NoError(round.recoverExecution(context.Background(), time.Now().Add(100*time.Millisecond), 0))
 		validateProof(t, round.execution)
 		req.NoError(round.teardown(true))
 	}

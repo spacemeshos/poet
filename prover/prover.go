@@ -31,6 +31,12 @@ const (
 	hardShutdownCheckpointRate = 1 << 24
 )
 
+type TreeConfig struct {
+	MinMemoryLayer    uint
+	Datadir           string
+	FileWriterBufSize uint
+}
+
 type persistFunc func(ctx context.Context, tree *merkle.Tree, treeCache *cache.Writer, nextLeafId uint64) error
 
 var persist persistFunc = func(context.Context, *merkle.Tree, *cache.Writer, uint64) error { return nil }
@@ -39,15 +45,14 @@ var persist persistFunc = func(context.Context, *merkle.Tree, *cache.Writer, uin
 // Merkle proof using the challenge and the DAG.
 func GenerateProof(
 	ctx context.Context,
-	datadir string,
+	treeCfg TreeConfig,
 	labelHashFunc func(data []byte) []byte,
 	merkleHashFunc merkle.HashFunc,
 	limit time.Time,
 	securityParam uint8,
-	minMemoryLayer uint,
 	persist persistFunc,
 ) (uint64, *shared.MerkleProof, error) {
-	tree, treeCache, err := makeProofTree(datadir, merkleHashFunc, minMemoryLayer)
+	tree, treeCache, err := makeProofTree(treeCfg, merkleHashFunc)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -59,7 +64,7 @@ func GenerateProof(
 // GenerateProofRecovery recovers proof generation, from a given 'nextLeafID' and for a given 'parkedNodes' snapshot.
 func GenerateProofRecovery(
 	ctx context.Context,
-	datadir string,
+	treeCfg TreeConfig,
 	labelHashFunc func(data []byte) []byte,
 	merkleHashFunc merkle.HashFunc,
 	limit time.Time,
@@ -68,7 +73,7 @@ func GenerateProofRecovery(
 	parkedNodes [][]byte,
 	persist persistFunc,
 ) (uint64, *shared.MerkleProof, error) {
-	treeCache, tree, err := makeRecoveryProofTree(ctx, datadir, merkleHashFunc, nextLeafID, parkedNodes)
+	treeCache, tree, err := makeRecoveryProofTree(ctx, treeCfg, merkleHashFunc, nextLeafID, parkedNodes)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -81,22 +86,20 @@ func GenerateProofRecovery(
 // and potential soft/hard-shutdown recovery.
 func GenerateProofWithoutPersistency(
 	ctx context.Context,
-	datadir string,
+	treeCfg TreeConfig,
 	labelHashFunc func(data []byte) []byte,
 	merkleHashFunc merkle.HashFunc,
 	limit time.Time,
 	securityParam uint8,
-	minMemoryLayer uint,
 ) (uint64, *shared.MerkleProof, error) {
-	return GenerateProof(ctx, datadir, labelHashFunc, merkleHashFunc, limit, securityParam, minMemoryLayer, persist)
+	return GenerateProof(ctx, treeCfg, labelHashFunc, merkleHashFunc, limit, securityParam, persist)
 }
 
-func makeProofTree(
-	datadir string,
-	merkleHashFunc merkle.HashFunc,
-	minMemoryLayer uint,
-) (*merkle.Tree, *cache.Writer, error) {
-	metaFactory := NewReadWriterMetaFactory(minMemoryLayer, datadir)
+func makeProofTree(treeCfg TreeConfig, merkleHashFunc merkle.HashFunc) (*merkle.Tree, *cache.Writer, error) {
+	if treeCfg.MinMemoryLayer < LowestMerkleMinMemoryLayer {
+		treeCfg.MinMemoryLayer = LowestMerkleMinMemoryLayer
+	}
+	metaFactory := NewReadWriterMetaFactory(treeCfg.MinMemoryLayer, treeCfg.Datadir, treeCfg.FileWriterBufSize)
 
 	treeCache := cache.NewWriter(
 		cache.Combine(
@@ -115,16 +118,16 @@ func makeProofTree(
 
 func makeRecoveryProofTree(
 	ctx context.Context,
-	datadir string,
+	treeCfg TreeConfig,
 	merkleHashFunc merkle.HashFunc,
 	nextLeafID uint64,
 	parkedNodes [][]byte,
 ) (*cache.Writer, *merkle.Tree, error) {
 	// Don't use memory cache. Just utilize the existing files cache.
 	maxUint := ^uint(0)
-	layerFactory := NewReadWriterMetaFactory(maxUint, datadir).GetFactory()
+	layerFactory := NewReadWriterMetaFactory(maxUint, treeCfg.Datadir, treeCfg.FileWriterBufSize).GetFactory()
 
-	layersFiles, err := getLayersFiles(datadir)
+	layersFiles, err := getLayersFiles(treeCfg.Datadir)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -153,7 +156,7 @@ func makeRecoveryProofTree(
 
 		// If file is longer than expected, truncate the file.
 		if expectedWidth < width {
-			filename := filepath.Join(datadir, file)
+			filename := filepath.Join(treeCfg.Datadir, file)
 			logging.FromContext(ctx).
 				Warn("Recovery: cache file width is ahead of the last known merkle tree state. Truncating file",
 					zap.String("file", filename),
