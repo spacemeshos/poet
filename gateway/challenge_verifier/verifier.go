@@ -7,7 +7,7 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru"
-	"github.com/minio/sha256-simd"
+	"github.com/spacemeshos/sha256-simd"
 	"go.uber.org/zap"
 
 	"github.com/spacemeshos/poet/logging"

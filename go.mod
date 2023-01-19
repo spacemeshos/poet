@@ -9,13 +9,13 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/golang-lru v0.6.0
 	github.com/jessevdk/go-flags v1.5.0
-	github.com/minio/sha256-simd v1.0.0
 	github.com/nullstyle/go-xdr v0.0.0-20180726165426-f4c839f75077
 	github.com/prometheus/client_golang v1.14.0
 	github.com/segmentio/golines v0.11.0
 	github.com/spacemeshos/api/release/go v1.5.6
 	github.com/spacemeshos/go-scale v1.1.3
 	github.com/spacemeshos/merkle-tree v0.2.0
+	github.com/spacemeshos/sha256-simd v0.1.0
 	github.com/stretchr/testify v1.8.1
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	go.uber.org/zap v1.24.0
@@ -54,6 +54,7 @@ require (
 	github.com/mattn/go-isatty v0.0.10 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b // indirect
+	github.com/minio/sha256-simd v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.16.5 // indirect
 	github.com/onsi/gomega v1.24.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
