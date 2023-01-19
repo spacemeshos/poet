@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/minio/sha256-simd"
+	"github.com/spacemeshos/sha256-simd"
 )
 
 func BenchmarkSha256(t *testing.B) {

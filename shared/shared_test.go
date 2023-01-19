@@ -101,3 +101,9 @@ func FuzzMerkleProofConsistency(f *testing.F) {
 func FuzzMerkleProofSafety(f *testing.F) {
 	tester.FuzzSafety[MerkleProof](f)
 }
+
+func BenchmarkFiatShamir(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		FiatShamir([]byte("challenge this"), uint64(30000000000), T)
+	}
+}
