@@ -52,10 +52,10 @@ GOVULNCHECK := $(GOBIN)/govulncheck
 GOLINES := $(GOBIN)/golines
 
 $(GOVULNCHECK):
-	@go install golang.org/x/vuln/cmd/govulncheck
+	@go install golang.org/x/vuln/cmd/govulncheck@latest
 
 $(GOLINES):
-	@go install github.com/segmentio/golines
+	@go install github.com/segmentio/golines@v0.11.0
 
 $(BIN_DIR)/mockgen:
 	go install github.com/golang/mock/mockgen@v1.6.0
@@ -79,11 +79,10 @@ endif
 
 # Download protoc plugins
 protoc-plugins:
-	@go install \
-		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
-		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2 \
-		google.golang.org/protobuf/cmd/protoc-gen-go \
-		google.golang.org/grpc/cmd/protoc-gen-go-grpc
+	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@v2.15.0
+	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@v2.15.0
+	@go install google.golang.org/protobuf/cmd/protoc-gen-go@b0a9446
+	@go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2.0
 .PHONY: protoc-plugins
 
 all: build
