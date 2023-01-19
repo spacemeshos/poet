@@ -149,7 +149,7 @@ func (r *round) persistExecution(
 	}
 
 	r.execution.NumLeaves = numLeaves
-	r.execution.ParkedNodes = tree.GetParkedNodes()
+	r.execution.ParkedNodes = tree.GetParkedNodes(r.execution.ParkedNodes[:0])
 	if err := r.saveState(); err != nil {
 		return err
 	}

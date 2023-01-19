@@ -29,11 +29,11 @@ func TestGenMerkleHashFunc(t *testing.T) {
 	lChild, rChild := []byte("l"), []byte("r")
 
 	// same challenge and children -> same hash
-	r.Equal(GenMerkleHashFunc(aChallenge)(lChild, rChild), GenMerkleHashFunc(aChallenge)(lChild, rChild))
+	r.Equal(GenMerkleHashFunc(aChallenge)(nil, lChild, rChild), GenMerkleHashFunc(aChallenge)(nil, lChild, rChild))
 
 	// different challenge -> different hash
-	r.NotEqual(GenMerkleHashFunc(aChallenge)(lChild, rChild), GenMerkleHashFunc(bChallenge)(lChild, rChild))
+	r.NotEqual(GenMerkleHashFunc(aChallenge)(nil, lChild, rChild), GenMerkleHashFunc(bChallenge)(nil, lChild, rChild))
 
 	// different children (e.g. different order) -> different hash
-	r.NotEqual(GenMerkleHashFunc(aChallenge)(lChild, rChild), GenMerkleHashFunc(aChallenge)(rChild, lChild))
+	r.NotEqual(GenMerkleHashFunc(aChallenge)(nil, lChild, rChild), GenMerkleHashFunc(aChallenge)(nil, rChild, lChild))
 }

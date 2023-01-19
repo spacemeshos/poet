@@ -39,7 +39,7 @@ func (mf *ReadWriterMetaFactory) GetFactory() cache.LayerFactory {
 				return nil, err
 			}
 
-			readWriter, err := readwriters.NewFileReadWriter(fileName)
+			readWriter, err := readwriters.NewFileReadWriter(fileName, 4096)
 			if err != nil {
 				return nil, err
 			}
