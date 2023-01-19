@@ -5,12 +5,10 @@ package server_test
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
 	pb "github.com/spacemeshos/api/release/go/spacemesh/v1"
-	"github.com/spacemeshos/merkle-tree"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
@@ -20,6 +18,7 @@ import (
 	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/gateway"
 	"github.com/spacemeshos/poet/hash"
+	"github.com/spacemeshos/poet/prover"
 	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
 	"github.com/spacemeshos/poet/server"
 	"github.com/spacemeshos/poet/shared"
@@ -159,7 +158,7 @@ func TestSubmitAndGetProof(t *testing.T) {
 		ProofNodes:   proof.Proof.Proof.ProofNodes,
 	}
 
-	root, err := calcRoot(proof.Proof.Members)
+	root, err := prover.CalcTreeRoot(proof.Proof.Members)
 	req.NoError(err)
 
 	labelHashFunc := hash.GenLabelHashFunc(root)
@@ -167,18 +166,4 @@ func TestSubmitAndGetProof(t *testing.T) {
 	req.NoError(verifier.Validate(merkleProof, labelHashFunc, merkleHashFunc, proof.Proof.Leaves, shared.T))
 
 	req.NoError(eg.Wait())
-}
-
-func calcRoot(leaves [][]byte) ([]byte, error) {
-	tree, err := merkle.NewTree()
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate tree: %w", err)
-	}
-	for _, member := range leaves {
-		err := tree.AddLeaf(member)
-		if err != nil {
-			return nil, fmt.Errorf("failed to add leaf: %w", err)
-		}
-	}
-	return tree.Root(), nil
 }
