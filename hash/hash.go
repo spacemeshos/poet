@@ -8,7 +8,7 @@ import (
 )
 
 // LabelHashNestingDepth is the number of recursive hashes per label.
-const LabelHashNestingDepth = 100
+const LabelHashNestingDepth = 400
 
 // GenMerkleHashFunc generates Merkle hash functions salted with a challenge. The challenge is prepended to the
 // concatenation of the left- and right-child in the tree and the result is hashed using Sha256.
