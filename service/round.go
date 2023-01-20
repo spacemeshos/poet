@@ -66,6 +66,7 @@ func newRound(datadir string, epoch uint32) (*round, error) {
 
 	db, err := leveldb.OpenFile(filepath.Join(datadir, "challengesDb"), nil)
 	if err != nil {
+		_ = os.RemoveAll(datadir)
 		return nil, err
 	}
 
@@ -258,12 +259,7 @@ func (r *round) teardown(cleanup bool) error {
 	}
 
 	if cleanup {
-		if err := os.RemoveAll(r.datadir); err != nil {
-			return err
-		}
-	} else {
-		return r.saveState()
+		return os.RemoveAll(r.datadir)
 	}
-
-	return nil
+	return r.saveState()
 }
