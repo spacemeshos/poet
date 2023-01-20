@@ -230,6 +230,7 @@ func TestRound_StateRecovery(t *testing.T) {
 		t.Parallel()
 		// Arrange
 		round, err := newRound(t.TempDir(), 0)
+		t.Cleanup(func() { assert.NoError(t, round.teardown(false)) })
 		req.NoError(err)
 		req.NoError(round.saveState())
 
