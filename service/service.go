@@ -7,7 +7,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -20,6 +22,7 @@ import (
 	"github.com/spacemeshos/poet/gateway/challenge_verifier"
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/prover"
+	"github.com/spacemeshos/poet/service/tid"
 	"github.com/spacemeshos/poet/shared"
 )
 
@@ -31,15 +34,15 @@ type RoundData struct {
 }
 
 type Config struct {
-	Genesis           string        `long:"genesis-time" description:"Genesis timestamp"`
+	Genesis           string        `long:"genesis-time"   description:"Genesis timestamp"`
 	EpochDuration     time.Duration `long:"epoch-duration" description:"Epoch duration"`
 	PhaseShift        time.Duration `long:"phase-shift"`
 	CycleGap          time.Duration `long:"cycle-gap"`
-	MemoryLayers      uint          `long:"memory" description:"Number of top Merkle tree layers to cache in-memory"`
-	NoRecovery        bool          `long:"norecovery" description:"whether to disable a potential recovery procedure"`
-	Reset             bool          `long:"reset" description:"whether to reset the service state by deleting the datadir"`
-	GatewayAddresses  []string      `long:"gateway" description:"addresses of Spacemesh gateway nodes"`
-	ConnAcksThreshold uint          `long:"conn-acks" description:"number of required successful connections to Spacemesh gateway nodes"`
+	MemoryLayers      uint          `long:"memory"         description:"Number of top Merkle tree layers to cache in-memory"`
+	NoRecovery        bool          `long:"norecovery"     description:"whether to disable a potential recovery procedure"`
+	Reset             bool          `long:"reset"          description:"whether to reset the service state by deleting the datadir"`
+	GatewayAddresses  []string      `long:"gateway"        description:"addresses of Spacemesh gateway nodes"`
+	ConnAcksThreshold uint          `long:"conn-acks"      description:"number of required successful connections to Spacemesh gateway nodes"`
 }
 
 // estimatedLeavesPerSecond is used to computed estimated height of the proving tree
@@ -86,12 +89,6 @@ type InfoResponse struct {
 	ExecutingRoundsIds []string
 }
 
-type PoetProof struct {
-	N         uint
-	Statement []byte
-	Proof     *shared.MerkleProof
-}
-
 var (
 	ErrNotStarted                = errors.New("service not started")
 	ErrAlreadyStarted            = errors.New("already started")
@@ -106,13 +103,15 @@ func NewService(ctx context.Context, cfg *Config, datadir string) (*Service, err
 	if err != nil {
 		return nil, err
 	}
-	minMemoryLayer := int(mshared.RootHeightFromWidth(
-		uint64(cfg.EpochDuration.Seconds()*estimatedLeavesPerSecond),
-	)) - int(cfg.MemoryLayers)
+	minMemoryLayer := int(
+		mshared.RootHeightFromWidth(uint64(cfg.EpochDuration.Seconds()*estimatedLeavesPerSecond)),
+	) - int(cfg.MemoryLayers)
 	if minMemoryLayer < prover.LowestMerkleMinMemoryLayer {
 		minMemoryLayer = prover.LowestMerkleMinMemoryLayer
 	}
-	logging.FromContext(ctx).Sugar().Infof("creating poet service. min memory layer: %v. genesis: %s", minMemoryLayer, cfg.Genesis)
+	logging.FromContext(ctx).
+		Sugar().
+		Infof("creating poet service. min memory layer: %v. genesis: %s", minMemoryLayer, cfg.Genesis)
 
 	if cfg.Reset {
 		entries, err := os.ReadDir(datadir)
@@ -200,13 +199,18 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 
 	roundResults := make(chan roundResult, 1)
 
+	// file that round's thread ID is written to
+	roundTidFile := path.Join(s.datadir, "round.tid")
+
 	// Resume recovered rounds
 	for _, round := range roundsToResume {
 		round := round
 		s.executingRounds[round.ID] = struct{}{}
 		end := s.roundEndTime(round)
 		eg.Go(func() error {
-			err := round.recoverExecution(ctx, round.stateCache.Execution, end)
+			unlock := lockOSThread(ctx, roundTidFile)
+			defer unlock()
+			err := round.recoverExecution(ctx, end)
 			if err := round.teardown(err == nil); err != nil {
 				logger.Warn("round teardown failed", zap.Error(err))
 			}
@@ -250,6 +254,8 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 
 			minMemoryLayer := s.minMemoryLayer
 			eg.Go(func() error {
+				unlock := lockOSThread(ctx, roundTidFile)
+				defer unlock()
 				err := round.execute(ctx, end, minMemoryLayer)
 				if err := round.teardown(err == nil); err != nil {
 					logger.Warn("round teardown failed", zap.Error(err))
@@ -263,10 +269,26 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 
 		case <-ctx.Done():
 			logger.Info("service shutting down")
-			s.openRound.teardown(false)
+			if err := s.openRound.teardown(false); err != nil {
+				return fmt.Errorf("tearing down open round: %w", err)
+			}
 			return nil
 		}
 	}
+}
+
+// lockOSThread:
+// - locks current goroutine to OS thread,
+// - writes the current TID to `tidFile`.
+// The caller must call the returned `unlock` to unlock OS thread.
+func lockOSThread(ctx context.Context, tidFile string) (unlock func()) {
+	runtime.LockOSThread()
+
+	if err := os.WriteFile(tidFile, []byte(strconv.Itoa(tid.Gettid())), os.ModePerm); err != nil {
+		logging.FromContext(ctx).Warn("failed to write goroutine thread id to file", zap.Error(err))
+	}
+
+	return runtime.UnlockOSThread
 }
 
 func (s *Service) roundStartTime(round *round) time.Time {
@@ -281,7 +303,8 @@ func (s *Service) scheduleRound(ctx context.Context, round *round) <-chan time.T
 	waitTime := time.Until(s.roundStartTime(round))
 	timer := time.After(waitTime)
 	if waitTime > 0 {
-		logging.FromContext(ctx).Info("waiting for execution to start", zap.Duration("wait time", waitTime), zap.String("round", round.ID))
+		logging.FromContext(ctx).
+			Info("waiting for execution to start", zap.Duration("wait time", waitTime), zap.String("round", round.ID))
 	}
 	return timer
 }
@@ -352,22 +375,18 @@ func (s *Service) recover(ctx context.Context) (open *round, executing []*round,
 			return nil, nil, fmt.Errorf("failed to create round: %w", err)
 		}
 
-		state, err := r.state()
+		err = r.loadState()
 		if err != nil {
 			return nil, nil, fmt.Errorf("invalid round state: %w", err)
 		}
 
-		if state.isExecuted() {
-			s.reportNewProof(r.ID, state.Execution)
+		if r.isExecuted() {
+			s.reportNewProof(r.ID, r.execution)
 			continue
 		}
 
-		if state.isOpen() {
+		if r.isOpen() {
 			logger.Info("found round in open state.", zap.String("ID", r.ID))
-			if err := r.open(); err != nil {
-				return nil, nil, fmt.Errorf("failed to open round: %w", err)
-			}
-
 			// Keep the last open round as openRound (multiple open rounds state is possible
 			// only if recovery was previously disabled).
 			open = r
@@ -471,8 +490,10 @@ func (s *Service) newRound(ctx context.Context, epoch uint32) (*round, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a new round: %w", err)
 	}
-	if err := r.open(); err != nil {
-		return nil, fmt.Errorf("failed to open round: %w", err)
+
+	if err := r.saveState(); err != nil {
+		_ = r.teardown(true)
+		return nil, fmt.Errorf("saving state: %w", err)
 	}
 
 	logging.FromContext(ctx).Info("Round opened", zap.String("ID", r.ID))

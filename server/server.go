@@ -147,13 +147,18 @@ func (s *Server) Start(ctx context.Context) error {
 	// Start the REST proxy for the gRPC server above.
 	mux := proxy.NewServeMux()
 	for _, r := range proxyRegstr {
-		err := r(ctx, mux, s.rpcListener.Addr().String(), []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())})
+		err := r(
+			ctx,
+			mux,
+			s.rpcListener.Addr().String(),
+			[]grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())},
+		)
 		if err != nil {
 			return err
 		}
 	}
 
-	server := &http.Server{Handler: mux}
+	server := &http.Server{Handler: mux, ReadHeaderTimeout: time.Second * 5}
 	serverGroup.Go(func() error {
 		logger.Sugar().Infof("REST proxy starts listening on %s", s.restListener.Addr())
 		err := server.Serve(s.restListener)
@@ -166,12 +171,15 @@ func (s *Server) Start(ctx context.Context) error {
 	// Wait for the server to shut down gracefully
 	<-ctx.Done()
 	grpcServer.GracefulStop()
-	server.Shutdown(ctx)
-	return serverGroup.Wait()
+	result := multierror.Append(nil, server.Shutdown(context.Background()))
+	result = multierror.Append(result, serverGroup.Wait())
+	return result.ErrorOrNil()
 }
 
 // loggerInterceptor returns UnaryServerInterceptor handler to log all RPC server incoming requests.
-func loggerInterceptor(logger *zap.Logger) func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+func loggerInterceptor(
+	logger *zap.Logger,
+) func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		peer, _ := peer.FromContext(ctx)
 

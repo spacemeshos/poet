@@ -49,9 +49,13 @@ endif
 export GOBIN := $(BIN_DIR)
 GOTESTSUM := $(GOBIN)/gotestsum
 GOVULNCHECK := $(GOBIN)/govulncheck
+GOLINES := $(GOBIN)/golines
 
 $(GOVULNCHECK):
-	@go install golang.org/x/vuln/cmd/govulncheck
+	@go install golang.org/x/vuln/cmd/govulncheck@latest
+
+$(GOLINES):
+	@go install github.com/segmentio/golines@v0.11.0
 
 $(BIN_DIR)/mockgen:
 	go install github.com/golang/mock/mockgen@v1.6.0
@@ -75,11 +79,10 @@ endif
 
 # Download protoc plugins
 protoc-plugins:
-	@go install \
-		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
-		github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2 \
-		google.golang.org/protobuf/cmd/protoc-gen-go \
-		google.golang.org/grpc/cmd/protoc-gen-go-grpc
+	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@v2.15.0
+	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@v2.15.0
+	@go install google.golang.org/protobuf/cmd/protoc-gen-go@b0a9446
+	@go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2.0
 .PHONY: protoc-plugins
 
 all: build
@@ -89,7 +92,7 @@ test:
 	$(GOTESTSUM) -- -race -timeout 5m -p 1 ./...
 .PHONY: test
 
-install: install-buf install-protoc
+install: install-buf install-protoc $(GOVULNCHECK) $(GOLINES)
 	@go mod download
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s $(GOLANGCI_LINT_VERSION)
 	@go install honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
@@ -109,10 +112,15 @@ test-tidy:
 	@git diff --exit-code || (git --no-pager diff && git checkout . && exit 1)
 .PHONY: test-tidy
 
+fmt: $(GOLINES)
+	@go fmt ./...
+	@$(GOLINES) -m 120 --shorten-comments -w .
+.PHONY: fmt
+
 test-fmt:
 	@git diff --quiet || (echo "\033[0;31mWorking directory not clean!\033[0m" && git --no-pager diff && exit 1)
-	# We expect `go fmt` not to change anything, the test should fail otherwise
-	@go fmt ./...
+	# We expect `go fmt` and `golines` not to change anything, the test should fail otherwise
+	@make fmt
 	@git diff --exit-code || (git --no-pager diff && git checkout . && exit 1)
 .PHONY: test-fmt
 

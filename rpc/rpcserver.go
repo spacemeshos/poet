@@ -34,7 +34,12 @@ type rpcServer struct {
 var _ api.PoetServiceServer = (*rpcServer)(nil)
 
 // NewServer creates and returns a new instance of the rpcServer.
-func NewServer(svc *service.Service, proofsDb *service.ServiceDatabase, gtwManager *gateway.Manager, cfg config.Config) *rpcServer {
+func NewServer(
+	svc *service.Service,
+	proofsDb *service.ServiceDatabase,
+	gtwManager *gateway.Manager,
+	cfg config.Config,
+) *rpcServer {
 	return &rpcServer{
 		serviceDB:  proofsDb,
 		s:          svc,
@@ -83,7 +88,10 @@ func (r *rpcServer) Start(ctx context.Context, in *api.StartRequest) (*api.Start
 	return &api.StartResponse{}, nil
 }
 
-func (r *rpcServer) UpdateGateway(ctx context.Context, in *api.UpdateGatewayRequest) (*api.UpdateGatewayResponse, error) {
+func (r *rpcServer) UpdateGateway(
+	ctx context.Context,
+	in *api.UpdateGatewayRequest,
+) (*api.UpdateGatewayResponse, error) {
 	r.Lock()
 	defer r.Unlock()
 
@@ -126,7 +134,10 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 	result, err := r.s.Submit(ctx, in.Challenge, in.Signature)
 	switch {
 	case errors.Is(err, service.ErrNotStarted):
-		return nil, status.Error(codes.FailedPrecondition, "cannot submit a challenge because poet service is not started")
+		return nil, status.Error(
+			codes.FailedPrecondition,
+			"cannot submit a challenge because poet service is not started",
+		)
 	case errors.Is(err, challenge_verifier.ErrChallengeInvalid):
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, challenge_verifier.ErrCouldNotVerify):

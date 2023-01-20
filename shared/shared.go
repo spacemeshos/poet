@@ -4,8 +4,8 @@ import (
 	"encoding/binary"
 	"os"
 
-	"github.com/minio/sha256-simd"
 	"github.com/spacemeshos/merkle-tree"
+	"github.com/spacemeshos/sha256-simd"
 )
 
 //go:generate scalegen -types MerkleProof,ProofMessage,Proof
@@ -19,6 +19,8 @@ const (
 	OwnerReadWrite = os.FileMode(0o600)
 )
 
+type LabelHash func(data []byte) []byte
+
 // FiatShamir generates a set of indices to include in a non-interactive proof.
 func FiatShamir(challenge []byte, spaceSize uint64, securityParam uint8) map[uint64]bool {
 	ret := make(map[uint64]bool, securityParam)
@@ -30,10 +32,15 @@ func FiatShamir(challenge []byte, spaceSize uint64, securityParam uint8) map[uin
 	}
 
 	ib := make([]byte, 4)
+	digest := make([]byte, sha256.Size)
+	hasher := sha256.New()
 	for i := uint32(0); len(ret) < int(securityParam); i++ {
 		binary.BigEndian.PutUint32(ib, i)
-		result := sha256.Sum256(append(challenge, ib...))
-		id := binary.BigEndian.Uint64(result[:8]) % spaceSize
+		hasher.Reset()
+		hasher.Write(challenge)
+		hasher.Write(ib)
+		digest = hasher.Sum(digest[:0])
+		id := binary.BigEndian.Uint64(digest[:8]) % spaceSize
 		ret[id] = true
 	}
 	return ret
@@ -44,9 +51,9 @@ func FiatShamir(challenge []byte, spaceSize uint64, securityParam uint8) map[uin
 //
 // ⚠️ The resulting function is NOT thread-safe, however different generated instances are independent.
 // The code is optimized for performance and memory allocations.
-func MakeLabelFunc() func(hash func(data []byte) []byte, labelID uint64, leftSiblings [][]byte) []byte {
+func MakeLabelFunc() func(hash LabelHash, labelID uint64, leftSiblings [][]byte) []byte {
 	var buffer []byte
-	return func(hash func(data []byte) []byte, labelID uint64, leftSiblings [][]byte) []byte {
+	return func(hash LabelHash, labelID uint64, leftSiblings [][]byte) []byte {
 		// Calculate the buffer required size.
 		// 8 is for the size of labelID.
 		// leftSiblings slice might contain nil values, so the result size is inflated and used as an upper bound.

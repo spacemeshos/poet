@@ -5,12 +5,11 @@ package server_test
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
 	pb "github.com/spacemeshos/api/release/go/spacemesh/v1"
-	"github.com/spacemeshos/merkle-tree"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -19,6 +18,7 @@ import (
 	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/gateway"
 	"github.com/spacemeshos/poet/hash"
+	"github.com/spacemeshos/poet/prover"
 	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
 	"github.com/spacemeshos/poet/server"
 	"github.com/spacemeshos/poet/shared"
@@ -31,7 +31,10 @@ type gatewayService struct {
 	pb.UnimplementedGatewayServiceServer
 }
 
-func (*gatewayService) VerifyChallenge(ctx context.Context, req *pb.VerifyChallengeRequest) (*pb.VerifyChallengeResponse, error) {
+func (*gatewayService) VerifyChallenge(
+	ctx context.Context,
+	req *pb.VerifyChallengeRequest,
+) (*pb.VerifyChallengeResponse, error) {
 	return &pb.VerifyChallengeResponse{
 		Hash:   []byte("hash"),
 		NodeId: []byte("nodeID"),
@@ -44,7 +47,7 @@ func spawnMockGateway(t *testing.T) (target string) {
 	pb.RegisterGatewayServiceServer(server.Server, &gatewayService{})
 
 	var eg errgroup.Group
-	t.Cleanup(func() { require.NoError(t, eg.Wait()) })
+	t.Cleanup(func() { assert.NoError(t, eg.Wait()) })
 
 	eg.Go(server.Serve)
 	t.Cleanup(server.Stop)
@@ -67,7 +70,7 @@ func spawnPoet(ctx context.Context, t *testing.T, cfg config.Config) (*server.Se
 		srv.RpcAddr().String(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()))
 	req.NoError(err)
-	t.Cleanup(func() { conn.Close() })
+	t.Cleanup(func() { assert.NoError(t, conn.Close()) })
 
 	return srv, api.NewPoetServiceClient(conn)
 }
@@ -162,7 +165,7 @@ func TestSubmitAndGetProof(t *testing.T) {
 		ProofNodes:   proof.Proof.Proof.ProofNodes,
 	}
 
-	root, err := calcRoot(round.Members)
+	root, err := prover.CalcTreeRoot(round.Members)
 	req.NoError(err)
 
 	labelHashFunc := hash.GenLabelHashFunc(root)
@@ -170,18 +173,4 @@ func TestSubmitAndGetProof(t *testing.T) {
 	req.NoError(verifier.Validate(merkleProof, labelHashFunc, merkleHashFunc, proof.Proof.Leaves, shared.T))
 
 	req.NoError(eg.Wait())
-}
-
-func calcRoot(leaves [][]byte) ([]byte, error) {
-	tree, err := merkle.NewTree()
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate tree: %w", err)
-	}
-	for _, member := range leaves {
-		err := tree.AddLeaf(member)
-		if err != nil {
-			return nil, fmt.Errorf("failed to add leaf: %w", err)
-		}
-	}
-	return tree.Root(), nil
 }

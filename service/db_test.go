@@ -5,10 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/spacemeshos/poet/service"
-	"github.com/spacemeshos/poet/shared"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/spacemeshos/poet/service"
+	"github.com/spacemeshos/poet/shared"
 )
 
 func TestServiceDb_GetRoundMembers(t *testing.T) {

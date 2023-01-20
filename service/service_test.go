@@ -9,12 +9,15 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slices"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/spacemeshos/poet/gateway/challenge_verifier"
 	"github.com/spacemeshos/poet/gateway/challenge_verifier/mocks"
+	"github.com/spacemeshos/poet/hash"
+	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/service"
+	"github.com/spacemeshos/poet/shared"
+	"github.com/spacemeshos/poet/verifier"
 )
 
 type challenge struct {
@@ -31,8 +34,10 @@ func TestService_Recovery(t *testing.T) {
 	}
 
 	ctrl := gomock.NewController(t)
-	verifier := mocks.NewMockVerifier(ctrl)
+	challengeVerifier := mocks.NewMockVerifier(ctrl)
 	tempdir := t.TempDir()
+
+	var rounds []service.RoundData
 
 	// Generate groups of random challenges.
 	challengeGroupSize := 5
@@ -55,7 +60,9 @@ func TestService_Recovery(t *testing.T) {
 
 	submitChallenges := func(roundID string, challenges []challenge) {
 		for _, challenge := range challenges {
-			verifier.EXPECT().Verify(gomock.Any(), challenge.data, nil).Return(&challenge_verifier.Result{Hash: challenge.data, NodeId: challenge.nodeID}, nil)
+			challengeVerifier.EXPECT().
+				Verify(gomock.Any(), challenge.data, nil).
+				Return(&challenge_verifier.Result{Hash: challenge.data, NodeId: challenge.nodeID}, nil)
 			result, err := s.Submit(context.Background(), challenge.data, nil)
 			req.NoError(err)
 			req.Equal(challenge.data, result.Hash)
@@ -67,17 +74,20 @@ func TestService_Recovery(t *testing.T) {
 	defer cancel()
 	var eg errgroup.Group
 	eg.Go(func() error { return s.Run(ctx) })
-	req.NoError(s.Start(context.Background(), verifier))
+	req.NoError(s.Start(context.Background(), challengeVerifier))
 
 	// Submit challenges to open round (0).
 	submitChallenges("0", challengeGroups[0])
 
-	// Wait for round 0 to start executing.
-	req.Eventually(func() bool {
-		info, err := s.Info(context.Background())
-		req.NoError(err)
-		return slices.Contains(info.ExecutingRoundsIds, "0")
-	}, cfg.EpochDuration*2, time.Millisecond*100)
+	// Wait for round0 0 to start executing.
+	// Receive the next round when it is started
+	roundData := <-s.RoundsDataChan()
+	req.Equal("0", roundData.ID)
+	rounds = append(rounds, roundData)
+
+	info, err := s.Info(context.Background())
+	req.NoError(err)
+	req.Contains(info.ExecutingRoundsIds, "0")
 
 	// Submit challenges to open round (1).
 	submitChallenges("1", challengeGroups[1])
@@ -95,26 +105,44 @@ func TestService_Recovery(t *testing.T) {
 	eg.Go(func() error { return s.Run(ctx) })
 
 	// Service instance should recover 2 rounds: round 0 in executing state, and round 1 in open state.
-	info, err := s.Info(context.Background())
+	info, err = s.Info(context.Background())
 	req.NoError(err)
 	req.Equal("1", info.OpenRoundID)
 	req.Len(info.ExecutingRoundsIds, 1)
 	req.Contains(info.ExecutingRoundsIds, "0")
 	req.Equal([]string{"0"}, info.ExecutingRoundsIds)
 
-	req.NoError(s.Start(context.Background(), verifier))
-	// Wait for round 2 to open
-	req.Eventually(func() bool {
-		info, err := s.Info(context.Background())
-		req.NoError(err)
-		return info.OpenRoundID == "2"
-	}, cfg.EpochDuration*2, time.Millisecond*100)
+	req.NoError(s.Start(context.Background(), challengeVerifier))
+
+	// Receive the next round when it is started
+	roundData = <-s.RoundsDataChan()
+	req.Equal("1", roundData.ID)
+	rounds = append(rounds, roundData)
+
+	info, err = s.Info(context.Background())
+	req.NoError(err)
+	req.Equal("2", info.OpenRoundID)
 
 	submitChallenges("2", challengeGroups[2])
+	roundData = <-s.RoundsDataChan()
+	req.Equal("2", roundData.ID)
+	rounds = append(rounds, roundData)
 
 	for i := 0; i < len(challengeGroups); i++ {
 		proof := <-s.ProofsChan()
 		req.Equal(strconv.Itoa(i), proof.RoundID)
+
+		challenge, err := prover.CalcTreeRoot(rounds[i].Members)
+		req.NoError(err)
+
+		err = verifier.Validate(
+			proof.MerkleProof,
+			hash.GenLabelHashFunc(challenge),
+			hash.GenMerkleHashFunc(challenge),
+			proof.NumLeaves,
+			shared.T,
+		)
+		req.NoError(err)
 	}
 
 	cancel()
@@ -133,13 +161,13 @@ func TestNewService(t *testing.T) {
 	s, err := service.NewService(context.Background(), cfg, tempdir)
 	req.NoError(err)
 	ctrl := gomock.NewController(t)
-	verifier := mocks.NewMockVerifier(ctrl)
+	challengeVerifier := mocks.NewMockVerifier(ctrl)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var eg errgroup.Group
 	eg.Go(func() error { return s.Run(ctx) })
-	req.NoError(s.Start(context.Background(), verifier))
+	req.NoError(s.Start(context.Background(), challengeVerifier))
 
 	challengesCount := 8
 	challenges := make([]challenge, challengesCount)
@@ -159,7 +187,9 @@ func TestNewService(t *testing.T) {
 
 	// Submit challenges.
 	for i := 0; i < len(challenges); i++ {
-		verifier.EXPECT().Verify(gomock.Any(), challenges[i].data, nil).Return(&challenge_verifier.Result{Hash: challenges[i].data, NodeId: challenges[i].nodeID}, nil)
+		challengeVerifier.EXPECT().
+			Verify(gomock.Any(), challenges[i].data, nil).
+			Return(&challenge_verifier.Result{Hash: challenges[i].data, NodeId: challenges[i].nodeID}, nil)
 		result, err := s.Submit(context.Background(), challenges[i].data, nil)
 		req.NoError(err)
 		req.Equal(challenges[i].data, result.Hash)
@@ -207,6 +237,18 @@ func TestNewService(t *testing.T) {
 	proof := <-s.ProofsChan()
 	req.Equal(currentRound, proof.RoundID)
 
+	challenge, err := prover.CalcTreeRoot(round.Members)
+	req.NoError(err)
+
+	err = verifier.Validate(
+		proof.MerkleProof,
+		hash.GenLabelHashFunc(challenge),
+		hash.GenMerkleHashFunc(challenge),
+		proof.NumLeaves,
+		shared.T,
+	)
+	req.NoError(err)
+
 	cancel()
 	req.NoError(eg.Wait())
 }
@@ -215,7 +257,7 @@ func TestSubmitIdempotency(t *testing.T) {
 	req := require.New(t)
 	cfg := service.Config{
 		Genesis:       time.Now().Add(time.Second).Format(time.RFC3339),
-		EpochDuration: time.Second,
+		EpochDuration: time.Hour,
 		PhaseShift:    time.Second / 2,
 		CycleGap:      time.Second / 4,
 	}
@@ -226,7 +268,10 @@ func TestSubmitIdempotency(t *testing.T) {
 	req.NoError(err)
 
 	verifier := mocks.NewMockVerifier(gomock.NewController(t))
-	verifier.EXPECT().Verify(gomock.Any(), challenge, signature).Times(2).Return(&challenge_verifier.Result{Hash: []byte("hash")}, nil)
+	verifier.EXPECT().
+		Verify(gomock.Any(), challenge, signature).
+		Times(2).
+		Return(&challenge_verifier.Result{Hash: []byte("hash")}, nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

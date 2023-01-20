@@ -29,14 +29,28 @@ func BenchmarkProverAndVerifierBig(b *testing.B) {
 
 	b.Log("Computing dag...")
 	t1 := time.Now()
-	numLeaves, merkleProof, err := prover.GenerateProofWithoutPersistency(context.Background(), tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(time.Second), securityParam, prover.LowestMerkleMinMemoryLayer)
+	numLeaves, merkleProof, err := prover.GenerateProofWithoutPersistency(
+		context.Background(),
+		tempdir,
+		hash.GenLabelHashFunc(challenge),
+		hash.GenMerkleHashFunc(challenge),
+		time.Now().Add(time.Second),
+		securityParam,
+		prover.LowestMerkleMinMemoryLayer,
+	)
 	r.NoError(err, "Failed to generate proof")
 
 	e := time.Since(t1)
 	b.Logf("Proof generated in %s (%f) \n", e, e.Seconds())
 	b.Logf("Dag root label: %x\n", merkleProof.Root)
 
-	err = verifier.Validate(*merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
+	err = verifier.Validate(
+		*merkleProof,
+		hash.GenLabelHashFunc(challenge),
+		hash.GenMerkleHashFunc(challenge),
+		numLeaves,
+		securityParam,
+	)
 	r.NoError(err, "Failed to verify NIP")
 
 	e1 := time.Since(t1)
@@ -49,11 +63,25 @@ func TestNip(t *testing.T) {
 
 	securityParam := shared.T
 
-	numLeaves, merkleProof, err := prover.GenerateProofWithoutPersistency(context.Background(), tempdir, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(1*time.Second), securityParam, prover.LowestMerkleMinMemoryLayer)
+	numLeaves, merkleProof, err := prover.GenerateProofWithoutPersistency(
+		context.Background(),
+		tempdir,
+		hash.GenLabelHashFunc(challenge),
+		hash.GenMerkleHashFunc(challenge),
+		time.Now().Add(1*time.Second),
+		securityParam,
+		prover.LowestMerkleMinMemoryLayer,
+	)
 	assert.NoError(t, err)
 	fmt.Printf("Dag root label: %x\n", merkleProof.Root)
 
-	err = verifier.Validate(*merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
+	err = verifier.Validate(
+		*merkleProof,
+		hash.GenLabelHashFunc(challenge),
+		hash.GenMerkleHashFunc(challenge),
+		numLeaves,
+		securityParam,
+	)
 	assert.NoError(t, err, "failed to verify proof")
 }
 
@@ -66,11 +94,25 @@ func BenchmarkProofEx(t *testing.B) {
 
 		securityParam := shared.T
 
-		numLeaves, merkleProof, err := prover.GenerateProofWithoutPersistency(context.Background(), t.TempDir(), hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), time.Now().Add(time.Second), securityParam, prover.LowestMerkleMinMemoryLayer)
+		numLeaves, merkleProof, err := prover.GenerateProofWithoutPersistency(
+			context.Background(),
+			t.TempDir(),
+			hash.GenLabelHashFunc(challenge),
+			hash.GenMerkleHashFunc(challenge),
+			time.Now().Add(time.Second),
+			securityParam,
+			prover.LowestMerkleMinMemoryLayer,
+		)
 		assert.NoError(t, err)
 		fmt.Printf("Dag root label: %x\n", merkleProof.Root)
 
-		err = verifier.Validate(*merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), numLeaves, securityParam)
+		err = verifier.Validate(
+			*merkleProof,
+			hash.GenLabelHashFunc(challenge),
+			hash.GenMerkleHashFunc(challenge),
+			numLeaves,
+			securityParam,
+		)
 		assert.NoError(t, err, "failed to verify proof")
 	}
 }

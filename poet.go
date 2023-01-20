@@ -7,14 +7,17 @@ import (
 	"io/fs"
 	"net"
 	"net/http"
-	_ "net/http/pprof"
+	_ "net/http/pprof" //#nosec G108 -- DefaultServeMux is not used
 	"os"
 	"os/signal"
 	"path/filepath"
 	"runtime"
 	"runtime/pprof"
+	"time"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/jessevdk/go-flags"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 
 	"github.com/spacemeshos/poet/config"
@@ -29,8 +32,7 @@ var version = "unknown"
 // poetMain is the true entry point for poet. This function is required since
 // defers created in the top-level scope of a main method aren't executed if
 // os.Exit() is called.
-func poetMain() error {
-	var err error
+func poetMain() (err error) {
 	// Start with a default Config with sane settings
 	cfg := config.DefaultConfig()
 	// Pre-parse the command line to check for an alternative Config file
@@ -74,8 +76,24 @@ func poetMain() error {
 	}()
 
 	// Show version at startup.
-	logger.Sugar().Infof("version: %s, dir: %v, datadir: %v, genesis: %v", version, cfg.PoetDir, cfg.DataDir, cfg.Service.Genesis)
+	logger.Sugar().
+		Infof("version: %s, dir: %v, datadir: %v, genesis: %v", version, cfg.PoetDir, cfg.DataDir, cfg.Service.Genesis)
 
+	if cfg.MetricsPort != nil {
+		// Start Prometheus
+		lis, err := net.Listen("tcp", fmt.Sprintf(":%v", *cfg.MetricsPort))
+		if err != nil {
+			return err
+		}
+		logger.Info("spawning Prometheus", zap.String("endpoint", fmt.Sprintf("http://%s", lis.Addr().String())))
+		go func() {
+			mux := http.NewServeMux()
+			mux.Handle("/metrics", promhttp.Handler())
+			server := &http.Server{Handler: mux, ReadHeaderTimeout: time.Second * 5}
+			err := server.Serve(lis)
+			logger.With().Info("Metrics server stopped", zap.Error(err))
+		}()
+	}
 	// Enable http profiling server if requested.
 	if cfg.Profile != "" {
 		logger.Sugar().Info("starting HTTP profiling on port %v", cfg.Profile)
@@ -84,7 +102,10 @@ func poetMain() error {
 			profileRedirect := http.RedirectHandler("/debug/pprof",
 				http.StatusSeeOther)
 			http.Handle("/", profileRedirect)
-			fmt.Println(http.ListenAndServe(listenAddr, nil))
+			server := &http.Server{Addr: listenAddr, ReadHeaderTimeout: time.Second * 5}
+			if err := server.ListenAndServe(); err != nil {
+				logger.Warn("Failed to start profiling HTTP server", zap.Error(err))
+			}
 		}()
 	} else {
 		// Disable go default unbounded memory profiler.
@@ -96,7 +117,11 @@ func poetMain() error {
 		if err != nil {
 			logger.Error("could not create CPU profile", zap.Error(err))
 		}
-		defer f.Close()
+		defer func() {
+			if e := f.Close(); e != nil {
+				err = multierror.Append(err, e).ErrorOrNil()
+			}
+		}()
 		if err := pprof.StartCPUProfile(f); err != nil {
 			logger.Error("could not start CPU profile", zap.Error(err))
 		}
