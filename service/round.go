@@ -70,7 +70,7 @@ func newRound(datadir string, epoch uint32) (*round, error) {
 		return nil, err
 	}
 
-	r := &round{
+	return &round{
 		epoch:        epoch,
 		datadir:      datadir,
 		ID:           id,
@@ -78,13 +78,7 @@ func newRound(datadir string, epoch uint32) (*round, error) {
 		execution: &executionState{
 			SecurityParam: shared.T,
 		},
-	}
-	if err := r.saveState(); err != nil {
-		_ = os.RemoveAll(datadir)
-		return nil, fmt.Errorf("saving state: %w", err)
-	}
-
-	return r, nil
+	}, nil
 }
 
 func (r *round) submit(key, challenge []byte) error {

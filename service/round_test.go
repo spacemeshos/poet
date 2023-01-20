@@ -231,6 +231,7 @@ func TestRound_StateRecovery(t *testing.T) {
 		// Arrange
 		round, err := newRound(t.TempDir(), 0)
 		req.NoError(err)
+		req.NoError(round.saveState())
 
 		// Act & verify
 		req.NoError(round.loadState())
