@@ -226,6 +226,19 @@ func TestRound_StateRecovery(t *testing.T) {
 		req.True(recovered.isOpen())
 		req.False(recovered.isExecuted())
 	})
+	t.Run("Load state of a freshly opened round", func(t *testing.T) {
+		t.Parallel()
+		// Arrange
+		round, err := newRound(t.TempDir(), 0)
+		t.Cleanup(func() { assert.NoError(t, round.teardown(false)) })
+		req.NoError(err)
+		req.NoError(round.saveState())
+
+		// Act & verify
+		req.NoError(round.loadState())
+		req.True(round.isOpen())
+		req.False(round.isExecuted())
+	})
 	t.Run("Recover executing round", func(t *testing.T) {
 		t.Parallel()
 		tmpdir := t.TempDir()
