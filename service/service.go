@@ -468,6 +468,11 @@ func (s *Service) newRound(ctx context.Context, epoch uint32) (*round, error) {
 		return nil, fmt.Errorf("failed to create a new round: %w", err)
 	}
 
+	if err := r.saveState(); err != nil {
+		_ = r.teardown(true)
+		return nil, fmt.Errorf("saving state: %w", err)
+	}
+
 	logging.FromContext(ctx).Info("Round opened", zap.String("ID", r.ID))
 	return r, nil
 }
