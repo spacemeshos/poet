@@ -195,7 +195,7 @@ func TestRound_Execute(t *testing.T) {
 	req.NoError(round.submit([]byte("key"), challenge))
 
 	// Act
-	req.NoError(round.execute(context.Background(), time.Now().Add(100*time.Millisecond), 1, 0))
+	req.NoError(round.execute(context.Background(), time.Now().Add(200*time.Millisecond), 1, 0))
 
 	// Verify
 	req.Equal(shared.T, round.execution.SecurityParam)
@@ -307,7 +307,7 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 		req.Equal(len(challenges), numChallenges(round))
 		req.NoError(round.loadState())
 
-		req.NoError(round.recoverExecution(context.Background(), time.Now().Add(100*time.Millisecond), 0))
+		req.NoError(round.recoverExecution(context.Background(), time.Now().Add(200*time.Millisecond), 0))
 		validateProof(t, round.execution)
 		req.NoError(round.teardown(true))
 	}
