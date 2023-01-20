@@ -14,10 +14,9 @@ import (
 // ServerConfig contains all the args and data required to launch a poet server
 // instance  and connect to it via rpc client.
 type ServerConfig struct {
-	rpcListen string
-	dataDir   string
-	exe       string
+	exe string
 
+	DataDir          string
 	Genesis          time.Time
 	EpochDuration    time.Duration
 	PhaseShift       time.Duration
@@ -25,6 +24,7 @@ type ServerConfig struct {
 	DebugLog         bool
 	Reset            bool
 	RESTListen       string
+	RpcListen        string
 	GatewayAddresses []string
 	GtwConnTimeout   time.Duration
 }
@@ -42,9 +42,9 @@ func DefaultConfig() (*ServerConfig, error) {
 	}
 
 	cfg := &ServerConfig{
-		rpcListen:      "127.0.0.1:18550",
+		RpcListen:      "127.0.0.1:18550",
 		RESTListen:     "127.0.0.1:18551",
-		dataDir:        filepath.Join(baseDir, "data"),
+		DataDir:        filepath.Join(baseDir, "data"),
 		exe:            poetPath,
 		EpochDuration:  2 * time.Second,
 		PhaseShift:     time.Second / 2,
@@ -59,8 +59,8 @@ func DefaultConfig() (*ServerConfig, error) {
 func (cfg *ServerConfig) genArgs() []string {
 	var args []string
 
-	args = append(args, fmt.Sprintf("--datadir=%v", cfg.dataDir))
-	args = append(args, fmt.Sprintf("--rpclisten=%v", cfg.rpcListen))
+	args = append(args, fmt.Sprintf("--datadir=%v", cfg.DataDir))
+	args = append(args, fmt.Sprintf("--rpclisten=%v", cfg.RpcListen))
 	args = append(args, fmt.Sprintf("--restlisten=%v", cfg.RESTListen))
 	args = append(args, fmt.Sprintf("--genesis-time=%s", cfg.Genesis.Format(time.RFC3339)))
 	args = append(args, fmt.Sprintf("--epoch-duration=%s", cfg.EpochDuration))
@@ -197,5 +197,5 @@ func (s *server) stop() error {
 
 // cleanup cleans up the temporary files/directories created by the server process.
 func (s *server) cleanup() error {
-	return os.RemoveAll(s.cfg.dataDir)
+	return os.RemoveAll(s.cfg.DataDir)
 }
