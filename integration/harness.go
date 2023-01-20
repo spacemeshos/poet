@@ -37,8 +37,8 @@ func NewHarness(ctx context.Context, cfg *ServerConfig) (*Harness, error) {
 		return nil, err
 	}
 
-	if isListening(cfg.rpcListen) {
-		if err := killProcess(cfg.rpcListen); err != nil {
+	if isListening(cfg.RpcListen) {
+		if err := killProcess(cfg.RpcListen); err != nil {
 			return nil, err
 		}
 	}
@@ -50,7 +50,7 @@ func NewHarness(ctx context.Context, cfg *ServerConfig) (*Harness, error) {
 
 	// Verify the client connectivity.
 	// If failed, shutdown the server.
-	conn, err := connectClient(ctx, cfg.rpcListen)
+	conn, err := connectClient(ctx, cfg.RpcListen)
 	if err != nil {
 		_ = server.shutdown(true)
 		return nil, err
