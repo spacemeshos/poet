@@ -389,7 +389,10 @@ func TestService_Start(t *testing.T) {
 		var eg errgroup.Group
 		eg.Go(func() error { return s.Run(ctx) })
 		req.NoError(s.Start(context.Background(), mocks.NewMockVerifier(gomock.NewController(t))))
-		req.ErrorIs(s.Start(context.Background(), mocks.NewMockVerifier(gomock.NewController(t))), service.ErrAlreadyStarted)
+		req.ErrorIs(
+			s.Start(context.Background(), mocks.NewMockVerifier(gomock.NewController(t))),
+			service.ErrAlreadyStarted,
+		)
 		cancel()
 		req.NoError(eg.Wait())
 	})
