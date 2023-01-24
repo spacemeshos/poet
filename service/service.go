@@ -164,19 +164,19 @@ func (s *Service) ProofsChan() <-chan shared.ProofMessage {
 	return s.proofs
 }
 
-func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
+func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 	logger := logging.FromContext(ctx).Named("worker")
 	ctx = logging.NewContext(ctx, logger)
 
 	// Make sure there is an open round
 	if s.openRound == nil {
 		epoch := uint32(0)
-		if d := time.Since(s.genesis); d > 0 {
-			epoch = uint32(d / s.cfg.EpochDuration)
+		if d := time.Since(s.genesis.Add(s.cfg.PhaseShift)); d > 0 {
+			epoch = uint32(d/s.cfg.EpochDuration) + 1
 		}
 		newRound, err := s.newRound(ctx, uint32(epoch))
 		if err != nil {
-			return fmt.Errorf("failed to open round the first round: %w", err)
+			return fmt.Errorf("opening a round: %w", err)
 		}
 		s.openRound = newRound
 	}
@@ -189,9 +189,8 @@ func (s *Service) loop(ctx context.Context, roundsToResume []*round) error {
 	// file that round's thread ID is written to
 	roundTidFile := path.Join(s.datadir, "round.tid")
 
-	// Resume recovered rounds
-	for _, round := range roundsToResume {
-		round := round
+	// Resume recovered round if any
+	if round := roundToResume; round != nil {
 		s.executingRounds[round.ID] = struct{}{}
 		end := s.roundEndTime(round)
 		eg.Go(func() error {
@@ -289,7 +288,7 @@ func (s *Service) scheduleRound(ctx context.Context, round *round) <-chan time.T
 // Run starts the Service's actor event loop.
 // It stops when the `ctx` is canceled.
 func (s *Service) Run(ctx context.Context) error {
-	var toResume []*round
+	var toResume *round
 	if s.cfg.NoRecovery {
 		logging.FromContext(ctx).Info("Recovery is disabled")
 	} else {
@@ -328,7 +327,7 @@ func (s *Service) Started() bool {
 	return s.started.Load()
 }
 
-func (s *Service) recover(ctx context.Context) (open *round, executing []*round, err error) {
+func (s *Service) recover(ctx context.Context) (open *round, executing *round, err error) {
 	roundsDir := filepath.Join(s.datadir, "rounds")
 	logger := logging.FromContext(ctx).Named("recovery")
 	logger.Info("Recovering service state", zap.String("datadir", s.datadir))
@@ -371,7 +370,10 @@ func (s *Service) recover(ctx context.Context) (open *round, executing []*round,
 		}
 
 		logger.Info("found round in executing state.", zap.String("ID", r.ID))
-		executing = append(executing, r)
+		if executing != nil {
+			logger.Warn("found more than 1 executing round - overwriting", zap.String("previous", executing.ID))
+		}
+		executing = r
 	}
 
 	return open, executing, nil
