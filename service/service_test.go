@@ -3,11 +3,14 @@ package service_test
 import (
 	"context"
 	"crypto/rand"
+	"os"
+	"path"
 	"strconv"
 	"testing"
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
@@ -288,6 +291,276 @@ func TestSubmitIdempotency(t *testing.T) {
 	result, err = s.Submit(context.Background(), challenge, signature)
 	req.NoError(err)
 	req.Equal(result.Hash, []byte("hash"))
+
+	cancel()
+	req.NoError(eg.Wait())
+}
+
+func TestService_OpeningRounds(t *testing.T) {
+	t.Parallel()
+	req := require.New(t)
+
+	t.Run("before genesis", func(t *testing.T) {
+		t.Parallel()
+		s, err := service.NewService(
+			context.Background(),
+			&service.Config{
+				Genesis:       time.Now().Add(time.Minute).Format(time.RFC3339),
+				EpochDuration: time.Hour,
+			},
+			t.TempDir(),
+		)
+		req.NoError(err)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		var eg errgroup.Group
+		eg.Go(func() error { return s.Run(ctx) })
+
+		// Service instance should create open round 0.
+		info, err := s.Info(ctx)
+		req.NoError(err)
+		req.Equal("0", info.OpenRoundID)
+		req.Empty(info.ExecutingRoundsIds)
+
+		cancel()
+		req.NoError(eg.Wait())
+	})
+	t.Run("after genesis, but within phase shift", func(t *testing.T) {
+		t.Parallel()
+		s, err := service.NewService(
+			context.Background(),
+			&service.Config{
+				Genesis:       time.Now().Add(-time.Minute).Format(time.RFC3339),
+				EpochDuration: time.Hour,
+				PhaseShift:    time.Minute * 10,
+			},
+			t.TempDir(),
+		)
+		req.NoError(err)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		var eg errgroup.Group
+		eg.Go(func() error { return s.Run(ctx) })
+
+		// Service instance should create open round 0.
+		info, err := s.Info(ctx)
+		req.NoError(err)
+		req.Equal("0", info.OpenRoundID)
+		req.Empty(info.ExecutingRoundsIds)
+
+		cancel()
+		req.NoError(eg.Wait())
+	})
+	t.Run("in first epoch", func(t *testing.T) {
+		t.Parallel()
+		s, err := service.NewService(
+			context.Background(),
+			&service.Config{
+				Genesis:       time.Now().Add(-time.Minute).Format(time.RFC3339),
+				EpochDuration: time.Hour,
+			},
+			t.TempDir(),
+		)
+		req.NoError(err)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		var eg errgroup.Group
+		eg.Go(func() error { return s.Run(ctx) })
+
+		// Service instance should create open round 1.
+		info, err := s.Info(ctx)
+		req.NoError(err)
+		req.Equal("1", info.OpenRoundID)
+		req.Empty(info.ExecutingRoundsIds)
+
+		cancel()
+		req.NoError(eg.Wait())
+	})
+	t.Run("in distant epoch", func(t *testing.T) {
+		t.Parallel()
+		s, err := service.NewService(
+			context.Background(),
+			&service.Config{
+				Genesis:       time.Now().Add(-time.Hour * 100).Format(time.RFC3339),
+				EpochDuration: time.Hour,
+				PhaseShift:    time.Minute,
+			},
+			t.TempDir(),
+		)
+		req.NoError(err)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		var eg errgroup.Group
+		eg.Go(func() error { return s.Run(ctx) })
+
+		// Service instance should create open round 1.
+		info, err := s.Info(ctx)
+		req.NoError(err)
+		req.Equal("100", info.OpenRoundID)
+		req.Empty(info.ExecutingRoundsIds)
+
+		cancel()
+		req.NoError(eg.Wait())
+	})
+}
+
+func TestService_Start(t *testing.T) {
+	t.Parallel()
+	req := require.New(t)
+
+	cfg := &service.Config{
+		Genesis:       time.Now().Add(time.Minute).Format(time.RFC3339),
+		EpochDuration: time.Hour,
+	}
+	t.Run("cannot start twice", func(t *testing.T) {
+		s, err := service.NewService(context.Background(), cfg, t.TempDir())
+		req.NoError(err)
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		var eg errgroup.Group
+		eg.Go(func() error { return s.Run(ctx) })
+		req.NoError(s.Start(context.Background(), mocks.NewMockVerifier(gomock.NewController(t))))
+		req.ErrorIs(
+			s.Start(context.Background(), mocks.NewMockVerifier(gomock.NewController(t))),
+			service.ErrAlreadyStarted,
+		)
+		cancel()
+		req.NoError(eg.Wait())
+	})
+	t.Run("hang start respects context cancellation", func(t *testing.T) {
+		s, err := service.NewService(context.Background(), cfg, t.TempDir())
+		req.NoError(err)
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*50)
+		defer cancel()
+		req.ErrorIs(s.Start(ctx, mocks.NewMockVerifier(gomock.NewController(t))), context.DeadlineExceeded)
+	})
+}
+
+func TestService_Recovery_MissingOpenRound(t *testing.T) {
+	t.Parallel()
+	req := require.New(t)
+	cfg := &service.Config{
+		Genesis:       time.Now().Add(time.Second).Format(time.RFC3339),
+		EpochDuration: time.Hour,
+		PhaseShift:    time.Second,
+	}
+
+	ctrl := gomock.NewController(t)
+	challengeVerifier := mocks.NewMockVerifier(ctrl)
+	tempdir := t.TempDir()
+
+	// Create a new service instance.
+	s, err := service.NewService(context.Background(), cfg, tempdir)
+	req.NoError(err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var eg errgroup.Group
+	eg.Go(func() error { return s.Run(ctx) })
+	req.NoError(s.Start(context.Background(), challengeVerifier))
+
+	// Wait for round 0 to start executing.
+	round := <-s.RoundsDataChan()
+	req.Equal("0", round.ID)
+
+	cancel()
+	req.NoError(eg.Wait())
+
+	req.NoError(os.RemoveAll(path.Join(tempdir, "rounds", "1")))
+	time.Sleep(time.Second)
+
+	// Create a new service instance.
+	s, err = service.NewService(context.Background(), cfg, tempdir)
+	req.NoError(err)
+
+	ctx, cancel = context.WithCancel(context.Background())
+	defer cancel()
+	eg = errgroup.Group{}
+	eg.Go(func() error {
+		err := s.Run(ctx)
+		assert.NoError(t, err)
+		cancel()
+		return err
+	})
+
+	// Service instance should recover 2 rounds:
+	// - round 0 in executing state (from files),
+	// - round 1 in open state - it should be recreated.
+	info, err := s.Info(ctx)
+	req.NoError(err)
+	req.Equal("1", info.OpenRoundID)
+	req.Len(info.ExecutingRoundsIds, 1)
+	req.Contains(info.ExecutingRoundsIds, "0")
+	req.Equal([]string{"0"}, info.ExecutingRoundsIds)
+
+	cancel()
+	req.NoError(eg.Wait())
+}
+
+// Test if `reset` flag works.
+// Scenario:
+// - run Service and wait for round 0 to start executing,
+// - shutdown the Service
+// - restart Service with reset flag == true
+// - expect the persisted state to be discarded:
+//   - round 0 should not exist
+//   - round 1 should be open
+func TestService_Recovery_Reset(t *testing.T) {
+	t.Parallel()
+	req := require.New(t)
+	cfg := &service.Config{
+		Genesis:       time.Now().Add(time.Second).Format(time.RFC3339),
+		EpochDuration: time.Hour,
+		Reset:         true,
+	}
+	ctrl := gomock.NewController(t)
+	challengeVerifier := mocks.NewMockVerifier(ctrl)
+	tempdir := t.TempDir()
+
+	// Create a new service instance.
+	s, err := service.NewService(context.Background(), cfg, tempdir)
+	req.NoError(err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var eg errgroup.Group
+	eg.Go(func() error { return s.Run(ctx) })
+	req.NoError(s.Start(context.Background(), challengeVerifier))
+
+	// Wait for round 0 to start executing.
+	round := <-s.RoundsDataChan()
+	req.Equal("0", round.ID)
+
+	cancel()
+	req.NoError(eg.Wait())
+
+	time.Sleep(time.Second)
+
+	// Create a new service instance.
+	s, err = service.NewService(context.Background(), cfg, tempdir)
+	req.NoError(err)
+
+	ctx, cancel = context.WithCancel(context.Background())
+	defer cancel()
+	eg = errgroup.Group{}
+	eg.Go(func() error {
+		err := s.Run(ctx)
+		assert.NoError(t, err)
+		cancel()
+		return err
+	})
+
+	// Service instance should not recover the round 0 in-execution.
+	info, err := s.Info(ctx)
+	req.NoError(err)
+	req.Equal("1", info.OpenRoundID)
+	req.Empty(info.ExecutingRoundsIds)
 
 	cancel()
 	req.NoError(eg.Wait())

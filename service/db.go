@@ -61,7 +61,11 @@ func (db *ServiceDatabase) GetRoundMembers(ctx context.Context, roundID string) 
 	}
 }
 
-func NewServiceDatabase(dbPath string, proofs <-chan shared.ProofMessage, rounds <-chan RoundData) (*ServiceDatabase, error) {
+func NewServiceDatabase(
+	dbPath string,
+	proofs <-chan shared.ProofMessage,
+	rounds <-chan RoundData,
+) (*ServiceDatabase, error) {
 	db, err := leveldb.OpenFile(dbPath, nil)
 	if err != nil {
 		return nil, fmt.Errorf("opening database @ %s: %w", dbPath, err)
