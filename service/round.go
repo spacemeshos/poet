@@ -94,7 +94,7 @@ func (r *round) submit(key, challenge []byte) error {
 	return r.challengesDb.Put(key, challenge, &opt.WriteOptions{Sync: true})
 }
 
-func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer uint) error {
+func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer uint, fileWriterBufSize uint) error {
 	logger := logging.FromContext(ctx).With(zap.String("round", r.ID))
 	logger.Sugar().Infof("executing until %v...", end)
 
@@ -115,12 +115,15 @@ func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer uint)
 
 	numLeaves, nip, err := prover.GenerateProof(
 		ctx,
-		r.datadir,
+		prover.TreeConfig{
+			MinMemoryLayer:    minMemoryLayer,
+			Datadir:           r.datadir,
+			FileWriterBufSize: fileWriterBufSize,
+		},
 		hash.GenLabelHashFunc(r.execution.Statement),
 		hash.GenMerkleHashFunc(r.execution.Statement),
 		end,
 		r.execution.SecurityParam,
-		minMemoryLayer,
 		r.persistExecution,
 	)
 	if err != nil {
@@ -158,7 +161,7 @@ func (r *round) persistExecution(
 	return nil
 }
 
-func (r *round) recoverExecution(ctx context.Context, end time.Time) error {
+func (r *round) recoverExecution(ctx context.Context, end time.Time, fileWriterBufSize uint) error {
 	logger := logging.FromContext(ctx).With(zap.String("round", r.ID))
 	logger.With().Info("recovering execution", zap.Time("end", end))
 
@@ -178,7 +181,10 @@ func (r *round) recoverExecution(ctx context.Context, end time.Time) error {
 
 	numLeaves, nip, err := prover.GenerateProofRecovery(
 		ctx,
-		r.datadir,
+		prover.TreeConfig{
+			Datadir:           r.datadir,
+			FileWriterBufSize: fileWriterBufSize,
+		},
 		hash.GenLabelHashFunc(r.execution.Statement),
 		hash.GenMerkleHashFunc(r.execution.Statement),
 		end,

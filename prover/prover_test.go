@@ -14,17 +14,15 @@ import (
 
 func TestGetProof(t *testing.T) {
 	r := require.New(t)
-	tempdir := t.TempDir()
 
 	challenge := []byte("challenge this")
 	leafs, merkleProof, err := GenerateProofWithoutPersistency(
 		context.Background(),
-		tempdir,
+		TreeConfig{Datadir: t.TempDir()},
 		hash.GenLabelHashFunc(challenge),
 		hash.GenMerkleHashFunc(challenge),
 		time.Now().Add(100*time.Millisecond),
 		5,
-		LowestMerkleMinMemoryLayer,
 	)
 	r.NoError(err)
 	t.Logf("root: %x", merkleProof.Root)
@@ -36,19 +34,16 @@ func TestGetProof(t *testing.T) {
 }
 
 func BenchmarkGetProof(b *testing.B) {
-	tempdir := b.TempDir()
-
 	challenge := []byte("challenge this! challenge this! ")
 	securityParam := shared.T
 	duration := time.Second * 30
 	leafs, _, err := GenerateProofWithoutPersistency(
 		context.Background(),
-		tempdir,
+		TreeConfig{Datadir: b.TempDir()},
 		hash.GenLabelHashFunc(challenge),
 		hash.GenMerkleHashFunc(challenge),
 		time.Now().Add(duration),
 		securityParam,
-		LowestMerkleMinMemoryLayer,
 	)
 	if err != nil {
 		b.Fatal(err)

@@ -15,18 +15,20 @@ import (
 // read-writers.
 // The MetaFactory tracks the files it creates and removes them when Cleanup() is called.
 type ReadWriterMetaFactory struct {
-	minMemoryLayer uint
-	datadir        string
-	filesCreated   map[string]bool
+	minMemoryLayer    uint
+	datadir           string
+	filesCreated      map[string]bool
+	fileWriterBufSize uint
 }
 
 // NewReadWriterMetaFactory returns a new ReadWriterMetaFactory. minMemoryLayer determines
 // the threshold in which lower layers caching is done on-disk, while from this layer up -- in-memory.
-func NewReadWriterMetaFactory(minMemoryLayer uint, datadir string) *ReadWriterMetaFactory {
+func NewReadWriterMetaFactory(minMemoryLayer uint, datadir string, fileWriterBufSize uint) *ReadWriterMetaFactory {
 	return &ReadWriterMetaFactory{
-		minMemoryLayer: minMemoryLayer,
-		datadir:        datadir,
-		filesCreated:   make(map[string]bool),
+		minMemoryLayer:    minMemoryLayer,
+		datadir:           datadir,
+		filesCreated:      make(map[string]bool),
+		fileWriterBufSize: fileWriterBufSize,
 	}
 }
 
@@ -39,7 +41,7 @@ func (mf *ReadWriterMetaFactory) GetFactory() cache.LayerFactory {
 				return nil, err
 			}
 
-			readWriter, err := readwriters.NewFileReadWriter(fileName, 4096)
+			readWriter, err := readwriters.NewFileReadWriter(fileName, int(mf.fileWriterBufSize))
 			if err != nil {
 				return nil, err
 			}

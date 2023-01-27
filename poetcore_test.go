@@ -18,8 +18,6 @@ import (
 
 func BenchmarkProverAndVerifierBig(b *testing.B) {
 	r := require.New(b)
-	tempdir := b.TempDir()
-
 	challenge := make([]byte, 32)
 
 	_, err := rand.Read(challenge)
@@ -31,12 +29,11 @@ func BenchmarkProverAndVerifierBig(b *testing.B) {
 	t1 := time.Now()
 	numLeaves, merkleProof, err := prover.GenerateProofWithoutPersistency(
 		context.Background(),
-		tempdir,
+		prover.TreeConfig{Datadir: b.TempDir()},
 		hash.GenLabelHashFunc(challenge),
 		hash.GenMerkleHashFunc(challenge),
 		time.Now().Add(time.Second),
 		securityParam,
-		prover.LowestMerkleMinMemoryLayer,
 	)
 	r.NoError(err, "Failed to generate proof")
 
@@ -58,19 +55,17 @@ func BenchmarkProverAndVerifierBig(b *testing.B) {
 }
 
 func TestNip(t *testing.T) {
-	tempdir := t.TempDir()
 	challenge := []byte("Spacemesh launched its mainnet")
 
 	securityParam := shared.T
 
 	numLeaves, merkleProof, err := prover.GenerateProofWithoutPersistency(
 		context.Background(),
-		tempdir,
+		prover.TreeConfig{Datadir: t.TempDir()},
 		hash.GenLabelHashFunc(challenge),
 		hash.GenMerkleHashFunc(challenge),
 		time.Now().Add(1*time.Second),
 		securityParam,
-		prover.LowestMerkleMinMemoryLayer,
 	)
 	assert.NoError(t, err)
 	fmt.Printf("Dag root label: %x\n", merkleProof.Root)
@@ -96,12 +91,11 @@ func BenchmarkProofEx(t *testing.B) {
 
 		numLeaves, merkleProof, err := prover.GenerateProofWithoutPersistency(
 			context.Background(),
-			t.TempDir(),
+			prover.TreeConfig{Datadir: t.TempDir()},
 			hash.GenLabelHashFunc(challenge),
 			hash.GenMerkleHashFunc(challenge),
 			time.Now().Add(time.Second),
 			securityParam,
-			prover.LowestMerkleMinMemoryLayer,
 		)
 		assert.NoError(t, err)
 		fmt.Printf("Dag root label: %x\n", merkleProof.Root)

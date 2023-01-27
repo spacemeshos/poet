@@ -46,12 +46,13 @@ func main() {
 	end := proofGenStarted.Add(cfg.Duration)
 	leafs, merkleProof, err := prover.GenerateProofWithoutPersistency(
 		context.Background(),
-		tempdir,
+		prover.TreeConfig{
+			Datadir: tempdir,
+		},
 		hash.GenLabelHashFunc(challenge),
 		hash.GenMerkleHashFunc(challenge),
 		end,
 		securityParam,
-		prover.LowestMerkleMinMemoryLayer,
 	)
 	pprof.StopCPUProfile()
 	if err != nil {
