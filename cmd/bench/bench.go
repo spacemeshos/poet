@@ -47,8 +47,7 @@ func main() {
 	leafs, merkleProof, err := prover.GenerateProofWithoutPersistency(
 		context.Background(),
 		prover.TreeConfig{
-			Datadir:           tempdir,
-			FileWriterBufSize: 0,
+			Datadir: tempdir,
 		},
 		hash.GenLabelHashFunc(challenge),
 		hash.GenMerkleHashFunc(challenge),
