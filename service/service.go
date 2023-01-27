@@ -21,7 +21,6 @@ import (
 
 	"github.com/spacemeshos/poet/gateway/challenge_verifier"
 	"github.com/spacemeshos/poet/logging"
-	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/service/tid"
 	"github.com/spacemeshos/poet/shared"
 )
@@ -31,16 +30,16 @@ type Config struct {
 	EpochDuration     time.Duration `long:"epoch-duration" description:"Epoch duration"`
 	PhaseShift        time.Duration `long:"phase-shift"`
 	CycleGap          time.Duration `long:"cycle-gap"`
-	MemoryLayers      uint          `long:"memory"         description:"Number of top Merkle tree layers to cache in-memory"`
 	NoRecovery        bool          `long:"norecovery"     description:"whether to disable a potential recovery procedure"`
 	Reset             bool          `long:"reset"          description:"whether to reset the service state by deleting the datadir"`
 	GatewayAddresses  []string      `long:"gateway"        description:"addresses of Spacemesh gateway nodes"`
 	ConnAcksThreshold uint          `long:"conn-acks"      description:"number of required successful connections to Spacemesh gateway nodes"`
-}
 
-// estimatedLeavesPerSecond is used to computed estimated height of the proving tree
-// in the epoch, which is used for cache estimation.
-const estimatedLeavesPerSecond = 1 << 17
+	// Merkle-Tree related configuration:
+	EstimatedLeavesPerSecond uint `long:"lps"              description:"Estimated number of leaves generated per second"      default:"300000"`
+	MemoryLayers             uint `long:"memory"           description:"Number of top Merkle tree layers to cache in-memory"`
+	TreeFileBufferSize       uint `long:"tree-file-buffer" description:"The size of memory buffer for file-based tree layers" default:"4096"`
+}
 
 const ChallengeVerifierCacheSize = 1024
 
@@ -95,15 +94,20 @@ func NewService(ctx context.Context, cfg *Config, datadir string) (*Service, err
 	if err != nil {
 		return nil, err
 	}
-	minMemoryLayer := int(
-		mshared.RootHeightFromWidth(uint64(cfg.EpochDuration.Seconds()*estimatedLeavesPerSecond)),
-	) - int(cfg.MemoryLayers)
-	if minMemoryLayer < prover.LowestMerkleMinMemoryLayer {
-		minMemoryLayer = prover.LowestMerkleMinMemoryLayer
+	estimatedLeaves := uint64(cfg.EpochDuration.Seconds()) * uint64(cfg.EstimatedLeavesPerSecond)
+	minMemoryLayer := uint(0)
+	if totalLayers := mshared.RootHeightFromWidth(estimatedLeaves); totalLayers > cfg.MemoryLayers {
+		minMemoryLayer = totalLayers - cfg.MemoryLayers
 	}
-	logging.FromContext(ctx).
-		Sugar().
-		Infof("creating poet service. min memory layer: %v. genesis: %s", minMemoryLayer, cfg.Genesis)
+
+	logger := logging.FromContext(ctx)
+	logger.Sugar().Infof("creating poet service. min memory layer: %v. genesis: %s", minMemoryLayer, cfg.Genesis)
+	logger.Info(
+		"epoch configuration",
+		zap.Duration("duration", cfg.EpochDuration),
+		zap.Duration("cycle gap", cfg.CycleGap),
+		zap.Duration("phase shift", cfg.PhaseShift),
+	)
 
 	if cfg.Reset {
 		entries, err := os.ReadDir(datadir)
@@ -142,7 +146,7 @@ func NewService(ctx context.Context, cfg *Config, datadir string) (*Service, err
 		proofs:          make(chan shared.ProofMessage, 1),
 		commands:        cmds,
 		cfg:             cfg,
-		minMemoryLayer:  uint(minMemoryLayer),
+		minMemoryLayer:  minMemoryLayer,
 		genesis:         genesis,
 		datadir:         datadir,
 		executingRounds: make(map[string]struct{}),
@@ -196,7 +200,7 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 		eg.Go(func() error {
 			unlock := lockOSThread(ctx, roundTidFile)
 			defer unlock()
-			err := round.recoverExecution(ctx, end)
+			err := round.recoverExecution(ctx, end, s.cfg.TreeFileBufferSize)
 			if err := round.teardown(err == nil); err != nil {
 				logger.Warn("round teardown failed", zap.Error(err))
 			}
@@ -232,7 +236,7 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 			eg.Go(func() error {
 				unlock := lockOSThread(ctx, roundTidFile)
 				defer unlock()
-				err := round.execute(ctx, end, minMemoryLayer)
+				err := round.execute(ctx, end, minMemoryLayer, s.cfg.TreeFileBufferSize)
 				if err := round.teardown(err == nil); err != nil {
 					logger.Warn("round teardown failed", zap.Error(err))
 				}

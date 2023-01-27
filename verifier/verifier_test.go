@@ -18,12 +18,14 @@ func testValidate(t *testing.T, minMemoryLayer uint) {
 	securityParam := uint8(1)
 	leaves, merkleProof, err := prover.GenerateProofWithoutPersistency(
 		context.Background(),
-		t.TempDir(),
+		prover.TreeConfig{
+			MinMemoryLayer: minMemoryLayer,
+			Datadir:        t.TempDir(),
+		},
 		hash.GenLabelHashFunc(challenge),
 		hash.GenMerkleHashFunc(challenge),
 		time.Now().Add(100*time.Millisecond),
 		securityParam,
-		minMemoryLayer,
 	)
 	r.NoError(err)
 	err = Validate(
@@ -91,12 +93,11 @@ func TestValidateWrongRoot(t *testing.T) {
 	securityParam := uint8(4)
 	leafs, merkleProof, err := prover.GenerateProofWithoutPersistency(
 		context.Background(),
-		t.TempDir(),
+		prover.TreeConfig{Datadir: t.TempDir()},
 		hash.GenLabelHashFunc(challenge),
 		hash.GenMerkleHashFunc(challenge),
 		time.Now().Add(duration),
 		securityParam,
-		prover.LowestMerkleMinMemoryLayer,
 	)
 	r.NoError(err)
 
@@ -124,12 +125,11 @@ func TestValidateFailLabelValidation(t *testing.T) {
 	securityParam := uint8(4)
 	leafs, merkleProof, err := prover.GenerateProofWithoutPersistency(
 		context.Background(),
-		t.TempDir(),
+		prover.TreeConfig{Datadir: t.TempDir()},
 		hash.GenLabelHashFunc(challenge),
 		hash.GenMerkleHashFunc(challenge),
 		time.Now().Add(duration),
 		securityParam,
-		prover.LowestMerkleMinMemoryLayer,
 	)
 	r.NoError(err)
 	err = Validate(*merkleProof, BadLabelHashFunc, hash.GenMerkleHashFunc(challenge), leafs, securityParam)
