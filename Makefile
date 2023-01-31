@@ -181,4 +181,4 @@ test-generate:
 	@git diff --quiet || (echo "\033[0;31mWorking directory not clean!\033[0m" && git --no-pager diff && exit 1)
 	@make generate
 	@git diff --name-only --diff-filter=AM --exit-code . || { echo "\nPlease rerun 'make generate' and commit changes.\n"; exit 1; }
-.PHONY: check
+.PHONY: test-generate

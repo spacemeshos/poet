@@ -28,7 +28,7 @@ jobs:
           key: ${{ runner.os }}-cache-go-${{ env.go-version }}-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-cache-go-${{ env.go-version }}-
-      - name: fmt, tidy
+      - name: fmt, tidy, generate
         run: |
           make install
           make test-fmt
