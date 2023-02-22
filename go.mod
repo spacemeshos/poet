@@ -13,7 +13,7 @@ require (
 	github.com/prometheus/client_golang v1.14.0
 	github.com/spacemeshos/api/release/go v1.5.6
 	github.com/spacemeshos/go-scale v1.1.3
-	github.com/spacemeshos/merkle-tree v0.2.0
+	github.com/spacemeshos/merkle-tree v0.2.1
 	github.com/spacemeshos/sha256-simd v0.1.0
 	github.com/stretchr/testify v1.8.1
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
@@ -52,6 +52,7 @@ require (
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.40.0 // indirect
 	github.com/prometheus/procfs v0.8.0 // indirect
+	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/goleak v1.2.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
