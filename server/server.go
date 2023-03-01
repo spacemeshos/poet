@@ -71,8 +71,14 @@ func (s *Server) Close() error {
 	return result
 }
 
-func (s *Server) RpcAddr() net.Addr {
+// GrpcAddr returns the address that server is listening on for GRPC.
+func (s *Server) GrpcAddr() net.Addr {
 	return s.rpcListener.Addr()
+}
+
+// GrpcRestProxyAddr returns the address that REST-GRPC proxy is listening on.
+func (s *Server) GrpcRestProxyAddr() net.Addr {
+	return s.restListener.Addr()
 }
 
 // Start starts the RPC server.
