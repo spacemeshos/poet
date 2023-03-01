@@ -36,12 +36,23 @@ type Server struct {
 }
 
 func New(ctx context.Context, cfg config.Config) (*Server, error) {
-	rpcListener, err := net.Listen(cfg.RPCListener.Network(), cfg.RPCListener.String())
+	// Resolve the RPC listener
+	addr, err := net.ResolveTCPAddr("tcp", cfg.RawRPCListener)
+	if err != nil {
+		return nil, err
+	}
+	rpcListener, err := net.Listen(addr.Network(), addr.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen: %v", err)
 	}
 
-	restListener, err := net.Listen(cfg.RESTListener.Network(), cfg.RESTListener.String())
+	// Resolve the REST listener
+	addr, err = net.ResolveTCPAddr("tcp", cfg.RawRESTListener)
+	if err != nil {
+		return nil, err
+	}
+
+	restListener, err := net.Listen(addr.Network(), addr.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen: %v", err)
 	}
