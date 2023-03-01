@@ -67,7 +67,7 @@ func spawnPoet(ctx context.Context, t *testing.T, cfg config.Config) (*server.Se
 
 	conn, err := grpc.DialContext(
 		context.Background(),
-		srv.RpcAddr().String(),
+		srv.GrpcAddr().String(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()))
 	req.NoError(err)
 	t.Cleanup(func() { assert.NoError(t, conn.Close()) })
