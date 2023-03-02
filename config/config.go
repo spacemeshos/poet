@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
-	"net"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -67,8 +66,6 @@ type Config struct {
 	RawRESTListener string  `long:"restlisten"     description:"The interface/port/socket to listen for REST connections"                     short:"w"`
 	MetricsPort     *uint16 `long:"metrics-port"   description:"The port to expose metrics"`
 
-	RPCListener    net.Addr
-	RESTListener   net.Addr
 	GtwConnTimeout time.Duration `long:"gtw-connection-timeout" description:"Timeout for connecting to gateway"`
 
 	CPUProfile string `long:"cpuprofile" description:"Write CPU profile to the specified file"`
@@ -161,20 +158,6 @@ func SetupConfig(cfg *Config) (*Config, error) {
 	// to use them later on.
 	cfg.DataDir = cleanAndExpandPath(cfg.DataDir)
 	cfg.LogDir = cleanAndExpandPath(cfg.LogDir)
-
-	// Resolve the RPC listener
-	addr, err := net.ResolveTCPAddr("tcp", cfg.RawRPCListener)
-	if err != nil {
-		return nil, err
-	}
-	cfg.RPCListener = addr
-
-	// Resolve the REST listener
-	addr, err = net.ResolveTCPAddr("tcp", cfg.RawRESTListener)
-	if err != nil {
-		return nil, err
-	}
-	cfg.RESTListener = addr
 
 	return cfg, nil
 }
