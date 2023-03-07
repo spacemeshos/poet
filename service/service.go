@@ -36,9 +36,9 @@ type Config struct {
 	ConnAcksThreshold uint          `long:"conn-acks"      description:"number of required successful connections to Spacemesh gateway nodes"`
 
 	// Merkle-Tree related configuration:
-	EstimatedLeavesPerSecond uint `long:"lps"              description:"Estimated number of leaves generated per second"      default:"78000"`
+	EstimatedLeavesPerSecond uint `long:"lps"              description:"Estimated number of leaves generated per second"`
 	MemoryLayers             uint `long:"memory"           description:"Number of top Merkle tree layers to cache in-memory"`
-	TreeFileBufferSize       uint `long:"tree-file-buffer" description:"The size of memory buffer for file-based tree layers" default:"4096"`
+	TreeFileBufferSize       uint `long:"tree-file-buffer" description:"The size of memory buffer for file-based tree layers"`
 }
 
 const ChallengeVerifierCacheSize = 1024

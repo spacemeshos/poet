@@ -32,6 +32,8 @@ const (
 	defaultMemoryLayers             = 26 // Up to (1 << 26) * 2 - 1 Merkle tree cache nodes (32 bytes each) will be held in-memory
 	defaultConnAcksThreshold        = 1
 	defaultGatewayConnectionTimeout = 30 * time.Second
+	defaultTreeFileBufferSize       = 4096
+	defaultEstimatedLeavesPerSecond = 78000
 )
 
 var (
@@ -90,12 +92,14 @@ func DefaultConfig() *Config {
 		RawRESTListener: fmt.Sprintf("localhost:%d", defaultRESTPort),
 		GtwConnTimeout:  defaultGatewayConnectionTimeout,
 		Service: &service.Config{
-			Genesis:           defaultGenesisTime,
-			EpochDuration:     defaultEpochDuration,
-			PhaseShift:        defaultPhaseShift,
-			CycleGap:          defaultCycleGap,
-			MemoryLayers:      defaultMemoryLayers,
-			ConnAcksThreshold: defaultConnAcksThreshold,
+			Genesis:                  defaultGenesisTime,
+			EpochDuration:            defaultEpochDuration,
+			PhaseShift:               defaultPhaseShift,
+			CycleGap:                 defaultCycleGap,
+			MemoryLayers:             defaultMemoryLayers,
+			ConnAcksThreshold:        defaultConnAcksThreshold,
+			TreeFileBufferSize:       defaultTreeFileBufferSize,
+			EstimatedLeavesPerSecond: defaultEstimatedLeavesPerSecond,
 		},
 		CoreService: &coreServiceConfig{
 			MemoryLayers: defaultMemoryLayers,
