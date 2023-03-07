@@ -36,7 +36,7 @@ type Config struct {
 	ConnAcksThreshold uint          `long:"conn-acks"      description:"number of required successful connections to Spacemesh gateway nodes"`
 
 	// Merkle-Tree related configuration:
-	EstimatedLeavesPerSecond uint `long:"lps"              description:"Estimated number of leaves generated per second"      default:"300000"`
+	EstimatedLeavesPerSecond uint `long:"lps"              description:"Estimated number of leaves generated per second"      default:"78000"`
 	MemoryLayers             uint `long:"memory"           description:"Number of top Merkle tree layers to cache in-memory"`
 	TreeFileBufferSize       uint `long:"tree-file-buffer" description:"The size of memory buffer for file-based tree layers" default:"4096"`
 }
@@ -94,7 +94,7 @@ func NewService(ctx context.Context, cfg *Config, datadir string) (*Service, err
 	if err != nil {
 		return nil, err
 	}
-	estimatedLeaves := uint64(cfg.EpochDuration.Seconds()) * uint64(cfg.EstimatedLeavesPerSecond)
+	estimatedLeaves := uint64(cfg.EpochDuration.Seconds()-cfg.CycleGap.Seconds()) * uint64(cfg.EstimatedLeavesPerSecond)
 	minMemoryLayer := uint(0)
 	if totalLayers := mshared.RootHeightFromWidth(estimatedLeaves); totalLayers > cfg.MemoryLayers {
 		minMemoryLayer = totalLayers - cfg.MemoryLayers
