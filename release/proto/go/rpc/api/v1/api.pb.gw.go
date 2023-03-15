@@ -133,26 +133,26 @@ func local_request_PoetService_Submit_0(ctx context.Context, marshaler runtime.M
 
 }
 
-func request_PoetService_GetInfo_0(ctx context.Context, marshaler runtime.Marshaler, client PoetServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq GetInfoRequest
+func request_PoetService_Info_0(ctx context.Context, marshaler runtime.Marshaler, client PoetServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq InfoRequest
 	var metadata runtime.ServerMetadata
 
-	msg, err := client.GetInfo(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.Info(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_PoetService_GetInfo_0(ctx context.Context, marshaler runtime.Marshaler, server PoetServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq GetInfoRequest
+func local_request_PoetService_Info_0(ctx context.Context, marshaler runtime.Marshaler, server PoetServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq InfoRequest
 	var metadata runtime.ServerMetadata
 
-	msg, err := server.GetInfo(ctx, &protoReq)
+	msg, err := server.Info(ctx, &protoReq)
 	return msg, metadata, err
 
 }
 
-func request_PoetService_GetProof_0(ctx context.Context, marshaler runtime.Marshaler, client PoetServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq GetProofRequest
+func request_PoetService_Proof_0(ctx context.Context, marshaler runtime.Marshaler, client PoetServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq ProofRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -172,13 +172,13 @@ func request_PoetService_GetProof_0(ctx context.Context, marshaler runtime.Marsh
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "round_id", err)
 	}
 
-	msg, err := client.GetProof(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.Proof(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func local_request_PoetService_GetProof_0(ctx context.Context, marshaler runtime.Marshaler, server PoetServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq GetProofRequest
+func local_request_PoetService_Proof_0(ctx context.Context, marshaler runtime.Marshaler, server PoetServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq ProofRequest
 	var metadata runtime.ServerMetadata
 
 	var (
@@ -198,7 +198,7 @@ func local_request_PoetService_GetProof_0(ctx context.Context, marshaler runtime
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "round_id", err)
 	}
 
-	msg, err := server.GetProof(ctx, &protoReq)
+	msg, err := server.Proof(ctx, &protoReq)
 	return msg, metadata, err
 
 }
@@ -284,7 +284,7 @@ func RegisterPoetServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 
 	})
 
-	mux.Handle("GET", pattern_PoetService_GetInfo_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_PoetService_Info_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
@@ -292,12 +292,12 @@ func RegisterPoetServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/rpc.api.v1.PoetService/GetInfo", runtime.WithHTTPPathPattern("/v1/info"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/rpc.api.v1.PoetService/Info", runtime.WithHTTPPathPattern("/v1/info"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_PoetService_GetInfo_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_PoetService_Info_0(annotatedContext, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
@@ -305,11 +305,11 @@ func RegisterPoetServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 			return
 		}
 
-		forward_PoetService_GetInfo_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_PoetService_Info_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("GET", pattern_PoetService_GetProof_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_PoetService_Proof_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		var stream runtime.ServerTransportStream
@@ -317,12 +317,12 @@ func RegisterPoetServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/rpc.api.v1.PoetService/GetProof", runtime.WithHTTPPathPattern("/v1/proofs/{round_id}"))
+		annotatedContext, err = runtime.AnnotateIncomingContext(ctx, mux, req, "/rpc.api.v1.PoetService/Proof", runtime.WithHTTPPathPattern("/v1/proofs/{round_id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_PoetService_GetProof_0(annotatedContext, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_PoetService_Proof_0(annotatedContext, inboundMarshaler, server, req, pathParams)
 		md.HeaderMD, md.TrailerMD = metadata.Join(md.HeaderMD, stream.Header()), metadata.Join(md.TrailerMD, stream.Trailer())
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
@@ -330,7 +330,7 @@ func RegisterPoetServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux
 			return
 		}
 
-		forward_PoetService_GetProof_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_PoetService_Proof_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -441,47 +441,47 @@ func RegisterPoetServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux
 
 	})
 
-	mux.Handle("GET", pattern_PoetService_GetInfo_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_PoetService_Info_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/rpc.api.v1.PoetService/GetInfo", runtime.WithHTTPPathPattern("/v1/info"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/rpc.api.v1.PoetService/Info", runtime.WithHTTPPathPattern("/v1/info"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_PoetService_GetInfo_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_PoetService_Info_0(annotatedContext, inboundMarshaler, client, req, pathParams)
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_PoetService_GetInfo_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_PoetService_Info_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("GET", pattern_PoetService_GetProof_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_PoetService_Proof_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
 		var err error
 		var annotatedContext context.Context
-		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/rpc.api.v1.PoetService/GetProof", runtime.WithHTTPPathPattern("/v1/proofs/{round_id}"))
+		annotatedContext, err = runtime.AnnotateContext(ctx, mux, req, "/rpc.api.v1.PoetService/Proof", runtime.WithHTTPPathPattern("/v1/proofs/{round_id}"))
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_PoetService_GetProof_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_PoetService_Proof_0(annotatedContext, inboundMarshaler, client, req, pathParams)
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_PoetService_GetProof_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_PoetService_Proof_0(annotatedContext, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -495,9 +495,9 @@ var (
 
 	pattern_PoetService_Submit_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "submit"}, ""))
 
-	pattern_PoetService_GetInfo_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "info"}, ""))
+	pattern_PoetService_Info_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "info"}, ""))
 
-	pattern_PoetService_GetProof_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "proofs", "round_id"}, ""))
+	pattern_PoetService_Proof_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "proofs", "round_id"}, ""))
 )
 
 var (
@@ -507,7 +507,7 @@ var (
 
 	forward_PoetService_Submit_0 = runtime.ForwardResponseMessage
 
-	forward_PoetService_GetInfo_0 = runtime.ForwardResponseMessage
+	forward_PoetService_Info_0 = runtime.ForwardResponseMessage
 
-	forward_PoetService_GetProof_0 = runtime.ForwardResponseMessage
+	forward_PoetService_Proof_0 = runtime.ForwardResponseMessage
 )

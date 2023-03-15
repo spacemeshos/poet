@@ -155,13 +155,13 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 }
 
 // GetInfo implements api.GetInfo.
-func (r *rpcServer) GetInfo(ctx context.Context, in *api.GetInfoRequest) (*api.GetInfoResponse, error) {
+func (r *rpcServer) Info(ctx context.Context, in *api.InfoRequest) (*api.InfoResponse, error) {
 	info, err := r.s.Info(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	out := new(api.GetInfoResponse)
+	out := new(api.InfoResponse)
 	out.OpenRoundId = info.OpenRoundID
 
 	ids := make([]string, len(info.ExecutingRoundsIds))
@@ -173,7 +173,7 @@ func (r *rpcServer) GetInfo(ctx context.Context, in *api.GetInfoRequest) (*api.G
 }
 
 // GetProof implements api.PoetServer.
-func (r *rpcServer) GetProof(ctx context.Context, in *api.GetProofRequest) (*api.GetProofResponse, error) {
+func (r *rpcServer) Proof(ctx context.Context, in *api.ProofRequest) (*api.ProofResponse, error) {
 	if info, err := r.s.Info(ctx); err == nil {
 		if info.OpenRoundID == in.RoundId || slices.Contains(info.ExecutingRoundsIds, in.RoundId) {
 			return nil, status.Error(codes.Unavailable, "round is not finished yet")
@@ -185,26 +185,25 @@ func (r *rpcServer) GetProof(ctx context.Context, in *api.GetProofRequest) (*api
 	case errors.Is(err, service.ErrNotFound):
 		return nil, status.Error(codes.NotFound, "proof not found")
 	case err == nil:
-		provenLeaves := make([][]byte, 0, len(proof.ProvenLeaves))
-		for _, leaf := range proof.ProvenLeaves {
-			provenLeaves = append(provenLeaves, leaf.Value)
+		leaves := make([][]byte, 0, len(proof.ProvenLeaves))
+		for _, l := range proof.ProvenLeaves {
+			leaves = append(leaves, l.Value)
 		}
-
-		proofNodes := make([][]byte, 0, len(proof.ProofNodes))
-		for _, node := range proof.ProofNodes {
-			proofNodes = append(proofNodes, node.Value)
+		nodes := make([][]byte, 0, len(proof.ProofNodes))
+		for _, n := range proof.ProofNodes {
+			nodes = append(nodes, n.Value)
 		}
 		members := make([][]byte, 0, len(proof.Members))
-		for _, member := range proof.Members {
-			members = append(members, member.Challenge)
+		for _, m := range proof.Members {
+			members = append(members, m.Challenge)
 		}
 
-		out := api.GetProofResponse{
+		out := api.ProofResponse{
 			Proof: &api.PoetProof{
 				Proof: &api.MerkleProof{
 					Root:         proof.Root,
-					ProvenLeaves: provenLeaves,
-					ProofNodes:   proofNodes,
+					ProvenLeaves: leaves,
+					ProofNodes:   nodes,
 				},
 				Members: members,
 				Leaves:  proof.NumLeaves,

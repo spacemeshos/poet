@@ -30,11 +30,11 @@ type PoetServiceClient interface {
 	// Submit adds a challenge to the service's current open round,
 	// to be included its later generated proof.
 	Submit(ctx context.Context, in *SubmitRequest, opts ...grpc.CallOption) (*SubmitResponse, error)
-	// GetInfo returns general information concerning the service,
+	// Info returns general information concerning the service,
 	// including its identity pubkey.
-	GetInfo(ctx context.Context, in *GetInfoRequest, opts ...grpc.CallOption) (*GetInfoResponse, error)
-	// GetProof returns the generated proof for given round id.
-	GetProof(ctx context.Context, in *GetProofRequest, opts ...grpc.CallOption) (*GetProofResponse, error)
+	Info(ctx context.Context, in *InfoRequest, opts ...grpc.CallOption) (*InfoResponse, error)
+	// roof returns the generated proof for given round id.
+	Proof(ctx context.Context, in *ProofRequest, opts ...grpc.CallOption) (*ProofResponse, error)
 }
 
 type poetServiceClient struct {
@@ -72,18 +72,18 @@ func (c *poetServiceClient) Submit(ctx context.Context, in *SubmitRequest, opts 
 	return out, nil
 }
 
-func (c *poetServiceClient) GetInfo(ctx context.Context, in *GetInfoRequest, opts ...grpc.CallOption) (*GetInfoResponse, error) {
-	out := new(GetInfoResponse)
-	err := c.cc.Invoke(ctx, "/rpc.api.v1.PoetService/GetInfo", in, out, opts...)
+func (c *poetServiceClient) Info(ctx context.Context, in *InfoRequest, opts ...grpc.CallOption) (*InfoResponse, error) {
+	out := new(InfoResponse)
+	err := c.cc.Invoke(ctx, "/rpc.api.v1.PoetService/Info", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *poetServiceClient) GetProof(ctx context.Context, in *GetProofRequest, opts ...grpc.CallOption) (*GetProofResponse, error) {
-	out := new(GetProofResponse)
-	err := c.cc.Invoke(ctx, "/rpc.api.v1.PoetService/GetProof", in, out, opts...)
+func (c *poetServiceClient) Proof(ctx context.Context, in *ProofRequest, opts ...grpc.CallOption) (*ProofResponse, error) {
+	out := new(ProofResponse)
+	err := c.cc.Invoke(ctx, "/rpc.api.v1.PoetService/Proof", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -102,11 +102,11 @@ type PoetServiceServer interface {
 	// Submit adds a challenge to the service's current open round,
 	// to be included its later generated proof.
 	Submit(context.Context, *SubmitRequest) (*SubmitResponse, error)
-	// GetInfo returns general information concerning the service,
+	// Info returns general information concerning the service,
 	// including its identity pubkey.
-	GetInfo(context.Context, *GetInfoRequest) (*GetInfoResponse, error)
-	// GetProof returns the generated proof for given round id.
-	GetProof(context.Context, *GetProofRequest) (*GetProofResponse, error)
+	Info(context.Context, *InfoRequest) (*InfoResponse, error)
+	// roof returns the generated proof for given round id.
+	Proof(context.Context, *ProofRequest) (*ProofResponse, error)
 }
 
 // UnimplementedPoetServiceServer should be embedded to have forward compatible implementations.
@@ -122,11 +122,11 @@ func (UnimplementedPoetServiceServer) UpdateGateway(context.Context, *UpdateGate
 func (UnimplementedPoetServiceServer) Submit(context.Context, *SubmitRequest) (*SubmitResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Submit not implemented")
 }
-func (UnimplementedPoetServiceServer) GetInfo(context.Context, *GetInfoRequest) (*GetInfoResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetInfo not implemented")
+func (UnimplementedPoetServiceServer) Info(context.Context, *InfoRequest) (*InfoResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Info not implemented")
 }
-func (UnimplementedPoetServiceServer) GetProof(context.Context, *GetProofRequest) (*GetProofResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetProof not implemented")
+func (UnimplementedPoetServiceServer) Proof(context.Context, *ProofRequest) (*ProofResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Proof not implemented")
 }
 
 // UnsafePoetServiceServer may be embedded to opt out of forward compatibility for this service.
@@ -194,38 +194,38 @@ func _PoetService_Submit_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
-func _PoetService_GetInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetInfoRequest)
+func _PoetService_Info_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InfoRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(PoetServiceServer).GetInfo(ctx, in)
+		return srv.(PoetServiceServer).Info(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/rpc.api.v1.PoetService/GetInfo",
+		FullMethod: "/rpc.api.v1.PoetService/Info",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PoetServiceServer).GetInfo(ctx, req.(*GetInfoRequest))
+		return srv.(PoetServiceServer).Info(ctx, req.(*InfoRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _PoetService_GetProof_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetProofRequest)
+func _PoetService_Proof_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ProofRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(PoetServiceServer).GetProof(ctx, in)
+		return srv.(PoetServiceServer).Proof(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/rpc.api.v1.PoetService/GetProof",
+		FullMethod: "/rpc.api.v1.PoetService/Proof",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PoetServiceServer).GetProof(ctx, req.(*GetProofRequest))
+		return srv.(PoetServiceServer).Proof(ctx, req.(*ProofRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -250,12 +250,12 @@ var PoetService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _PoetService_Submit_Handler,
 		},
 		{
-			MethodName: "GetInfo",
-			Handler:    _PoetService_GetInfo_Handler,
+			MethodName: "Info",
+			Handler:    _PoetService_Info_Handler,
 		},
 		{
-			MethodName: "GetProof",
-			Handler:    _PoetService_GetProof_Handler,
+			MethodName: "Proof",
+			Handler:    _PoetService_Proof_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

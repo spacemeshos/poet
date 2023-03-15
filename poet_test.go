@@ -111,7 +111,7 @@ func TestHarness(t *testing.T) {
 
 func testInfo(ctx context.Context, h *integration.Harness, assert *require.Assertions) {
 	// TODO: implement
-	_, err := h.GetInfo(ctx, &api.GetInfoRequest{})
+	_, err := h.Info(ctx, &api.InfoRequest{})
 	assert.NoError(err)
 }
 
@@ -171,7 +171,7 @@ func TestHarness_CrashRecovery(t *testing.T) {
 
 	waitNewRound := func(ctx context.Context, h *integration.Harness, currentRoundId string) {
 		isOpenRound := func(val string) bool {
-			info, err := h.GetInfo(ctx, &api.GetInfoRequest{})
+			info, err := h.Info(ctx, &api.InfoRequest{})
 			req.NoError(err)
 			return info.OpenRoundId == val
 		}
@@ -194,7 +194,7 @@ func TestHarness_CrashRecovery(t *testing.T) {
 
 	// Verify that round 0 is still open.
 	ctx, cancel = context.WithDeadline(context.Background(), cfg.Genesis.Add(cfg.EpochDuration))
-	info, err := h.GetInfo(ctx, &api.GetInfoRequest{})
+	info, err := h.Info(ctx, &api.InfoRequest{})
 	req.NoError(err)
 	req.Equal(roundsID[0], info.OpenRoundId)
 	cancel()
@@ -207,7 +207,7 @@ func TestHarness_CrashRecovery(t *testing.T) {
 	submitChallenges(h, 1)
 
 	// Verify that round 1 is still open, and round 0 is executing.
-	info, err = h.GetInfo(ctx, &api.GetInfoRequest{})
+	info, err = h.Info(ctx, &api.InfoRequest{})
 	req.NoError(err)
 	req.Equal(1, len(info.ExecutingRoundsIds))
 	req.Equal(roundsID[0], info.ExecutingRoundsIds[0])
@@ -219,7 +219,7 @@ func TestHarness_CrashRecovery(t *testing.T) {
 	h = newHarness(t, ctx, cfg)
 
 	// Verify that round 1 is still open.
-	info, err = h.GetInfo(ctx, &api.GetInfoRequest{})
+	info, err = h.Info(ctx, &api.InfoRequest{})
 	req.NoError(err)
 	req.Equal(roundsID[1], info.OpenRoundId)
 	cancel()
@@ -233,7 +233,7 @@ func TestHarness_CrashRecovery(t *testing.T) {
 	submitChallenges(h, 2)
 
 	// Verify that round 1 is still open, and round 0 is executing.
-	info, err = h.GetInfo(ctx, &api.GetInfoRequest{})
+	info, err = h.Info(ctx, &api.InfoRequest{})
 	req.NoError(err)
 	req.Equal(1, len(info.ExecutingRoundsIds))
 	req.Equal(roundsID[1], info.ExecutingRoundsIds[0])
