@@ -127,10 +127,16 @@ func TestService_Recovery(t *testing.T) {
 		// Verify the submitted challenges.
 		req.Len(proof.Members, len(challengeGroups[i]), "round: %v i: %d", proof.RoundID, i)
 		for _, ch := range challengeGroups[i] {
-			req.Contains(proof.Members, ch.data, "round: %v, i: %d", proof.RoundID, i)
+			req.Contains(proof.Members, shared.Member{
+				Challenge: ch.data,
+			}, "round: %v, i: %d", proof.RoundID, i)
 		}
 
-		challenge, err := prover.CalcTreeRoot(proof.Members)
+		members := make([][]byte, 0, len(proof.Members))
+		for _, member := range proof.Members {
+			members = append(members, member.Challenge)
+		}
+		challenge, err := prover.CalcTreeRoot(members)
 		req.NoError(err)
 
 		err = verifier.Validate(
@@ -229,10 +235,16 @@ func TestNewService(t *testing.T) {
 	// Verify the submitted challenges.
 	req.Len(proof.Members, len(challenges))
 	for _, ch := range challenges {
-		req.Contains(proof.Members, ch.data)
+		req.Contains(proof.Members, shared.Member{
+			Challenge: ch.data,
+		})
 	}
 
-	challenge, err := prover.CalcTreeRoot(proof.Members)
+	members := make([][]byte, 0, len(proof.Members))
+	for _, member := range proof.Members {
+		members = append(members, member.Challenge)
+	}
+	challenge, err := prover.CalcTreeRoot(members)
 	req.NoError(err)
 
 	err = verifier.Validate(

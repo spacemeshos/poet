@@ -185,14 +185,28 @@ func (r *rpcServer) GetProof(ctx context.Context, in *api.GetProofRequest) (*api
 	case errors.Is(err, service.ErrNotFound):
 		return nil, status.Error(codes.NotFound, "proof not found")
 	case err == nil:
+		provenLeaves := make([][]byte, 0, len(proof.ProvenLeaves))
+		for _, leaf := range proof.ProvenLeaves {
+			provenLeaves = append(provenLeaves, leaf.Value)
+		}
+
+		proofNodes := make([][]byte, 0, len(proof.ProofNodes))
+		for _, node := range proof.ProofNodes {
+			proofNodes = append(proofNodes, node.Value)
+		}
+		members := make([][]byte, 0, len(proof.Members))
+		for _, member := range proof.Members {
+			members = append(members, member.Challenge)
+		}
+
 		out := api.GetProofResponse{
 			Proof: &api.PoetProof{
 				Proof: &api.MerkleProof{
 					Root:         proof.Root,
-					ProvenLeaves: proof.ProvenLeaves,
-					ProofNodes:   proof.ProofNodes,
+					ProvenLeaves: provenLeaves,
+					ProofNodes:   proofNodes,
 				},
-				Members: proof.Members,
+				Members: members,
 				Leaves:  proof.NumLeaves,
 			},
 			Pubkey: proof.ServicePubKey,

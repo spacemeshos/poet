@@ -152,10 +152,24 @@ func TestSubmitAndGetProof(t *testing.T) {
 	req.Contains(proof.Proof.Members, []byte("hash"))
 	cancel()
 
+	provenLeaves := make([]shared.Leaf, 0, len(proof.Proof.Proof.ProvenLeaves))
+	for _, leaf := range proof.Proof.Proof.ProvenLeaves {
+		provenLeaves = append(provenLeaves, shared.Leaf{
+			Value: leaf,
+		})
+	}
+
+	proofNodes := make([]shared.Node, 0, len(proof.Proof.Proof.ProofNodes))
+	for _, node := range proof.Proof.Proof.ProofNodes {
+		proofNodes = append(proofNodes, shared.Node{
+			Value: node,
+		})
+	}
+
 	merkleProof := shared.MerkleProof{
 		Root:         proof.Proof.Proof.Root,
-		ProvenLeaves: proof.Proof.Proof.ProvenLeaves,
-		ProofNodes:   proof.Proof.Proof.ProofNodes,
+		ProvenLeaves: provenLeaves,
+		ProofNodes:   proofNodes,
 	}
 
 	root, err := prover.CalcTreeRoot(proof.Proof.Members)

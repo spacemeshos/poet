@@ -484,10 +484,17 @@ func (s *Service) newRound(ctx context.Context, epoch uint32) (*round, error) {
 }
 
 func (s *Service) reportNewProof(round string, execution *executionState) {
+	members := make([]shared.Member, 0, len(execution.Members))
+	for _, member := range execution.Members {
+		members = append(members, shared.Member{
+			Challenge: member,
+		})
+	}
+
 	s.proofs <- shared.ProofMessage{
 		Proof: shared.Proof{
 			MerkleProof: *execution.NIP,
-			Members:     execution.Members,
+			Members:     members,
 			NumLeaves:   execution.NumLeaves,
 		},
 		ServicePubKey: s.PubKey,

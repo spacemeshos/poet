@@ -294,11 +294,23 @@ func generateProof(
 		return 0, nil, err
 	}
 	logger.Sugar().Infof("proof generated, it took: %v", time.Since(started))
+	pLeaves := make([]shared.Leaf, 0, len(provenLeaves))
+	for _, leaf := range provenLeaves {
+		pLeaves = append(pLeaves, shared.Leaf{
+			Value: leaf,
+		})
+	}
+	pNodes := make([]shared.Node, 0, len(proofNodes))
+	for _, node := range proofNodes {
+		pNodes = append(pNodes, shared.Node{
+			Value: node,
+		})
+	}
 
 	return leaves, &shared.MerkleProof{
 		Root:         root,
-		ProvenLeaves: provenLeaves,
-		ProofNodes:   proofNodes,
+		ProvenLeaves: pLeaves,
+		ProofNodes:   pNodes,
 	}, nil
 }
 
