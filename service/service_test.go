@@ -132,11 +132,7 @@ func TestService_Recovery(t *testing.T) {
 			}, "round: %v, i: %d", proof.RoundID, i)
 		}
 
-		members := make([][]byte, 0, len(proof.Members))
-		for _, member := range proof.Members {
-			members = append(members, member.Challenge)
-		}
-		challenge, err := prover.CalcTreeRoot(members)
+		challenge, err := prover.CalcTreeRoot(proof.Members)
 		req.NoError(err)
 
 		err = verifier.Validate(
@@ -240,11 +236,7 @@ func TestNewService(t *testing.T) {
 		})
 	}
 
-	members := make([][]byte, 0, len(proof.Members))
-	for _, member := range proof.Members {
-		members = append(members, member.Challenge)
-	}
-	challenge, err := prover.CalcTreeRoot(members)
+	challenge, err := prover.CalcTreeRoot(proof.Members)
 	req.NoError(err)
 
 	err = verifier.Validate(

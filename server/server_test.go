@@ -172,7 +172,14 @@ func TestSubmitAndGetProof(t *testing.T) {
 		ProofNodes:   proofNodes,
 	}
 
-	root, err := prover.CalcTreeRoot(proof.Proof.Members)
+	members := make([]shared.Member, 0, len(proof.Proof.Members))
+	for _, member := range proof.Proof.Members {
+		members = append(members, shared.Member{
+			Challenge: member,
+		})
+	}
+
+	root, err := prover.CalcTreeRoot(members)
 	req.NoError(err)
 
 	labelHashFunc := hash.GenLabelHashFunc(root)

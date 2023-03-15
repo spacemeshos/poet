@@ -343,13 +343,13 @@ func getLayersFiles(datadir string) (map[uint]string, error) {
 }
 
 // Calculate the root of a Merkle Tree with given leaves.
-func CalcTreeRoot(leaves [][]byte) ([]byte, error) {
+func CalcTreeRoot(leaves []shared.Member) ([]byte, error) {
 	tree, err := merkle.NewTree()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate tree: %w", err)
 	}
 	for _, member := range leaves {
-		err := tree.AddLeaf(member)
+		err := tree.AddLeaf(member.Challenge)
 		if err != nil {
 			return nil, fmt.Errorf("failed to add leaf: %w", err)
 		}
