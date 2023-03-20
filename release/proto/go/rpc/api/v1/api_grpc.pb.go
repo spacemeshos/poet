@@ -22,15 +22,12 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type PoetServiceClient interface {
-	// *
 	// Submit adds a challenge to the service's current open round,
 	// to be included its later generated proof.
 	Submit(ctx context.Context, in *SubmitRequest, opts ...grpc.CallOption) (*SubmitResponse, error)
-	// *
 	// GetInfo returns general information concerning the service,
 	// including its identity pubkey.
 	GetInfo(ctx context.Context, in *GetInfoRequest, opts ...grpc.CallOption) (*GetInfoResponse, error)
-	// *
 	// GetProof returns the generated proof for given round id.
 	GetProof(ctx context.Context, in *GetProofRequest, opts ...grpc.CallOption) (*GetProofResponse, error)
 }
@@ -74,15 +71,12 @@ func (c *poetServiceClient) GetProof(ctx context.Context, in *GetProofRequest, o
 // All implementations should embed UnimplementedPoetServiceServer
 // for forward compatibility
 type PoetServiceServer interface {
-	// *
 	// Submit adds a challenge to the service's current open round,
 	// to be included its later generated proof.
 	Submit(context.Context, *SubmitRequest) (*SubmitResponse, error)
-	// *
 	// GetInfo returns general information concerning the service,
 	// including its identity pubkey.
 	GetInfo(context.Context, *GetInfoRequest) (*GetInfoResponse, error)
-	// *
 	// GetProof returns the generated proof for given round id.
 	GetProof(context.Context, *GetProofRequest) (*GetProofResponse, error)
 }

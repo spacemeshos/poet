@@ -18,7 +18,7 @@
   "paths": {
     "/v1/info": {
       "get": {
-        "summary": "*\nGetInfo returns general information concerning the service,\nincluding its identity pubkey.",
+        "summary": "GetInfo returns general information concerning the service,\nincluding its identity pubkey.",
         "operationId": "PoetService_GetInfo",
         "responses": {
           "200": {
@@ -41,7 +41,7 @@
     },
     "/v1/proofs/{roundId}": {
       "get": {
-        "summary": "*\nGetProof returns the generated proof for given round id.",
+        "summary": "GetProof returns the generated proof for given round id.",
         "operationId": "PoetService_GetProof",
         "responses": {
           "200": {
@@ -72,7 +72,7 @@
     },
     "/v1/submit": {
       "post": {
-        "summary": "*\nSubmit adds a challenge to the service's current open round,\nto be included its later generated proof.",
+        "summary": "Submit adds a challenge to the service's current open round,\nto be included its later generated proof.",
         "operationId": "PoetService_Submit",
         "responses": {
           "200": {
