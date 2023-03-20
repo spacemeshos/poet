@@ -5,9 +5,9 @@ PROJECT := poet
 BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 VERSION ?= $(shell git describe --tags)
 
-GOLANGCI_LINT_VERSION := v1.50.0
-STATICCHECK_VERSION := v0.3.3
-GOTESTSUM_VERSION := v1.8.2
+GOLANGCI_LINT_VERSION := v1.52.0
+STATICCHECK_VERSION := v0.4.3
+GOTESTSUM_VERSION := v1.9.0
 GOSCALE_VERSION := v1.1.6
 
 BUF_VERSION := 1.8.0
@@ -94,7 +94,7 @@ test:
 
 install: install-buf install-protoc $(GOVULNCHECK) $(GOLINES)
 	@go mod download
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s $(GOLANGCI_LINT_VERSION)
+	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s $(GOLANGCI_LINT_VERSION)
 	@go install honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
 	@go install gotest.tools/gotestsum@$(GOTESTSUM_VERSION)
 	@go install github.com/spacemeshos/go-scale/scalegen@$(GOSCALE_VERSION)
@@ -151,7 +151,7 @@ lint-protos:
 .PHONY: lint-protos
 
 cover:
-	go test -coverprofile=cover.out -timeout 0 -p 1 ./...
+	go test -coverprofile=cover.out -timeout 0 -p 1 -coverpkg=./... ./...
 .PHONY: cover
 
 staticcheck:
