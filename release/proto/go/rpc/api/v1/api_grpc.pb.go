@@ -22,17 +22,15 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type PoetServiceClient interface {
-	// Start is used to start the service.
-	Start(ctx context.Context, in *StartRequest, opts ...grpc.CallOption) (*StartResponse, error)
-	// UpdateGateway allows to update the list of gateway addresses,
-	// similar to the Start rpc, but after the service already started.
-	UpdateGateway(ctx context.Context, in *UpdateGatewayRequest, opts ...grpc.CallOption) (*UpdateGatewayResponse, error)
+	// *
 	// Submit adds a challenge to the service's current open round,
 	// to be included its later generated proof.
 	Submit(ctx context.Context, in *SubmitRequest, opts ...grpc.CallOption) (*SubmitResponse, error)
+	// *
 	// GetInfo returns general information concerning the service,
 	// including its identity pubkey.
 	GetInfo(ctx context.Context, in *GetInfoRequest, opts ...grpc.CallOption) (*GetInfoResponse, error)
+	// *
 	// GetProof returns the generated proof for given round id.
 	GetProof(ctx context.Context, in *GetProofRequest, opts ...grpc.CallOption) (*GetProofResponse, error)
 }
@@ -43,24 +41,6 @@ type poetServiceClient struct {
 
 func NewPoetServiceClient(cc grpc.ClientConnInterface) PoetServiceClient {
 	return &poetServiceClient{cc}
-}
-
-func (c *poetServiceClient) Start(ctx context.Context, in *StartRequest, opts ...grpc.CallOption) (*StartResponse, error) {
-	out := new(StartResponse)
-	err := c.cc.Invoke(ctx, "/rpc.api.v1.PoetService/Start", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *poetServiceClient) UpdateGateway(ctx context.Context, in *UpdateGatewayRequest, opts ...grpc.CallOption) (*UpdateGatewayResponse, error) {
-	out := new(UpdateGatewayResponse)
-	err := c.cc.Invoke(ctx, "/rpc.api.v1.PoetService/UpdateGateway", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *poetServiceClient) Submit(ctx context.Context, in *SubmitRequest, opts ...grpc.CallOption) (*SubmitResponse, error) {
@@ -94,17 +74,15 @@ func (c *poetServiceClient) GetProof(ctx context.Context, in *GetProofRequest, o
 // All implementations should embed UnimplementedPoetServiceServer
 // for forward compatibility
 type PoetServiceServer interface {
-	// Start is used to start the service.
-	Start(context.Context, *StartRequest) (*StartResponse, error)
-	// UpdateGateway allows to update the list of gateway addresses,
-	// similar to the Start rpc, but after the service already started.
-	UpdateGateway(context.Context, *UpdateGatewayRequest) (*UpdateGatewayResponse, error)
+	// *
 	// Submit adds a challenge to the service's current open round,
 	// to be included its later generated proof.
 	Submit(context.Context, *SubmitRequest) (*SubmitResponse, error)
+	// *
 	// GetInfo returns general information concerning the service,
 	// including its identity pubkey.
 	GetInfo(context.Context, *GetInfoRequest) (*GetInfoResponse, error)
+	// *
 	// GetProof returns the generated proof for given round id.
 	GetProof(context.Context, *GetProofRequest) (*GetProofResponse, error)
 }
@@ -113,12 +91,6 @@ type PoetServiceServer interface {
 type UnimplementedPoetServiceServer struct {
 }
 
-func (UnimplementedPoetServiceServer) Start(context.Context, *StartRequest) (*StartResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Start not implemented")
-}
-func (UnimplementedPoetServiceServer) UpdateGateway(context.Context, *UpdateGatewayRequest) (*UpdateGatewayResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method UpdateGateway not implemented")
-}
 func (UnimplementedPoetServiceServer) Submit(context.Context, *SubmitRequest) (*SubmitResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Submit not implemented")
 }
@@ -138,42 +110,6 @@ type UnsafePoetServiceServer interface {
 
 func RegisterPoetServiceServer(s grpc.ServiceRegistrar, srv PoetServiceServer) {
 	s.RegisterService(&PoetService_ServiceDesc, srv)
-}
-
-func _PoetService_Start_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(StartRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(PoetServiceServer).Start(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/rpc.api.v1.PoetService/Start",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PoetServiceServer).Start(ctx, req.(*StartRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _PoetService_UpdateGateway_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(UpdateGatewayRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(PoetServiceServer).UpdateGateway(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/rpc.api.v1.PoetService/UpdateGateway",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(PoetServiceServer).UpdateGateway(ctx, req.(*UpdateGatewayRequest))
-	}
-	return interceptor(ctx, in, info, handler)
 }
 
 func _PoetService_Submit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -237,14 +173,6 @@ var PoetService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "rpc.api.v1.PoetService",
 	HandlerType: (*PoetServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "Start",
-			Handler:    _PoetService_Start_Handler,
-		},
-		{
-			MethodName: "UpdateGateway",
-			Handler:    _PoetService_UpdateGateway_Handler,
-		},
 		{
 			MethodName: "Submit",
 			Handler:    _PoetService_Submit_Handler,

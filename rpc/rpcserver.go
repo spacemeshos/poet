@@ -3,7 +3,6 @@ package rpc
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 
 	"go.uber.org/zap"
@@ -48,86 +47,86 @@ func NewServer(
 	}
 }
 
-func (r *rpcServer) Start(ctx context.Context, in *api.StartRequest) (*api.StartResponse, error) {
-	r.Lock()
-	defer r.Unlock()
+// func (r *rpcServer) Start(ctx context.Context, in *api.StartRequest) (*api.StartResponse, error) {
+// 	r.Lock()
+// 	defer r.Unlock()
 
-	if r.s.Started() {
-		return nil, service.ErrAlreadyStarted
-	}
+// 	if r.s.Started() {
+// 		return nil, service.ErrAlreadyStarted
+// 	}
 
-	connAcks := uint(in.ConnAcksThreshold)
-	if connAcks < 1 {
-		connAcks = 1
-	}
+// 	connAcks := uint(in.ConnAcksThreshold)
+// 	if connAcks < 1 {
+// 		connAcks = 1
+// 	}
 
-	gtwConnCtx, cancel := context.WithTimeout(ctx, r.cfg.GtwConnTimeout)
-	defer cancel()
-	gtwManager, err := gateway.NewManager(gtwConnCtx, in.GatewayAddresses, connAcks)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err := gtwManager.Close(); err != nil {
-			logging.FromContext(ctx).Warn("failed to close GRPC connections", zap.Error(err))
-		}
-	}()
+// 	gtwConnCtx, cancel := context.WithTimeout(ctx, r.cfg.GtwConnTimeout)
+// 	defer cancel()
+// 	gtwManager, err := gateway.NewManager(gtwConnCtx, in.GatewayAddresses, connAcks)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	defer func() {
+// 		if err := gtwManager.Close(); err != nil {
+// 			logging.FromContext(ctx).Warn("failed to close GRPC connections", zap.Error(err))
+// 		}
+// 	}()
 
-	verifier, err := service.CreateChallengeVerifier(gtwManager.Connections())
-	if err != nil {
-		return nil, fmt.Errorf("failed to create challenge verifier: %w", err)
-	}
+// 	verifier, err := service.CreateChallengeVerifier(gtwManager.Connections())
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to create challenge verifier: %w", err)
+// 	}
 
-	if err = r.s.Start(ctx, verifier); err != nil {
-		return nil, err
-	}
-	// Swap the new and old gateway managers.
-	// The old one will be closed in defer.
-	r.gtwManager, gtwManager = gtwManager, r.gtwManager
+// 	if err = r.s.Start(ctx, verifier); err != nil {
+// 		return nil, err
+// 	}
+// 	// Swap the new and old gateway managers.
+// 	// The old one will be closed in defer.
+// 	r.gtwManager, gtwManager = gtwManager, r.gtwManager
 
-	return &api.StartResponse{}, nil
-}
+// 	return &api.StartResponse{}, nil
+// }
 
-func (r *rpcServer) UpdateGateway(
-	ctx context.Context,
-	in *api.UpdateGatewayRequest,
-) (*api.UpdateGatewayResponse, error) {
-	r.Lock()
-	defer r.Unlock()
+// func (r *rpcServer) UpdateGateway(
+// 	ctx context.Context,
+// 	in *api.UpdateGatewayRequest,
+// ) (*api.UpdateGatewayResponse, error) {
+// 	r.Lock()
+// 	defer r.Unlock()
 
-	if !r.s.Started() {
-		return nil, service.ErrNotStarted
-	}
+// 	if !r.s.Started() {
+// 		return nil, service.ErrNotStarted
+// 	}
 
-	connAcks := uint(in.ConnAcksThreshold)
-	if connAcks < 1 {
-		connAcks = 1
-	}
+// 	connAcks := uint(in.ConnAcksThreshold)
+// 	if connAcks < 1 {
+// 		connAcks = 1
+// 	}
 
-	gtwConnCtx, cancel := context.WithTimeout(ctx, r.cfg.GtwConnTimeout)
-	defer cancel()
-	gtwManager, err := gateway.NewManager(gtwConnCtx, in.GatewayAddresses, connAcks)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err := gtwManager.Close(); err != nil {
-			logging.FromContext(ctx).Warn("failed to close GRPC connections", zap.Error(err))
-		}
-	}()
+// 	gtwConnCtx, cancel := context.WithTimeout(ctx, r.cfg.GtwConnTimeout)
+// 	defer cancel()
+// 	gtwManager, err := gateway.NewManager(gtwConnCtx, in.GatewayAddresses, connAcks)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	defer func() {
+// 		if err := gtwManager.Close(); err != nil {
+// 			logging.FromContext(ctx).Warn("failed to close GRPC connections", zap.Error(err))
+// 		}
+// 	}()
 
-	verifier, err := service.CreateChallengeVerifier(gtwManager.Connections())
-	if err != nil {
-		return nil, fmt.Errorf("failed to create challenge verifier: %w", err)
-	}
+// 	verifier, err := service.CreateChallengeVerifier(gtwManager.Connections())
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to create challenge verifier: %w", err)
+// 	}
 
-	// Swap the new and old gateway managers.
-	// The old one will be closed in defer.
-	r.gtwManager, gtwManager = gtwManager, r.gtwManager
-	r.s.SetChallengeVerifier(verifier)
+// 	// Swap the new and old gateway managers.
+// 	// The old one will be closed in defer.
+// 	r.gtwManager, gtwManager = gtwManager, r.gtwManager
+// 	r.s.SetChallengeVerifier(verifier)
 
-	return &api.UpdateGatewayResponse{}, nil
-}
+// 	return &api.UpdateGatewayResponse{}, nil
+// }
 
 // Submit implements api.Submit.
 func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.SubmitResponse, error) {

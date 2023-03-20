@@ -18,7 +18,7 @@
   "paths": {
     "/v1/info": {
       "get": {
-        "summary": "GetInfo returns general information concerning the service,\nincluding its identity pubkey.",
+        "summary": "*\nGetInfo returns general information concerning the service,\nincluding its identity pubkey.",
         "operationId": "PoetService_GetInfo",
         "responses": {
           "200": {
@@ -41,7 +41,7 @@
     },
     "/v1/proofs/{roundId}": {
       "get": {
-        "summary": "GetProof returns the generated proof for given round id.",
+        "summary": "*\nGetProof returns the generated proof for given round id.",
         "operationId": "PoetService_GetProof",
         "responses": {
           "200": {
@@ -70,42 +70,9 @@
         ]
       }
     },
-    "/v1/start": {
-      "post": {
-        "summary": "Start is used to start the service.",
-        "operationId": "PoetService_Start",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1StartResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/v1StartRequest"
-            }
-          }
-        ],
-        "tags": [
-          "PoetService"
-        ]
-      }
-    },
     "/v1/submit": {
       "post": {
-        "summary": "Submit adds a challenge to the service's current open round,\nto be included its later generated proof.",
+        "summary": "*\nSubmit adds a challenge to the service's current open round,\nto be included its later generated proof.",
         "operationId": "PoetService_Submit",
         "responses": {
           "200": {
@@ -128,39 +95,6 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/v1SubmitRequest"
-            }
-          }
-        ],
-        "tags": [
-          "PoetService"
-        ]
-      }
-    },
-    "/v1/updategateway": {
-      "post": {
-        "summary": "UpdateGateway allows to update the list of gateway addresses,\nsimilar to the Start rpc, but after the service already started.",
-        "operationId": "PoetService_UpdateGateway",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1UpdateGatewayResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/v1UpdateGatewayRequest"
             }
           }
         ],
@@ -270,24 +204,6 @@
         }
       }
     },
-    "v1StartRequest": {
-      "type": "object",
-      "properties": {
-        "gatewayAddresses": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "connAcksThreshold": {
-          "type": "integer",
-          "format": "int32"
-        }
-      }
-    },
-    "v1StartResponse": {
-      "type": "object"
-    },
     "v1SubmitRequest": {
       "type": "object",
       "properties": {
@@ -315,24 +231,6 @@
           "type": "string"
         }
       }
-    },
-    "v1UpdateGatewayRequest": {
-      "type": "object",
-      "properties": {
-        "gatewayAddresses": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "connAcksThreshold": {
-          "type": "integer",
-          "format": "int32"
-        }
-      }
-    },
-    "v1UpdateGatewayResponse": {
-      "type": "object"
     }
   }
 }

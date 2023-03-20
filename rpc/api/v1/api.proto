@@ -6,26 +6,26 @@ import "google/protobuf/duration.proto";
 package rpc.api.v1;
 
 service PoetService {
-    /**
-    Start is used to start the service.
-    */
-    rpc Start (StartRequest) returns (StartResponse) {
-        option (google.api.http) = {
-            post: "/v1/start",
-            body: "*",
-        };
-    }
+    // /**
+    // Start is used to start the service.
+    // */
+    // rpc Start (StartRequest) returns (StartResponse) {
+    //     option (google.api.http) = {
+    //         post: "/v1/start",
+    //         body: "*",
+    //     };
+    // }
 
-    /**
-    UpdateGateway allows to update the list of gateway addresses,
-    similar to the Start rpc, but after the service already started.
-    */
-    rpc UpdateGateway (UpdateGatewayRequest) returns (UpdateGatewayResponse) {
-        option (google.api.http) = {
-            post: "/v1/updategateway",
-            body: "*",
-        };
-    }
+    // /**
+    // UpdateGateway allows to update the list of gateway addresses,
+    // similar to the Start rpc, but after the service already started.
+    // */
+    // rpc UpdateGateway (UpdateGatewayRequest) returns (UpdateGatewayResponse) {
+    //     option (google.api.http) = {
+    //         post: "/v1/updategateway",
+    //         body: "*",
+    //     };
+    // }
 
     /**
     Submit adds a challenge to the service's current open round,
