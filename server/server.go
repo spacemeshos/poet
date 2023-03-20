@@ -21,6 +21,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/reflection"
 
 	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/gateway"
@@ -159,6 +160,8 @@ func (s *Server) Start(ctx context.Context) error {
 
 	api.RegisterPoetServiceServer(grpcServer, rpcServer)
 	proxyRegstr = append(proxyRegstr, api.RegisterPoetServiceHandlerFromEndpoint)
+
+	reflection.Register(grpcServer)
 
 	// Start the gRPC server listening for HTTP/2 connections.
 	serverGroup.Go(func() error {
