@@ -1,7 +1,7 @@
 name: CI
 
 env:
-  go-version: "1.19.7"
+  go-version: "1.20"
 
 on:
   merge_group:
@@ -82,3 +82,20 @@ jobs:
         with:
           report_paths: "**/unit-tests.xml"
           annotate_only: true
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: set up go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.go-version }}
+      - name: setup env
+        run: make install
+      - name: test coverage
+        run: make cover
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v3
+        with:
+          fail_ci_if_error: true
