@@ -151,7 +151,7 @@ lint-protos:
 .PHONY: lint-protos
 
 cover:
-	go test -coverprofile=cover.out -timeout 0 -p 1 ./...
+	go test -coverprofile=cover.out -timeout 0 -p 1 -coverpkg=./... ./...
 .PHONY: cover
 
 staticcheck:
