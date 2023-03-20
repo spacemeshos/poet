@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	proxy "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
@@ -104,7 +106,10 @@ func (s *Server) Start(ctx context.Context) error {
 	var grpcServer *grpc.Server
 	var proxyRegstr []func(context.Context, *proxy.ServeMux, string, []grpc.DialOption) error
 	options := []grpc.ServerOption{
-		grpc.UnaryInterceptor(loggerInterceptor(logger)),
+		grpc.UnaryInterceptor(grpcmw.ChainUnaryServer(
+			loggerInterceptor(logger),
+			grpc_prometheus.UnaryServerInterceptor,
+		)),
 		// XXX: this is done to prevent routers from cleaning up our connections (e.g aws load balances..)
 		// TODO: these parameters work for now but we might need to revisit or add them as configuration
 		// TODO: Configure maxconns, maxconcurrentcons ..
