@@ -53,7 +53,7 @@ func (r *rpcServer) Start(ctx context.Context, in *api.StartRequest) (*api.Start
 	defer r.Unlock()
 
 	if r.s.Started() {
-		return nil, service.ErrAlreadyStarted
+		return nil, status.Error(codes.FailedPrecondition, service.ErrAlreadyStarted.Error())
 	}
 
 	connAcks := uint(in.ConnAcksThreshold)

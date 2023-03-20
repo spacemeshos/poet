@@ -13,7 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 
 	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/gateway"
@@ -21,6 +23,7 @@ import (
 	"github.com/spacemeshos/poet/prover"
 	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
 	"github.com/spacemeshos/poet/server"
+	"github.com/spacemeshos/poet/service"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/verifier"
 )
@@ -29,22 +32,34 @@ const randomHost = "localhost:0"
 
 type gatewayService struct {
 	pb.UnimplementedGatewayServiceServer
+	verify func(ctx context.Context, req *pb.VerifyChallengeRequest) (*pb.VerifyChallengeResponse, error)
 }
 
-func (*gatewayService) VerifyChallenge(
+func (s *gatewayService) VerifyChallenge(
 	ctx context.Context,
 	req *pb.VerifyChallengeRequest,
 ) (*pb.VerifyChallengeResponse, error) {
-	return &pb.VerifyChallengeResponse{
-		Hash:   []byte("hash"),
-		NodeId: []byte("nodeID"),
-	}, nil
+	return s.verify(ctx, req)
 }
 
-func spawnMockGateway(t *testing.T) (target string) {
+type optionFunc func(*gatewayService)
+
+func spawnMockGateway(t *testing.T, opts ...optionFunc) (target string) {
 	t.Helper()
 	server := gateway.NewMockGrpcServer(t)
-	pb.RegisterGatewayServiceServer(server.Server, &gatewayService{})
+	svc := &gatewayService{
+		verify: func(ctx context.Context, req *pb.VerifyChallengeRequest) (*pb.VerifyChallengeResponse, error) {
+			return &pb.VerifyChallengeResponse{
+				Hash:   []byte("hash"),
+				NodeId: []byte("nodeID"),
+			}, nil
+		},
+	}
+	for _, opt := range opts {
+		opt(svc)
+	}
+
+	pb.RegisterGatewayServiceServer(server.Server, svc)
 
 	var eg errgroup.Group
 	t.Cleanup(func() { assert.NoError(t, eg.Wait()) })
@@ -99,6 +114,97 @@ func TestPoetStart(t *testing.T) {
 	resp, err := client.GetInfo(context.Background(), &api.GetInfoRequest{})
 	req.NoError(err)
 	req.Equal("0", resp.OpenRoundId)
+
+	cancel()
+	req.NoError(eg.Wait())
+}
+
+func TestPoetStartViaGRPC(t *testing.T) {
+	t.Parallel()
+	req := require.New(t)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	gtw := spawnMockGateway(t)
+
+	cfg := config.DefaultConfig()
+	cfg.PoetDir = t.TempDir()
+	cfg.RawRPCListener = randomHost
+	cfg.RawRESTListener = randomHost
+
+	srv, client := spawnPoet(ctx, t, *cfg)
+
+	var eg errgroup.Group
+	eg.Go(func() error {
+		return srv.Start(ctx)
+	})
+
+	// Cannot submit yet as service is not started.
+	_, err := client.Submit(context.Background(), &api.SubmitRequest{})
+	s, ok := status.FromError(err)
+	req.True(ok)
+	req.Equal(codes.FailedPrecondition, s.Code())
+
+	// Start service.
+	_, err = client.Start(context.Background(), &api.StartRequest{
+		GatewayAddresses: []string{gtw},
+	})
+	req.NoError(err)
+
+	// Cannot start service again.
+	_, err = client.Start(context.Background(), &api.StartRequest{
+		GatewayAddresses: []string{gtw},
+	})
+	req.Error(err)
+	s, ok = status.FromError(err)
+	req.True(ok)
+	req.Equal(codes.FailedPrecondition, s.Code())
+	req.Equal(service.ErrAlreadyStarted.Error(), s.Message())
+
+	// Now we can submit.
+	_, err = client.Submit(context.Background(), &api.SubmitRequest{})
+	req.NoError(err)
+
+	cancel()
+	req.NoError(eg.Wait())
+}
+
+func TestUpdateGateways(t *testing.T) {
+	t.Parallel()
+	req := require.New(t)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	cfg := config.DefaultConfig()
+	cfg.PoetDir = t.TempDir()
+	cfg.RawRPCListener = randomHost
+	cfg.RawRESTListener = randomHost
+	cfg.Service.GatewayAddresses = []string{spawnMockGateway(t)}
+
+	srv, client := spawnPoet(ctx, t, *cfg)
+
+	var eg errgroup.Group
+	eg.Go(func() error {
+		return srv.Start(ctx)
+	})
+
+	_, err := client.Submit(context.Background(), &api.SubmitRequest{})
+	req.NoError(err)
+
+	// Update gateway to one that rejects.
+	gtw2 := spawnMockGateway(t, func(svc *gatewayService) {
+		svc.verify = func(ctx context.Context, req *pb.VerifyChallengeRequest) (*pb.VerifyChallengeResponse, error) {
+			return nil, status.Error(codes.InvalidArgument, "no!")
+		}
+	})
+	_, err = client.UpdateGateway(ctx, &api.UpdateGatewayRequest{
+		GatewayAddresses: []string{gtw2},
+	})
+	req.NoError(err)
+
+	_, err = client.Submit(context.Background(), &api.SubmitRequest{})
+	s, ok := status.FromError(err)
+	req.True(ok)
+	req.Equal(codes.InvalidArgument, s.Code())
+	req.Equal("challenge is invalid", s.Message())
 
 	cancel()
 	req.NoError(eg.Wait())
