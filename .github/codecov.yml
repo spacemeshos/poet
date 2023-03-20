@@ -11,5 +11,8 @@ coverage:
         threshold: 1%
 
 ignore:
+  - "poet.go"
   - "cmd"
   - "release"
+  - "**/*_scale.go"
+  - "**/*mock*.go"
