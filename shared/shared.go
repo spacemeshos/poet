@@ -107,6 +107,6 @@ type Node struct {
 
 type MerkleProof struct {
 	Root         []byte `scale:"max=32"`
-	ProvenLeaves []Leaf `scale:"max=150"`
+	ProvenLeaves []Leaf `scale:"max=150"`  // the max. size of this slice is T (security param)
 	ProofNodes   []Node `scale:"max=5400"` // 36 nodes per leaf
 }
