@@ -37,7 +37,7 @@ ifeq ($(OS),Windows_NT)
 else
 	UNAME_OS := $(shell uname -s)
 	UNAME_ARCH := $(shell uname -m)
-	PROTOC_BUILD := $(shell echo ${UNAME_OS}-${UNAME_ARCH} | tr '[:upper:]' '[:lower:]' | sed 's/darwin/osx/' | sed 's/aarch64/aarch_64/')
+	PROTOC_BUILD := $(shell echo ${UNAME_OS}-${UNAME_ARCH} | tr '[:upper:]' '[:lower:]' | sed 's/darwin/osx/' | sed 's/arm64/aarch_64/' | sed 's/aarch64/aarch_64/')
 
  	BIN_DIR := $(abspath .)/bin
  	export PATH := $(BIN_DIR):$(PATH)
