@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/spacemeshos/go-scale"
+	xdr "github.com/nullstyle/go-xdr/xdr3"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"go.uber.org/zap"
@@ -28,8 +28,9 @@ func (db *ProofsDatabase) Get(ctx context.Context, roundID string) (*shared.Proo
 	}
 
 	proof := &shared.ProofMessage{}
-	if _, err := proof.DecodeScale(scale.NewDecoder(bytes.NewReader(data))); err != nil {
-		return nil, fmt.Errorf("failed to get deserialize proof: %w", err)
+	_, err = xdr.Unmarshal(bytes.NewReader(data), proof)
+	if err != nil {
+		return nil, fmt.Errorf("failed to deserialize: %v", err)
 	}
 	return proof, nil
 }
@@ -69,8 +70,9 @@ func (db *ProofsDatabase) Run(ctx context.Context) error {
 
 func serializeProofMsg(proof shared.ProofMessage) ([]byte, error) {
 	var dataBuf bytes.Buffer
-	if _, err := proof.EncodeScale(scale.NewEncoder(&dataBuf)); err != nil {
-		return nil, fmt.Errorf("failed to marshal proof message for round %v: %v", proof.RoundID, err)
+	_, err := xdr.Marshal(&dataBuf, proof)
+	if err != nil {
+		return nil, fmt.Errorf("serialization failure: %v", err)
 	}
 
 	return dataBuf.Bytes(), nil
