@@ -85,7 +85,7 @@ type Proof struct {
 
 	// Members is the ordered list of miners challenges which are included
 	// in the proof (by using the list hash digest as the proof generation input (the statement)).
-	Members []Member `scale:"max=150"`
+	Members []Member `scale:"max=1000000"`
 
 	// NumLeaves is the width of the proof-generation tree.
 	NumLeaves uint64
