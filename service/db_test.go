@@ -9,12 +9,11 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/spacemeshos/poet/service"
-	"github.com/spacemeshos/poet/shared"
 )
 
 func TestInsertAndGetProof(t *testing.T) {
 	tempdir := t.TempDir()
-	proofs := make(chan shared.ProofMessage)
+	proofs := make(chan service.ProofMessage)
 	db, err := service.NewProofsDatabase(tempdir, proofs)
 	require.NoError(t, err)
 
@@ -25,8 +24,8 @@ func TestInsertAndGetProof(t *testing.T) {
 		return db.Run(ctx)
 	})
 
-	proofs <- shared.ProofMessage{RoundID: "1"}
-	var proof *shared.ProofMessage
+	proofs <- service.ProofMessage{RoundID: "1"}
+	var proof *service.ProofMessage
 	require.Eventually(t, func() bool {
 		proof, err = db.Get(ctx, "1")
 		return err == nil

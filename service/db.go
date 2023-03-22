@@ -11,23 +11,22 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/spacemeshos/poet/logging"
-	"github.com/spacemeshos/poet/shared"
 )
 
 var ErrNotFound = leveldb.ErrNotFound
 
 type ProofsDatabase struct {
 	db     *leveldb.DB
-	proofs <-chan shared.ProofMessage
+	proofs <-chan ProofMessage
 }
 
-func (db *ProofsDatabase) Get(ctx context.Context, roundID string) (*shared.ProofMessage, error) {
+func (db *ProofsDatabase) Get(ctx context.Context, roundID string) (*ProofMessage, error) {
 	data, err := db.db.Get([]byte(roundID), nil)
 	if err != nil {
 		return nil, fmt.Errorf("get proof for %s from DB: %w", roundID, err)
 	}
 
-	proof := &shared.ProofMessage{}
+	proof := &ProofMessage{}
 	_, err = xdr.Unmarshal(bytes.NewReader(data), proof)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deserialize: %v", err)
@@ -35,7 +34,7 @@ func (db *ProofsDatabase) Get(ctx context.Context, roundID string) (*shared.Proo
 	return proof, nil
 }
 
-func NewProofsDatabase(dbPath string, proofs <-chan shared.ProofMessage) (*ProofsDatabase, error) {
+func NewProofsDatabase(dbPath string, proofs <-chan ProofMessage) (*ProofsDatabase, error) {
 	db, err := leveldb.OpenFile(dbPath, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database @ %s: %w", dbPath, err)
@@ -68,7 +67,7 @@ func (db *ProofsDatabase) Run(ctx context.Context) error {
 	}
 }
 
-func serializeProofMsg(proof shared.ProofMessage) ([]byte, error) {
+func serializeProofMsg(proof ProofMessage) ([]byte, error) {
 	var dataBuf bytes.Buffer
 	_, err := xdr.Marshal(&dataBuf, proof)
 	if err != nil {
