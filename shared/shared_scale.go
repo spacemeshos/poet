@@ -121,7 +121,7 @@ func (t *Proof) EncodeScale(enc *scale.Encoder) (total int, err error) {
 		total += n
 	}
 	{
-		n, err := scale.EncodeStructSliceWithLimit(enc, t.Members, 150)
+		n, err := scale.EncodeStructSliceWithLimit(enc, t.Members, 1000000)
 		if err != nil {
 			return total, err
 		}
@@ -146,7 +146,7 @@ func (t *Proof) DecodeScale(dec *scale.Decoder) (total int, err error) {
 		total += n
 	}
 	{
-		field, n, err := scale.DecodeStructSliceWithLimit[Member](dec, 150)
+		field, n, err := scale.DecodeStructSliceWithLimit[Member](dec, 1000000)
 		if err != nil {
 			return total, err
 		}
