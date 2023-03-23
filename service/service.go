@@ -22,7 +22,6 @@ import (
 	"github.com/spacemeshos/poet/gateway/challenge_verifier"
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/service/tid"
-	"github.com/spacemeshos/poet/shared"
 )
 
 type Config struct {
@@ -51,7 +50,7 @@ const ChallengeVerifierCacheSize = 1024
 // It mustn't be restarted. A new instance of `Service` must be created.
 type Service struct {
 	started  atomic.Bool
-	proofs   chan shared.ProofMessage
+	proofs   chan proofMessage
 	commands chan Command
 	timer    <-chan time.Time
 
@@ -143,7 +142,7 @@ func NewService(ctx context.Context, cfg *Config, datadir string) (*Service, err
 	}
 
 	s := &Service{
-		proofs:          make(chan shared.ProofMessage, 1),
+		proofs:          make(chan proofMessage, 1),
 		commands:        cmds,
 		cfg:             cfg,
 		minMemoryLayer:  minMemoryLayer,
@@ -164,7 +163,7 @@ type roundResult struct {
 	err   error
 }
 
-func (s *Service) ProofsChan() <-chan shared.ProofMessage {
+func (s *Service) ProofsChan() <-chan proofMessage {
 	return s.proofs
 }
 
@@ -484,15 +483,8 @@ func (s *Service) newRound(ctx context.Context, epoch uint32) (*round, error) {
 }
 
 func (s *Service) reportNewProof(round string, execution *executionState) {
-	members := make([]shared.Member, 0, len(execution.Members))
-	for _, member := range execution.Members {
-		members = append(members, shared.Member{
-			Challenge: member,
-		})
-	}
-
-	s.proofs <- shared.ProofMessage{
-		Proof: shared.Proof{
+	s.proofs <- proofMessage{
+		Proof: proof{
 			MerkleProof: *execution.NIP,
 			Members:     members,
 			NumLeaves:   execution.NumLeaves,

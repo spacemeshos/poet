@@ -8,7 +8,7 @@ import (
 	"github.com/spacemeshos/sha256-simd"
 )
 
-//go:generate scalegen -types MerkleProof,ProofMessage,Proof,Member,Leaf,Node
+//go:generate scalegen -types MerkleProof
 
 const (
 	// T is the security param which determines the number of leaves
@@ -75,35 +75,9 @@ func MakeLabelFunc() func(hash LabelHash, labelID uint64, leftSiblings [][]byte)
 	}
 }
 
-type Member struct {
-	Challenge []byte `scale:"max=32"`
-}
+type Leaf [32]byte
 
-type Proof struct {
-	// The actual proof.
-	MerkleProof
-
-	// Members is the ordered list of miners challenges which are included
-	// in the proof (by using the list hash digest as the proof generation input (the statement)).
-	Members []Member `scale:"max=1000000"`
-
-	// NumLeaves is the width of the proof-generation tree.
-	NumLeaves uint64
-}
-
-type ProofMessage struct {
-	Proof
-	ServicePubKey []byte `scale:"max=32"`
-	RoundID       string `scale:"max=32"`
-}
-
-type Leaf struct {
-	Value []byte `scale:"max=32"`
-}
-
-type Node struct {
-	Value []byte `scale:"max=32"`
-}
+type Node [32]byte
 
 type MerkleProof struct {
 	Root         []byte `scale:"max=32"`

@@ -297,8 +297,8 @@ func generateProof(
 
 	return leaves, &shared.MerkleProof{
 		Root:         root,
-		ProvenLeaves: sliceMap(provenLeaves, func(leaf []byte) shared.Leaf { return shared.Leaf{Value: leaf} }),
-		ProofNodes:   sliceMap(proofNodes, func(node []byte) shared.Node { return shared.Node{Value: node} }),
+		ProvenLeaves: sliceMap(provenLeaves, func(leaf []byte) shared.Leaf { return shared.Leaf(leaf) }),
+		ProofNodes:   sliceMap(proofNodes, func(node []byte) shared.Node { return shared.Node(node) }),
 	}, nil
 }
 
@@ -339,13 +339,13 @@ func getLayersFiles(datadir string) (map[uint]string, error) {
 }
 
 // Calculate the root of a Merkle Tree with given leaves.
-func CalcTreeRoot(leaves []shared.Member) ([]byte, error) {
+func CalcTreeRoot(leaves [][]byte) ([]byte, error) {
 	tree, err := merkle.NewTree()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate tree: %w", err)
 	}
 	for _, member := range leaves {
-		err := tree.AddLeaf(member.Challenge)
+		err := tree.AddLeaf(member)
 		if err != nil {
 			return nil, fmt.Errorf("failed to add leaf: %w", err)
 		}

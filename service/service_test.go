@@ -122,14 +122,13 @@ func TestService_Recovery(t *testing.T) {
 	submitChallenges("2", challengeGroups[2])
 
 	for i := 0; i < len(challengeGroups); i++ {
-		proof := <-s.ProofsChan()
-		req.Equal(strconv.Itoa(i), proof.RoundID)
+		proofMsg := <-s.ProofsChan()
+		proof := proofMsg.Proof
+		req.Equal(strconv.Itoa(i), proofMsg.RoundID)
 		// Verify the submitted challenges.
-		req.Len(proof.Members, len(challengeGroups[i]), "round: %v i: %d", proof.RoundID, i)
+		req.Len(proof.Members, len(challengeGroups[i]), "round: %v i: %d", proofMsg.RoundID, i)
 		for _, ch := range challengeGroups[i] {
-			req.Contains(proof.Members, shared.Member{
-				Challenge: ch.data,
-			}, "round: %v, i: %d", proof.RoundID, i)
+			req.Contains(proof.Members, ch.data, "round: %v, i: %d", proofMsg.RoundID, i)
 		}
 
 		challenge, err := prover.CalcTreeRoot(proof.Members)
@@ -225,15 +224,14 @@ func TestNewService(t *testing.T) {
 	}, time.Second, time.Millisecond*100)
 
 	// Wait for proof message.
-	proof := <-s.ProofsChan()
+	proofMsg := <-s.ProofsChan()
+	proof := proofMsg.Proof
 
-	req.Equal(currentRound, proof.RoundID)
+	req.Equal(currentRound, proofMsg.RoundID)
 	// Verify the submitted challenges.
 	req.Len(proof.Members, len(challenges))
 	for _, ch := range challenges {
-		req.Contains(proof.Members, shared.Member{
-			Challenge: ch.data,
-		})
+		req.Contains(proof.Members, ch.data)
 	}
 
 	challenge, err := prover.CalcTreeRoot(proof.Members)

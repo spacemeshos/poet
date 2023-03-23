@@ -180,7 +180,8 @@ func (r *rpcServer) Proof(ctx context.Context, in *api.ProofRequest) (*api.Proof
 		}
 	}
 
-	proof, err := r.proofsDb.Get(ctx, in.RoundId)
+	proofMsg, err := r.proofsDb.Get(ctx, in.RoundId)
+	proof := proofMsg.Proof
 	switch {
 	case errors.Is(err, service.ErrNotFound):
 		return nil, status.Error(codes.NotFound, "proof not found")
@@ -208,7 +209,7 @@ func (r *rpcServer) Proof(ctx context.Context, in *api.ProofRequest) (*api.Proof
 				Members: members,
 				Leaves:  proof.NumLeaves,
 			},
-			Pubkey: proof.ServicePubKey,
+			Pubkey: proofMsg.ServicePubKey,
 		}
 
 		return &out, nil

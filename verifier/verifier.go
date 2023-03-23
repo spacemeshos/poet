@@ -23,11 +23,11 @@ func Validate(proof shared.MerkleProof, labelHashFunc func(data []byte) []byte,
 	provenLeafIndices := asSortedSlice(shared.FiatShamir(proof.Root, numLeaves, securityParam))
 	provenLeaves := make([][]byte, 0, len(proof.ProvenLeaves))
 	for _, leaf := range proof.ProvenLeaves {
-		provenLeaves = append(provenLeaves, leaf.Value)
+		provenLeaves = append(provenLeaves, leaf[:])
 	}
 	proofNodes := make([][]byte, 0, len(proof.ProofNodes))
 	for _, node := range proof.ProofNodes {
-		proofNodes = append(proofNodes, node.Value)
+		proofNodes = append(proofNodes, node[:])
 	}
 	valid, parkingSnapshots, err := merkle.ValidatePartialTreeWithParkingSnapshots(
 		provenLeafIndices,
@@ -46,7 +46,7 @@ func Validate(proof shared.MerkleProof, labelHashFunc func(data []byte) []byte,
 	makeLabel := shared.MakeLabelFunc()
 	for id, label := range proof.ProvenLeaves {
 		expectedLabel := makeLabel(labelHashFunc, provenLeafIndices[id], parkingSnapshots[id])
-		if !bytes.Equal(expectedLabel, label.Value) {
+		if !bytes.Equal(expectedLabel, label[:]) {
 			return fmt.Errorf("label at index %d incorrect - expected: %x actual: %x", id, expectedLabel, label)
 		}
 	}
