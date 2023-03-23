@@ -187,12 +187,12 @@ func (r *rpcServer) Proof(ctx context.Context, in *api.ProofRequest) (*api.Proof
 		return nil, status.Error(codes.NotFound, "proof not found")
 	case err == nil:
 		leaves := make([][]byte, 0, len(proof.ProvenLeaves))
-		for _, l := range proof.ProvenLeaves {
-			leaves = append(leaves, l[:])
+		for i := range proof.ProvenLeaves {
+			leaves = append(leaves, proof.ProvenLeaves[i][:])
 		}
 		nodes := make([][]byte, 0, len(proof.ProofNodes))
-		for _, n := range proof.ProofNodes {
-			nodes = append(nodes, n[:])
+		for i := range proof.ProofNodes {
+			nodes = append(nodes, proof.ProofNodes[i][:])
 		}
 
 		out := api.ProofResponse{

@@ -312,8 +312,8 @@ func generateProof(
 
 func sliceMap[T, U any](s []T, f func(T) U) []U {
 	r := make([]U, 0, len(s))
-	for _, v := range s {
-		r = append(r, f(v))
+	for i := range s {
+		r = append(r, f(s[i]))
 	}
 	return r
 }
