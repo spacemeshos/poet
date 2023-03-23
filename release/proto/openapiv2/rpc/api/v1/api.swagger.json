@@ -18,13 +18,13 @@
   "paths": {
     "/v1/info": {
       "get": {
-        "summary": "GetInfo returns general information concerning the service,\nincluding its identity pubkey.",
-        "operationId": "PoetService_GetInfo",
+        "summary": "Info returns general information concerning the service,\nincluding its identity pubkey.",
+        "operationId": "PoetService_Info",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/v1GetInfoResponse"
+              "$ref": "#/definitions/v1InfoResponse"
             }
           },
           "default": {
@@ -41,13 +41,13 @@
     },
     "/v1/proofs/{roundId}": {
       "get": {
-        "summary": "GetProof returns the generated proof for given round id.",
-        "operationId": "PoetService_GetProof",
+        "summary": "roof returns the generated proof for given round id.",
+        "operationId": "PoetService_Proof",
         "responses": {
           "200": {
             "description": "A successful response.",
             "schema": {
-              "$ref": "#/definitions/v1GetProofResponse"
+              "$ref": "#/definitions/v1ProofResponse"
             }
           },
           "default": {
@@ -198,7 +198,7 @@
         }
       }
     },
-    "v1GetInfoResponse": {
+    "v1InfoResponse": {
       "type": "object",
       "properties": {
         "openRoundId": {
@@ -211,18 +211,6 @@
           }
         },
         "servicePubkey": {
-          "type": "string",
-          "format": "byte"
-        }
-      }
-    },
-    "v1GetProofResponse": {
-      "type": "object",
-      "properties": {
-        "proof": {
-          "$ref": "#/definitions/v1PoetProof"
-        },
-        "pubkey": {
           "type": "string",
           "format": "byte"
         }
@@ -267,6 +255,18 @@
         "leaves": {
           "type": "string",
           "format": "uint64"
+        }
+      }
+    },
+    "v1ProofResponse": {
+      "type": "object",
+      "properties": {
+        "proof": {
+          "$ref": "#/definitions/v1PoetProof"
+        },
+        "pubkey": {
+          "type": "string",
+          "format": "byte"
         }
       }
     },

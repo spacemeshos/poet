@@ -96,7 +96,7 @@ func TestPoetStart(t *testing.T) {
 		return srv.Start(ctx)
 	})
 
-	resp, err := client.GetInfo(context.Background(), &api.GetInfoRequest{})
+	resp, err := client.Info(context.Background(), &api.InfoRequest{})
 	req.NoError(err)
 	req.Equal("0", resp.OpenRoundId)
 
@@ -141,9 +141,9 @@ func TestSubmitAndGetProof(t *testing.T) {
 	<-time.After(roundEnd)
 
 	// Query for the proof
-	var proof *api.GetProofResponse
+	var proof *api.ProofResponse
 	req.Eventually(func() bool {
-		proof, err = client.GetProof(context.Background(), &api.GetProofRequest{RoundId: resp.RoundId})
+		proof, err = client.Proof(context.Background(), &api.ProofRequest{RoundId: resp.RoundId})
 		return err == nil
 	}, time.Second, time.Millisecond*100)
 

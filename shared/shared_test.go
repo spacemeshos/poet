@@ -95,10 +95,12 @@ func TestMakeLabel(t *testing.T) {
 }
 
 func FuzzMerkleProofConsistency(f *testing.F) {
+	f.Add([]byte("018912380012"))
 	tester.FuzzConsistency[MerkleProof](f)
 }
 
 func FuzzMerkleProofSafety(f *testing.F) {
+	f.Add([]byte("018912380012"))
 	tester.FuzzSafety[MerkleProof](f)
 }
 

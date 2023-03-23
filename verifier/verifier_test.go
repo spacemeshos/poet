@@ -50,7 +50,7 @@ func TestValidate(t *testing.T) {
 func TestValidateWrongSecParam(t *testing.T) {
 	merkleProof := shared.MerkleProof{
 		Root:         nil,
-		ProvenLeaves: [][]byte{nil, nil},
+		ProvenLeaves: make([][]byte, 2),
 		ProofNodes:   nil,
 	}
 	challenge := []byte("challenge")
@@ -69,7 +69,7 @@ func TestValidateWrongSecParam(t *testing.T) {
 func TestValidateWrongMerkleValidationError(t *testing.T) {
 	merkleProof := shared.MerkleProof{
 		Root:         nil,
-		ProvenLeaves: [][]byte{},
+		ProvenLeaves: make([][]byte, 0),
 		ProofNodes:   nil,
 	}
 	challenge := []byte("challenge")

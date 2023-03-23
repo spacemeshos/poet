@@ -8,7 +8,7 @@ VERSION ?= $(shell git describe --tags)
 GOLANGCI_LINT_VERSION := v1.52.0
 STATICCHECK_VERSION := v0.4.3
 GOTESTSUM_VERSION := v1.9.0
-GOSCALE_VERSION := v1.1.1
+GOSCALE_VERSION := v1.1.6
 
 BUF_VERSION := 1.8.0
 PROTOC_VERSION = 21.8
@@ -50,6 +50,8 @@ export GOBIN := $(BIN_DIR)
 GOTESTSUM := $(GOBIN)/gotestsum
 GOVULNCHECK := $(GOBIN)/govulncheck
 GOLINES := $(GOBIN)/golines
+
+FUZZTIME ?= "10s"
 
 $(GOVULNCHECK):
 	@go install golang.org/x/vuln/cmd/govulncheck@latest
@@ -182,3 +184,7 @@ test-generate:
 	@make generate
 	@git diff --name-only --diff-filter=AM --exit-code . || { echo "\nPlease rerun 'make generate' and commit changes.\n"; exit 1; }
 .PHONY: test-generate
+
+fuzz:
+	./scripts/fuzz.sh $(FUZZTIME)
+.PHONY: fuzz
