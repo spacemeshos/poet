@@ -186,21 +186,12 @@ func (r *rpcServer) Proof(ctx context.Context, in *api.ProofRequest) (*api.Proof
 	case errors.Is(err, service.ErrNotFound):
 		return nil, status.Error(codes.NotFound, "proof not found")
 	case err == nil:
-		leaves := make([][]byte, 0, len(proof.ProvenLeaves))
-		for i := range proof.ProvenLeaves {
-			leaves = append(leaves, proof.ProvenLeaves[i][:])
-		}
-		nodes := make([][]byte, 0, len(proof.ProofNodes))
-		for i := range proof.ProofNodes {
-			nodes = append(nodes, proof.ProofNodes[i][:])
-		}
-
 		out := api.ProofResponse{
 			Proof: &api.PoetProof{
 				Proof: &api.MerkleProof{
 					Root:         proof.Root,
-					ProvenLeaves: leaves,
-					ProofNodes:   nodes,
+					ProvenLeaves: proof.ProvenLeaves,
+					ProofNodes:   proof.ProofNodes,
 				},
 				Members: proof.Members,
 				Leaves:  proof.NumLeaves,
