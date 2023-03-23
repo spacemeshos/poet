@@ -17,16 +17,16 @@ var ErrNotFound = leveldb.ErrNotFound
 
 type ProofsDatabase struct {
 	db     *leveldb.DB
-	proofs <-chan ProofMessage
+	proofs <-chan proofMessage
 }
 
-func (db *ProofsDatabase) Get(ctx context.Context, roundID string) (*ProofMessage, error) {
+func (db *ProofsDatabase) Get(ctx context.Context, roundID string) (*proofMessage, error) {
 	data, err := db.db.Get([]byte(roundID), nil)
 	if err != nil {
 		return nil, fmt.Errorf("get proof for %s from DB: %w", roundID, err)
 	}
 
-	proof := &ProofMessage{}
+	proof := &proofMessage{}
 	_, err = xdr.Unmarshal(bytes.NewReader(data), proof)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deserialize: %v", err)
@@ -34,7 +34,7 @@ func (db *ProofsDatabase) Get(ctx context.Context, roundID string) (*ProofMessag
 	return proof, nil
 }
 
-func NewProofsDatabase(dbPath string, proofs <-chan ProofMessage) (*ProofsDatabase, error) {
+func NewProofsDatabase(dbPath string, proofs <-chan proofMessage) (*ProofsDatabase, error) {
 	db, err := leveldb.OpenFile(dbPath, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database @ %s: %w", dbPath, err)
@@ -47,16 +47,17 @@ func (db *ProofsDatabase) Run(ctx context.Context) error {
 	logger := logging.FromContext(ctx).Named("proofs-db")
 	for {
 		select {
-		case proof := <-db.proofs:
-			serialized, err := serializeProofMsg(proof)
+		case proofMsg := <-db.proofs:
+			serialized, err := serializeProofMsg(proofMsg)
+			proof := proofMsg.Proof
 			if err != nil {
 				return fmt.Errorf("failed serializing proof: %w", err)
 			}
-			if err := db.db.Put([]byte(proof.RoundID), serialized, &opt.WriteOptions{Sync: true}); err != nil {
+			if err := db.db.Put([]byte(proofMsg.RoundID), serialized, &opt.WriteOptions{Sync: true}); err != nil {
 				logger.Error("failed storing proof in DB", zap.Error(err))
 			} else {
 				logger.Info("Proof saved in DB",
-					zap.String("round", proof.RoundID),
+					zap.String("round", proofMsg.RoundID),
 					zap.Int("members", len(proof.Members)),
 					zap.Uint64("leaves", proof.NumLeaves))
 			}
@@ -67,7 +68,7 @@ func (db *ProofsDatabase) Run(ctx context.Context) error {
 	}
 }
 
-func serializeProofMsg(proof ProofMessage) ([]byte, error) {
+func serializeProofMsg(proof proofMessage) ([]byte, error) {
 	var dataBuf bytes.Buffer
 	_, err := xdr.Marshal(&dataBuf, proof)
 	if err != nil {

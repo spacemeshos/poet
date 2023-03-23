@@ -2,7 +2,7 @@ package service
 
 import "github.com/spacemeshos/poet/shared"
 
-type Proof struct {
+type proof struct {
 	// The actual proof.
 	shared.MerkleProof
 
@@ -14,8 +14,8 @@ type Proof struct {
 	NumLeaves uint64
 }
 
-type ProofMessage struct {
-	Proof
+type proofMessage struct {
+	Proof         proof
 	ServicePubKey []byte
 	RoundID       string
 }

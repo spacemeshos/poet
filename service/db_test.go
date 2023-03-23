@@ -1,4 +1,4 @@
-package service_test
+package service
 
 import (
 	"context"
@@ -7,25 +7,24 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
-
-	"github.com/spacemeshos/poet/service"
 )
 
 func TestInsertAndGetProof(t *testing.T) {
 	tempdir := t.TempDir()
-	proofs := make(chan service.ProofMessage)
-	db, err := service.NewProofsDatabase(tempdir, proofs)
+	proofs := make(chan proofMessage)
+	db, err := NewProofsDatabase(tempdir, proofs)
 	require.NoError(t, err)
 
 	var eg errgroup.Group
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	eg.Go(func() error {
 		return db.Run(ctx)
 	})
 
-	proofs <- service.ProofMessage{RoundID: "1"}
-	var proof *service.ProofMessage
+	proofs <- proofMessage{RoundID: "1"}
+	var proof *proofMessage
 	require.Eventually(t, func() bool {
 		proof, err = db.Get(ctx, "1")
 		return err == nil

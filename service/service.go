@@ -50,7 +50,7 @@ const ChallengeVerifierCacheSize = 1024
 // It mustn't be restarted. A new instance of `Service` must be created.
 type Service struct {
 	started  atomic.Bool
-	proofs   chan ProofMessage
+	proofs   chan proofMessage
 	commands chan Command
 	timer    <-chan time.Time
 
@@ -142,7 +142,7 @@ func NewService(ctx context.Context, cfg *Config, datadir string) (*Service, err
 	}
 
 	s := &Service{
-		proofs:          make(chan ProofMessage, 1),
+		proofs:          make(chan proofMessage, 1),
 		commands:        cmds,
 		cfg:             cfg,
 		minMemoryLayer:  minMemoryLayer,
@@ -163,7 +163,7 @@ type roundResult struct {
 	err   error
 }
 
-func (s *Service) ProofsChan() <-chan ProofMessage {
+func (s *Service) ProofsChan() <-chan proofMessage {
 	return s.proofs
 }
 
@@ -483,8 +483,8 @@ func (s *Service) newRound(ctx context.Context, epoch uint32) (*round, error) {
 }
 
 func (s *Service) reportNewProof(round string, execution *executionState) {
-	s.proofs <- ProofMessage{
-		Proof: Proof{
+	s.proofs <- proofMessage{
+		Proof: proof{
 			MerkleProof: *execution.NIP,
 			Members:     execution.Members,
 			NumLeaves:   execution.NumLeaves,
