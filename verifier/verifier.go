@@ -22,12 +22,12 @@ func Validate(proof shared.MerkleProof, labelHashFunc func(data []byte) []byte,
 	}
 	provenLeafIndices := asSortedSlice(shared.FiatShamir(proof.Root, numLeaves, securityParam))
 	provenLeaves := make([][]byte, 0, len(proof.ProvenLeaves))
-	for _, leaf := range proof.ProvenLeaves {
-		provenLeaves = append(provenLeaves, leaf[:])
+	for i := range proof.ProvenLeaves {
+		provenLeaves = append(provenLeaves, proof.ProvenLeaves[i][:])
 	}
 	proofNodes := make([][]byte, 0, len(proof.ProofNodes))
-	for _, node := range proof.ProofNodes {
-		proofNodes = append(proofNodes, node[:])
+	for i := range proof.ProofNodes {
+		proofNodes = append(proofNodes, proof.ProofNodes[i][:])
 	}
 	valid, parkingSnapshots, err := merkle.ValidatePartialTreeWithParkingSnapshots(
 		provenLeafIndices,
