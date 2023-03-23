@@ -15,8 +15,20 @@ func (t *MerkleProof) EncodeScale(enc *scale.Encoder) (total int, err error) {
 		}
 		total += n
 	}
-	
-	
+	{
+		n, err := scale.EncodeStructSliceWithLimit(enc, t.ProvenLeaves, 150)
+		if err != nil {
+			return total, err
+		}
+		total += n
+	}
+	{
+		n, err := scale.EncodeStructSliceWithLimit(enc, t.ProofNodes, 5400)
+		if err != nil {
+			return total, err
+		}
+		total += n
+	}
 	return total, nil
 }
 
@@ -29,7 +41,21 @@ func (t *MerkleProof) DecodeScale(dec *scale.Decoder) (total int, err error) {
 		total += n
 		t.Root = field
 	}
-	
-
+	{
+		field, n, err := scale.DecodeStructSliceWithLimit[Leaf](dec, 150)
+		if err != nil {
+			return total, err
+		}
+		total += n
+		t.ProvenLeaves = field
+	}
+	{
+		field, n, err := scale.DecodeStructSliceWithLimit[Node](dec, 5400)
+		if err != nil {
+			return total, err
+		}
+		total += n
+		t.ProofNodes = field
+	}
 	return total, nil
 }

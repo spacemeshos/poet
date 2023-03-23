@@ -188,15 +188,11 @@ func (r *rpcServer) Proof(ctx context.Context, in *api.ProofRequest) (*api.Proof
 	case err == nil:
 		leaves := make([][]byte, 0, len(proof.ProvenLeaves))
 		for _, l := range proof.ProvenLeaves {
-			leaves = append(leaves, l.Value)
+			leaves = append(leaves, l[:])
 		}
 		nodes := make([][]byte, 0, len(proof.ProofNodes))
 		for _, n := range proof.ProofNodes {
-			nodes = append(nodes, n.Value)
-		}
-		members := make([][]byte, 0, len(proof.Members))
-		for _, m := range proof.Members {
-			members = append(members, m.Challenge)
+			nodes = append(nodes, n[:])
 		}
 
 		out := api.ProofResponse{
@@ -206,7 +202,7 @@ func (r *rpcServer) Proof(ctx context.Context, in *api.ProofRequest) (*api.Proof
 					ProvenLeaves: leaves,
 					ProofNodes:   nodes,
 				},
-				Members: members,
+				Members: proof.Members,
 				Leaves:  proof.NumLeaves,
 			},
 			Pubkey: proofMsg.ServicePubKey,

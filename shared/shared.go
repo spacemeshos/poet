@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"os"
 
+	"github.com/spacemeshos/go-scale"
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/sha256-simd"
 )
@@ -77,7 +78,27 @@ func MakeLabelFunc() func(hash LabelHash, labelID uint64, leftSiblings [][]byte)
 
 type Leaf [32]byte
 
+// EncodeScale implements scale codec interface.
+func (l *Leaf) EncodeScale(e *scale.Encoder) (int, error) {
+	return scale.EncodeByteArray(e, l[:])
+}
+
+// DecodeScale implements scale codec interface.
+func (l *Leaf) DecodeScale(d *scale.Decoder) (int, error) {
+	return scale.DecodeByteArray(d, l[:])
+}
+
 type Node [32]byte
+
+// EncodeScale implements scale codec interface.
+func (n *Node) EncodeScale(e *scale.Encoder) (int, error) {
+	return scale.EncodeByteArray(e, n[:])
+}
+
+// DecodeScale implements scale codec interface.
+func (n *Node) DecodeScale(d *scale.Decoder) (int, error) {
+	return scale.DecodeByteArray(d, n[:])
+}
 
 type MerkleProof struct {
 	Root         []byte `scale:"max=32"`

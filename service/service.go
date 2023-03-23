@@ -486,7 +486,7 @@ func (s *Service) reportNewProof(round string, execution *executionState) {
 	s.proofs <- proofMessage{
 		Proof: proof{
 			MerkleProof: *execution.NIP,
-			Members:     members,
+			Members:     execution.Members,
 			NumLeaves:   execution.NumLeaves,
 		},
 		ServicePubKey: s.PubKey,

@@ -154,16 +154,16 @@ func TestSubmitAndGetProof(t *testing.T) {
 
 	provenLeaves := make([]shared.Leaf, 0, len(proof.Proof.Proof.ProvenLeaves))
 	for _, leaf := range proof.Proof.Proof.ProvenLeaves {
-		provenLeaves = append(provenLeaves, shared.Leaf{
-			Value: leaf,
-		})
+		var pLeaf shared.Leaf
+		copy(pLeaf[:], leaf)
+		provenLeaves = append(provenLeaves, pLeaf)
 	}
 
 	proofNodes := make([]shared.Node, 0, len(proof.Proof.Proof.ProofNodes))
 	for _, node := range proof.Proof.Proof.ProofNodes {
-		proofNodes = append(proofNodes, shared.Node{
-			Value: node,
-		})
+		var pNode shared.Node
+		copy(pNode[:], node)
+		proofNodes = append(proofNodes, pNode)
 	}
 
 	merkleProof := shared.MerkleProof{
@@ -172,14 +172,7 @@ func TestSubmitAndGetProof(t *testing.T) {
 		ProofNodes:   proofNodes,
 	}
 
-	members := make([]shared.Member, 0, len(proof.Proof.Members))
-	for _, member := range proof.Proof.Members {
-		members = append(members, shared.Member{
-			Challenge: member,
-		})
-	}
-
-	root, err := prover.CalcTreeRoot(members)
+	root, err := prover.CalcTreeRoot(proof.Proof.Members)
 	req.NoError(err)
 
 	labelHashFunc := hash.GenLabelHashFunc(root)

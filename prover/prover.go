@@ -296,9 +296,17 @@ func generateProof(
 	logger.Sugar().Infof("proof generated, it took: %v", time.Since(started))
 
 	return leaves, &shared.MerkleProof{
-		Root:         root,
-		ProvenLeaves: sliceMap(provenLeaves, func(leaf []byte) shared.Leaf { return shared.Leaf(leaf) }),
-		ProofNodes:   sliceMap(proofNodes, func(node []byte) shared.Node { return shared.Node(node) }),
+		Root: root,
+		ProvenLeaves: sliceMap(provenLeaves, func(leaf []byte) shared.Leaf {
+			var pLeaf shared.Leaf
+			copy(pLeaf[:], leaf)
+			return pLeaf
+		}),
+		ProofNodes: sliceMap(proofNodes, func(node []byte) shared.Node {
+			var pNode shared.Node
+			copy(pNode[:], node)
+			return pNode
+		}),
 	}, nil
 }
 
