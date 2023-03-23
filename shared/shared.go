@@ -2,14 +2,13 @@ package shared
 
 import (
 	"encoding/binary"
+	"fmt"
 	"os"
 
 	"github.com/spacemeshos/go-scale"
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/sha256-simd"
 )
-
-//go:generate scalegen -types MerkleProof
 
 const (
 	// T is the security param which determines the number of leaves
@@ -76,32 +75,99 @@ func MakeLabelFunc() func(hash LabelHash, labelID uint64, leftSiblings [][]byte)
 	}
 }
 
-type Leaf [32]byte
-
-// EncodeScale implements scale codec interface.
-func (l *Leaf) EncodeScale(e *scale.Encoder) (int, error) {
-	return scale.EncodeByteArray(e, l[:])
-}
-
-// DecodeScale implements scale codec interface.
-func (l *Leaf) DecodeScale(d *scale.Decoder) (int, error) {
-	return scale.DecodeByteArray(d, l[:])
-}
-
-type Node [32]byte
-
-// EncodeScale implements scale codec interface.
-func (n *Node) EncodeScale(e *scale.Encoder) (int, error) {
-	return scale.EncodeByteArray(e, n[:])
-}
-
-// DecodeScale implements scale codec interface.
-func (n *Node) DecodeScale(d *scale.Decoder) (int, error) {
-	return scale.DecodeByteArray(d, n[:])
-}
-
+// MerkleProof is a non-interactive proof of inclusion in a Merkle tree.
+// Scale encoding is implemented by hand to be able to limit [][]byte slices to a maximum size (inner and outer slices).
 type MerkleProof struct {
-	Root         []byte `scale:"max=32"`
-	ProvenLeaves []Leaf `scale:"max=150"`  // the max. size of this slice is T (security param)
-	ProofNodes   []Node `scale:"max=5400"` // 36 nodes per leaf
+	Root         []byte   `scale:"max=32"`
+	ProvenLeaves [][]byte `scale:"max=150"`  // the max. size of this slice is T (security param), and each element is exactly 32 bytes
+	ProofNodes   [][]byte `scale:"max=5400"` // 36 nodes per leaf and each node is exactly 32 bytes
+}
+
+func (t *MerkleProof) EncodeScale(enc *scale.Encoder) (total int, err error) {
+	{
+		n, err := scale.EncodeByteSliceWithLimit(enc, t.Root, 32)
+		if err != nil {
+			return total, err
+		}
+		total += n
+	}
+	{
+		n, err := scale.EncodeLen(enc, uint32(len(t.ProvenLeaves)), 150)
+		if err != nil {
+			return total, fmt.Errorf("EncodeLen failed: %w", err)
+		}
+		for _, byteSlice := range t.ProvenLeaves {
+			n, err := scale.EncodeByteSliceWithLimit(enc, byteSlice, 32)
+			if err != nil {
+				return 0, fmt.Errorf("EncodeByteSliceWithLimit failed: %w", err)
+			}
+			total += n
+		}
+		total += n
+	}
+	{
+		n, err := scale.EncodeLen(enc, uint32(len(t.ProofNodes)), 5400)
+		if err != nil {
+			return total, fmt.Errorf("EncodeLen failed: %w", err)
+		}
+		for _, byteSlice := range t.ProofNodes {
+			n, err := scale.EncodeByteSliceWithLimit(enc, byteSlice, 32)
+			if err != nil {
+				return 0, fmt.Errorf("EncodeByteSliceWithLimit failed: %w", err)
+			}
+			total += n
+		}
+		total += n
+	}
+	return total, nil
+}
+
+func (t *MerkleProof) DecodeScale(dec *scale.Decoder) (total int, err error) {
+	{
+		field, n, err := scale.DecodeByteSliceWithLimit(dec, 32)
+		if err != nil {
+			return total, err
+		}
+		total += n
+		t.Root = field
+	}
+	{
+		field, n, err := DecodeSliceOfByteSliceWithLimit(dec, 150, 32)
+		if err != nil {
+			return total, err
+		}
+		total += n
+		t.ProvenLeaves = field
+	}
+	{
+		field, n, err := DecodeSliceOfByteSliceWithLimit(dec, 5400, 32)
+		if err != nil {
+			return total, err
+		}
+		total += n
+		t.ProofNodes = field
+	}
+	return total, nil
+}
+
+func DecodeSliceOfByteSliceWithLimit(d *scale.Decoder, outerLimit, innerLimit uint32) ([][]byte, int, error) {
+	resultLen, total, err := scale.DecodeLen(d, outerLimit)
+	if err != nil {
+		return nil, 0, fmt.Errorf("DecodeLen failed: %w", err)
+	}
+	if resultLen == 0 {
+		return nil, 0, nil
+	}
+	result := make([][]byte, 0, resultLen)
+
+	for i := uint32(0); i < resultLen; i++ {
+		val, n, err := scale.DecodeByteSliceWithLimit(d, innerLimit)
+		if err != nil {
+			return nil, 0, fmt.Errorf("DecodeByteSlice failed: %w", err)
+		}
+		result = append(result, val)
+		total += n
+	}
+
+	return result, total, nil
 }

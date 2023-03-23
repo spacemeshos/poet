@@ -51,6 +51,8 @@ GOTESTSUM := $(GOBIN)/gotestsum
 GOVULNCHECK := $(GOBIN)/govulncheck
 GOLINES := $(GOBIN)/golines
 
+FUZZTIME ?= "10s"
+
 $(GOVULNCHECK):
 	@go install golang.org/x/vuln/cmd/govulncheck@latest
 
@@ -182,3 +184,7 @@ test-generate:
 	@make generate
 	@git diff --name-only --diff-filter=AM --exit-code . || { echo "\nPlease rerun 'make generate' and commit changes.\n"; exit 1; }
 .PHONY: test-generate
+
+fuzz:
+	./scripts/fuzz.sh $(FUZZTIME)
+.PHONY: fuzz

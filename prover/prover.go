@@ -296,26 +296,10 @@ func generateProof(
 	logger.Sugar().Infof("proof generated, it took: %v", time.Since(started))
 
 	return leaves, &shared.MerkleProof{
-		Root: root,
-		ProvenLeaves: sliceMap(provenLeaves, func(leaf []byte) shared.Leaf {
-			var pLeaf shared.Leaf
-			copy(pLeaf[:], leaf)
-			return pLeaf
-		}),
-		ProofNodes: sliceMap(proofNodes, func(node []byte) shared.Node {
-			var pNode shared.Node
-			copy(pNode[:], node)
-			return pNode
-		}),
+		Root:         root,
+		ProvenLeaves: provenLeaves,
+		ProofNodes:   proofNodes,
 	}, nil
-}
-
-func sliceMap[T, U any](s []T, f func(T) U) []U {
-	r := make([]U, 0, len(s))
-	for i := range s {
-		r = append(r, f(s[i]))
-	}
-	return r
 }
 
 func getLayersFiles(datadir string) (map[uint]string, error) {
