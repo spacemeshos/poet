@@ -122,8 +122,8 @@ github.com/prometheus/procfs v0.8.0/go.mod h1:z7EfXMXOkbkqb9IINtpCn86r/to3BnA0ua
 github.com/rogpeppe/go-internal v1.9.0 h1:73kH8U+JUqXU8lRuOHeVHaa/SZPifC7BkcraZVejAe8=
 github.com/rogpeppe/go-internal v1.9.0/go.mod h1:WtVeX8xhTBvf0smdhujwtBcq4Qrzq/fJaraNFVN+nFs=
 github.com/sirupsen/logrus v1.4.2/go.mod h1:tLMulIdttU9McNUspp0xgXVQah82FyeX6MwdIuYE2rE=
-github.com/spacemeshos/api/release/go v1.5.6 h1:ubcUppvafyRLyq+yvOzXS3u7//rxEkJ85kmcOQWQwUc=
-github.com/spacemeshos/api/release/go v1.5.6/go.mod h1:4EIC5bex4jpz6RbP3i1KhacBLn+2g5xGA4Rw1JfYfZI=
+github.com/spacemeshos/api/release/go v1.5.8 h1:rN4fnpAInhrSvyarXo5U3Im3i53lg/Lr8c2EB2D21Ak=
+github.com/spacemeshos/api/release/go v1.5.8/go.mod h1:Yb8x7RK5EbmDASDJNkO6gfUkqad27nBcj/bSz77+lUM=
 github.com/spacemeshos/go-scale v1.1.6 h1:gieW5CvgoBbJTlqk5vGAu9t4NdHQcgfEL8qtJFo6BQ0=
 github.com/spacemeshos/go-scale v1.1.6/go.mod h1:AxKr+yCe5qn7EsM5ZAygGdulxVVfU+Fe2bc4PsnNakM=
 github.com/spacemeshos/merkle-tree v0.2.1 h1:BSs/zt1n3ceZcpWdcqNFRvTeAWDlc0W+bql0XQH/Gz4=
