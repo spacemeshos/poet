@@ -7,27 +7,6 @@ package rpc.api.v1;
 
 service PoetService {
     /**
-    Start is used to start the service.
-    */
-    rpc Start (StartRequest) returns (StartResponse) {
-        option (google.api.http) = {
-            post: "/v1/start",
-            body: "*",
-        };
-    }
-
-    /**
-    UpdateGateway allows to update the list of gateway addresses,
-    similar to the Start rpc, but after the service already started.
-    */
-    rpc UpdateGateway (UpdateGatewayRequest) returns (UpdateGatewayResponse) {
-        option (google.api.http) = {
-            post: "/v1/updategateway",
-            body: "*",
-        };
-    }
-
-    /**
     Submit adds a challenge to the service's current open round,
     to be included its later generated proof.
     */
@@ -58,30 +37,15 @@ service PoetService {
     }
 }
 
-message StartRequest {
-    repeated string gateway_addresses = 1;
-    int32 conn_acks_threshold = 2;
-}
-
-message StartResponse {
-}
-
-message UpdateGatewayRequest {
-    repeated string gateway_addresses = 1;
-    int32 conn_acks_threshold = 2;
-}
-
-message UpdateGatewayResponse {
-}
-
 message SubmitRequest {
-    bytes challenge = 1;
-    bytes signature = 2;
+    uint64 nonce = 1;
+    bytes challenge = 2;
+    bytes pubkey = 3;
+    bytes signature = 4;
 }
 
 message SubmitResponse {
     string round_id = 1;
-    bytes hash = 2;
     google.protobuf.Duration round_end = 3;
 }
 

@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/spacemeshos/api/release/go/spacemesh/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
@@ -16,7 +15,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/spacemeshos/poet/config"
-	"github.com/spacemeshos/poet/gateway"
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/prover"
 	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
@@ -26,34 +24,6 @@ import (
 )
 
 const randomHost = "localhost:0"
-
-type gatewayService struct {
-	pb.UnimplementedGatewayServiceServer
-}
-
-func (*gatewayService) VerifyChallenge(
-	ctx context.Context,
-	req *pb.VerifyChallengeRequest,
-) (*pb.VerifyChallengeResponse, error) {
-	return &pb.VerifyChallengeResponse{
-		Hash:   []byte("hash"),
-		NodeId: []byte("nodeID"),
-	}, nil
-}
-
-func spawnMockGateway(t *testing.T) (target string) {
-	t.Helper()
-	server := gateway.NewMockGrpcServer(t)
-	pb.RegisterGatewayServiceServer(server.Server, &gatewayService{})
-
-	var eg errgroup.Group
-	t.Cleanup(func() { assert.NoError(t, eg.Wait()) })
-
-	eg.Go(server.Serve)
-	t.Cleanup(server.Stop)
-
-	return server.Target()
-}
 
 func spawnPoet(ctx context.Context, t *testing.T, cfg config.Config) (*server.Server, api.PoetServiceClient) {
 	t.Helper()
@@ -81,13 +51,10 @@ func TestPoetStart(t *testing.T) {
 	req := require.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
 
-	gtw := spawnMockGateway(t)
-
 	cfg := config.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
-	cfg.Service.GatewayAddresses = []string{gtw}
 
 	srv, client := spawnPoet(ctx, t, *cfg)
 
@@ -110,8 +77,6 @@ func TestSubmitAndGetProof(t *testing.T) {
 	req := require.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
 
-	gtw := spawnMockGateway(t)
-
 	cfg := config.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
 	cfg.Service.Genesis = time.Now().Add(time.Second).Format(time.RFC3339)
@@ -120,7 +85,6 @@ func TestSubmitAndGetProof(t *testing.T) {
 	cfg.Service.CycleGap = 0
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
-	cfg.Service.GatewayAddresses = []string{gtw}
 
 	srv, client := spawnPoet(ctx, t, *cfg)
 
@@ -130,9 +94,9 @@ func TestSubmitAndGetProof(t *testing.T) {
 	})
 
 	// Submit a challenge
-	resp, err := client.Submit(context.Background(), &api.SubmitRequest{})
+	challenge := []byte("challenge")
+	resp, err := client.Submit(context.Background(), &api.SubmitRequest{Challenge: challenge})
 	req.NoError(err)
-	req.Equal([]byte("hash"), resp.Hash)
 
 	roundEnd := resp.RoundEnd.AsDuration()
 	req.NotZero(roundEnd)
@@ -149,7 +113,7 @@ func TestSubmitAndGetProof(t *testing.T) {
 
 	req.NotZero(proof.Proof.Leaves)
 	req.Len(proof.Proof.Members, 1)
-	req.Contains(proof.Proof.Members, []byte("hash"))
+	req.Contains(proof.Proof.Members, challenge)
 	cancel()
 
 	merkleProof := shared.MerkleProof{
