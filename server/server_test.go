@@ -5,6 +5,7 @@ package server_test
 
 import (
 	"context"
+	"crypto/rand"
 	"testing"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	"github.com/spacemeshos/ed25519-recovery"
 	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/prover"
@@ -95,7 +97,14 @@ func TestSubmitAndGetProof(t *testing.T) {
 
 	// Submit a challenge
 	challenge := []byte("challenge")
-	resp, err := client.Submit(context.Background(), &api.SubmitRequest{Challenge: challenge})
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	req.NoError(err)
+	signature := ed25519.Sign(privKey, challenge)
+	resp, err := client.Submit(context.Background(), &api.SubmitRequest{
+		Challenge: challenge,
+		Pubkey:    pubKey,
+		Signature: signature,
+	})
 	req.NoError(err)
 
 	roundEnd := resp.RoundEnd.AsDuration()

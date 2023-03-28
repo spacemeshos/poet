@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync"
 
+	ed25519 "github.com/spacemeshos/ed25519-recovery"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"
@@ -44,7 +45,9 @@ func NewServer(
 
 // Submit implements api.Submit.
 func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.SubmitResponse, error) {
-	// TODO(poszu): verify signature
+	if !ed25519.Verify(in.Pubkey, in.Challenge, in.Signature) {
+		return nil, status.Error(codes.InvalidArgument, "invalid signature")
+	}
 	result, err := r.s.Submit(ctx, in.Challenge, in.Pubkey, in.Nonce)
 	switch {
 	case errors.Is(err, service.ErrNotStarted):
