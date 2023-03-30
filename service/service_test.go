@@ -44,7 +44,10 @@ func TestService_Recovery(t *testing.T) {
 	for g := byte(0); g < 3; g++ {
 		challengeGroup := make([]challenge, challengeGroupSize)
 		for i := byte(0); i < challengeGroupSize; i++ {
-			challengeGroup[i] = challenge{data: bytes.Repeat([]byte{g*10 + i}, 32), nodeID: bytes.Repeat([]byte{-g*10 - i}, 32)}
+			challengeGroup[i] = challenge{
+				data:   bytes.Repeat([]byte{g*10 + i}, 32),
+				nodeID: bytes.Repeat([]byte{-g*10 - i}, 32),
+			}
 		}
 		challengeGroups[g] = challengeGroup
 	}
@@ -56,7 +59,13 @@ func TestService_Recovery(t *testing.T) {
 	submitChallenges := func(roundID string, challenges []challenge) {
 		params := s.PowParams()
 		for _, challenge := range challenges {
-			nonce, _ := shared.SubmitPow(context.Background(), params.Challenge, challenge.data, challenge.nodeID, params.Difficulty)
+			nonce, _ := shared.SubmitPow(
+				context.Background(),
+				params.Challenge,
+				challenge.data,
+				challenge.nodeID,
+				params.Difficulty,
+			)
 			result, err := s.Submit(context.Background(), challenge.data, challenge.nodeID, nonce, params)
 			req.NoError(err)
 			req.Equal(roundID, result.Round)
@@ -241,7 +250,12 @@ func TestNewServiceCannotSetNilVerifier(t *testing.T) {
 	t.Parallel()
 	tempdir := t.TempDir()
 
-	_, err := service.NewService(context.Background(), config.DefaultConfig().Service, tempdir, service.WithPowVerifier(nil))
+	_, err := service.NewService(
+		context.Background(),
+		config.DefaultConfig().Service,
+		tempdir,
+		service.WithPowVerifier(nil),
+	)
 	require.ErrorContains(t, err, "pow verifier cannot be nil")
 }
 

@@ -30,7 +30,7 @@ type Config struct {
 	NoRecovery    bool          `long:"norecovery"     description:"whether to disable a potential recovery procedure"`
 	Reset         bool          `long:"reset"          description:"whether to reset the service state by deleting the datadir"`
 
-	InitialPowChallenge string `long:"pow-challenge" description:"The initial PoW challenge for the first round"`
+	InitialPowChallenge string `long:"pow-challenge"  description:"The initial PoW challenge for the first round"`
 	PowDifficulty       uint   `long:"pow-difficulty" description:"PoW difficulty (in the number of leading zero bits)"`
 
 	// Merkle-Tree related configuration:
@@ -417,7 +417,12 @@ func (s *Service) PowParams() PowParams {
 	return s.powVerifiers.Params()
 }
 
-func (s *Service) Submit(ctx context.Context, challenge, nodeID []byte, nonce uint64, powParams PowParams) (*SubmitResult, error) {
+func (s *Service) Submit(
+	ctx context.Context,
+	challenge, nodeID []byte,
+	nonce uint64,
+	powParams PowParams,
+) (*SubmitResult, error) {
 	if !s.Started() {
 		return nil, ErrNotStarted
 	}
