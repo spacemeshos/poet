@@ -44,7 +44,6 @@ func NewServer(
 	}
 }
 
-// PowParams implements apiv1.PoetServiceServer.
 func (r *rpcServer) PowParams(_ context.Context, _ *api.PowParamsRequest) (*api.PowParamsResponse, error) {
 	params := r.s.PowParams()
 	return &api.PowParamsResponse{
@@ -55,7 +54,6 @@ func (r *rpcServer) PowParams(_ context.Context, _ *api.PowParamsRequest) (*api.
 	}, nil
 }
 
-// Submit implements api.Submit.
 func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.SubmitResponse, error) {
 	if !ed25519.Verify(in.Pubkey, bytes.Join([][]byte{in.Prefix, in.Challenge}, nil), in.Signature) {
 		return nil, status.Error(codes.InvalidArgument, "invalid signature")
@@ -86,7 +84,6 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 	return out, nil
 }
 
-// GetInfo implements api.GetInfo.
 func (r *rpcServer) Info(ctx context.Context, in *api.InfoRequest) (*api.InfoResponse, error) {
 	info, err := r.s.Info(ctx)
 	if err != nil {
@@ -104,7 +101,6 @@ func (r *rpcServer) Info(ctx context.Context, in *api.InfoRequest) (*api.InfoRes
 	return out, nil
 }
 
-// GetProof implements api.PoetServer.
 func (r *rpcServer) Proof(ctx context.Context, in *api.ProofRequest) (*api.ProofResponse, error) {
 	if info, err := r.s.Info(ctx); err == nil {
 		if info.OpenRoundID == in.RoundId || slices.Contains(info.ExecutingRoundsIds, in.RoundId) {
@@ -113,11 +109,11 @@ func (r *rpcServer) Proof(ctx context.Context, in *api.ProofRequest) (*api.Proof
 	}
 
 	proofMsg, err := r.proofsDb.Get(ctx, in.RoundId)
-	proof := proofMsg.Proof
 	switch {
 	case errors.Is(err, service.ErrNotFound):
 		return nil, status.Error(codes.NotFound, "proof not found")
 	case err == nil:
+		proof := proofMsg.Proof
 		out := api.ProofResponse{
 			Proof: &api.PoetProof{
 				Proof: &api.MerkleProof{
