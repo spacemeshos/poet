@@ -30,6 +30,9 @@ type Config struct {
 	NoRecovery    bool          `long:"norecovery"     description:"whether to disable a potential recovery procedure"`
 	Reset         bool          `long:"reset"          description:"whether to reset the service state by deleting the datadir"`
 
+	InitialPowChallenge string `long:"pow-challenge" description:"The initial PoW challenge for the first round"`
+	PowDifficulty       uint   `long:"pow-difficulty" description:"PoW difficulty (in the number of leading zero bits)"`
+
 	// Merkle-Tree related configuration:
 	EstimatedLeavesPerSecond uint `long:"lps"              description:"Estimated number of leaves generated per second"`
 	MemoryLayers             uint `long:"memory"           description:"Number of top Merkle tree layers to cache in-memory"`
@@ -55,9 +58,10 @@ type Service struct {
 
 	// openRound is the round which is currently open for accepting challenges registration from miners.
 	// At any given time there is one single open round.
-	openRound         *round
-	executingRounds   map[string]struct{}
-	challengeVerifier Verifier
+	openRound       *round
+	executingRounds map[string]struct{}
+
+	powVerifiers powVerifiers
 
 	PubKey  ed25519.PublicKey
 	privKey ed25519.PrivateKey
@@ -81,15 +85,15 @@ var (
 )
 
 type option struct {
-	verifier Verifier
+	verifier PowVerifier
 }
 
 type OptionFunc func(*option) error
 
-func WithVerifier(v Verifier) OptionFunc {
+func WithPowVerifier(v PowVerifier) OptionFunc {
 	return func(o *option) error {
 		if v == nil {
-			return errors.New("verifier is nil")
+			return errors.New("pow verifier cannot be nil")
 		}
 		o.verifier = v
 		return nil
@@ -100,7 +104,7 @@ func WithVerifier(v Verifier) OptionFunc {
 // It should be started with `Service::Run`.
 func NewService(ctx context.Context, cfg *Config, datadir string, opts ...OptionFunc) (*Service, error) {
 	options := option{
-		verifier: &ChallengeVerifier{},
+		verifier: NewPowVerifier(NewPowParams([]byte(cfg.InitialPowChallenge), cfg.PowDifficulty)),
 	}
 	for _, opt := range opts {
 		if err := opt(&options); err != nil {
@@ -161,16 +165,19 @@ func NewService(ctx context.Context, cfg *Config, datadir string, opts ...Option
 	}
 
 	s := &Service{
-		proofs:            make(chan proofMessage, 1),
-		commands:          cmds,
-		cfg:               cfg,
-		minMemoryLayer:    minMemoryLayer,
-		genesis:           genesis,
-		datadir:           datadir,
-		executingRounds:   make(map[string]struct{}),
-		privKey:           privateKey,
-		PubKey:            privateKey.Public().(ed25519.PublicKey),
-		challengeVerifier: options.verifier,
+		proofs:          make(chan proofMessage, 1),
+		commands:        cmds,
+		cfg:             cfg,
+		minMemoryLayer:  minMemoryLayer,
+		genesis:         genesis,
+		datadir:         datadir,
+		executingRounds: make(map[string]struct{}),
+		privKey:         privateKey,
+		PubKey:          privateKey.Public().(ed25519.PublicKey),
+		powVerifiers: powVerifiers{
+			previous: nil,
+			current:  options.verifier,
+		},
 	}
 
 	logging.FromContext(ctx).Sugar().Infof("service public key: %x", s.PubKey)
@@ -235,7 +242,7 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 
 		case result := <-roundResults:
 			if result.err == nil {
-				s.reportNewProof(result.round.ID, result.round.execution)
+				s.onNewProof(result.round.ID, result.round.execution)
 			} else {
 				logger.Error("round execution failed", zap.Error(result.err), zap.String("round", result.round.ID))
 			}
@@ -379,7 +386,7 @@ func (s *Service) recover(ctx context.Context) (open *round, executing *round, e
 		}
 
 		if r.isExecuted() {
-			s.reportNewProof(r.ID, r.execution)
+			s.onNewProof(r.ID, r.execution)
 			continue
 		}
 
@@ -406,13 +413,17 @@ type SubmitResult struct {
 	RoundEnd time.Duration
 }
 
-func (s *Service) Submit(ctx context.Context, challenge, nodeID []byte, nonce uint64) (*SubmitResult, error) {
+func (s *Service) PowParams() PowParams {
+	return s.powVerifiers.Params()
+}
+
+func (s *Service) Submit(ctx context.Context, challenge, nodeID []byte, nonce uint64, powParams PowParams) (*SubmitResult, error) {
 	if !s.Started() {
 		return nil, ErrNotStarted
 	}
 	logger := logging.FromContext(ctx)
 
-	err := s.challengeVerifier.Verify(ctx, challenge, nodeID, nonce)
+	err := s.powVerifiers.VerifyWithParams(challenge, nodeID, nonce, powParams)
 	if err != nil {
 		logger.Debug("challenge verification failed", zap.Error(err))
 		return nil, err
@@ -490,7 +501,13 @@ func (s *Service) newRound(ctx context.Context, epoch uint32) (*round, error) {
 	return r, nil
 }
 
-func (s *Service) reportNewProof(round string, execution *executionState) {
+func (s *Service) onNewProof(round string, execution *executionState) {
+	// Rotate Proof of Work challenge.
+	params := s.powVerifiers.Params()
+	params.Challenge = execution.NIP.Root
+	s.powVerifiers.SetParams(params)
+
+	// Report
 	s.proofs <- proofMessage{
 		Proof: proof{
 			MerkleProof: *execution.NIP,

@@ -39,6 +39,28 @@
         ]
       }
     },
+    "/v1/pow_params": {
+      "get": {
+        "operationId": "PoetService_PowParams",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1PowParamsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "PoetService"
+        ]
+      }
+    },
     "/v1/proofs/{roundId}": {
       "get": {
         "summary": "roof returns the generated proof for given round id.",
@@ -72,7 +94,7 @@
     },
     "/v1/submit": {
       "post": {
-        "summary": "Submit adds a challenge to the service's current open round,\nto be included its later generated proof.",
+        "summary": "Submit registers data to the service's current open round,\nto be included its later generated proof.",
         "operationId": "PoetService_Submit",
         "responses": {
           "200": {
@@ -192,6 +214,27 @@
         }
       }
     },
+    "v1PowParams": {
+      "type": "object",
+      "properties": {
+        "difficulty": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "challenge": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "v1PowParamsResponse": {
+      "type": "object",
+      "properties": {
+        "powParams": {
+          "$ref": "#/definitions/v1PowParams"
+        }
+      }
+    },
     "v1ProofResponse": {
       "type": "object",
       "properties": {
@@ -211,7 +254,10 @@
           "type": "string",
           "format": "uint64"
         },
-        "challenge": {
+        "powParams": {
+          "$ref": "#/definitions/v1PowParams"
+        },
+        "data": {
           "type": "string",
           "format": "byte"
         },

@@ -6,8 +6,15 @@ import "google/protobuf/duration.proto";
 package rpc.api.v1;
 
 service PoetService {
+
+    rpc PowParams(PowParamsRequest) returns (PowParamsResponse) {
+        option (google.api.http) = {
+            get: "/v1/pow_params"
+        };
+    }
+
     /**
-    Submit adds a challenge to the service's current open round,
+    Submit registers data to the service's current open round,
     to be included its later generated proof.
     */
     rpc Submit (SubmitRequest) returns (SubmitResponse) {
@@ -37,11 +44,23 @@ service PoetService {
     }
 }
 
+message PowParams {
+    uint32 difficulty = 1;
+    bytes challenge = 2;
+}
+
+message PowParamsRequest {}
+message PowParamsResponse {
+    PowParams pow_params = 1;
+}
+
 message SubmitRequest {
     uint64 nonce = 1;
-    bytes challenge = 2;
-    bytes pubkey = 3;
-    bytes signature = 4;
+    PowParams pow_params = 2;
+
+    bytes data = 3;
+    bytes pubkey = 4;
+    bytes signature = 5;
 }
 
 message SubmitResponse {
@@ -49,8 +68,7 @@ message SubmitResponse {
     google.protobuf.Duration round_end = 3;
 }
 
-message InfoRequest {
-}
+message InfoRequest {}
 
 message InfoResponse {
     string open_round_id = 1;

@@ -22,7 +22,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type PoetServiceClient interface {
-	// Submit adds a challenge to the service's current open round,
+	PowParams(ctx context.Context, in *PowParamsRequest, opts ...grpc.CallOption) (*PowParamsResponse, error)
+	// Submit registers data to the service's current open round,
 	// to be included its later generated proof.
 	Submit(ctx context.Context, in *SubmitRequest, opts ...grpc.CallOption) (*SubmitResponse, error)
 	// Info returns general information concerning the service,
@@ -38,6 +39,15 @@ type poetServiceClient struct {
 
 func NewPoetServiceClient(cc grpc.ClientConnInterface) PoetServiceClient {
 	return &poetServiceClient{cc}
+}
+
+func (c *poetServiceClient) PowParams(ctx context.Context, in *PowParamsRequest, opts ...grpc.CallOption) (*PowParamsResponse, error) {
+	out := new(PowParamsResponse)
+	err := c.cc.Invoke(ctx, "/rpc.api.v1.PoetService/PowParams", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *poetServiceClient) Submit(ctx context.Context, in *SubmitRequest, opts ...grpc.CallOption) (*SubmitResponse, error) {
@@ -71,7 +81,8 @@ func (c *poetServiceClient) Proof(ctx context.Context, in *ProofRequest, opts ..
 // All implementations should embed UnimplementedPoetServiceServer
 // for forward compatibility
 type PoetServiceServer interface {
-	// Submit adds a challenge to the service's current open round,
+	PowParams(context.Context, *PowParamsRequest) (*PowParamsResponse, error)
+	// Submit registers data to the service's current open round,
 	// to be included its later generated proof.
 	Submit(context.Context, *SubmitRequest) (*SubmitResponse, error)
 	// Info returns general information concerning the service,
@@ -85,6 +96,9 @@ type PoetServiceServer interface {
 type UnimplementedPoetServiceServer struct {
 }
 
+func (UnimplementedPoetServiceServer) PowParams(context.Context, *PowParamsRequest) (*PowParamsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PowParams not implemented")
+}
 func (UnimplementedPoetServiceServer) Submit(context.Context, *SubmitRequest) (*SubmitResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Submit not implemented")
 }
@@ -104,6 +118,24 @@ type UnsafePoetServiceServer interface {
 
 func RegisterPoetServiceServer(s grpc.ServiceRegistrar, srv PoetServiceServer) {
 	s.RegisterService(&PoetService_ServiceDesc, srv)
+}
+
+func _PoetService_PowParams_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PowParamsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(PoetServiceServer).PowParams(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rpc.api.v1.PoetService/PowParams",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(PoetServiceServer).PowParams(ctx, req.(*PowParamsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _PoetService_Submit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -167,6 +199,10 @@ var PoetService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "rpc.api.v1.PoetService",
 	HandlerType: (*PoetServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "PowParams",
+			Handler:    _PoetService_PowParams_Handler,
+		},
 		{
 			MethodName: "Submit",
 			Handler:    _PoetService_Submit_Handler,

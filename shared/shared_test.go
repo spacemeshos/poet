@@ -109,3 +109,20 @@ func BenchmarkFiatShamir(b *testing.B) {
 		FiatShamir([]byte("challenge this"), uint64(30000000000), T)
 	}
 }
+
+func TestCheckLeadingZeroBits(t *testing.T) {
+	r := require.New(t)
+
+	r.True(CheckLeadingZeroBits([]byte{0x00}, 0))
+	r.True(CheckLeadingZeroBits([]byte{0x00}, 8))
+
+	// Out of bounds
+	r.False(CheckLeadingZeroBits([]byte{0x00}, 9))
+
+	r.True(CheckLeadingZeroBits([]byte{0x0F}, 4))
+	r.False(CheckLeadingZeroBits([]byte{0x0F}, 5))
+
+	r.True(CheckLeadingZeroBits([]byte{0x00, 0x0F}, 5))
+	r.True(CheckLeadingZeroBits([]byte{0x00, 0x0F}, 12))
+	r.False(CheckLeadingZeroBits([]byte{0x00, 0x0F}, 13))
+}

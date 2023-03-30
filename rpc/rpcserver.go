@@ -43,19 +43,36 @@ func NewServer(
 	}
 }
 
+// PowParams implements apiv1.PoetServiceServer.
+func (r *rpcServer) PowParams(_ context.Context, _ *api.PowParamsRequest) (*api.PowParamsResponse, error) {
+	params := r.s.PowParams()
+	return &api.PowParamsResponse{
+		PowParams: &api.PowParams{
+			Challenge:  params.Challenge,
+			Difficulty: uint32(params.Difficulty),
+		},
+	}, nil
+}
+
 // Submit implements api.Submit.
 func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.SubmitResponse, error) {
-	if !ed25519.Verify(in.Pubkey, in.Challenge, in.Signature) {
+	if !ed25519.Verify(in.Pubkey, in.Data, in.Signature) {
 		return nil, status.Error(codes.InvalidArgument, "invalid signature")
 	}
-	result, err := r.s.Submit(ctx, in.Challenge, in.Pubkey, in.Nonce)
+
+	powParams := service.PowParams{
+		Challenge:  in.GetPowParams().GetChallenge(),
+		Difficulty: uint(in.GetPowParams().GetDifficulty()),
+	}
+
+	result, err := r.s.Submit(ctx, in.Data, in.Pubkey, in.Nonce, powParams)
 	switch {
 	case errors.Is(err, service.ErrNotStarted):
 		return nil, status.Error(
 			codes.FailedPrecondition,
 			"cannot submit a challenge because poet service is not started",
 		)
-	case errors.Is(err, service.ErrChallengeInvalid):
+	case errors.Is(err, service.ErrInvalidPow) || errors.Is(err, service.ErrInvalidPowParams):
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	case err != nil:
 		logging.FromContext(ctx).Warn("unknown error submitting challenge", zap.Error(err))

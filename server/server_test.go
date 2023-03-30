@@ -9,13 +9,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spacemeshos/ed25519-recovery"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 
-	"github.com/spacemeshos/ed25519-recovery"
 	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/prover"
@@ -52,6 +54,7 @@ func TestPoetStart(t *testing.T) {
 	t.Parallel()
 	req := require.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	cfg := config.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
@@ -73,11 +76,110 @@ func TestPoetStart(t *testing.T) {
 	req.NoError(eg.Wait())
 }
 
+func TestSubmitSignatureVerification(t *testing.T) {
+	t.Parallel()
+	req := require.New(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	cfg := config.DefaultConfig()
+	cfg.PoetDir = t.TempDir()
+	cfg.RawRPCListener = randomHost
+	cfg.RawRESTListener = randomHost
+
+	srv, client := spawnPoet(ctx, t, *cfg)
+
+	var eg errgroup.Group
+	eg.Go(func() error {
+		return srv.Start(ctx)
+	})
+
+	// User credentials
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	req.NoError(err)
+
+	// Submit data with invalid signature
+	data := []byte("poet challenge")
+	_, err = client.Submit(context.Background(), &api.SubmitRequest{
+		Data:      data,
+		Pubkey:    pubKey,
+		Signature: []byte{},
+	})
+	req.ErrorIs(err, status.Error(codes.InvalidArgument, "invalid signature"))
+
+	signature := ed25519.Sign(privKey, data)
+	_, err = client.Submit(context.Background(), &api.SubmitRequest{
+		Data:      data,
+		Pubkey:    pubKey,
+		Signature: signature,
+	})
+	req.NoError(err)
+
+	cancel()
+	req.NoError(eg.Wait())
+}
+
+func TestSubmitPowVerification(t *testing.T) {
+	t.Parallel()
+	req := require.New(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	cfg := config.DefaultConfig()
+	cfg.PoetDir = t.TempDir()
+	cfg.RawRPCListener = randomHost
+	cfg.RawRESTListener = randomHost
+	cfg.Service.InitialPowChallenge = "pow challenge"
+	cfg.Service.PowDifficulty = 3
+
+	srv, client := spawnPoet(ctx, t, *cfg)
+
+	var eg errgroup.Group
+	eg.Go(func() error {
+		return srv.Start(ctx)
+	})
+
+	// User credentials
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	req.NoError(err)
+
+	// Submit data with valid signature but invalid pow
+	data := []byte("poet challenge")
+
+	signature := ed25519.Sign(privKey, data)
+	_, err = client.Submit(context.Background(), &api.SubmitRequest{
+		Data:      data,
+		Pubkey:    pubKey,
+		Signature: signature,
+	})
+	req.ErrorIs(err, status.Error(codes.InvalidArgument, "invalid proof of work parameters"))
+
+	// Submit data with valid signature and pow
+	nonce, err := shared.SubmitPow(context.Background(), []byte(cfg.Service.InitialPowChallenge), data, pubKey, cfg.Service.PowDifficulty)
+	req.NoError(err)
+
+	_, err = client.Submit(context.Background(), &api.SubmitRequest{
+		Nonce:     nonce,
+		Data:      data,
+		Pubkey:    pubKey,
+		Signature: signature,
+		PowParams: &api.PowParams{
+			Challenge:  []byte(cfg.Service.InitialPowChallenge),
+			Difficulty: uint32(cfg.Service.PowDifficulty),
+		},
+	})
+	req.NoError(err)
+
+	cancel()
+	req.NoError(eg.Wait())
+}
+
 // Test submitting a challenge followed by proof generation and getting the proof via GRPC.
 func TestSubmitAndGetProof(t *testing.T) {
 	t.Parallel()
 	req := require.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	cfg := config.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
@@ -95,13 +197,13 @@ func TestSubmitAndGetProof(t *testing.T) {
 		return srv.Start(ctx)
 	})
 
-	// Submit a challenge
-	challenge := []byte("challenge")
+	// Submit a data
+	data := []byte("poet challenge")
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	req.NoError(err)
-	signature := ed25519.Sign(privKey, challenge)
+	signature := ed25519.Sign(privKey, data)
 	resp, err := client.Submit(context.Background(), &api.SubmitRequest{
-		Challenge: challenge,
+		Data:      data,
 		Pubkey:    pubKey,
 		Signature: signature,
 	})
@@ -122,7 +224,7 @@ func TestSubmitAndGetProof(t *testing.T) {
 
 	req.NotZero(proof.Proof.Leaves)
 	req.Len(proof.Proof.Members, 1)
-	req.Contains(proof.Proof.Members, challenge)
+	req.Contains(proof.Proof.Members, data)
 	cancel()
 
 	merkleProof := shared.MerkleProof{
@@ -138,5 +240,38 @@ func TestSubmitAndGetProof(t *testing.T) {
 	merkleHashFunc := hash.GenMerkleHashFunc(root)
 	req.NoError(verifier.Validate(merkleProof, labelHashFunc, merkleHashFunc, proof.Proof.Leaves, shared.T))
 
+	req.NoError(eg.Wait())
+}
+
+func TestGettingInitialPowParams(t *testing.T) {
+	t.Parallel()
+	req := require.New(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	powChallenge := "initial challenge"
+	powDifficulty := uint(77)
+
+	cfg := config.DefaultConfig()
+	cfg.PoetDir = t.TempDir()
+	cfg.Service.Genesis = time.Now().Add(time.Second).Format(time.RFC3339)
+	cfg.Service.EpochDuration = time.Second
+	cfg.Service.InitialPowChallenge = powChallenge
+	cfg.Service.PowDifficulty = powDifficulty
+	cfg.RawRPCListener = randomHost
+	cfg.RawRESTListener = randomHost
+
+	srv, client := spawnPoet(ctx, t, *cfg)
+	var eg errgroup.Group
+	eg.Go(func() error {
+		return srv.Start(ctx)
+	})
+
+	resp, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
+	req.NoError(err)
+	req.EqualValues(powChallenge, resp.PowParams.Challenge)
+	req.EqualValues(powDifficulty, resp.PowParams.Difficulty)
+
+	cancel()
 	req.NoError(eg.Wait())
 }

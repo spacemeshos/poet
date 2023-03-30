@@ -1,10 +1,12 @@
 package shared
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"os"
 
+	"github.com/c0mm4nd/go-ripemd"
 	"github.com/spacemeshos/go-scale"
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/sha256-simd"
@@ -170,4 +172,49 @@ func DecodeSliceOfByteSliceWithLimit(d *scale.Decoder, outerLimit, innerLimit ui
 	}
 
 	return result, total, nil
+}
+
+func SubmitPow(ctx context.Context, challenge, data, nodeID []byte, difficulty uint) (uint64, error) {
+	var hash []byte
+	for nonce := uint64(0); ; nonce++ {
+		select {
+		case <-ctx.Done():
+			return 0, ctx.Err()
+		default:
+		}
+
+		hash := SubmitPowHash(challenge, data, nodeID, hash, nonce)
+		if CheckLeadingZeroBits(hash, difficulty) {
+			return nonce, nil
+		}
+	}
+}
+
+func SubmitPowHash(challenge, data, nodeID, output []byte, nonce uint64) []byte {
+	md := ripemd.New256()
+	md.Write(challenge)
+	md.Write(nodeID)
+	md.Write(data)
+	if err := binary.Write(md, binary.LittleEndian, nonce); err != nil {
+		panic(err)
+	}
+	return md.Sum(output)
+}
+
+// CheckLeadingZeroBits checks if the first 'expected' bits of the byte array are all zero.
+func CheckLeadingZeroBits(data []byte, expected uint) bool {
+	if len(data)*8 < int(expected) {
+		return false
+	}
+	for i := 0; i < int(expected/8); i++ {
+		if data[i] != 0 {
+			return false
+		}
+	}
+	if expected%8 != 0 {
+		if data[expected/8]>>(8-expected%8) != 0 {
+			return false
+		}
+	}
+	return true
 }
