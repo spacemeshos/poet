@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"sync"
@@ -56,7 +57,7 @@ func (r *rpcServer) PowParams(_ context.Context, _ *api.PowParamsRequest) (*api.
 
 // Submit implements api.Submit.
 func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.SubmitResponse, error) {
-	if !ed25519.Verify(in.Pubkey, in.Data, in.Signature) {
+	if !ed25519.Verify(in.Pubkey, bytes.Join([][]byte{in.Prefix, in.Challenge}, nil), in.Signature) {
 		return nil, status.Error(codes.InvalidArgument, "invalid signature")
 	}
 
@@ -65,7 +66,7 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 		Difficulty: uint(in.GetPowParams().GetDifficulty()),
 	}
 
-	result, err := r.s.Submit(ctx, in.Data, in.Pubkey, in.Nonce, powParams)
+	result, err := r.s.Submit(ctx, in.Challenge, in.Pubkey, in.Nonce, powParams)
 	switch {
 	case errors.Is(err, service.ErrNotStarted):
 		return nil, status.Error(

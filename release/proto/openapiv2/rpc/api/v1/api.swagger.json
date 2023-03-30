@@ -257,7 +257,11 @@
         "powParams": {
           "$ref": "#/definitions/v1PowParams"
         },
-        "data": {
+        "prefix": {
+          "type": "string",
+          "format": "byte"
+        },
+        "challenge": {
           "type": "string",
           "format": "byte"
         },

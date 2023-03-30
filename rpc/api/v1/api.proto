@@ -58,9 +58,10 @@ message SubmitRequest {
     uint64 nonce = 1;
     PowParams pow_params = 2;
 
-    bytes data = 3;
-    bytes pubkey = 4;
-    bytes signature = 5;
+    bytes prefix = 3;
+    bytes challenge = 4;
+    bytes pubkey = 5;
+    bytes signature = 6;
 }
 
 message SubmitResponse {

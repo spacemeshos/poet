@@ -98,18 +98,18 @@ func TestSubmitSignatureVerification(t *testing.T) {
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	req.NoError(err)
 
-	// Submit data with invalid signature
-	data := []byte("poet challenge")
+	// Submit challenge with invalid signature
+	challenge := []byte("poet challenge")
 	_, err = client.Submit(context.Background(), &api.SubmitRequest{
-		Data:      data,
+		Challenge: challenge,
 		Pubkey:    pubKey,
 		Signature: []byte{},
 	})
 	req.ErrorIs(err, status.Error(codes.InvalidArgument, "invalid signature"))
 
-	signature := ed25519.Sign(privKey, data)
+	signature := ed25519.Sign(privKey, challenge)
 	_, err = client.Submit(context.Background(), &api.SubmitRequest{
-		Data:      data,
+		Challenge: challenge,
 		Pubkey:    pubKey,
 		Signature: signature,
 	})
@@ -143,24 +143,24 @@ func TestSubmitPowVerification(t *testing.T) {
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	req.NoError(err)
 
-	// Submit data with valid signature but invalid pow
-	data := []byte("poet challenge")
+	// Submit challenge with valid signature but invalid pow
+	challenge := []byte("poet challenge")
 
-	signature := ed25519.Sign(privKey, data)
+	signature := ed25519.Sign(privKey, challenge)
 	_, err = client.Submit(context.Background(), &api.SubmitRequest{
-		Data:      data,
+		Challenge: challenge,
 		Pubkey:    pubKey,
 		Signature: signature,
 	})
 	req.ErrorIs(err, status.Error(codes.InvalidArgument, "invalid proof of work parameters"))
 
 	// Submit data with valid signature and pow
-	nonce, err := shared.SubmitPow(context.Background(), []byte(cfg.Service.InitialPowChallenge), data, pubKey, cfg.Service.PowDifficulty)
+	nonce, err := shared.SubmitPow(context.Background(), []byte(cfg.Service.InitialPowChallenge), challenge, pubKey, cfg.Service.PowDifficulty)
 	req.NoError(err)
 
 	_, err = client.Submit(context.Background(), &api.SubmitRequest{
 		Nonce:     nonce,
-		Data:      data,
+		Challenge: challenge,
 		Pubkey:    pubKey,
 		Signature: signature,
 		PowParams: &api.PowParams{
@@ -197,13 +197,13 @@ func TestSubmitAndGetProof(t *testing.T) {
 		return srv.Start(ctx)
 	})
 
-	// Submit a data
-	data := []byte("poet challenge")
+	// Submit a challenge
+	challenge := []byte("poet challenge")
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	req.NoError(err)
-	signature := ed25519.Sign(privKey, data)
+	signature := ed25519.Sign(privKey, challenge)
 	resp, err := client.Submit(context.Background(), &api.SubmitRequest{
-		Data:      data,
+		Challenge: challenge,
 		Pubkey:    pubKey,
 		Signature: signature,
 	})
@@ -224,7 +224,7 @@ func TestSubmitAndGetProof(t *testing.T) {
 
 	req.NotZero(proof.Proof.Leaves)
 	req.Len(proof.Proof.Members, 1)
-	req.Contains(proof.Proof.Members, data)
+	req.Contains(proof.Proof.Members, challenge)
 	cancel()
 
 	merkleProof := shared.MerkleProof{
