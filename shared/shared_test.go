@@ -138,7 +138,13 @@ func BenchmarkFindSubmitPowNonce(b *testing.B) {
 		b.Run(fmt.Sprintf("difficulty=%v", difficulty), func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				binary.LittleEndian.PutUint64(nodeID, uint64(i))
-				_, err := FindSubmitPowNonce(context.Background(), powChallenge, poetChallenge, nodeID, uint(difficulty))
+				_, err := FindSubmitPowNonce(
+					context.Background(),
+					powChallenge,
+					poetChallenge,
+					nodeID,
+					uint(difficulty),
+				)
 				if err != nil {
 					b.Error(err)
 				}
