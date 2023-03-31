@@ -30,8 +30,6 @@ const (
 	defaultRPCPort                  = 50002
 	defaultRESTPort                 = 8080
 	defaultMemoryLayers             = 26 // Up to (1 << 26) * 2 - 1 Merkle tree cache nodes (32 bytes each) will be held in-memory
-	defaultConnAcksThreshold        = 1
-	defaultGatewayConnectionTimeout = 30 * time.Second
 	defaultTreeFileBufferSize       = 4096
 	defaultEstimatedLeavesPerSecond = 78000
 )
