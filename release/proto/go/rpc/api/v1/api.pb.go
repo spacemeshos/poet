@@ -27,8 +27,10 @@ type PowParams struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// Difficulty of the PoW challenge (in terms of leading zero bits in the hash)
 	Difficulty uint32 `protobuf:"varint,1,opt,name=difficulty,proto3" json:"difficulty,omitempty"`
-	Challenge  []byte `protobuf:"bytes,2,opt,name=challenge,proto3" json:"challenge,omitempty"`
+	// The challenge to be used for the PoW
+	Challenge []byte `protobuf:"bytes,2,opt,name=challenge,proto3" json:"challenge,omitempty"`
 }
 
 func (x *PowParams) Reset() {
@@ -167,12 +169,18 @@ type SubmitRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Nonce     uint64     `protobuf:"varint,1,opt,name=nonce,proto3" json:"nonce,omitempty"`
+	// Proof of Work nonce
+	Nonce uint64 `protobuf:"varint,1,opt,name=nonce,proto3" json:"nonce,omitempty"`
+	// Proof of Work parameters that were used to generate the nonce
 	PowParams *PowParams `protobuf:"bytes,2,opt,name=pow_params,json=powParams,proto3" json:"pow_params,omitempty"`
-	Prefix    []byte     `protobuf:"bytes,3,opt,name=prefix,proto3" json:"prefix,omitempty"`
-	Challenge []byte     `protobuf:"bytes,4,opt,name=challenge,proto3" json:"challenge,omitempty"`
-	Pubkey    []byte     `protobuf:"bytes,5,opt,name=pubkey,proto3" json:"pubkey,omitempty"`
-	Signature []byte     `protobuf:"bytes,6,opt,name=signature,proto3" json:"signature,omitempty"`
+	// Prefix to be added to challenge for signature verification
+	Prefix []byte `protobuf:"bytes,3,opt,name=prefix,proto3" json:"prefix,omitempty"`
+	// The PoET challenge to be registered for the open round
+	Challenge []byte `protobuf:"bytes,4,opt,name=challenge,proto3" json:"challenge,omitempty"`
+	// The user's public key (node ID)
+	Pubkey []byte `protobuf:"bytes,5,opt,name=pubkey,proto3" json:"pubkey,omitempty"`
+	// The user's signature over the challenge
+	Signature []byte `protobuf:"bytes,6,opt,name=signature,proto3" json:"signature,omitempty"`
 }
 
 func (x *SubmitRequest) Reset() {

@@ -219,11 +219,13 @@
       "properties": {
         "difficulty": {
           "type": "integer",
-          "format": "int64"
+          "format": "int64",
+          "title": "Difficulty of the PoW challenge (in terms of leading zero bits in the hash)"
         },
         "challenge": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "The challenge to be used for the PoW"
         }
       }
     },
@@ -252,26 +254,32 @@
       "properties": {
         "nonce": {
           "type": "string",
-          "format": "uint64"
+          "format": "uint64",
+          "title": "Proof of Work nonce"
         },
         "powParams": {
-          "$ref": "#/definitions/v1PowParams"
+          "$ref": "#/definitions/v1PowParams",
+          "title": "Proof of Work parameters that were used to generate the nonce"
         },
         "prefix": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "Prefix to be added to challenge for signature verification"
         },
         "challenge": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "The PoET challenge to be registered for the open round"
         },
         "pubkey": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "The user's public key (node ID)"
         },
         "signature": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "The user's signature over the challenge"
         }
       }
     },

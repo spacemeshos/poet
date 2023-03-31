@@ -155,7 +155,7 @@ func TestSubmitPowVerification(t *testing.T) {
 	req.ErrorIs(err, status.Error(codes.InvalidArgument, "invalid proof of work parameters"))
 
 	// Submit data with valid signature and pow
-	nonce, err := shared.SubmitPow(
+	nonce, err := shared.FindSubmitPowNonce(
 		context.Background(),
 		[]byte(cfg.Service.InitialPowChallenge),
 		challenge,

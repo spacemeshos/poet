@@ -174,7 +174,12 @@ func DecodeSliceOfByteSliceWithLimit(d *scale.Decoder, outerLimit, innerLimit ui
 	return result, total, nil
 }
 
-func SubmitPow(ctx context.Context, challenge, data, nodeID []byte, difficulty uint) (uint64, error) {
+// FindSubmitPowNonce finds the nonce that solves the PoW challenge.
+func FindSubmitPowNonce(
+	ctx context.Context,
+	powChallenge, poetChallenge, nodeID []byte,
+	difficulty uint,
+) (uint64, error) {
 	var hash []byte
 	for nonce := uint64(0); ; nonce++ {
 		select {
@@ -183,18 +188,20 @@ func SubmitPow(ctx context.Context, challenge, data, nodeID []byte, difficulty u
 		default:
 		}
 
-		hash := SubmitPowHash(challenge, data, nodeID, hash, nonce)
+		hash := CalcSubmitPowHash(powChallenge, poetChallenge, nodeID, hash, nonce)
 		if CheckLeadingZeroBits(hash, difficulty) {
 			return nonce, nil
 		}
 	}
 }
 
-func SubmitPowHash(challenge, data, nodeID, output []byte, nonce uint64) []byte {
+// CalcSubmitPowHash calculates the hash for the Submit PoW.
+// The hash is ripemd256(sha256(powChallenge || poetChallenge || nodeID || nonce).
+func CalcSubmitPowHash(powChallenge, poetChallenge, nodeID, output []byte, nonce uint64) []byte {
 	md := ripemd.New256()
-	md.Write(challenge)
+	md.Write(powChallenge)
 	md.Write(nodeID)
-	md.Write(data)
+	md.Write(poetChallenge)
 	if err := binary.Write(md, binary.LittleEndian, nonce); err != nil {
 		panic(err)
 	}

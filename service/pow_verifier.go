@@ -17,7 +17,10 @@ var (
 //go:generate mockgen -package mocks -destination mocks/pow_verifier.go . PowVerifier
 
 type PowVerifier interface {
-	Verify(challenge, nodeID []byte, nonce uint64) error
+	// Verify the proof of work.
+	//
+	// PoW hash is ripemd256(sha256(powChallenge || poetChallenge || nodeID || nonce)
+	Verify(poetChallenge, nodeID []byte, nonce uint64) error
 	Params() PowParams
 	SetParams(PowParams)
 }
@@ -60,12 +63,12 @@ func NewPowVerifier(params PowParams) PowVerifier {
 }
 
 // Verify implements PowVerifier.
-func (v *powVerifier) Verify(data, nodeID []byte, nonce uint64) error {
+func (v *powVerifier) Verify(poetChallenge, nodeID []byte, nonce uint64) error {
 	if len(nodeID) != 32 {
 		return fmt.Errorf("%w: invalid nodeID length: %d", ErrInvalidPow, len(nodeID))
 	}
 
-	hash := shared.SubmitPowHash(v.params.Challenge, data, nodeID, nil, nonce)
+	hash := shared.CalcSubmitPowHash(v.params.Challenge, poetChallenge, nodeID, nil, nonce)
 
 	if !shared.CheckLeadingZeroBits(hash, v.params.Difficulty) {
 		return fmt.Errorf("%w: invalid leading zero bits", ErrInvalidPow)
@@ -95,16 +98,16 @@ func (v *powVerifiers) Params() PowParams {
 	return v.current.Params()
 }
 
-func (v *powVerifiers) VerifyWithParams(data, nodeID []byte, nonce uint64, params PowParams) error {
+func (v *powVerifiers) VerifyWithParams(poetChallenge, nodeID []byte, nonce uint64, params PowParams) error {
 	v.mutex.RLock()
 	defer v.mutex.RUnlock()
 
 	if v.current.Params().Equal(params) {
-		return v.current.Verify(data, nodeID, nonce)
+		return v.current.Verify(poetChallenge, nodeID, nonce)
 	}
 
 	if v.previous != nil && v.previous.Params().Equal(params) {
-		return v.previous.Verify(data, nodeID, nonce)
+		return v.previous.Verify(poetChallenge, nodeID, nonce)
 	}
 	return ErrInvalidPowParams
 }

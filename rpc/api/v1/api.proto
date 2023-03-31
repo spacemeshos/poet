@@ -45,7 +45,9 @@ service PoetService {
 }
 
 message PowParams {
+    // Difficulty of the PoW challenge (in terms of leading zero bits in the hash)
     uint32 difficulty = 1;
+    // The challenge to be used for the PoW
     bytes challenge = 2;
 }
 
@@ -55,12 +57,17 @@ message PowParamsResponse {
 }
 
 message SubmitRequest {
+    // Proof of Work nonce
     uint64 nonce = 1;
+    // Proof of Work parameters that were used to generate the nonce
     PowParams pow_params = 2;
-
+    // Prefix to be added to challenge for signature verification
     bytes prefix = 3;
+    // The PoET challenge to be registered for the open round
     bytes challenge = 4;
+    // The user's public key (node ID)
     bytes pubkey = 5;
+    // The user's signature over the challenge
     bytes signature = 6;
 }
 

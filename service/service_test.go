@@ -59,7 +59,7 @@ func TestService_Recovery(t *testing.T) {
 	submitChallenges := func(roundID string, challenges []challenge) {
 		params := s.PowParams()
 		for _, challenge := range challenges {
-			nonce, _ := shared.SubmitPow(
+			nonce, _ := shared.FindSubmitPowNonce(
 				context.Background(),
 				params.Challenge,
 				challenge.data,
