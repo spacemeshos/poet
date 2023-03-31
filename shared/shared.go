@@ -196,7 +196,7 @@ func FindSubmitPowNonce(
 }
 
 // CalcSubmitPowHash calculates the hash for the Submit PoW.
-// The hash is ripemd256(sha256(powChallenge || poetChallenge || nodeID || nonce).
+// The hash is ripemd256(powChallenge || nodeID || poetChallenge || nonce).
 func CalcSubmitPowHash(powChallenge, poetChallenge, nodeID, output []byte, nonce uint64) []byte {
 	md := ripemd.New256()
 	md.Write(powChallenge)

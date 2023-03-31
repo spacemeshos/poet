@@ -19,7 +19,7 @@ var (
 type PowVerifier interface {
 	// Verify the proof of work.
 	//
-	// PoW hash is ripemd256(sha256(powChallenge || poetChallenge || nodeID || nonce)
+	// PoW hash is ripemd256(powChallenge || nodeID || poetChallenge || nonce)
 	Verify(poetChallenge, nodeID []byte, nonce uint64) error
 	Params() PowParams
 	SetParams(PowParams)
