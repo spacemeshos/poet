@@ -24,7 +24,6 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"github.com/spacemeshos/poet/config"
-	"github.com/spacemeshos/poet/gateway"
 	"github.com/spacemeshos/poet/logging"
 	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
 	"github.com/spacemeshos/poet/rpc"
@@ -136,26 +135,11 @@ func (s *Server) Start(ctx context.Context) error {
 		return s.svc.Run(ctx)
 	})
 
-	gtwConnCtx, cancel := context.WithTimeout(ctx, s.cfg.GtwConnTimeout)
-	defer cancel()
-	gtwManager, err := gateway.NewManager(gtwConnCtx, s.cfg.Service.GatewayAddresses, s.cfg.Service.ConnAcksThreshold)
-	if err == nil {
-		verifier, err := service.CreateChallengeVerifier(gtwManager.Connections())
-		if err != nil {
-			if err := gtwManager.Close(); err != nil {
-				logger.Warn("failed to close GRPC connections", zap.Error(err))
-			}
-			return fmt.Errorf("failed to create challenge verifier: %w", err)
-		}
-		if err := s.svc.Start(ctx, verifier); err != nil {
-			return err
-		}
-	} else {
-		logger.Info("Service not starting, waiting for start request", zap.Error(err))
-		gtwManager = &gateway.Manager{}
+	if err := s.svc.Start(ctx); err != nil {
+		return err
 	}
 
-	rpcServer := rpc.NewServer(s.svc, proofsDb, gtwManager, s.cfg)
+	rpcServer := rpc.NewServer(s.svc, proofsDb, s.cfg)
 	grpcServer = grpc.NewServer(options...)
 
 	api.RegisterPoetServiceServer(grpcServer, rpcServer)

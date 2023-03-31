@@ -28,12 +28,6 @@ go build
 
 `--genesis-time` is set according to [RFC3339](https://www.rfc-editor.org/rfc/rfc3339).
 
-### Same as above but with a local Spacemesh gateway node specified
-
-```bash
-./poet --initialduration=5s --duration=5s --gateway=localhost:9091
-```
-
 ### Use the sample configuration file
 
 ```bash

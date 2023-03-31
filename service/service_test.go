@@ -1,8 +1,8 @@
 package service_test
 
 import (
+	"bytes"
 	"context"
-	"crypto/rand"
 	"os"
 	"path"
 	"strconv"
@@ -15,11 +15,11 @@ import (
 	"golang.org/x/exp/slices"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/spacemeshos/poet/gateway/challenge_verifier"
-	"github.com/spacemeshos/poet/gateway/challenge_verifier/mocks"
+	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/service"
+	"github.com/spacemeshos/poet/service/mocks"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/verifier"
 )
@@ -36,24 +36,20 @@ func TestService_Recovery(t *testing.T) {
 		EpochDuration: time.Second * 2,
 		PhaseShift:    time.Second,
 	}
-
-	ctrl := gomock.NewController(t)
-	challengeVerifier := mocks.NewMockVerifier(ctrl)
 	tempdir := t.TempDir()
 
 	// Generate groups of random challenges.
-	challengeGroupSize := 5
+	challengeGroupSize := byte(5)
 	challengeGroups := make([][]challenge, 3)
-	for i := 0; i < 3; i++ {
+	for g := byte(0); g < 3; g++ {
 		challengeGroup := make([]challenge, challengeGroupSize)
-		for i := 0; i < challengeGroupSize; i++ {
-			challengeGroup[i] = challenge{data: make([]byte, 32), nodeID: make([]byte, 32)}
-			_, err := rand.Read(challengeGroup[i].data)
-			req.NoError(err)
-			_, err = rand.Read(challengeGroup[i].nodeID)
-			req.NoError(err)
+		for i := byte(0); i < challengeGroupSize; i++ {
+			challengeGroup[i] = challenge{
+				data:   bytes.Repeat([]byte{g*10 + i}, 32),
+				nodeID: bytes.Repeat([]byte{-g*10 - i}, 32),
+			}
 		}
-		challengeGroups[i] = challengeGroup
+		challengeGroups[g] = challengeGroup
 	}
 
 	// Create a new service instance.
@@ -61,13 +57,17 @@ func TestService_Recovery(t *testing.T) {
 	req.NoError(err)
 
 	submitChallenges := func(roundID string, challenges []challenge) {
+		params := s.PowParams()
 		for _, challenge := range challenges {
-			challengeVerifier.EXPECT().
-				Verify(gomock.Any(), challenge.data, nil).
-				Return(&challenge_verifier.Result{Hash: challenge.data, NodeId: challenge.nodeID}, nil)
-			result, err := s.Submit(context.Background(), challenge.data, nil)
+			nonce, _ := shared.FindSubmitPowNonce(
+				context.Background(),
+				params.Challenge,
+				challenge.data,
+				challenge.nodeID,
+				params.Difficulty,
+			)
+			result, err := s.Submit(context.Background(), challenge.data, challenge.nodeID, nonce, params)
 			req.NoError(err)
-			req.Equal(challenge.data, result.Hash)
 			req.Equal(roundID, result.Round)
 		}
 	}
@@ -76,7 +76,7 @@ func TestService_Recovery(t *testing.T) {
 	defer cancel()
 	var eg errgroup.Group
 	eg.Go(func() error { return s.Run(ctx) })
-	req.NoError(s.Start(context.Background(), challengeVerifier))
+	req.NoError(s.Start(context.Background()))
 
 	// Submit challenges to open round (0).
 	submitChallenges("0", challengeGroups[0])
@@ -111,7 +111,7 @@ func TestService_Recovery(t *testing.T) {
 	req.Contains(info.ExecutingRoundsIds, "0")
 	req.Equal([]string{"0"}, info.ExecutingRoundsIds)
 
-	req.NoError(s.Start(context.Background(), challengeVerifier))
+	req.NoError(s.Start(context.Background()))
 	// Wait for round 2 to open
 	req.Eventually(func() bool {
 		info, err := s.Info(context.Background())
@@ -157,27 +157,26 @@ func TestNewService(t *testing.T) {
 	cfg.EpochDuration = time.Second * 2
 	cfg.PhaseShift = time.Second
 
-	s, err := service.NewService(context.Background(), cfg, tempdir)
-	req.NoError(err)
 	ctrl := gomock.NewController(t)
-	challengeVerifier := mocks.NewMockVerifier(ctrl)
+	powVerifier := mocks.NewMockPowVerifier(ctrl)
+	powVerifier.EXPECT().Params().AnyTimes().Return(service.PowParams{})
+	powVerifier.EXPECT().SetParams(gomock.Any()).AnyTimes()
+
+	s, err := service.NewService(context.Background(), cfg, tempdir, service.WithPowVerifier(powVerifier))
+	req.NoError(err)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var eg errgroup.Group
 	eg.Go(func() error { return s.Run(ctx) })
-	req.NoError(s.Start(context.Background(), challengeVerifier))
+	req.NoError(s.Start(context.Background()))
 
 	challengesCount := 8
 	challenges := make([]challenge, challengesCount)
 
 	// Generate random challenges.
 	for i := 0; i < len(challenges); i++ {
-		challenges[i] = challenge{data: make([]byte, 32), nodeID: make([]byte, 32)}
-		_, err := rand.Read(challenges[i].data)
-		req.NoError(err)
-		_, err = rand.Read(challenges[i].nodeID)
-		req.NoError(err)
+		challenges[i] = challenge{data: bytes.Repeat([]byte{byte(i)}, 32), nodeID: bytes.Repeat([]byte{-byte(i)}, 32)}
 	}
 
 	info, err := s.Info(context.Background())
@@ -185,13 +184,10 @@ func TestNewService(t *testing.T) {
 	currentRound := info.OpenRoundID
 
 	// Submit challenges.
-	for i := 0; i < len(challenges); i++ {
-		challengeVerifier.EXPECT().
-			Verify(gomock.Any(), challenges[i].data, nil).
-			Return(&challenge_verifier.Result{Hash: challenges[i].data, NodeId: challenges[i].nodeID}, nil)
-		result, err := s.Submit(context.Background(), challenges[i].data, nil)
+	for _, ch := range challenges {
+		powVerifier.EXPECT().Verify(ch.data, ch.nodeID, uint64(0)).Return(nil)
+		result, err := s.Submit(context.Background(), ch.data, ch.nodeID, 0, service.PowParams{})
 		req.NoError(err)
-		req.Equal(challenges[i].data, result.Hash)
 		req.Equal(currentRound, result.Round)
 	}
 
@@ -250,6 +246,19 @@ func TestNewService(t *testing.T) {
 	req.NoError(eg.Wait())
 }
 
+func TestNewServiceCannotSetNilVerifier(t *testing.T) {
+	t.Parallel()
+	tempdir := t.TempDir()
+
+	_, err := service.NewService(
+		context.Background(),
+		config.DefaultConfig().Service,
+		tempdir,
+		service.WithPowVerifier(nil),
+	)
+	require.ErrorContains(t, err, "pow verifier cannot be nil")
+}
+
 func TestSubmitIdempotency(t *testing.T) {
 	req := require.New(t)
 	cfg := service.Config{
@@ -259,32 +268,30 @@ func TestSubmitIdempotency(t *testing.T) {
 		CycleGap:      time.Second / 4,
 	}
 	challenge := []byte("challenge")
-	signature := []byte("signature")
+	nodeID := []byte("nodeID")
+	nonce := uint64(7)
 
-	s, err := service.NewService(context.Background(), &cfg, t.TempDir())
+	verifier := mocks.NewMockPowVerifier(gomock.NewController(t))
+
+	s, err := service.NewService(context.Background(), &cfg, t.TempDir(), service.WithPowVerifier(verifier))
 	req.NoError(err)
 
-	verifier := mocks.NewMockVerifier(gomock.NewController(t))
-	verifier.EXPECT().
-		Verify(gomock.Any(), challenge, signature).
-		Times(2).
-		Return(&challenge_verifier.Result{Hash: []byte("hash")}, nil)
+	verifier.EXPECT().Params().Times(2).Return(service.PowParams{})
+	verifier.EXPECT().Verify(challenge, nodeID, nonce).Times(2).Return(nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var eg errgroup.Group
 	eg.Go(func() error { return s.Run(ctx) })
-	req.NoError(s.Start(context.Background(), verifier))
+	req.NoError(s.Start(context.Background()))
 
 	// Submit challenge
-	result, err := s.Submit(context.Background(), challenge, signature)
+	_, err = s.Submit(context.Background(), challenge, nodeID, nonce, service.PowParams{})
 	req.NoError(err)
-	req.Equal(result.Hash, []byte("hash"))
 
 	// Try again - it should return the same result
-	result, err = s.Submit(context.Background(), challenge, signature)
+	_, err = s.Submit(context.Background(), challenge, nodeID, nonce, service.PowParams{})
 	req.NoError(err)
-	req.Equal(result.Hash, []byte("hash"))
 
 	cancel()
 	req.NoError(eg.Wait())
@@ -418,11 +425,8 @@ func TestService_Start(t *testing.T) {
 		defer cancel()
 		var eg errgroup.Group
 		eg.Go(func() error { return s.Run(ctx) })
-		req.NoError(s.Start(context.Background(), mocks.NewMockVerifier(gomock.NewController(t))))
-		req.ErrorIs(
-			s.Start(context.Background(), mocks.NewMockVerifier(gomock.NewController(t))),
-			service.ErrAlreadyStarted,
-		)
+		req.NoError(s.Start(context.Background()))
+		req.ErrorIs(s.Start(context.Background()), service.ErrAlreadyStarted)
 		cancel()
 		req.NoError(eg.Wait())
 	})
@@ -432,7 +436,7 @@ func TestService_Start(t *testing.T) {
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*50)
 		defer cancel()
-		req.ErrorIs(s.Start(ctx, mocks.NewMockVerifier(gomock.NewController(t))), context.DeadlineExceeded)
+		req.ErrorIs(s.Start(ctx), context.DeadlineExceeded)
 	})
 }
 
@@ -445,8 +449,6 @@ func TestService_Recovery_MissingOpenRound(t *testing.T) {
 		PhaseShift:    time.Second,
 	}
 
-	ctrl := gomock.NewController(t)
-	challengeVerifier := mocks.NewMockVerifier(ctrl)
 	tempdir := t.TempDir()
 
 	// Create a new service instance.
@@ -457,7 +459,7 @@ func TestService_Recovery_MissingOpenRound(t *testing.T) {
 	defer cancel()
 	var eg errgroup.Group
 	eg.Go(func() error { return s.Run(ctx) })
-	req.NoError(s.Start(context.Background(), challengeVerifier))
+	req.NoError(s.Start(context.Background()))
 
 	// Wait for round 0 to start executing.
 	req.Eventually(func() bool {
@@ -516,8 +518,6 @@ func TestService_Recovery_Reset(t *testing.T) {
 		EpochDuration: time.Hour,
 		Reset:         true,
 	}
-	ctrl := gomock.NewController(t)
-	challengeVerifier := mocks.NewMockVerifier(ctrl)
 	tempdir := t.TempDir()
 
 	// Create a new service instance.
@@ -528,7 +528,7 @@ func TestService_Recovery_Reset(t *testing.T) {
 	defer cancel()
 	var eg errgroup.Group
 	eg.Go(func() error { return s.Run(ctx) })
-	req.NoError(s.Start(context.Background(), challengeVerifier))
+	req.NoError(s.Start(context.Background()))
 
 	// Wait for round 0 to start executing.
 	req.Eventually(func() bool {
@@ -561,6 +561,41 @@ func TestService_Recovery_Reset(t *testing.T) {
 	req.NoError(err)
 	req.Equal("1", info.OpenRoundID)
 	req.Empty(info.ExecutingRoundsIds)
+
+	cancel()
+	req.NoError(eg.Wait())
+}
+
+// Test if Proof of Work challenge is rotated every round.
+// The challenge should be changed to the root of PoET proof Merkle tree
+// of the previous round.
+func TestService_PowChallengeRotation(t *testing.T) {
+	req := require.New(t)
+	cfg := service.Config{
+		Genesis:             time.Now().Format(time.RFC3339),
+		EpochDuration:       time.Second,
+		PhaseShift:          time.Second / 2,
+		InitialPowChallenge: "initial challenge",
+		PowDifficulty:       7,
+	}
+
+	s, err := service.NewService(context.Background(), &cfg, t.TempDir())
+	req.NoError(err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var eg errgroup.Group
+	eg.Go(func() error { return s.Run(ctx) })
+	req.NoError(s.Start(context.Background()))
+
+	params := s.PowParams()
+	req.EqualValues(cfg.InitialPowChallenge, params.Challenge)
+	req.EqualValues(cfg.PowDifficulty, params.Difficulty)
+
+	proof := <-s.ProofsChan()
+	params = s.PowParams()
+	req.EqualValues(proof.Proof.Root, params.Challenge)
+	req.EqualValues(cfg.PowDifficulty, params.Difficulty)
 
 	cancel()
 	req.NoError(eg.Wait())

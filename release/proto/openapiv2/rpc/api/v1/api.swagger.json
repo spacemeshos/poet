@@ -39,6 +39,28 @@
         ]
       }
     },
+    "/v1/pow_params": {
+      "get": {
+        "operationId": "PoetService_PowParams",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/v1PowParamsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "tags": [
+          "PoetService"
+        ]
+      }
+    },
     "/v1/proofs/{roundId}": {
       "get": {
         "summary": "roof returns the generated proof for given round id.",
@@ -70,42 +92,9 @@
         ]
       }
     },
-    "/v1/start": {
-      "post": {
-        "summary": "Start is used to start the service.",
-        "operationId": "PoetService_Start",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1StartResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/v1StartRequest"
-            }
-          }
-        ],
-        "tags": [
-          "PoetService"
-        ]
-      }
-    },
     "/v1/submit": {
       "post": {
-        "summary": "Submit adds a challenge to the service's current open round,\nto be included its later generated proof.",
+        "summary": "Submit registers data to the service's current open round,\nto be included its later generated proof.",
         "operationId": "PoetService_Submit",
         "responses": {
           "200": {
@@ -128,39 +117,6 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/v1SubmitRequest"
-            }
-          }
-        ],
-        "tags": [
-          "PoetService"
-        ]
-      }
-    },
-    "/v1/updategateway": {
-      "post": {
-        "summary": "UpdateGateway allows to update the list of gateway addresses,\nsimilar to the Start rpc, but after the service already started.",
-        "operationId": "PoetService_UpdateGateway",
-        "responses": {
-          "200": {
-            "description": "A successful response.",
-            "schema": {
-              "$ref": "#/definitions/v1UpdateGatewayResponse"
-            }
-          },
-          "default": {
-            "description": "An unexpected error response.",
-            "schema": {
-              "$ref": "#/definitions/rpcStatus"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/v1UpdateGatewayRequest"
             }
           }
         ],
@@ -258,6 +214,29 @@
         }
       }
     },
+    "v1PowParams": {
+      "type": "object",
+      "properties": {
+        "difficulty": {
+          "type": "integer",
+          "format": "int64",
+          "title": "Difficulty of the PoW challenge (in terms of leading zero bits in the hash)"
+        },
+        "challenge": {
+          "type": "string",
+          "format": "byte",
+          "title": "The challenge to be used for the PoW"
+        }
+      }
+    },
+    "v1PowParamsResponse": {
+      "type": "object",
+      "properties": {
+        "powParams": {
+          "$ref": "#/definitions/v1PowParams"
+        }
+      }
+    },
     "v1ProofResponse": {
       "type": "object",
       "properties": {
@@ -270,34 +249,37 @@
         }
       }
     },
-    "v1StartRequest": {
-      "type": "object",
-      "properties": {
-        "gatewayAddresses": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "connAcksThreshold": {
-          "type": "integer",
-          "format": "int32"
-        }
-      }
-    },
-    "v1StartResponse": {
-      "type": "object"
-    },
     "v1SubmitRequest": {
       "type": "object",
       "properties": {
+        "nonce": {
+          "type": "string",
+          "format": "uint64",
+          "title": "Proof of Work nonce"
+        },
+        "powParams": {
+          "$ref": "#/definitions/v1PowParams",
+          "title": "Proof of Work parameters that were used to generate the nonce"
+        },
+        "prefix": {
+          "type": "string",
+          "format": "byte",
+          "title": "Prefix to be added to challenge for signature verification"
+        },
         "challenge": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "The PoET challenge to be registered for the open round"
+        },
+        "pubkey": {
+          "type": "string",
+          "format": "byte",
+          "title": "The user's public key (node ID)"
         },
         "signature": {
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "title": "The user's signature over the challenge"
         }
       }
     },
@@ -307,32 +289,10 @@
         "roundId": {
           "type": "string"
         },
-        "hash": {
-          "type": "string",
-          "format": "byte"
-        },
         "roundEnd": {
           "type": "string"
         }
       }
-    },
-    "v1UpdateGatewayRequest": {
-      "type": "object",
-      "properties": {
-        "gatewayAddresses": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "connAcksThreshold": {
-          "type": "integer",
-          "format": "int32"
-        }
-      }
-    },
-    "v1UpdateGatewayResponse": {
-      "type": "object"
     }
   }
 }

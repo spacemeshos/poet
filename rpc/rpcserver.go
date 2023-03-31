@@ -1,11 +1,12 @@
 package rpc
 
 import (
+	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 
+	ed25519 "github.com/spacemeshos/ed25519-recovery"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"
@@ -13,8 +14,6 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/spacemeshos/poet/config"
-	"github.com/spacemeshos/poet/gateway"
-	"github.com/spacemeshos/poet/gateway/challenge_verifier"
 	"github.com/spacemeshos/poet/logging"
 	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
 	"github.com/spacemeshos/poet/service"
@@ -22,10 +21,9 @@ import (
 
 // rpcServer is a gRPC, RPC front end to poet.
 type rpcServer struct {
-	proofsDb   *service.ProofsDatabase
-	s          *service.Service
-	gtwManager *gateway.Manager
-	cfg        config.Config
+	proofsDb *service.ProofsDatabase
+	s        *service.Service
+	cfg      config.Config
 	sync.Mutex
 }
 
@@ -37,124 +35,55 @@ var _ api.PoetServiceServer = (*rpcServer)(nil)
 func NewServer(
 	svc *service.Service,
 	proofsDb *service.ProofsDatabase,
-	gtwManager *gateway.Manager,
 	cfg config.Config,
 ) *rpcServer {
 	return &rpcServer{
-		proofsDb:   proofsDb,
-		s:          svc,
-		cfg:        cfg,
-		gtwManager: gtwManager,
+		proofsDb: proofsDb,
+		s:        svc,
+		cfg:      cfg,
 	}
 }
 
-func (r *rpcServer) Start(ctx context.Context, in *api.StartRequest) (*api.StartResponse, error) {
-	r.Lock()
-	defer r.Unlock()
-
-	if r.s.Started() {
-		return nil, service.ErrAlreadyStarted
-	}
-
-	connAcks := uint(in.ConnAcksThreshold)
-	if connAcks < 1 {
-		connAcks = 1
-	}
-
-	gtwConnCtx, cancel := context.WithTimeout(ctx, r.cfg.GtwConnTimeout)
-	defer cancel()
-	gtwManager, err := gateway.NewManager(gtwConnCtx, in.GatewayAddresses, connAcks)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err := gtwManager.Close(); err != nil {
-			logging.FromContext(ctx).Warn("failed to close GRPC connections", zap.Error(err))
-		}
-	}()
-
-	verifier, err := service.CreateChallengeVerifier(gtwManager.Connections())
-	if err != nil {
-		return nil, fmt.Errorf("failed to create challenge verifier: %w", err)
-	}
-
-	if err = r.s.Start(ctx, verifier); err != nil {
-		return nil, err
-	}
-	// Swap the new and old gateway managers.
-	// The old one will be closed in defer.
-	r.gtwManager, gtwManager = gtwManager, r.gtwManager
-
-	return &api.StartResponse{}, nil
+func (r *rpcServer) PowParams(_ context.Context, _ *api.PowParamsRequest) (*api.PowParamsResponse, error) {
+	params := r.s.PowParams()
+	return &api.PowParamsResponse{
+		PowParams: &api.PowParams{
+			Challenge:  params.Challenge,
+			Difficulty: uint32(params.Difficulty),
+		},
+	}, nil
 }
 
-func (r *rpcServer) UpdateGateway(
-	ctx context.Context,
-	in *api.UpdateGatewayRequest,
-) (*api.UpdateGatewayResponse, error) {
-	r.Lock()
-	defer r.Unlock()
-
-	if !r.s.Started() {
-		return nil, service.ErrNotStarted
-	}
-
-	connAcks := uint(in.ConnAcksThreshold)
-	if connAcks < 1 {
-		connAcks = 1
-	}
-
-	gtwConnCtx, cancel := context.WithTimeout(ctx, r.cfg.GtwConnTimeout)
-	defer cancel()
-	gtwManager, err := gateway.NewManager(gtwConnCtx, in.GatewayAddresses, connAcks)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if err := gtwManager.Close(); err != nil {
-			logging.FromContext(ctx).Warn("failed to close GRPC connections", zap.Error(err))
-		}
-	}()
-
-	verifier, err := service.CreateChallengeVerifier(gtwManager.Connections())
-	if err != nil {
-		return nil, fmt.Errorf("failed to create challenge verifier: %w", err)
-	}
-
-	// Swap the new and old gateway managers.
-	// The old one will be closed in defer.
-	r.gtwManager, gtwManager = gtwManager, r.gtwManager
-	r.s.SetChallengeVerifier(verifier)
-
-	return &api.UpdateGatewayResponse{}, nil
-}
-
-// Submit implements api.Submit.
 func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.SubmitResponse, error) {
-	result, err := r.s.Submit(ctx, in.Challenge, in.Signature)
+	if !ed25519.Verify(in.Pubkey, bytes.Join([][]byte{in.Prefix, in.Challenge}, nil), in.Signature) {
+		return nil, status.Error(codes.InvalidArgument, "invalid signature")
+	}
+
+	powParams := service.PowParams{
+		Challenge:  in.GetPowParams().GetChallenge(),
+		Difficulty: uint(in.GetPowParams().GetDifficulty()),
+	}
+
+	result, err := r.s.Submit(ctx, in.Challenge, in.Pubkey, in.Nonce, powParams)
 	switch {
 	case errors.Is(err, service.ErrNotStarted):
 		return nil, status.Error(
 			codes.FailedPrecondition,
 			"cannot submit a challenge because poet service is not started",
 		)
-	case errors.Is(err, challenge_verifier.ErrChallengeInvalid):
+	case errors.Is(err, service.ErrInvalidPow) || errors.Is(err, service.ErrInvalidPowParams):
 		return nil, status.Error(codes.InvalidArgument, err.Error())
-	case errors.Is(err, challenge_verifier.ErrCouldNotVerify):
-		return nil, status.Error(codes.Unavailable, "failed to verify the challenge, consider retrying")
 	case err != nil:
-		logging.FromContext(ctx).Warn("unknown error during challenge validation", zap.Error(err))
-		return nil, status.Error(codes.Internal, "unknown error during challenge validation")
+		logging.FromContext(ctx).Warn("unknown error submitting challenge", zap.Error(err))
+		return nil, status.Error(codes.Internal, "unknown error submitting challenge")
 	}
 
 	out := new(api.SubmitResponse)
 	out.RoundId = result.Round
-	out.Hash = result.Hash
 	out.RoundEnd = durationpb.New(result.RoundEnd)
 	return out, nil
 }
 
-// GetInfo implements api.GetInfo.
 func (r *rpcServer) Info(ctx context.Context, in *api.InfoRequest) (*api.InfoResponse, error) {
 	info, err := r.s.Info(ctx)
 	if err != nil {
@@ -172,7 +101,6 @@ func (r *rpcServer) Info(ctx context.Context, in *api.InfoRequest) (*api.InfoRes
 	return out, nil
 }
 
-// GetProof implements api.PoetServer.
 func (r *rpcServer) Proof(ctx context.Context, in *api.ProofRequest) (*api.ProofResponse, error) {
 	if info, err := r.s.Info(ctx); err == nil {
 		if info.OpenRoundID == in.RoundId || slices.Contains(info.ExecutingRoundsIds, in.RoundId) {
@@ -181,11 +109,11 @@ func (r *rpcServer) Proof(ctx context.Context, in *api.ProofRequest) (*api.Proof
 	}
 
 	proofMsg, err := r.proofsDb.Get(ctx, in.RoundId)
-	proof := proofMsg.Proof
 	switch {
 	case errors.Is(err, service.ErrNotFound):
 		return nil, status.Error(codes.NotFound, "proof not found")
 	case err == nil:
+		proof := proofMsg.Proof
 		out := api.ProofResponse{
 			Proof: &api.PoetProof{
 				Proof: &api.MerkleProof{

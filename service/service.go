@@ -17,30 +17,27 @@ import (
 	mshared "github.com/spacemeshos/merkle-tree/shared"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
 
-	"github.com/spacemeshos/poet/gateway/challenge_verifier"
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/service/tid"
 )
 
 type Config struct {
-	Genesis           string        `long:"genesis-time"   description:"Genesis timestamp"`
-	EpochDuration     time.Duration `long:"epoch-duration" description:"Epoch duration"`
-	PhaseShift        time.Duration `long:"phase-shift"`
-	CycleGap          time.Duration `long:"cycle-gap"`
-	NoRecovery        bool          `long:"norecovery"     description:"whether to disable a potential recovery procedure"`
-	Reset             bool          `long:"reset"          description:"whether to reset the service state by deleting the datadir"`
-	GatewayAddresses  []string      `long:"gateway"        description:"addresses of Spacemesh gateway nodes"`
-	ConnAcksThreshold uint          `long:"conn-acks"      description:"number of required successful connections to Spacemesh gateway nodes"`
+	Genesis       string        `long:"genesis-time"   description:"Genesis timestamp"`
+	EpochDuration time.Duration `long:"epoch-duration" description:"Epoch duration"`
+	PhaseShift    time.Duration `long:"phase-shift"`
+	CycleGap      time.Duration `long:"cycle-gap"`
+	NoRecovery    bool          `long:"norecovery"     description:"whether to disable a potential recovery procedure"`
+	Reset         bool          `long:"reset"          description:"whether to reset the service state by deleting the datadir"`
+
+	InitialPowChallenge string `long:"pow-challenge"  description:"The initial PoW challenge for the first round"`
+	PowDifficulty       uint   `long:"pow-difficulty" description:"PoW difficulty (in the number of leading zero bits)"`
 
 	// Merkle-Tree related configuration:
 	EstimatedLeavesPerSecond uint `long:"lps"              description:"Estimated number of leaves generated per second"`
 	MemoryLayers             uint `long:"memory"           description:"Number of top Merkle tree layers to cache in-memory"`
 	TreeFileBufferSize       uint `long:"tree-file-buffer" description:"The size of memory buffer for file-based tree layers"`
 }
-
-const ChallengeVerifierCacheSize = 1024
 
 // Service orchestrates rounds functionality
 // It is responsible for accepting challenges, generating a proof from their hash digest and persisting it.
@@ -61,9 +58,10 @@ type Service struct {
 
 	// openRound is the round which is currently open for accepting challenges registration from miners.
 	// At any given time there is one single open round.
-	openRound         *round
-	executingRounds   map[string]struct{}
-	challengeVerifier atomic.Value // holds challenge_verifier.Verifier
+	openRound       *round
+	executingRounds map[string]struct{}
+
+	powVerifiers powVerifiers
 
 	PubKey  ed25519.PublicKey
 	privKey ed25519.PrivateKey
@@ -86,9 +84,34 @@ var (
 	ErrRoundNotFinished          = errors.New("round is not finished yet")
 )
 
+type option struct {
+	verifier PowVerifier
+}
+
+type OptionFunc func(*option) error
+
+func WithPowVerifier(v PowVerifier) OptionFunc {
+	return func(o *option) error {
+		if v == nil {
+			return errors.New("pow verifier cannot be nil")
+		}
+		o.verifier = v
+		return nil
+	}
+}
+
 // NewService creates a new instance of Poet Service.
 // It should be started with `Service::Run`.
-func NewService(ctx context.Context, cfg *Config, datadir string) (*Service, error) {
+func NewService(ctx context.Context, cfg *Config, datadir string, opts ...OptionFunc) (*Service, error) {
+	options := option{
+		verifier: NewPowVerifier(NewPowParams([]byte(cfg.InitialPowChallenge), cfg.PowDifficulty)),
+	}
+	for _, opt := range opts {
+		if err := opt(&options); err != nil {
+			return nil, err
+		}
+	}
+
 	genesis, err := time.Parse(time.RFC3339, cfg.Genesis)
 	if err != nil {
 		return nil, err
@@ -151,6 +174,10 @@ func NewService(ctx context.Context, cfg *Config, datadir string) (*Service, err
 		executingRounds: make(map[string]struct{}),
 		privKey:         privateKey,
 		PubKey:          privateKey.Public().(ed25519.PublicKey),
+		powVerifiers: powVerifiers{
+			previous: nil,
+			current:  options.verifier,
+		},
 	}
 
 	logging.FromContext(ctx).Sugar().Infof("service public key: %x", s.PubKey)
@@ -215,7 +242,7 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 
 		case result := <-roundResults:
 			if result.err == nil {
-				s.reportNewProof(result.round.ID, result.round.execution)
+				s.onNewProof(result.round.ID, result.round.execution)
 			} else {
 				logger.Error("round execution failed", zap.Error(result.err), zap.String("round", result.round.ID))
 			}
@@ -306,14 +333,13 @@ func (s *Service) Run(ctx context.Context) error {
 }
 
 // Start starts proofs generation.
-func (s *Service) Start(ctx context.Context, verifier challenge_verifier.Verifier) error {
+func (s *Service) Start(ctx context.Context) error {
 	resp := make(chan error)
 	s.commands <- func(s *Service) {
 		defer close(resp)
 		if s.Started() {
 			resp <- ErrAlreadyStarted
 		}
-		s.SetChallengeVerifier(verifier)
 		s.timer = s.scheduleRound(ctx, s.openRound)
 		s.started.Store(true)
 	}
@@ -360,7 +386,7 @@ func (s *Service) recover(ctx context.Context) (open *round, executing *round, e
 		}
 
 		if r.isExecuted() {
-			s.reportNewProof(r.ID, r.execution)
+			s.onNewProof(r.ID, r.execution)
 			continue
 		}
 
@@ -382,33 +408,32 @@ func (s *Service) recover(ctx context.Context) (open *round, executing *round, e
 	return open, executing, nil
 }
 
-func (s *Service) SetChallengeVerifier(provider challenge_verifier.Verifier) {
-	s.challengeVerifier.Store(provider)
-}
-
 type SubmitResult struct {
 	Round    string
-	Hash     []byte
 	RoundEnd time.Duration
 }
 
-func (s *Service) Submit(ctx context.Context, challenge, signature []byte) (*SubmitResult, error) {
+func (s *Service) PowParams() PowParams {
+	return s.powVerifiers.Params()
+}
+
+func (s *Service) Submit(
+	ctx context.Context,
+	challenge, nodeID []byte,
+	nonce uint64,
+	powParams PowParams,
+) (*SubmitResult, error) {
 	if !s.Started() {
 		return nil, ErrNotStarted
 	}
 	logger := logging.FromContext(ctx)
 
-	logger.Debug("Received challenge")
-	// SAFETY: it will never panic as `s.ChallengeVerifier` is set in Start
-	verifier := s.challengeVerifier.Load().(challenge_verifier.Verifier)
-	result, err := verifier.Verify(ctx, challenge, signature)
+	err := s.powVerifiers.VerifyWithParams(challenge, nodeID, nonce, powParams)
 	if err != nil {
 		logger.Debug("challenge verification failed", zap.Error(err))
 		return nil, err
 	}
-	logger.Debug("verified challenge",
-		zap.String("hash", hex.EncodeToString(result.Hash)),
-		zap.String("node_id", hex.EncodeToString(result.NodeId)))
+	logger.Debug("verified challenge", zap.String("node_id", hex.EncodeToString(nodeID)))
 
 	type response struct {
 		round string
@@ -419,7 +444,7 @@ func (s *Service) Submit(ctx context.Context, challenge, signature []byte) (*Sub
 	s.commands <- func(s *Service) {
 		done <- response{
 			round: s.openRound.ID,
-			err:   s.openRound.submit(result.NodeId, result.Hash),
+			err:   s.openRound.submit(nodeID, challenge),
 			end:   s.roundEndTime(s.openRound),
 		}
 		close(done)
@@ -436,7 +461,6 @@ func (s *Service) Submit(ctx context.Context, challenge, signature []byte) (*Sub
 		}
 		return &SubmitResult{
 			Round:    resp.round,
-			Hash:     result.Hash,
 			RoundEnd: time.Until(resp.end),
 		}, nil
 	case <-ctx.Done():
@@ -482,7 +506,13 @@ func (s *Service) newRound(ctx context.Context, epoch uint32) (*round, error) {
 	return r, nil
 }
 
-func (s *Service) reportNewProof(round string, execution *executionState) {
+func (s *Service) onNewProof(round string, execution *executionState) {
+	// Rotate Proof of Work challenge.
+	params := s.powVerifiers.Params()
+	params.Challenge = execution.NIP.Root
+	s.powVerifiers.SetParams(params)
+
+	// Report
 	s.proofs <- proofMessage{
 		Proof: proof{
 			MerkleProof: *execution.NIP,
@@ -492,21 +522,4 @@ func (s *Service) reportNewProof(round string, execution *executionState) {
 		ServicePubKey: s.PubKey,
 		RoundID:       round,
 	}
-}
-
-// CreateChallengeVerifier creates a verifier connected to provided gateways.
-// The verifier caches verification results and round-robins between gateways if
-// verification fails.
-func CreateChallengeVerifier(gateways []*grpc.ClientConn) (challenge_verifier.Verifier, error) {
-	if len(gateways) == 0 {
-		return nil, fmt.Errorf("need at least one gateway")
-	}
-	clients := make([]challenge_verifier.Verifier, 0, len(gateways))
-	for _, target := range gateways {
-		client := challenge_verifier.NewClient(target)
-		clients = append(clients, client)
-	}
-	return challenge_verifier.NewCaching(
-		ChallengeVerifierCacheSize, challenge_verifier.NewRetrying(
-			challenge_verifier.NewRoundRobin(clients), 5, time.Second, 2))
 }

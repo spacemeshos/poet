@@ -6,29 +6,15 @@ import "google/protobuf/duration.proto";
 package rpc.api.v1;
 
 service PoetService {
-    /**
-    Start is used to start the service.
-    */
-    rpc Start (StartRequest) returns (StartResponse) {
+
+    rpc PowParams(PowParamsRequest) returns (PowParamsResponse) {
         option (google.api.http) = {
-            post: "/v1/start",
-            body: "*",
+            get: "/v1/pow_params"
         };
     }
 
     /**
-    UpdateGateway allows to update the list of gateway addresses,
-    similar to the Start rpc, but after the service already started.
-    */
-    rpc UpdateGateway (UpdateGatewayRequest) returns (UpdateGatewayResponse) {
-        option (google.api.http) = {
-            post: "/v1/updategateway",
-            body: "*",
-        };
-    }
-
-    /**
-    Submit adds a challenge to the service's current open round,
+    Submit registers data to the service's current open round,
     to be included its later generated proof.
     */
     rpc Submit (SubmitRequest) returns (SubmitResponse) {
@@ -58,35 +44,39 @@ service PoetService {
     }
 }
 
-message StartRequest {
-    repeated string gateway_addresses = 1;
-    int32 conn_acks_threshold = 2;
+message PowParams {
+    // Difficulty of the PoW challenge (in terms of leading zero bits in the hash)
+    uint32 difficulty = 1;
+    // The challenge to be used for the PoW
+    bytes challenge = 2;
 }
 
-message StartResponse {
-}
-
-message UpdateGatewayRequest {
-    repeated string gateway_addresses = 1;
-    int32 conn_acks_threshold = 2;
-}
-
-message UpdateGatewayResponse {
+message PowParamsRequest {}
+message PowParamsResponse {
+    PowParams pow_params = 1;
 }
 
 message SubmitRequest {
-    bytes challenge = 1;
-    bytes signature = 2;
+    // Proof of Work nonce
+    uint64 nonce = 1;
+    // Proof of Work parameters that were used to generate the nonce
+    PowParams pow_params = 2;
+    // Prefix to be added to challenge for signature verification
+    bytes prefix = 3;
+    // The PoET challenge to be registered for the open round
+    bytes challenge = 4;
+    // The user's public key (node ID)
+    bytes pubkey = 5;
+    // The user's signature over the challenge
+    bytes signature = 6;
 }
 
 message SubmitResponse {
     string round_id = 1;
-    bytes hash = 2;
     google.protobuf.Duration round_end = 3;
 }
 
-message InfoRequest {
-}
+message InfoRequest {}
 
 message InfoResponse {
     string open_round_id = 1;

@@ -3,17 +3,17 @@ module github.com/spacemeshos/poet
 go 1.19
 
 require (
+	github.com/c0mm4nd/go-ripemd v0.0.0-20200326052756-bd1759ad7d10
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.15.2
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/hashicorp/golang-lru v0.6.0
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/nullstyle/go-xdr v0.0.0-20180726165426-f4c839f75077
 	github.com/prometheus/client_golang v1.14.0
-	github.com/spacemeshos/api/release/go v1.5.9
+	github.com/spacemeshos/ed25519-recovery v0.1.0
 	github.com/spacemeshos/go-scale v1.1.7
 	github.com/spacemeshos/merkle-tree v0.2.1
 	github.com/spacemeshos/sha256-simd v0.1.0
