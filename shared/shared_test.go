@@ -1,8 +1,10 @@
 package shared
 
 import (
+	"context"
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 	"math"
 	"testing"
 
@@ -125,4 +127,26 @@ func TestCheckLeadingZeroBits(t *testing.T) {
 	r.True(CheckLeadingZeroBits([]byte{0x00, 0x0F}, 5))
 	r.True(CheckLeadingZeroBits([]byte{0x00, 0x0F}, 12))
 	r.False(CheckLeadingZeroBits([]byte{0x00, 0x0F}, 13))
+}
+
+func BenchmarkFindSubmitPowNonce(b *testing.B) {
+	powChallenge := make([]byte, 32)
+	poetChallenge := make([]byte, 32)
+	nodeID := make([]byte, 32)
+	b.ResetTimer()
+	for difficulty := 0; difficulty <= 24; difficulty += 4 {
+		b.Run(fmt.Sprintf("difficulty=%v", difficulty), func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				binary.LittleEndian.PutUint64(nodeID, uint64(i))
+				_, err := FindSubmitPowNonce(
+					context.Background(),
+					powChallenge,
+					poetChallenge,
+					nodeID,
+					uint(difficulty),
+				)
+				require.NoError(b, err)
+			}
+		})
+	}
 }
