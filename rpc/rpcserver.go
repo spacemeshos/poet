@@ -3,10 +3,10 @@ package rpc
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
 	"errors"
 	"sync"
 
-	ed25519 "github.com/spacemeshos/ed25519-recovery"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"
