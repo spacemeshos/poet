@@ -145,9 +145,7 @@ func BenchmarkFindSubmitPowNonce(b *testing.B) {
 					nodeID,
 					uint(difficulty),
 				)
-				if err != nil {
-					b.Error(err)
-				}
+				require.NoError(b, err)
 			}
 		})
 	}
