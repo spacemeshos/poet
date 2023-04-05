@@ -45,10 +45,6 @@ var (
 	defaultCycleGap      = 5 * time.Second
 )
 
-type coreServiceConfig struct {
-	MemoryLayers uint `long:"memory" description:"Number of top Merkle tree layers to cache in-memory"`
-}
-
 // Config defines the configuration options for poet.
 //
 // See loadConfig for further details regarding the
@@ -69,10 +65,7 @@ type Config struct {
 	CPUProfile string `long:"cpuprofile" description:"Write CPU profile to the specified file"`
 	Profile    string `long:"profile"    description:"Enable HTTP profiling on given port -- must be between 1024 and 65535"`
 
-	CoreServiceMode bool `long:"core" description:"Enable poet in core service mode"`
-
-	CoreService *coreServiceConfig `group:"Core Service" namespace:"core"`
-	Service     *service.Config    `group:"Service"`
+	Service *service.Config `group:"Service"`
 }
 
 // DefaultConfig returns a config with default hardcoded values.
@@ -94,9 +87,6 @@ func DefaultConfig() *Config {
 			MemoryLayers:             defaultMemoryLayers,
 			TreeFileBufferSize:       defaultTreeFileBufferSize,
 			EstimatedLeavesPerSecond: defaultEstimatedLeavesPerSecond,
-		},
-		CoreService: &coreServiceConfig{
-			MemoryLayers: defaultMemoryLayers,
 		},
 	}
 }
