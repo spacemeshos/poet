@@ -122,8 +122,6 @@ github.com/prometheus/procfs v0.8.0/go.mod h1:z7EfXMXOkbkqb9IINtpCn86r/to3BnA0ua
 github.com/rogpeppe/go-internal v1.9.0 h1:73kH8U+JUqXU8lRuOHeVHaa/SZPifC7BkcraZVejAe8=
 github.com/rogpeppe/go-internal v1.9.0/go.mod h1:WtVeX8xhTBvf0smdhujwtBcq4Qrzq/fJaraNFVN+nFs=
 github.com/sirupsen/logrus v1.4.2/go.mod h1:tLMulIdttU9McNUspp0xgXVQah82FyeX6MwdIuYE2rE=
-github.com/spacemeshos/ed25519-recovery v0.2.0 h1:Hm11YAyUs99ZeSg/QlC0UgcjPF5BG4OYjJshrMZVBHQ=
-github.com/spacemeshos/ed25519-recovery v0.2.0/go.mod h1:G+UrXxP8gldLwFS7XZZBD0sW9W11Am0H5U1H3gXu3BU=
 github.com/spacemeshos/go-scale v1.1.7 h1:nxoNju55EesKjhyXuus3cMM2OZSePYXyn5hY/5rDIwo=
 github.com/spacemeshos/go-scale v1.1.7/go.mod h1:AxKr+yCe5qn7EsM5ZAygGdulxVVfU+Fe2bc4PsnNakM=
 github.com/spacemeshos/merkle-tree v0.2.1 h1:BSs/zt1n3ceZcpWdcqNFRvTeAWDlc0W+bql0XQH/Gz4=
