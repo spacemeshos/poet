@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/spacemeshos/poet/config"
 	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
@@ -26,6 +28,8 @@ func Test_Submit_DoesNotPanicOnMissingPubKey(t *testing.T) {
 	// Assert
 	require.Nil(t, out)
 	require.Error(t, err)
+	require.Equal(t, status.Code(err), codes.InvalidArgument)
+	require.ErrorContains(t, err, "invalid public key")
 }
 
 func Test_Submit_DoesNotPanicOnMissingSignature(t *testing.T) {
@@ -46,4 +50,6 @@ func Test_Submit_DoesNotPanicOnMissingSignature(t *testing.T) {
 	// Assert
 	require.Nil(t, out)
 	require.Error(t, err)
+	require.Equal(t, status.Code(err), codes.InvalidArgument)
+	require.ErrorContains(t, err, "invalid signature")
 }
