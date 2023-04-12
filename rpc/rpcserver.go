@@ -55,6 +55,10 @@ func (r *rpcServer) PowParams(_ context.Context, _ *api.PowParamsRequest) (*api.
 }
 
 func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.SubmitResponse, error) {
+	if len(in.Pubkey) != ed25519.PublicKeySize {
+		return nil, status.Error(codes.InvalidArgument, "invalid public key")
+	}
+
 	if !ed25519.Verify(in.Pubkey, bytes.Join([][]byte{in.Prefix, in.Challenge}, nil), in.Signature) {
 		return nil, status.Error(codes.InvalidArgument, "invalid signature")
 	}
