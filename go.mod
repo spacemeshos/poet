@@ -12,7 +12,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/nullstyle/go-xdr v0.0.0-20180726165426-f4c839f75077
-	github.com/prometheus/client_golang v1.15.0
+	github.com/prometheus/client_golang v1.15.1
 	github.com/spacemeshos/go-scale v1.1.8
 	github.com/spacemeshos/merkle-tree v0.2.1
 	github.com/spacemeshos/sha256-simd v0.1.0
