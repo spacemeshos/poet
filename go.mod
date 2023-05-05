@@ -23,7 +23,7 @@ require (
 	golang.org/x/sync v0.1.0
 	golang.org/x/sys v0.8.0
 	google.golang.org/genproto v0.0.0-20230320184635-7606e756e683
-	google.golang.org/grpc v1.54.0
+	google.golang.org/grpc v1.55.0
 	google.golang.org/protobuf v1.30.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
