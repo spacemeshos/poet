@@ -10,6 +10,7 @@ import (
 	"github.com/spacemeshos/go-scale"
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/sha256-simd"
+	"github.com/zeebo/blake3"
 )
 
 const (
@@ -224,4 +225,14 @@ func CheckLeadingZeroBits(data []byte, expected uint) bool {
 		}
 	}
 	return true
+}
+
+// HashMembershipTreeNode calculates internal node of
+// the membership merkle tree.
+func HashMembershipTreeNode(buf, lChild, rChild []byte) []byte {
+	hasher := blake3.New()
+	_, _ = hasher.Write([]byte{0x01})
+	_, _ = hasher.Write(lChild)
+	_, _ = hasher.Write(rChild)
+	return hasher.Sum(buf)
 }
