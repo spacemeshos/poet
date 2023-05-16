@@ -5,11 +5,11 @@ package server_test
 
 import (
 	"context"
+	"crypto/ed25519"
 	"crypto/rand"
 	"testing"
 	"time"
 
-	"github.com/spacemeshos/ed25519-recovery"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"

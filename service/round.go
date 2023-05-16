@@ -231,7 +231,9 @@ func (r *round) saveState() error {
 }
 
 func (r *round) calcMembersAndStatement() ([][]byte, []byte, error) {
-	mtree, err := merkle.NewTree()
+	mtree, err := merkle.NewTreeBuilder().
+		WithHashFunc(shared.HashMembershipTreeNode).
+		Build()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize merkle tree: %v", err)
 	}
