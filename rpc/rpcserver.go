@@ -101,6 +101,8 @@ func (r *rpcServer) Info(ctx context.Context, in *api.InfoRequest) (*api.InfoRes
 	copy(ids, info.ExecutingRoundsIds)
 	out.ExecutingRoundsIds = ids
 	out.ServicePubkey = r.s.PubKey
+	out.PhaseShift = durationpb.New(r.cfg.Service.PhaseShift)
+	out.CycleGap = durationpb.New(r.cfg.Service.CycleGap)
 
 	return out, nil
 }
