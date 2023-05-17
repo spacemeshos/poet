@@ -289,7 +289,10 @@ func TestCannotSubmitMoreThanMaxRoundMembers(t *testing.T) {
 	// Act
 	req.NoError(submitChallenge([]byte("challenge 1")))
 	req.NoError(submitChallenge([]byte("challenge 2")))
-	req.ErrorIs(submitChallenge([]byte("challenge 3")), status.Error(codes.ResourceExhausted, service.ErrMaxMembersReached.Error()))
+	req.ErrorIs(
+		submitChallenge([]byte("challenge 3")),
+		status.Error(codes.ResourceExhausted, service.ErrMaxMembersReached.Error()),
+	)
 }
 
 func TestGettingInitialPowParams(t *testing.T) {
