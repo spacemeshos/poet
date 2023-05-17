@@ -40,7 +40,6 @@ var (
 	defaultConfigFile    = filepath.Join(defaultPoetDir, defaultConfigFilename)
 	defaultDataDir       = filepath.Join(defaultPoetDir, defaultDataDirname)
 	defaultLogDir        = filepath.Join(defaultPoetDir, defaultLogDirname)
-	defaultGenesisTime   = time.Now().Format(time.RFC3339)
 	defaultEpochDuration = 30 * time.Second
 	defaultPhaseShift    = 5 * time.Second
 	defaultCycleGap      = 5 * time.Second
@@ -81,7 +80,7 @@ func DefaultConfig() *Config {
 		RawRPCListener:  fmt.Sprintf("localhost:%d", defaultRPCPort),
 		RawRESTListener: fmt.Sprintf("localhost:%d", defaultRESTPort),
 		Service: &service.Config{
-			Genesis:                  defaultGenesisTime,
+			Genesis:                  time.Now().Format(time.RFC3339),
 			EpochDuration:            defaultEpochDuration,
 			PhaseShift:               defaultPhaseShift,
 			CycleGap:                 defaultCycleGap,
