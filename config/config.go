@@ -32,6 +32,7 @@ const (
 	defaultMemoryLayers             = 26 // Up to (1 << 26) * 2 - 1 Merkle tree cache nodes (32 bytes each) will be held in-memory
 	defaultTreeFileBufferSize       = 4096
 	defaultEstimatedLeavesPerSecond = 78000
+	defaultMaxRoundMembers          = 1 << 32
 )
 
 var (
@@ -87,6 +88,7 @@ func DefaultConfig() *Config {
 			MemoryLayers:             defaultMemoryLayers,
 			TreeFileBufferSize:       defaultTreeFileBufferSize,
 			EstimatedLeavesPerSecond: defaultEstimatedLeavesPerSecond,
+			MaxRoundMembers:          defaultMaxRoundMembers,
 		},
 	}
 }

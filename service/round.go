@@ -21,7 +21,10 @@ import (
 	"github.com/spacemeshos/poet/shared"
 )
 
-var ErrRoundIsNotOpen = errors.New("round is not open")
+var (
+	ErrRoundIsNotOpen    = errors.New("round is not open")
+	ErrMaxMembersReached = errors.New("maximum number of round members reached")
+)
 
 type executionState struct {
 	SecurityParam uint8
@@ -37,6 +40,7 @@ const roundStateFileBaseName = "state.bin"
 type roundState struct {
 	ExecutionStarted time.Time
 	Execution        *executionState
+	Members          uint
 }
 
 func (r *round) isOpen() bool {
@@ -54,13 +58,15 @@ type round struct {
 	challengesDb     *leveldb.DB
 	executionStarted time.Time
 	execution        *executionState
+	members          uint
+	maxMembers       uint
 }
 
 func (r *round) Epoch() uint32 {
 	return r.epoch
 }
 
-func newRound(datadir string, epoch uint32) (*round, error) {
+func newRound(datadir string, epoch uint32, maxMembers uint) (*round, error) {
 	id := strconv.FormatUint(uint64(epoch), 10)
 	datadir = filepath.Join(datadir, id)
 
@@ -78,6 +84,7 @@ func newRound(datadir string, epoch uint32) (*round, error) {
 		execution: &executionState{
 			SecurityParam: shared.T,
 		},
+		maxMembers: maxMembers,
 	}, nil
 }
 
@@ -85,13 +92,20 @@ func (r *round) submit(key, challenge []byte) error {
 	if !r.isOpen() {
 		return ErrRoundIsNotOpen
 	}
+	if r.members >= r.maxMembers {
+		return ErrMaxMembersReached
+	}
 
 	if has, err := r.challengesDb.Has(key, nil); err != nil {
 		return err
 	} else if has {
 		return fmt.Errorf("%w: key: %X", ErrChallengeAlreadySubmitted, key)
 	}
-	return r.challengesDb.Put(key, challenge, &opt.WriteOptions{Sync: true})
+	err := r.challengesDb.Put(key, challenge, &opt.WriteOptions{Sync: true})
+	if err == nil {
+		r.members += 1
+	}
+	return err
 }
 
 func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer uint, fileWriterBufSize uint) error {
@@ -218,6 +232,7 @@ func (r *round) loadState() error {
 	}
 	r.execution = state.Execution
 	r.executionStarted = state.ExecutionStarted
+	r.members = state.Members
 
 	return nil
 }
@@ -227,6 +242,7 @@ func (r *round) saveState() error {
 	return persist(filename, &roundState{
 		ExecutionStarted: r.executionStarted,
 		Execution:        r.execution,
+		Members:          r.members,
 	})
 }
 

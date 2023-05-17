@@ -46,9 +46,30 @@ func numChallenges(r *round) int {
 	return num
 }
 
-func newTestRound(t *testing.T) *round {
+type newRoundOption struct {
+	epoch      uint32
+	maxMembers uint
+}
+
+type newRoundOptionFunc func(*newRoundOption)
+
+func withMaxMembers(maxMembers uint) newRoundOptionFunc {
+	return func(o *newRoundOption) {
+		o.maxMembers = maxMembers
+	}
+}
+
+func newTestRound(t *testing.T, opts ...newRoundOptionFunc) *round {
 	t.Helper()
-	round, err := newRound(t.TempDir(), 7)
+	options := newRoundOption{
+		epoch:      7,
+		maxMembers: 10,
+	}
+	for _, opt := range opts {
+		opt(&options)
+	}
+
+	round, err := newRound(t.TempDir(), options.epoch, options.maxMembers)
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, round.teardown(true)) })
 	return round
@@ -77,7 +98,7 @@ func TestRound_TearDown(t *testing.T) {
 	t.Run("no cleanup", func(t *testing.T) {
 		t.Parallel()
 		// Arrange
-		round, err := newRound(t.TempDir(), 0)
+		round, err := newRound(t.TempDir(), 0, 1)
 		req.NoError(err)
 
 		// Act
@@ -91,7 +112,7 @@ func TestRound_TearDown(t *testing.T) {
 	t.Run("cleanup", func(t *testing.T) {
 		t.Parallel()
 		// Arrange
-		round, err := newRound(t.TempDir(), 0)
+		round, err := newRound(t.TempDir(), 0, 1)
 		req.NoError(err)
 
 		// Act
@@ -109,7 +130,7 @@ func TestRound_New(t *testing.T) {
 	req := require.New(t)
 
 	// Act
-	round, err := newRound(t.TempDir(), 7)
+	round, err := newRound(t.TempDir(), 7, 1)
 	req.NoError(err)
 	t.Cleanup(func() { assert.NoError(t, round.teardown(true)) })
 
@@ -181,6 +202,26 @@ func TestRound_Submit(t *testing.T) {
 		// Verify
 		req.ErrorIs(err, ErrRoundIsNotOpen)
 	})
+	t.Run("cannot oversubmit", func(t *testing.T) {
+		t.Parallel()
+		// Arrange
+		round := newTestRound(t, withMaxMembers(2))
+		challenges, err := genChallenges(3)
+		req.NoError(err)
+
+		// Act
+		req.NoError(round.submit(challenges[0], challenges[0]))
+		req.NoError(round.submit(challenges[1], challenges[1]))
+		req.ErrorIs(round.submit(challenges[2], challenges[2]), ErrMaxMembersReached)
+
+		// Verify
+		req.Equal(2, numChallenges(round))
+		for _, ch := range challenges[:2] {
+			challengeInDb, err := round.challengesDb.Get(ch, nil)
+			req.NoError(err)
+			req.Equal(ch, challengeInDb)
+		}
+	})
 }
 
 // Test round execution.
@@ -212,12 +253,12 @@ func TestRound_StateRecovery(t *testing.T) {
 		tmpdir := t.TempDir()
 
 		// Arrange
-		round, err := newRound(tmpdir, 0)
+		round, err := newRound(tmpdir, 0, 1)
 		req.NoError(err)
 		req.NoError(round.teardown(false))
 
 		// Act
-		recovered, err := newRound(tmpdir, 0)
+		recovered, err := newRound(tmpdir, 0, 1)
 		req.NoError(err)
 		t.Cleanup(func() { assert.NoError(t, recovered.teardown(false)) })
 		req.NoError(recovered.loadState())
@@ -226,10 +267,37 @@ func TestRound_StateRecovery(t *testing.T) {
 		req.True(recovered.isOpen())
 		req.False(recovered.isExecuted())
 	})
+	t.Run("Recover open round with members", func(t *testing.T) {
+		t.Parallel()
+		tmpdir := t.TempDir()
+
+		// Arrange
+		challenge, err := genChallenge()
+		req.NoError(err)
+		{
+			round, err := newRound(tmpdir, 0, 1)
+			req.NoError(err)
+			req.NoError(round.submit([]byte("key"), challenge))
+			req.NoError(round.teardown(false))
+		}
+
+		// Act
+		recovered, err := newRound(tmpdir, 0, 1)
+		req.NoError(err)
+		t.Cleanup(func() { assert.NoError(t, recovered.teardown(false)) })
+		req.NoError(recovered.loadState())
+
+		// Verify
+		req.ErrorIs(recovered.submit([]byte("key-2"), challenge), ErrMaxMembersReached)
+		req.Equal(1, numChallenges(recovered))
+		req.EqualValues(1, recovered.members)
+		req.True(recovered.isOpen())
+		req.False(recovered.isExecuted())
+	})
 	t.Run("Load state of a freshly opened round", func(t *testing.T) {
 		t.Parallel()
 		// Arrange
-		round, err := newRound(t.TempDir(), 0)
+		round, err := newRound(t.TempDir(), 0, 1)
 		t.Cleanup(func() { assert.NoError(t, round.teardown(false)) })
 		req.NoError(err)
 		req.NoError(round.saveState())
@@ -244,7 +312,7 @@ func TestRound_StateRecovery(t *testing.T) {
 		tmpdir := t.TempDir()
 
 		// Arrange
-		round, err := newRound(tmpdir, 0)
+		round, err := newRound(tmpdir, 0, 1)
 		req.NoError(err)
 		challenge, err := genChallenge()
 		req.NoError(err)
@@ -255,7 +323,7 @@ func TestRound_StateRecovery(t *testing.T) {
 		req.NoError(round.teardown(false))
 
 		// Act
-		recovered, err := newRound(tmpdir, 0)
+		recovered, err := newRound(tmpdir, 0, 1)
 		req.NoError(err)
 		t.Cleanup(func() { assert.NoError(t, recovered.teardown(false)) })
 		req.NoError(recovered.loadState())
@@ -283,7 +351,7 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 
 	// Execute round, and request shutdown before completion.
 	{
-		round, err := newRound(tmpdir, 1)
+		round, err := newRound(tmpdir, 1, 32)
 		req.NoError(err)
 		req.Zero(0, numChallenges(round))
 
@@ -302,7 +370,7 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 
 	// Recover round execution and request shutdown before completion.
 	{
-		round, err := newRound(tmpdir, 1)
+		round, err := newRound(tmpdir, 1, 32)
 		req.NoError(err)
 		req.Equal(len(challenges), numChallenges(round))
 		req.NoError(round.loadState())
@@ -315,7 +383,7 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 
 	// Recover r2 execution again, and let it complete.
 	{
-		round, err := newRound(tmpdir, 1)
+		round, err := newRound(tmpdir, 1, 32)
 		req.NoError(err)
 		req.Equal(len(challenges), numChallenges(round))
 		req.NoError(round.loadState())

@@ -32,9 +32,10 @@ type challenge struct {
 func TestService_Recovery(t *testing.T) {
 	req := require.New(t)
 	cfg := &service.Config{
-		Genesis:       time.Now().Add(time.Second).Format(time.RFC3339),
-		EpochDuration: time.Second * 2,
-		PhaseShift:    time.Second,
+		Genesis:         time.Now().Add(time.Second).Format(time.RFC3339),
+		EpochDuration:   time.Second * 2,
+		PhaseShift:      time.Second,
+		MaxRoundMembers: 100,
 	}
 	tempdir := t.TempDir()
 
@@ -152,17 +153,19 @@ func TestNewService(t *testing.T) {
 	req := require.New(t)
 	tempdir := t.TempDir()
 
-	cfg := new(service.Config)
-	cfg.Genesis = time.Now().Add(time.Second).Format(time.RFC3339)
-	cfg.EpochDuration = time.Second * 2
-	cfg.PhaseShift = time.Second
+	cfg := service.Config{
+		Genesis:         time.Now().Add(time.Second).Format(time.RFC3339),
+		EpochDuration:   time.Second * 2,
+		PhaseShift:      time.Second,
+		MaxRoundMembers: 100,
+	}
 
 	ctrl := gomock.NewController(t)
 	powVerifier := mocks.NewMockPowVerifier(ctrl)
 	powVerifier.EXPECT().Params().AnyTimes().Return(service.PowParams{})
 	powVerifier.EXPECT().SetParams(gomock.Any()).AnyTimes()
 
-	s, err := service.NewService(context.Background(), cfg, tempdir, service.WithPowVerifier(powVerifier))
+	s, err := service.NewService(context.Background(), &cfg, tempdir, service.WithPowVerifier(powVerifier))
 	req.NoError(err)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -262,10 +265,11 @@ func TestNewServiceCannotSetNilVerifier(t *testing.T) {
 func TestSubmitIdempotency(t *testing.T) {
 	req := require.New(t)
 	cfg := service.Config{
-		Genesis:       time.Now().Add(time.Second).Format(time.RFC3339),
-		EpochDuration: time.Hour,
-		PhaseShift:    time.Second / 2,
-		CycleGap:      time.Second / 4,
+		Genesis:         time.Now().Add(time.Second).Format(time.RFC3339),
+		EpochDuration:   time.Hour,
+		PhaseShift:      time.Second / 2,
+		CycleGap:        time.Second / 4,
+		MaxRoundMembers: 100,
 	}
 	challenge := []byte("challenge")
 	nodeID := []byte("nodeID")

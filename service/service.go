@@ -33,6 +33,8 @@ type Config struct {
 	InitialPowChallenge string `long:"pow-challenge"  description:"The initial PoW challenge for the first round"`
 	PowDifficulty       uint   `long:"pow-difficulty" description:"PoW difficulty (in the number of leading zero bits)"`
 
+	MaxRoundMembers uint `long:"max-round-members" description:"the maximum number of members in a round"`
+
 	// Merkle-Tree related configuration:
 	EstimatedLeavesPerSecond uint `long:"lps"              description:"Estimated number of leaves generated per second"`
 	MemoryLayers             uint `long:"memory"           description:"Number of top Merkle tree layers to cache in-memory"`
@@ -375,7 +377,7 @@ func (s *Service) recover(ctx context.Context) (open *round, executing *round, e
 		if err != nil {
 			return nil, nil, fmt.Errorf("entry is not a uint32 %s", entry.Name())
 		}
-		r, err := newRound(roundsDir, uint32(epoch))
+		r, err := newRound(roundsDir, uint32(epoch), s.cfg.MaxRoundMembers)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to create round: %w", err)
 		}
@@ -457,7 +459,7 @@ func (s *Service) Submit(
 			logger.Debug("submitted challenge for round", zap.String("round", resp.round))
 		case errors.Is(resp.err, ErrChallengeAlreadySubmitted):
 		case resp.err != nil:
-			return nil, err
+			return nil, resp.err
 		}
 		return &SubmitResult{
 			Round:    resp.round,
@@ -492,7 +494,7 @@ func (s *Service) Info(ctx context.Context) (*InfoResponse, error) {
 // newRound creates a new round with the given epoch.
 func (s *Service) newRound(ctx context.Context, epoch uint32) (*round, error) {
 	roundsDir := filepath.Join(s.datadir, "rounds")
-	r, err := newRound(roundsDir, epoch)
+	r, err := newRound(roundsDir, epoch, s.cfg.MaxRoundMembers)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a new round: %w", err)
 	}
