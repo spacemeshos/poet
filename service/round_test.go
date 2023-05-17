@@ -150,7 +150,7 @@ func TestRound_Submit(t *testing.T) {
 	t.Run("submit many different challenges", func(t *testing.T) {
 		t.Parallel()
 		// Arrange
-		round := newTestRound(t)
+		round := newTestRound(t, withMaxMembers(32))
 		challenges, err := genChallenges(32)
 		req.NoError(err)
 
