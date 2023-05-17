@@ -99,28 +99,28 @@ func (t *MerkleProof) EncodeScale(enc *scale.Encoder) (total int, err error) {
 		if err != nil {
 			return total, fmt.Errorf("EncodeLen failed: %w", err)
 		}
+		total += n
 		for _, byteSlice := range t.ProvenLeaves {
 			n, err := scale.EncodeByteSliceWithLimit(enc, byteSlice, 32)
 			if err != nil {
-				return 0, fmt.Errorf("EncodeByteSliceWithLimit failed: %w", err)
+				return total, fmt.Errorf("EncodeByteSliceWithLimit failed: %w", err)
 			}
 			total += n
 		}
-		total += n
 	}
 	{
 		n, err := scale.EncodeLen(enc, uint32(len(t.ProofNodes)), 5400)
 		if err != nil {
 			return total, fmt.Errorf("EncodeLen failed: %w", err)
 		}
+		total += n
 		for _, byteSlice := range t.ProofNodes {
 			n, err := scale.EncodeByteSliceWithLimit(enc, byteSlice, 32)
 			if err != nil {
-				return 0, fmt.Errorf("EncodeByteSliceWithLimit failed: %w", err)
+				return total, fmt.Errorf("EncodeByteSliceWithLimit failed: %w", err)
 			}
 			total += n
 		}
-		total += n
 	}
 	return total, nil
 }
@@ -159,7 +159,7 @@ func DecodeSliceOfByteSliceWithLimit(d *scale.Decoder, outerLimit, innerLimit ui
 		return nil, 0, fmt.Errorf("DecodeLen failed: %w", err)
 	}
 	if resultLen == 0 {
-		return nil, 0, nil
+		return nil, total, nil
 	}
 	result := make([][]byte, 0, resultLen)
 

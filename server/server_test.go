@@ -77,6 +77,37 @@ func TestPoetStart(t *testing.T) {
 	req.NoError(eg.Wait())
 }
 
+func TestInfoEndpoint(t *testing.T) {
+	t.Parallel()
+	req := require.New(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	cfg := config.DefaultConfig()
+	cfg.PoetDir = t.TempDir()
+	cfg.RawRPCListener = randomHost
+	cfg.RawRESTListener = randomHost
+	cfg.Service.PhaseShift = 1 * time.Second
+	cfg.Service.CycleGap = 7 * time.Second
+
+	srv, client := spawnPoet(ctx, t, *cfg)
+
+	var eg errgroup.Group
+	eg.Go(func() error {
+		return srv.Start(ctx)
+	})
+
+	info, err := client.Info(context.Background(), &api.InfoRequest{})
+	req.NoError(err)
+	req.Equal("0", info.OpenRoundId)
+	req.Equal(cfg.Service.PhaseShift, info.PhaseShift.AsDuration())
+	req.Equal(cfg.Service.CycleGap, info.CycleGap.AsDuration())
+	req.NotEmpty(info.ServicePubkey)
+
+	cancel()
+	req.NoError(eg.Wait())
+}
+
 func TestSubmitSignatureVerification(t *testing.T) {
 	t.Parallel()
 	req := require.New(t)

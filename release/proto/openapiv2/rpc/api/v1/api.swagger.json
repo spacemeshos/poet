@@ -169,6 +169,12 @@
         "servicePubkey": {
           "type": "string",
           "format": "byte"
+        },
+        "phaseShift": {
+          "type": "string"
+        },
+        "cycleGap": {
+          "type": "string"
         }
       }
     },
