@@ -23,6 +23,7 @@ import (
 	"github.com/spacemeshos/poet/prover"
 	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
 	"github.com/spacemeshos/poet/server"
+	"github.com/spacemeshos/poet/service"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/verifier"
 )
@@ -278,6 +279,47 @@ func TestSubmitAndGetProof(t *testing.T) {
 	req.NoError(verifier.Validate(merkleProof, labelHashFunc, merkleHashFunc, proof.Proof.Leaves, shared.T))
 
 	req.NoError(eg.Wait())
+}
+
+// Test if cannot submit more than maximum round members.
+func TestCannotSubmitMoreThanMaxRoundMembers(t *testing.T) {
+	t.Parallel()
+	req := require.New(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	cfg := config.DefaultConfig()
+	cfg.PoetDir = t.TempDir()
+	cfg.RawRPCListener = randomHost
+	cfg.RawRESTListener = randomHost
+	cfg.Service.MaxRoundMembers = 2
+
+	srv, client := spawnPoet(ctx, t, *cfg)
+
+	var eg errgroup.Group
+	eg.Go(func() error {
+		return srv.Start(ctx)
+	})
+
+	submitChallenge := func(ch []byte) error {
+		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+		req.NoError(err)
+		signature := ed25519.Sign(privKey, ch)
+		_, err = client.Submit(context.Background(), &api.SubmitRequest{
+			Challenge: ch,
+			Pubkey:    pubKey,
+			Signature: signature,
+		})
+		return err
+	}
+
+	// Act
+	req.NoError(submitChallenge([]byte("challenge 1")))
+	req.NoError(submitChallenge([]byte("challenge 2")))
+	req.ErrorIs(
+		submitChallenge([]byte("challenge 3")),
+		status.Error(codes.ResourceExhausted, service.ErrMaxMembersReached.Error()),
+	)
 }
 
 func TestGettingInitialPowParams(t *testing.T) {

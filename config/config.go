@@ -32,6 +32,7 @@ const (
 	defaultMemoryLayers             = 26 // Up to (1 << 26) * 2 - 1 Merkle tree cache nodes (32 bytes each) will be held in-memory
 	defaultTreeFileBufferSize       = 4096
 	defaultEstimatedLeavesPerSecond = 78000
+	defaultMaxRoundMembers          = 1 << 32
 )
 
 var (
@@ -39,7 +40,6 @@ var (
 	defaultConfigFile    = filepath.Join(defaultPoetDir, defaultConfigFilename)
 	defaultDataDir       = filepath.Join(defaultPoetDir, defaultDataDirname)
 	defaultLogDir        = filepath.Join(defaultPoetDir, defaultLogDirname)
-	defaultGenesisTime   = time.Now().Format(time.RFC3339)
 	defaultEpochDuration = 30 * time.Second
 	defaultPhaseShift    = 5 * time.Second
 	defaultCycleGap      = 5 * time.Second
@@ -80,13 +80,14 @@ func DefaultConfig() *Config {
 		RawRPCListener:  fmt.Sprintf("localhost:%d", defaultRPCPort),
 		RawRESTListener: fmt.Sprintf("localhost:%d", defaultRESTPort),
 		Service: &service.Config{
-			Genesis:                  defaultGenesisTime,
+			Genesis:                  time.Now().Format(time.RFC3339),
 			EpochDuration:            defaultEpochDuration,
 			PhaseShift:               defaultPhaseShift,
 			CycleGap:                 defaultCycleGap,
 			MemoryLayers:             defaultMemoryLayers,
 			TreeFileBufferSize:       defaultTreeFileBufferSize,
 			EstimatedLeavesPerSecond: defaultEstimatedLeavesPerSecond,
+			MaxRoundMembers:          defaultMaxRoundMembers,
 		},
 	}
 }
