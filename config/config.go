@@ -63,15 +63,6 @@ type Config struct {
 	Service *service.Config `group:"Service"`
 }
 
-func defaultConfigFiles() []string {
-	dirs := []string{filepath.Join(".", defaultConfigFilename)}
-	userConfigDir, err := os.UserConfigDir()
-	if err == nil {
-		dirs = append(dirs, filepath.Join(userConfigDir, "poet", defaultConfigFilename))
-	}
-	return dirs
-}
-
 // DefaultConfig returns a config with default hardcoded values.
 func DefaultConfig() *Config {
 	poetDir := "./poet"
@@ -109,14 +100,27 @@ func ParseFlags(preCfg *Config) (*Config, error) {
 	return preCfg, nil
 }
 
-// ReadConfigFile reads values from a conf file.
-func ReadConfigFile(cfg *Config) (*Config, error) {
+// DefaultCfgPaths returns a list of default config file paths.
+// The first path is the current working directory, the second
+// is the user's config directory (OS specific).
+func DefaultCfgPaths() []string {
+	paths := []string{filepath.Join(".", defaultConfigFilename)}
+	userConfigDir, err := os.UserConfigDir()
+	if err == nil {
+		paths = append(paths, filepath.Join(userConfigDir, "poet", defaultConfigFilename))
+	}
+	return paths
+}
+
+// ReadConfigFile tries to locate a config file and
+// read it as an ini file.
+func ReadConfigFile(cfg *Config, defaultPaths ...string) (*Config, error) {
 	cfgFile := cfg.ConfigFile
 	if cfgFile == "" {
-		// Try to read from default config file locations.
-		for _, configDir := range defaultConfigFiles() {
-			if _, err := os.Stat(configDir); err == nil {
-				cfgFile = configDir
+		// Try to read from default config locations.
+		for _, path := range defaultPaths {
+			if _, err := os.Stat(path); err == nil {
+				cfgFile = path
 				break
 			}
 		}
