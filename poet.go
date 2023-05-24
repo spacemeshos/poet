@@ -49,6 +49,12 @@ func poetMain() (err error) {
 	if err != nil {
 		return err
 	}
+	// Finally, parse the remaining command line options again to ensure
+	// they take precedence.
+	cfg, err = config.ParseFlags(cfg)
+	if err != nil {
+		return err
+	}
 
 	// Initialize logging
 	logLevel := zap.InfoLevel
