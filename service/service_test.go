@@ -12,7 +12,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slices"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/spacemeshos/poet/config"
@@ -86,7 +85,7 @@ func TestService_Recovery(t *testing.T) {
 	req.Eventually(func() bool {
 		info, err := s.Info(context.Background())
 		req.NoError(err)
-		return slices.Contains(info.ExecutingRoundsIds, "0")
+		return info.ExecutingRoundId != nil && *info.ExecutingRoundId == "0"
 	}, cfg.EpochDuration*2, time.Millisecond*100)
 
 	// Submit challenges to open round (1).
@@ -108,9 +107,7 @@ func TestService_Recovery(t *testing.T) {
 	info, err := s.Info(context.Background())
 	req.NoError(err)
 	req.Equal("1", info.OpenRoundID)
-	req.Len(info.ExecutingRoundsIds, 1)
-	req.Contains(info.ExecutingRoundsIds, "0")
-	req.Equal([]string{"0"}, info.ExecutingRoundsIds)
+	req.Equal("0", *info.ExecutingRoundId)
 
 	req.NoError(s.Start(context.Background()))
 	// Wait for round 2 to open
@@ -203,12 +200,7 @@ func TestNewService(t *testing.T) {
 	req.Eventually(func() bool {
 		info, err := s.Info(context.Background())
 		req.NoError(err)
-		for _, r := range info.ExecutingRoundsIds {
-			if r == currentRound {
-				return true
-			}
-		}
-		return false
+		return info.ExecutingRoundId != nil && *info.ExecutingRoundId == currentRound
 	}, cfg.EpochDuration*2, time.Millisecond*100)
 
 	// Wait for end of execution.
@@ -326,7 +318,7 @@ func TestService_OpeningRounds(t *testing.T) {
 		info, err := s.Info(ctx)
 		req.NoError(err)
 		req.Equal("0", info.OpenRoundID)
-		req.Empty(info.ExecutingRoundsIds)
+		req.Nil(info.ExecutingRoundId)
 
 		cancel()
 		req.NoError(eg.Wait())
@@ -353,7 +345,7 @@ func TestService_OpeningRounds(t *testing.T) {
 		info, err := s.Info(ctx)
 		req.NoError(err)
 		req.Equal("0", info.OpenRoundID)
-		req.Empty(info.ExecutingRoundsIds)
+		req.Nil(info.ExecutingRoundId)
 
 		cancel()
 		req.NoError(eg.Wait())
@@ -379,7 +371,7 @@ func TestService_OpeningRounds(t *testing.T) {
 		info, err := s.Info(ctx)
 		req.NoError(err)
 		req.Equal("1", info.OpenRoundID)
-		req.Empty(info.ExecutingRoundsIds)
+		req.Empty(info.ExecutingRoundId)
 
 		cancel()
 		req.NoError(eg.Wait())
@@ -406,7 +398,7 @@ func TestService_OpeningRounds(t *testing.T) {
 		info, err := s.Info(ctx)
 		req.NoError(err)
 		req.Equal("100", info.OpenRoundID)
-		req.Empty(info.ExecutingRoundsIds)
+		req.Empty(info.ExecutingRoundId)
 
 		cancel()
 		req.NoError(eg.Wait())
@@ -469,7 +461,7 @@ func TestService_Recovery_MissingOpenRound(t *testing.T) {
 	req.Eventually(func() bool {
 		info, err := s.Info(context.Background())
 		req.NoError(err)
-		return slices.Contains(info.ExecutingRoundsIds, "0")
+		return info.ExecutingRoundId != nil && *info.ExecutingRoundId == "0"
 	}, cfg.EpochDuration*2, time.Millisecond*100)
 
 	cancel()
@@ -498,9 +490,7 @@ func TestService_Recovery_MissingOpenRound(t *testing.T) {
 	info, err := s.Info(ctx)
 	req.NoError(err)
 	req.Equal("1", info.OpenRoundID)
-	req.Len(info.ExecutingRoundsIds, 1)
-	req.Contains(info.ExecutingRoundsIds, "0")
-	req.Equal([]string{"0"}, info.ExecutingRoundsIds)
+	req.Equal("0", *info.ExecutingRoundId)
 
 	cancel()
 	req.NoError(eg.Wait())
@@ -538,7 +528,7 @@ func TestService_Recovery_Reset(t *testing.T) {
 	req.Eventually(func() bool {
 		info, err := s.Info(context.Background())
 		req.NoError(err)
-		return slices.Contains(info.ExecutingRoundsIds, "0")
+		return info.ExecutingRoundId != nil && *info.ExecutingRoundId == "0"
 	}, cfg.EpochDuration*2, time.Millisecond*100)
 
 	cancel()
@@ -564,7 +554,7 @@ func TestService_Recovery_Reset(t *testing.T) {
 	info, err := s.Info(ctx)
 	req.NoError(err)
 	req.Equal("1", info.OpenRoundID)
-	req.Empty(info.ExecutingRoundsIds)
+	req.Empty(info.ExecutingRoundId)
 
 	cancel()
 	req.NoError(eg.Wait())

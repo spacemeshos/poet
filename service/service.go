@@ -60,8 +60,8 @@ type Service struct {
 
 	// openRound is the round which is currently open for accepting challenges registration from miners.
 	// At any given time there is one single open round.
-	openRound       *round
-	executingRounds map[string]struct{}
+	openRound        *round
+	executingRoundId *string
 
 	powVerifiers powVerifiers
 
@@ -75,8 +75,8 @@ type Service struct {
 type Command func(*Service)
 
 type InfoResponse struct {
-	OpenRoundID        string
-	ExecutingRoundsIds []string
+	OpenRoundID      string
+	ExecutingRoundId *string
 }
 
 var (
@@ -167,15 +167,14 @@ func NewService(ctx context.Context, cfg *Config, datadir string, opts ...Option
 	}
 
 	s := &Service{
-		proofs:          make(chan proofMessage, 1),
-		commands:        cmds,
-		cfg:             cfg,
-		minMemoryLayer:  minMemoryLayer,
-		genesis:         genesis,
-		datadir:         datadir,
-		executingRounds: make(map[string]struct{}),
-		privKey:         privateKey,
-		PubKey:          privateKey.Public().(ed25519.PublicKey),
+		proofs:         make(chan proofMessage, 1),
+		commands:       cmds,
+		cfg:            cfg,
+		minMemoryLayer: minMemoryLayer,
+		genesis:        genesis,
+		datadir:        datadir,
+		privKey:        privateKey,
+		PubKey:         privateKey.Public().(ed25519.PublicKey),
 		powVerifiers: powVerifiers{
 			previous: nil,
 			current:  options.verifier,
@@ -223,7 +222,7 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 
 	// Resume recovered round if any
 	if round := roundToResume; round != nil {
-		s.executingRounds[round.ID] = struct{}{}
+		s.executingRoundId = &round.ID
 		end := s.roundEndTime(round)
 		eg.Go(func() error {
 			unlock := lockOSThread(ctx, roundTidFile)
@@ -251,7 +250,7 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 				}
 				return nil
 			})
-			delete(s.executingRounds, result.round.ID)
+			s.executingRoundId = nil
 
 		case <-s.timer:
 			round := s.openRound
@@ -260,7 +259,7 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 				return fmt.Errorf("failed to open new round: %w", err)
 			}
 			s.openRound = newRound
-			s.executingRounds[round.ID] = struct{}{}
+			s.executingRoundId = &round.ID
 
 			end := s.roundEndTime(round)
 			minMemoryLayer := s.minMemoryLayer
@@ -490,13 +489,9 @@ func (s *Service) Info(ctx context.Context) (*InfoResponse, error) {
 	resp := make(chan *InfoResponse, 1)
 	s.commands <- func(s *Service) {
 		defer close(resp)
-		ids := make([]string, 0, len(s.executingRounds))
-		for id := range s.executingRounds {
-			ids = append(ids, id)
-		}
 		resp <- &InfoResponse{
-			OpenRoundID:        s.openRound.ID,
-			ExecutingRoundsIds: ids,
+			OpenRoundID:      s.openRound.ID,
+			ExecutingRoundId: s.executingRoundId,
 		}
 	}
 	select {
