@@ -1,7 +1,6 @@
 package config
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -22,7 +21,7 @@ func TestReadConfigFromProvidedDefault(t *testing.T) {
 	cfg := &Config{}
 	dir := t.TempDir()
 	cfgFile := filepath.Join(dir, "config.ini")
-	err := ioutil.WriteFile(cfgFile, []byte("datadir = /tmp"), 0o600)
+	err := os.WriteFile(cfgFile, []byte("datadir = /tmp"), 0o600)
 	require.NoError(t, err)
 	t.Run("provided default don't exist", func(t *testing.T) {
 		cfg, err = ReadConfigFile(cfg, "i-dont-exist")
