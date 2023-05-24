@@ -229,7 +229,6 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 			unlock := lockOSThread(ctx, roundTidFile)
 			defer unlock()
 			err := round.recoverExecution(ctx, end, s.cfg.TreeFileBufferSize)
-			logger.Info("recovered round execution finished", zap.String("round", round.ID))
 			roundResults <- roundResult{round: round, err: err}
 			return nil
 		})
@@ -242,15 +241,16 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 
 		case result := <-roundResults:
 			if result.err == nil {
-				s.onNewProof(ctx, result.round.ID, result.round.execution)
+				s.onNewProof(result.round.ID, result.round.execution)
 			} else {
 				logger.Error("round execution failed", zap.Error(result.err), zap.String("round", result.round.ID))
 			}
-			if err := result.round.teardown(result.err == nil); err != nil {
-				logger.Warn("round teardown failed", zap.Error(err))
-			} else {
-				logger.Info("round teardown finished", zap.String("round", result.round.ID))
-			}
+			eg.Go(func() error {
+				if err := result.round.teardown(result.err == nil); err != nil {
+					logger.Warn("round teardown failed", zap.Error(err), zap.String("round", result.round.ID))
+				}
+				return nil
+			})
 			delete(s.executingRounds, result.round.ID)
 
 		case <-s.timer:
@@ -268,8 +268,6 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 				unlock := lockOSThread(ctx, roundTidFile)
 				defer unlock()
 				err := round.execute(ctx, end, minMemoryLayer, s.cfg.TreeFileBufferSize)
-				logger.Info("round execution finished", zap.String("round", round.ID))
-
 				roundResults <- roundResult{round, err}
 				return nil
 			})
@@ -279,25 +277,23 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 
 		case <-ctx.Done():
 			logger.Info("service shutting down")
-			if err := s.openRound.teardown(false); err != nil {
-				return fmt.Errorf("tearing down open round: %w", err)
-			}
 			_ = eg.Wait()
-			// Process all finished rounds
+			// Process all finished rounds before exiting and finally teardown the open round.
 			for {
 				select {
 				default:
+					if err := s.openRound.teardown(false); err != nil {
+						return fmt.Errorf("tearing down open round: %w", err)
+					}
 					return nil
 				case result := <-roundResults:
 					if result.err == nil {
-						s.onNewProof(ctx, result.round.ID, result.round.execution)
+						s.onNewProof(result.round.ID, result.round.execution)
 					} else {
 						logger.Error("round execution failed", zap.Error(result.err), zap.String("round", result.round.ID))
 					}
 					if err := result.round.teardown(result.err == nil); err != nil {
-						logger.Warn("round teardown failed", zap.Error(err))
-					} else {
-						logger.Info("round teardown finished", zap.String("round", result.round.ID))
+						logger.Warn("round teardown failed", zap.Error(err), zap.String("round", result.round.ID))
 					}
 				}
 			}
@@ -408,7 +404,7 @@ func (s *Service) recover(ctx context.Context) (open *round, executing *round, e
 		}
 
 		if r.isExecuted() {
-			s.onNewProof(ctx, r.ID, r.execution)
+			s.onNewProof(r.ID, r.execution)
 			continue
 		}
 
@@ -528,13 +524,11 @@ func (s *Service) newRound(ctx context.Context, epoch uint32) (*round, error) {
 	return r, nil
 }
 
-func (s *Service) onNewProof(ctx context.Context, round string, execution *executionState) {
-	logging.FromContext(ctx).Info("onNewProof: rotating PoW challenge")
+func (s *Service) onNewProof(round string, execution *executionState) {
 	// Rotate Proof of Work challenge.
 	params := s.powVerifiers.Params()
 	params.Challenge = execution.NIP.Root
 	s.powVerifiers.SetParams(params)
-	logging.FromContext(ctx).Info("onNewProof: rotated PoW challenge")
 
 	// Report
 	s.proofs <- proofMessage{

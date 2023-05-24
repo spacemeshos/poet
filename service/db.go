@@ -48,9 +48,7 @@ func (db *ProofsDatabase) Run(ctx context.Context) error {
 	for {
 		select {
 		case proofMsg := <-db.proofs:
-			logger.Info("received proof message", zap.String("round", proofMsg.RoundID))
 			serialized, err := serializeProofMsg(proofMsg)
-			logger.Info("serialized proof mesage, saving in DB")
 			proof := proofMsg.Proof
 			if err != nil {
 				return fmt.Errorf("failed serializing proof: %w", err)
