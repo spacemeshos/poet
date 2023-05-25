@@ -20,10 +20,8 @@ import (
 )
 
 const (
-	defaultConfigFilename           = "poet.conf"
 	defaultDataDirname              = "data"
 	defaultLogDirname               = "logs"
-	defaultLogFilename              = "poet.log"
 	defaultMaxLogFiles              = 3
 	defaultMaxLogFileSize           = 10
 	defaultRPCPort                  = 50002
@@ -100,37 +98,16 @@ func ParseFlags(preCfg *Config) (*Config, error) {
 	return preCfg, nil
 }
 
-// DefaultCfgPaths returns a list of default config file paths.
-// The first path is the current working directory, the second
-// is the user's config directory (OS specific).
-func DefaultCfgPaths() []string {
-	paths := []string{filepath.Join(".", defaultConfigFilename)}
-	userConfigDir, err := os.UserConfigDir()
-	if err == nil {
-		paths = append(paths, filepath.Join(userConfigDir, "poet", defaultConfigFilename))
-	}
-	return paths
-}
-
-// ReadConfigFile tries to locate a config file and
-// read it as an ini file.
-func ReadConfigFile(cfg *Config, defaultPaths ...string) (*Config, error) {
-	cfgFile := cfg.ConfigFile
-	if cfgFile == "" {
-		// Try to read from default config locations.
-		for _, path := range defaultPaths {
-			if _, err := os.Stat(path); err == nil {
-				cfgFile = path
-				break
-			}
-		}
-	}
-	if cfgFile == "" {
+// ReadConfigFile reads config from an ini file.
+// It uses the provided `cfg` as a base config and overrides it with the values
+// from the config file.
+func ReadConfigFile(cfg *Config) (*Config, error) {
+	if cfg.ConfigFile == "" {
 		return cfg, nil
 	}
-	logging.FromContext(context.Background()).Sugar().Debugf("Reading config from %s", cfgFile)
-	if err := flags.IniParse(cfgFile, cfg); err != nil {
-		return nil, fmt.Errorf("failed to read config from %v: %w", cfgFile, err)
+	logging.FromContext(context.Background()).Sugar().Debugf("reading config from %s", cfg.ConfigFile)
+	if err := flags.IniParse(cfg.ConfigFile, cfg); err != nil {
+		return nil, fmt.Errorf("failed to read config from %v: %w", cfg.ConfigFile, err)
 	}
 
 	return cfg, nil

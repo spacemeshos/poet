@@ -40,7 +40,7 @@ func poetMain() (err error) {
 	}
 	// Load configuration file overwriting defaults with any specified options
 	// Parse CLI options and overwrite/add any specified options
-	cfg, err = config.ReadConfigFile(cfg, config.DefaultCfgPaths()...)
+	cfg, err = config.ReadConfigFile(cfg)
 	if err != nil {
 		return err
 	}
