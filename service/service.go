@@ -229,9 +229,6 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 			unlock := lockOSThread(ctx, roundTidFile)
 			defer unlock()
 			err := round.recoverExecution(ctx, end, s.cfg.TreeFileBufferSize)
-			if err := round.teardown(err == nil); err != nil {
-				logger.Warn("round teardown failed", zap.Error(err))
-			}
 			roundResults <- roundResult{round: round, err: err}
 			return nil
 		})
@@ -248,6 +245,12 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 			} else {
 				logger.Error("round execution failed", zap.Error(result.err), zap.String("round", result.round.ID))
 			}
+			eg.Go(func() error {
+				if err := result.round.teardown(result.err == nil); err != nil {
+					logger.Warn("round teardown failed", zap.Error(err), zap.String("round", result.round.ID))
+				}
+				return nil
+			})
 			delete(s.executingRounds, result.round.ID)
 
 		case <-s.timer:
@@ -265,9 +268,6 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 				unlock := lockOSThread(ctx, roundTidFile)
 				defer unlock()
 				err := round.execute(ctx, end, minMemoryLayer, s.cfg.TreeFileBufferSize)
-				if err := round.teardown(err == nil); err != nil {
-					logger.Warn("round teardown failed", zap.Error(err))
-				}
 				roundResults <- roundResult{round, err}
 				return nil
 			})
@@ -277,10 +277,26 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 
 		case <-ctx.Done():
 			logger.Info("service shutting down")
-			if err := s.openRound.teardown(false); err != nil {
-				return fmt.Errorf("tearing down open round: %w", err)
+			_ = eg.Wait()
+			// Process all finished rounds before exiting and finally teardown the open round.
+			for {
+				select {
+				default:
+					if err := s.openRound.teardown(false); err != nil {
+						return fmt.Errorf("tearing down open round: %w", err)
+					}
+					return nil
+				case result := <-roundResults:
+					if result.err == nil {
+						s.onNewProof(result.round.ID, result.round.execution)
+					} else {
+						logger.Error("round execution failed", zap.Error(result.err), zap.String("round", result.round.ID))
+					}
+					if err := result.round.teardown(result.err == nil); err != nil {
+						logger.Warn("round teardown failed", zap.Error(err), zap.String("round", result.round.ID))
+					}
+				}
 			}
-			return nil
 		}
 	}
 }
