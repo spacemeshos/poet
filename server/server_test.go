@@ -87,8 +87,8 @@ func TestInfoEndpoint(t *testing.T) {
 	cfg.PoetDir = t.TempDir()
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
-	cfg.Service.PhaseShift = 1 * time.Second
-	cfg.Service.CycleGap = 7 * time.Second
+	cfg.Service.PhaseShift = 5 * time.Minute
+	cfg.Service.CycleGap = 7 * time.Minute
 
 	srv, client := spawnPoet(ctx, t, *cfg)
 

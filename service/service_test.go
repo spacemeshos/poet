@@ -32,8 +32,8 @@ func TestService_Recovery(t *testing.T) {
 	req := require.New(t)
 	cfg := &service.Config{
 		Genesis:         time.Now().Add(time.Second).Format(time.RFC3339),
-		EpochDuration:   time.Second * 2,
-		PhaseShift:      time.Second,
+		EpochDuration:   time.Second * 5,
+		PhaseShift:      time.Second * 2,
 		MaxRoundMembers: 100,
 	}
 	tempdir := t.TempDir()
