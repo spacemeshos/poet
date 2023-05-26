@@ -103,7 +103,7 @@ func (r *rpcServer) Info(ctx context.Context, in *api.InfoRequest) (*api.InfoRes
 	}
 
 	if info.ExecutingRoundId != nil {
-		out.ExecutingRoundsIds = []string{*info.ExecutingRoundId}
+		out.ExecutingRoundId = *info.ExecutingRoundId
 	}
 
 	return out, nil
