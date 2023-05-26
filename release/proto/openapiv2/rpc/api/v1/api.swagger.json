@@ -160,11 +160,8 @@
         "openRoundId": {
           "type": "string"
         },
-        "executingRoundsIds": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
+        "executingRoundId": {
+          "type": "string"
         },
         "servicePubkey": {
           "type": "string",

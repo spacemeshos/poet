@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"go.uber.org/zap"
-	"golang.org/x/exp/slices"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -96,26 +95,21 @@ func (r *rpcServer) Info(ctx context.Context, in *api.InfoRequest) (*api.InfoRes
 		return nil, err
 	}
 
-	out := new(api.InfoResponse)
-	out.OpenRoundId = info.OpenRoundID
+	out := &api.InfoResponse{
+		OpenRoundId:   info.OpenRoundID,
+		ServicePubkey: r.s.PubKey,
+		PhaseShift:    durationpb.New(r.cfg.Service.PhaseShift),
+		CycleGap:      durationpb.New(r.cfg.Service.CycleGap),
+	}
 
-	ids := make([]string, len(info.ExecutingRoundsIds))
-	copy(ids, info.ExecutingRoundsIds)
-	out.ExecutingRoundsIds = ids
-	out.ServicePubkey = r.s.PubKey
-	out.PhaseShift = durationpb.New(r.cfg.Service.PhaseShift)
-	out.CycleGap = durationpb.New(r.cfg.Service.CycleGap)
+	if info.ExecutingRoundId != nil {
+		out.ExecutingRoundId = *info.ExecutingRoundId
+	}
 
 	return out, nil
 }
 
 func (r *rpcServer) Proof(ctx context.Context, in *api.ProofRequest) (*api.ProofResponse, error) {
-	if info, err := r.s.Info(ctx); err == nil {
-		if info.OpenRoundID == in.RoundId || slices.Contains(info.ExecutingRoundsIds, in.RoundId) {
-			return nil, status.Error(codes.Unavailable, "round is not finished yet")
-		}
-	}
-
 	proofMsg, err := r.proofsDb.Get(ctx, in.RoundId)
 	switch {
 	case errors.Is(err, service.ErrNotFound):
