@@ -2,9 +2,7 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io/fs"
 	"net"
 	"net/http"
 	_ "net/http/pprof" //#nosec G108 -- DefaultServeMux is not used
@@ -42,14 +40,9 @@ func poetMain() (err error) {
 	}
 	// Load configuration file overwriting defaults with any specified options
 	// Parse CLI options and overwrite/add any specified options
-	newCfg, err := config.ReadConfigFile(cfg)
-	switch {
-	case errors.Is(err, fs.ErrNotExist):
-		fmt.Println(err.Error())
-	case err != nil:
+	cfg, err = config.ReadConfigFile(cfg)
+	if err != nil {
 		return err
-	default:
-		cfg = newCfg
 	}
 
 	cfg, err = config.SetupConfig(cfg)

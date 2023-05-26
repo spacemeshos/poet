@@ -5,9 +5,8 @@
 package config
 
 import (
-	"errors"
+	"context"
 	"fmt"
-	"io/fs"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -16,15 +15,13 @@ import (
 
 	"github.com/jessevdk/go-flags"
 
-	"github.com/spacemeshos/poet/appdata"
+	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/service"
 )
 
 const (
-	defaultConfigFilename           = "poet.conf"
 	defaultDataDirname              = "data"
 	defaultLogDirname               = "logs"
-	defaultLogFilename              = "poet.log"
 	defaultMaxLogFiles              = 3
 	defaultMaxLogFileSize           = 10
 	defaultRPCPort                  = 50002
@@ -36,10 +33,6 @@ const (
 )
 
 var (
-	defaultPoetDir       = appdata.AppDataDir("poet", false)
-	defaultConfigFile    = filepath.Join(defaultPoetDir, defaultConfigFilename)
-	defaultDataDir       = filepath.Join(defaultPoetDir, defaultDataDirname)
-	defaultLogDir        = filepath.Join(defaultPoetDir, defaultLogDirname)
 	defaultEpochDuration = 30 * time.Second
 	defaultPhaseShift    = 5 * time.Second
 	defaultCycleGap      = 5 * time.Second
@@ -70,11 +63,16 @@ type Config struct {
 
 // DefaultConfig returns a config with default hardcoded values.
 func DefaultConfig() *Config {
+	poetDir := "./poet"
+	cacheDir, err := os.UserCacheDir()
+	if err == nil {
+		poetDir = filepath.Join(cacheDir, "poet")
+	}
+
 	return &Config{
-		PoetDir:         defaultPoetDir,
-		ConfigFile:      defaultConfigFile,
-		DataDir:         defaultDataDir,
-		LogDir:          defaultLogDir,
+		PoetDir:         poetDir,
+		DataDir:         filepath.Join(poetDir, defaultDataDirname),
+		LogDir:          filepath.Join(poetDir, defaultLogDirname),
 		MaxLogFiles:     defaultMaxLogFiles,
 		MaxLogFileSize:  defaultMaxLogFileSize,
 		RawRPCListener:  fmt.Sprintf("localhost:%d", defaultRPCPort),
@@ -100,46 +98,38 @@ func ParseFlags(preCfg *Config) (*Config, error) {
 	return preCfg, nil
 }
 
-// ReadConfigFile reads values from a conf file.
+// ReadConfigFile reads config from an ini file.
+// It uses the provided `cfg` as a base config and overrides it with the values
+// from the config file.
 func ReadConfigFile(cfg *Config) (*Config, error) {
-	cfg.PoetDir = cleanAndExpandPath(cfg.PoetDir)
-	cfg.ConfigFile = cleanAndExpandPath(cfg.ConfigFile)
-	if cfg.PoetDir != defaultPoetDir {
-		if cfg.ConfigFile == defaultConfigFile {
-			cfg.ConfigFile = filepath.Join(
-				cfg.PoetDir, defaultConfigFilename,
-			)
-		}
+	if cfg.ConfigFile == "" {
+		return cfg, nil
 	}
-
+	logging.FromContext(context.Background()).Sugar().Debugf("reading config from %s", cfg.ConfigFile)
 	if err := flags.IniParse(cfg.ConfigFile, cfg); err != nil {
-		return nil, fmt.Errorf("failed to read config from file: %w", err)
+		return nil, fmt.Errorf("failed to read config from %v: %w", cfg.ConfigFile, err)
 	}
 
 	return cfg, nil
 }
 
-// SetupConfig initializes filesystem and network infrastructure.
+// SetupConfig expands paths and initializes filesystem.
 func SetupConfig(cfg *Config) (*Config, error) {
 	// If the provided poet directory is not the default, we'll modify the
 	// path to all of the files and directories that will live within it.
-	if cfg.PoetDir != defaultPoetDir {
-		cfg.DataDir = filepath.Join(cfg.PoetDir, defaultDataDirname)
-		cfg.LogDir = filepath.Join(cfg.PoetDir, defaultLogDirname)
+	defaultCfg := DefaultConfig()
+	if cfg.PoetDir != defaultCfg.DataDir {
+		if cfg.DataDir == defaultCfg.DataDir {
+			cfg.DataDir = filepath.Join(cfg.PoetDir, defaultDataDirname)
+		}
+		if cfg.LogDir == defaultCfg.LogDir {
+			cfg.LogDir = filepath.Join(cfg.PoetDir, defaultLogDirname)
+		}
 	}
 
 	// Create the poet directory if it doesn't already exist.
 	if err := os.MkdirAll(cfg.PoetDir, 0o700); err != nil {
-		// Show a nicer error message if it's because a symlink is
-		// linked to a directory that does not exist (probably because
-		// it's not mounted).
-		var pathError *fs.PathError
-		if errors.As(err, &pathError) && errors.Is(err, fs.ErrExist) {
-			if link, lerr := os.Readlink(pathError.Path); lerr == nil {
-				err = fmt.Errorf("is symlink %s -> %s mounted?", pathError.Path, link)
-			}
-		}
-		return nil, fmt.Errorf("failed to create poet directory: %w", err)
+		return nil, fmt.Errorf("failed to create %v: %w", cfg.PoetDir, err)
 	}
 
 	// As soon as we're done parsing configuration options, ensure all paths
