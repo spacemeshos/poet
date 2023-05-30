@@ -16,7 +16,7 @@ require (
 	github.com/spacemeshos/go-scale v1.1.9
 	github.com/spacemeshos/merkle-tree v0.2.2
 	github.com/spacemeshos/sha256-simd v0.1.0
-	github.com/stretchr/testify v1.8.3
+	github.com/stretchr/testify v1.8.4
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	github.com/zeebo/blake3 v0.2.3
 	go.uber.org/zap v1.24.0
