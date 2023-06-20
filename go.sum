@@ -123,8 +123,8 @@ github.com/prometheus/procfs v0.10.1/go.mod h1:nwNm2aOCAYw8uTR/9bWRREkZFxAUcWzPH
 github.com/rogpeppe/go-internal v1.9.0 h1:73kH8U+JUqXU8lRuOHeVHaa/SZPifC7BkcraZVejAe8=
 github.com/rogpeppe/go-internal v1.9.0/go.mod h1:WtVeX8xhTBvf0smdhujwtBcq4Qrzq/fJaraNFVN+nFs=
 github.com/sirupsen/logrus v1.4.2/go.mod h1:tLMulIdttU9McNUspp0xgXVQah82FyeX6MwdIuYE2rE=
-github.com/spacemeshos/go-scale v1.1.9 h1:PQMJgnzc22U1A7XAm2/XURy67a4Py3QklyXV8frTQS4=
-github.com/spacemeshos/go-scale v1.1.9/go.mod h1:CunTO4G/s76W4WSYZYNHqP+Wd883o30ZAHYgpt3VlBU=
+github.com/spacemeshos/go-scale v1.1.10 h1:wOfUR6l2KzAu+m/KU0JE7iopTrczvFgI21ZNpIET3Dw=
+github.com/spacemeshos/go-scale v1.1.10/go.mod h1:TmYTorvilrhSZpqp51V6HWYtQPnWvBqOaF+GCWdnsgs=
 github.com/spacemeshos/merkle-tree v0.2.2 h1:+zF+17CwVebq9UzShunUBXv16rEVKIJHh2CTDIyFf9g=
 github.com/spacemeshos/merkle-tree v0.2.2/go.mod h1:0Q/z4S5Kt9qz/c3qWa7hKA1yT7n7odyysbPIUTRu/xo=
 github.com/spacemeshos/sha256-simd v0.1.0 h1:G7Mfu5RYdQiuE+wu4ZyJ7I0TI74uqLhFnKblEnSpjYI=
