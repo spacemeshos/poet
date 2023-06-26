@@ -23,6 +23,20 @@ import (
 	"github.com/spacemeshos/poet/verifier"
 )
 
+func TestParsingGenesisTime(t *testing.T) {
+	t.Parallel()
+
+	timeStr := "2006-01-02T15:04:05Z"
+	var genesis service.Genesis
+	err := genesis.UnmarshalFlag(timeStr)
+	require.NoError(t, err)
+
+	expected, err := time.Parse(time.RFC3339, timeStr)
+	require.NoError(t, err)
+
+	require.Equal(t, expected, genesis.Time())
+}
+
 type challenge struct {
 	data   []byte
 	nodeID []byte
@@ -31,7 +45,7 @@ type challenge struct {
 func TestService_Recovery(t *testing.T) {
 	req := require.New(t)
 	cfg := &service.Config{
-		Genesis:         time.Now().Add(time.Second).Format(time.RFC3339),
+		Genesis:         service.Genesis(time.Now().Add(time.Second)),
 		EpochDuration:   time.Second * 5,
 		PhaseShift:      time.Second * 2,
 		MaxRoundMembers: 100,
@@ -151,7 +165,7 @@ func TestNewService(t *testing.T) {
 	tempdir := t.TempDir()
 
 	cfg := service.Config{
-		Genesis:         time.Now().Add(time.Second).Format(time.RFC3339),
+		Genesis:         service.Genesis(time.Now().Add(time.Second)),
 		EpochDuration:   time.Second * 2,
 		PhaseShift:      time.Second,
 		MaxRoundMembers: 100,
@@ -257,7 +271,7 @@ func TestNewServiceCannotSetNilVerifier(t *testing.T) {
 func TestSubmitIdempotency(t *testing.T) {
 	req := require.New(t)
 	cfg := service.Config{
-		Genesis:         time.Now().Add(time.Second).Format(time.RFC3339),
+		Genesis:         service.Genesis(time.Now().Add(time.Second)),
 		EpochDuration:   time.Hour,
 		PhaseShift:      time.Second / 2,
 		CycleGap:        time.Second / 4,
@@ -302,7 +316,7 @@ func TestService_OpeningRounds(t *testing.T) {
 		s, err := service.NewService(
 			context.Background(),
 			&service.Config{
-				Genesis:       time.Now().Add(time.Minute).Format(time.RFC3339),
+				Genesis:       service.Genesis(time.Now().Add(time.Minute)),
 				EpochDuration: time.Hour,
 			},
 			t.TempDir(),
@@ -328,7 +342,7 @@ func TestService_OpeningRounds(t *testing.T) {
 		s, err := service.NewService(
 			context.Background(),
 			&service.Config{
-				Genesis:       time.Now().Add(-time.Minute).Format(time.RFC3339),
+				Genesis:       service.Genesis(time.Now().Add(-time.Minute)),
 				EpochDuration: time.Hour,
 				PhaseShift:    time.Minute * 10,
 			},
@@ -355,7 +369,7 @@ func TestService_OpeningRounds(t *testing.T) {
 		s, err := service.NewService(
 			context.Background(),
 			&service.Config{
-				Genesis:       time.Now().Add(-time.Minute).Format(time.RFC3339),
+				Genesis:       service.Genesis(time.Now().Add(-time.Minute)),
 				EpochDuration: time.Hour,
 			},
 			t.TempDir(),
@@ -381,7 +395,7 @@ func TestService_OpeningRounds(t *testing.T) {
 		s, err := service.NewService(
 			context.Background(),
 			&service.Config{
-				Genesis:       time.Now().Add(-time.Hour * 100).Format(time.RFC3339),
+				Genesis:       service.Genesis(time.Now().Add(-time.Hour * 100)),
 				EpochDuration: time.Hour,
 				PhaseShift:    time.Minute,
 			},
@@ -410,7 +424,7 @@ func TestService_Start(t *testing.T) {
 	req := require.New(t)
 
 	cfg := &service.Config{
-		Genesis:       time.Now().Add(time.Minute).Format(time.RFC3339),
+		Genesis:       service.Genesis(time.Now().Add(time.Minute)),
 		EpochDuration: time.Hour,
 	}
 	t.Run("cannot start twice", func(t *testing.T) {
@@ -440,7 +454,7 @@ func TestService_Recovery_MissingOpenRound(t *testing.T) {
 	t.Parallel()
 	req := require.New(t)
 	cfg := &service.Config{
-		Genesis:       time.Now().Add(time.Second).Format(time.RFC3339),
+		Genesis:       service.Genesis(time.Now().Add(time.Second)),
 		EpochDuration: time.Hour,
 		PhaseShift:    time.Second,
 	}
@@ -508,7 +522,7 @@ func TestService_Recovery_Reset(t *testing.T) {
 	t.Parallel()
 	req := require.New(t)
 	cfg := &service.Config{
-		Genesis:       time.Now().Add(time.Second).Format(time.RFC3339),
+		Genesis:       service.Genesis(time.Now().Add(time.Second)),
 		EpochDuration: time.Hour,
 		Reset:         true,
 	}
@@ -566,7 +580,7 @@ func TestService_Recovery_Reset(t *testing.T) {
 func TestService_PowChallengeRotation(t *testing.T) {
 	req := require.New(t)
 	cfg := service.Config{
-		Genesis:             time.Now().Format(time.RFC3339),
+		Genesis:             service.Genesis(time.Now()),
 		EpochDuration:       time.Second,
 		PhaseShift:          time.Second / 2,
 		InitialPowChallenge: "initial challenge",
