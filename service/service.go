@@ -27,8 +27,6 @@ type Config struct {
 	EpochDuration time.Duration `long:"epoch-duration" description:"Epoch duration"`
 	PhaseShift    time.Duration `long:"phase-shift"`
 	CycleGap      time.Duration `long:"cycle-gap"`
-	NoRecovery    bool          `long:"norecovery"     description:"whether to disable a potential recovery procedure"`
-	Reset         bool          `long:"reset"          description:"whether to reset the service state by deleting the datadir"`
 
 	InitialPowChallenge string `long:"pow-challenge"  description:"The initial PoW challenge for the first round"`
 	PowDifficulty       uint   `long:"pow-difficulty" description:"PoW difficulty (in the number of leading zero bits)"`
@@ -143,18 +141,6 @@ func NewService(ctx context.Context, cfg *Config, datadir string, opts ...Option
 		zap.Duration("cycle gap", cfg.CycleGap),
 		zap.Duration("phase shift", cfg.PhaseShift),
 	)
-
-	if cfg.Reset {
-		entries, err := os.ReadDir(datadir)
-		if err != nil {
-			return nil, err
-		}
-		for _, entry := range entries {
-			if err := os.RemoveAll(filepath.Join(datadir, entry.Name())); err != nil {
-				return nil, err
-			}
-		}
-	}
 
 	state, err := loadServiceState(datadir)
 	if err != nil {
@@ -346,14 +332,11 @@ func (s *Service) scheduleRound(ctx context.Context, round *round) <-chan time.T
 // It stops when the `ctx` is canceled.
 func (s *Service) Run(ctx context.Context) error {
 	var toResume *round
-	if s.cfg.NoRecovery {
-		logging.FromContext(ctx).Info("Recovery is disabled")
-	} else {
-		var err error
-		s.openRound, toResume, err = s.recover(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to recover: %v", err)
-		}
+
+	var err error
+	s.openRound, toResume, err = s.recover(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to recover: %v", err)
 	}
 
 	return s.loop(ctx, toResume)
