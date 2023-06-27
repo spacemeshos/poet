@@ -23,7 +23,7 @@ import (
 )
 
 type Config struct {
-	Genesis       string        `long:"genesis-time"   description:"Genesis timestamp"`
+	Genesis       Genesis       `long:"genesis-time"   description:"Genesis timestamp in RFC3339 format"`
 	EpochDuration time.Duration `long:"epoch-duration" description:"Epoch duration"`
 	PhaseShift    time.Duration `long:"phase-shift"`
 	CycleGap      time.Duration `long:"cycle-gap"`
@@ -41,6 +41,22 @@ type Config struct {
 	TreeFileBufferSize       uint `long:"tree-file-buffer" description:"The size of memory buffer for file-based tree layers"`
 }
 
+type Genesis time.Time
+
+// UnmarshalFlag implements flags.Unmarshaler.
+func (g *Genesis) UnmarshalFlag(value string) error {
+	t, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return err
+	}
+	*g = Genesis(t)
+	return nil
+}
+
+func (g Genesis) Time() time.Time {
+	return time.Time(g)
+}
+
 // Service orchestrates rounds functionality
 // It is responsible for accepting challenges, generating a proof from their hash digest and persisting it.
 //
@@ -55,7 +71,6 @@ type Service struct {
 
 	cfg            *Config
 	datadir        string
-	genesis        time.Time
 	minMemoryLayer uint
 
 	// openRound is the round which is currently open for accepting challenges registration from miners.
@@ -114,10 +129,6 @@ func NewService(ctx context.Context, cfg *Config, datadir string, opts ...Option
 		}
 	}
 
-	genesis, err := time.Parse(time.RFC3339, cfg.Genesis)
-	if err != nil {
-		return nil, err
-	}
 	estimatedLeaves := uint64(cfg.EpochDuration.Seconds()-cfg.CycleGap.Seconds()) * uint64(cfg.EstimatedLeavesPerSecond)
 	minMemoryLayer := uint(0)
 	if totalLayers := mshared.RootHeightFromWidth(estimatedLeaves); totalLayers > cfg.MemoryLayers {
@@ -125,7 +136,7 @@ func NewService(ctx context.Context, cfg *Config, datadir string, opts ...Option
 	}
 
 	logger := logging.FromContext(ctx)
-	logger.Sugar().Infof("creating poet service. min memory layer: %v. genesis: %s", minMemoryLayer, cfg.Genesis)
+	logger.Sugar().Infof("creating poet service. min memory layer: %v. genesis: %s", minMemoryLayer, cfg.Genesis.Time())
 	logger.Info(
 		"epoch configuration",
 		zap.Duration("duration", cfg.EpochDuration),
@@ -171,7 +182,6 @@ func NewService(ctx context.Context, cfg *Config, datadir string, opts ...Option
 		commands:       cmds,
 		cfg:            cfg,
 		minMemoryLayer: minMemoryLayer,
-		genesis:        genesis,
 		datadir:        datadir,
 		privKey:        privateKey,
 		PubKey:         privateKey.Public().(ed25519.PublicKey),
@@ -202,7 +212,7 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 	// Make sure there is an open round
 	if s.openRound == nil {
 		epoch := uint32(0)
-		if d := time.Since(s.genesis.Add(s.cfg.PhaseShift)); d > 0 {
+		if d := time.Since(s.cfg.Genesis.Time().Add(s.cfg.PhaseShift)); d > 0 {
 			epoch = uint32(d/s.cfg.EpochDuration) + 1
 		}
 		newRound, err := s.newRound(ctx, uint32(epoch))
@@ -315,7 +325,7 @@ func lockOSThread(ctx context.Context, tidFile string) (unlock func()) {
 }
 
 func (s *Service) roundStartTime(round *round) time.Time {
-	return s.genesis.Add(s.cfg.PhaseShift).Add(s.cfg.EpochDuration * time.Duration(round.Epoch()))
+	return s.cfg.Genesis.Time().Add(s.cfg.PhaseShift).Add(s.cfg.EpochDuration * time.Duration(round.Epoch()))
 }
 
 func (s *Service) roundEndTime(round *round) time.Time {

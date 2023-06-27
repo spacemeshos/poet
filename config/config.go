@@ -78,7 +78,7 @@ func DefaultConfig() *Config {
 		RawRPCListener:  fmt.Sprintf("localhost:%d", defaultRPCPort),
 		RawRESTListener: fmt.Sprintf("localhost:%d", defaultRESTPort),
 		Service: &service.Config{
-			Genesis:                  time.Now().Format(time.RFC3339),
+			Genesis:                  service.Genesis(time.Now()),
 			EpochDuration:            defaultEpochDuration,
 			PhaseShift:               defaultPhaseShift,
 			CycleGap:                 defaultCycleGap,

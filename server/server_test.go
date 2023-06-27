@@ -222,7 +222,7 @@ func TestSubmitAndGetProof(t *testing.T) {
 
 	cfg := config.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
-	cfg.Service.Genesis = time.Now().Add(time.Second).Format(time.RFC3339)
+	cfg.Service.Genesis = service.Genesis(time.Now().Add(time.Second))
 	cfg.Service.EpochDuration = time.Second
 	cfg.Service.PhaseShift = 0
 	cfg.Service.CycleGap = 0
@@ -334,7 +334,7 @@ func TestGettingInitialPowParams(t *testing.T) {
 
 	cfg := config.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
-	cfg.Service.Genesis = time.Now().Add(time.Second).Format(time.RFC3339)
+	cfg.Service.Genesis = service.Genesis(time.Now().Add(time.Second))
 	cfg.Service.EpochDuration = time.Second
 	cfg.Service.InitialPowChallenge = powChallenge
 	cfg.Service.PowDifficulty = powDifficulty
