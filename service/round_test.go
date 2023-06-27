@@ -47,7 +47,7 @@ func numChallenges(r *round) int {
 }
 
 type newRoundOption struct {
-	epoch      uint32
+	epoch      uint
 	maxMembers uint
 }
 

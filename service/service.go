@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"path/filepath"
 	"runtime"
 	"strconv"
 	"sync/atomic"
@@ -71,9 +70,7 @@ type Service struct {
 	datadir        string
 	minMemoryLayer uint
 
-	// openRound is the round which is currently open for accepting challenges registration from miners.
-	// At any given time there is one single open round.
-	openRound        *round
+	roundRegistry    Registration
 	executingRoundId *string
 
 	powVerifiers powVerifiers
@@ -87,16 +84,10 @@ type Service struct {
 // The functions cannot block and should be kept short to not block the Service loop.
 type Command func(*Service)
 
-type InfoResponse struct {
-	OpenRoundID      string
-	ExecutingRoundId *string
-}
-
 var (
 	ErrNotStarted                = errors.New("service not started")
 	ErrAlreadyStarted            = errors.New("already started")
 	ErrChallengeAlreadySubmitted = errors.New("challenge is already submitted")
-	ErrRoundNotFinished          = errors.New("round is not finished yet")
 )
 
 type option struct {
@@ -117,7 +108,7 @@ func WithPowVerifier(v PowVerifier) OptionFunc {
 
 // NewService creates a new instance of Poet Service.
 // It should be started with `Service::Run`.
-func NewService(ctx context.Context, cfg *Config, datadir string, opts ...OptionFunc) (*Service, error) {
+func NewService(ctx context.Context, cfg *Config, datadir string, roundRegistry Registration, opts ...OptionFunc) (*Service, error) {
 	options := option{
 		verifier: NewPowVerifier(NewPowParams([]byte(cfg.InitialPowChallenge), cfg.PowDifficulty)),
 	}
@@ -156,13 +147,6 @@ func NewService(ctx context.Context, cfg *Config, datadir string, opts ...Option
 
 	privateKey := ed25519.NewKeyFromSeed(state.PrivKey[:32])
 
-	roundsDir := filepath.Join(datadir, "rounds")
-	if _, err := os.Stat(roundsDir); os.IsNotExist(err) {
-		if err := os.Mkdir(roundsDir, 0o700); err != nil {
-			return nil, err
-		}
-	}
-
 	s := &Service{
 		proofs:         make(chan proofMessage, 1),
 		commands:       cmds,
@@ -175,6 +159,7 @@ func NewService(ctx context.Context, cfg *Config, datadir string, opts ...Option
 			previous: nil,
 			current:  options.verifier,
 		},
+		roundRegistry: roundRegistry,
 	}
 
 	logging.FromContext(ctx).Sugar().Infof("service public key: %x", s.PubKey)
@@ -191,22 +176,9 @@ func (s *Service) ProofsChan() <-chan proofMessage {
 	return s.proofs
 }
 
-func (s *Service) loop(ctx context.Context, roundToResume *round) error {
+func (s *Service) loop(ctx context.Context) error {
 	logger := logging.FromContext(ctx).Named("worker")
 	ctx = logging.NewContext(ctx, logger)
-
-	// Make sure there is an open round
-	if s.openRound == nil {
-		epoch := uint32(0)
-		if d := time.Since(s.cfg.Genesis.Time().Add(s.cfg.PhaseShift)); d > 0 {
-			epoch = uint32(d/s.cfg.EpochDuration) + 1
-		}
-		newRound, err := s.newRound(ctx, uint32(epoch))
-		if err != nil {
-			return fmt.Errorf("opening a round: %w", err)
-		}
-		s.openRound = newRound
-	}
 
 	var eg errgroup.Group
 	defer eg.Wait()
@@ -217,9 +189,9 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 	roundTidFile := path.Join(s.datadir, "round.tid")
 
 	// Resume recovered round if any
-	if round := roundToResume; round != nil {
+	if round := s.roundRegistry.ExecutingRound(); round != nil {
 		s.executingRoundId = &round.ID
-		end := s.roundEndTime(round)
+		end := s.roundEndTime(round.epoch)
 		eg.Go(func() error {
 			unlock := lockOSThread(ctx, roundTidFile)
 			defer unlock()
@@ -249,15 +221,14 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 			s.executingRoundId = nil
 
 		case <-s.timer:
-			round := s.openRound
-			newRound, err := s.newRound(ctx, round.Epoch()+1)
+			round, err := s.roundRegistry.CloseOpenRound(ctx)
 			if err != nil {
-				return fmt.Errorf("failed to open new round: %w", err)
+				return fmt.Errorf("failed to close round: %w", err)
 			}
-			s.openRound = newRound
+
 			s.executingRoundId = &round.ID
 
-			end := s.roundEndTime(round)
+			end := s.roundEndTime(round.epoch)
 			minMemoryLayer := s.minMemoryLayer
 			eg.Go(func() error {
 				unlock := lockOSThread(ctx, roundTidFile)
@@ -268,18 +239,16 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 			})
 
 			// schedule the next round
-			s.timer = s.scheduleRound(ctx, s.openRound)
+			open := s.roundRegistry.OpenRound()
+			s.timer = s.scheduleRound(ctx, open.Epoch(), open.ID)
 
 		case <-ctx.Done():
 			logger.Info("service shutting down")
 			_ = eg.Wait()
-			// Process all finished rounds before exiting and finally teardown the open round.
+			// Process all finished rounds before exiting
 			for {
 				select {
 				default:
-					if err := s.openRound.teardown(false); err != nil {
-						return fmt.Errorf("tearing down open round: %w", err)
-					}
 					return nil
 				case result := <-roundResults:
 					if result.err == nil {
@@ -310,20 +279,20 @@ func lockOSThread(ctx context.Context, tidFile string) (unlock func()) {
 	return runtime.UnlockOSThread
 }
 
-func (s *Service) roundStartTime(round *round) time.Time {
-	return s.cfg.Genesis.Time().Add(s.cfg.PhaseShift).Add(s.cfg.EpochDuration * time.Duration(round.Epoch()))
+func (s *Service) roundStartTime(epoch uint) time.Time {
+	return s.cfg.Genesis.Time().Add(s.cfg.PhaseShift).Add(s.cfg.EpochDuration * time.Duration(epoch))
 }
 
-func (s *Service) roundEndTime(round *round) time.Time {
-	return s.roundStartTime(round).Add(s.cfg.EpochDuration).Add(-s.cfg.CycleGap)
+func (s *Service) roundEndTime(epoch uint) time.Time {
+	return s.roundStartTime(epoch).Add(s.cfg.EpochDuration).Add(-s.cfg.CycleGap)
 }
 
-func (s *Service) scheduleRound(ctx context.Context, round *round) <-chan time.Time {
-	waitTime := time.Until(s.roundStartTime(round))
+func (s *Service) scheduleRound(ctx context.Context, epoch uint, id string) <-chan time.Time {
+	waitTime := time.Until(s.roundStartTime(epoch))
 	timer := time.After(waitTime)
 	if waitTime > 0 {
 		logging.FromContext(ctx).
-			Info("waiting for execution to start", zap.Duration("wait time", waitTime), zap.String("round", round.ID))
+			Info("waiting for execution to start", zap.Duration("wait time", waitTime), zap.String("round", id))
 	}
 	return timer
 }
@@ -331,15 +300,7 @@ func (s *Service) scheduleRound(ctx context.Context, round *round) <-chan time.T
 // Run starts the Service's actor event loop.
 // It stops when the `ctx` is canceled.
 func (s *Service) Run(ctx context.Context) error {
-	var toResume *round
-
-	var err error
-	s.openRound, toResume, err = s.recover(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to recover: %v", err)
-	}
-
-	return s.loop(ctx, toResume)
+	return s.loop(ctx)
 }
 
 // Start starts proofs generation.
@@ -350,7 +311,8 @@ func (s *Service) Start(ctx context.Context) error {
 		if s.Started() {
 			resp <- ErrAlreadyStarted
 		}
-		s.timer = s.scheduleRound(ctx, s.openRound)
+		open := s.roundRegistry.OpenRound()
+		s.timer = s.scheduleRound(ctx, open.Epoch(), open.ID)
 		s.started.Store(true)
 	}
 	select {
@@ -366,66 +328,11 @@ func (s *Service) Started() bool {
 	return s.started.Load()
 }
 
-func (s *Service) recover(ctx context.Context) (open *round, executing *round, err error) {
-	roundsDir := filepath.Join(s.datadir, "rounds")
-	logger := logging.FromContext(ctx).Named("recovery")
-	logger.Info("Recovering service state", zap.String("datadir", s.datadir))
-	entries, err := os.ReadDir(roundsDir)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	for _, entry := range entries {
-		logger.Sugar().Infof("recovering entry %s", entry.Name())
-		if !entry.IsDir() {
-			continue
-		}
-
-		epoch, err := strconv.ParseUint(entry.Name(), 10, 32)
-		if err != nil {
-			return nil, nil, fmt.Errorf("entry is not a uint32 %s", entry.Name())
-		}
-		r, err := newRound(roundsDir, uint32(epoch), s.cfg.MaxRoundMembers)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create round: %w", err)
-		}
-
-		err = r.loadState()
-		if err != nil {
-			return nil, nil, fmt.Errorf("invalid round state: %w", err)
-		}
-
-		if r.isExecuted() {
-			s.onNewProof(r.ID, r.execution)
-			continue
-		}
-
-		if r.isOpen() {
-			logger.Info("found round in open state.", zap.String("ID", r.ID))
-			// Keep the last open round as openRound (multiple open rounds state is possible
-			// only if recovery was previously disabled).
-			open = r
-			continue
-		}
-
-		logger.Info("found round in executing state.", zap.String("ID", r.ID))
-		if executing != nil {
-			logger.Warn("found more than 1 executing round - overwriting", zap.String("previous", executing.ID))
-		}
-		executing = r
-	}
-
-	return open, executing, nil
-}
-
-type SubmitResult struct {
-	Round    string
-	RoundEnd time.Duration
-}
-
 func (s *Service) PowParams() PowParams {
 	return s.powVerifiers.Params()
 }
+
+type SubmitResult = RegisterResult
 
 func (s *Service) Submit(
 	ctx context.Context,
@@ -445,71 +352,16 @@ func (s *Service) Submit(
 	}
 	logger.Debug("verified challenge", zap.String("node_id", hex.EncodeToString(nodeID)))
 
-	type response struct {
-		round string
-		err   error
-		end   time.Time
-	}
-	done := make(chan response, 1)
-	s.commands <- func(s *Service) {
-		done <- response{
-			round: s.openRound.ID,
-			err:   s.openRound.submit(nodeID, challenge),
-			end:   s.roundEndTime(s.openRound),
-		}
-		close(done)
+	result, err := s.roundRegistry.Register(ctx, nodeID, challenge)
+	switch {
+	case err == nil:
+		logger.Debug("submitted challenge for round", zap.String("round", result.Round))
+	case errors.Is(err, ErrChallengeAlreadySubmitted):
+	case err != nil:
+		return nil, err
 	}
 
-	select {
-	case resp := <-done:
-		switch {
-		case resp.err == nil:
-			logger.Debug("submitted challenge for round", zap.String("round", resp.round))
-		case errors.Is(resp.err, ErrChallengeAlreadySubmitted):
-		case resp.err != nil:
-			return nil, resp.err
-		}
-		return &SubmitResult{
-			Round:    resp.round,
-			RoundEnd: time.Until(resp.end),
-		}, nil
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
-}
-
-func (s *Service) Info(ctx context.Context) (*InfoResponse, error) {
-	resp := make(chan *InfoResponse, 1)
-	s.commands <- func(s *Service) {
-		defer close(resp)
-		resp <- &InfoResponse{
-			OpenRoundID:      s.openRound.ID,
-			ExecutingRoundId: s.executingRoundId,
-		}
-	}
-	select {
-	case resp := <-resp:
-		return resp, nil
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
-}
-
-// newRound creates a new round with the given epoch.
-func (s *Service) newRound(ctx context.Context, epoch uint32) (*round, error) {
-	roundsDir := filepath.Join(s.datadir, "rounds")
-	r, err := newRound(roundsDir, epoch, s.cfg.MaxRoundMembers)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a new round: %w", err)
-	}
-
-	if err := r.saveState(); err != nil {
-		_ = r.teardown(true)
-		return nil, fmt.Errorf("saving state: %w", err)
-	}
-
-	logging.FromContext(ctx).Info("Round opened", zap.String("ID", r.ID))
-	return r, nil
+	return result, nil
 }
 
 func (s *Service) onNewProof(round string, execution *executionState) {

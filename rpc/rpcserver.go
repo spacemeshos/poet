@@ -6,6 +6,7 @@ import (
 	"crypto/ed25519"
 	"errors"
 	"sync"
+	"time"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -22,6 +23,7 @@ import (
 type rpcServer struct {
 	proofsDb *service.ProofsDatabase
 	s        *service.Service
+	reg      service.Registration
 	cfg      config.Config
 	sync.Mutex
 }
@@ -33,6 +35,7 @@ var _ api.PoetServiceServer = (*rpcServer)(nil)
 // NewServer creates and returns a new instance of the rpcServer.
 func NewServer(
 	svc *service.Service,
+	reg service.Registration,
 	proofsDb *service.ProofsDatabase,
 	cfg config.Config,
 ) *rpcServer {
@@ -40,6 +43,7 @@ func NewServer(
 		proofsDb: proofsDb,
 		s:        svc,
 		cfg:      cfg,
+		reg:      reg,
 	}
 }
 
@@ -85,25 +89,21 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 
 	out := new(api.SubmitResponse)
 	out.RoundId = result.Round
-	out.RoundEnd = durationpb.New(result.RoundEnd)
+	out.RoundEnd = durationpb.New(time.Until(result.RoundEnd))
 	return out, nil
 }
 
 func (r *rpcServer) Info(ctx context.Context, in *api.InfoRequest) (*api.InfoResponse, error) {
-	info, err := r.s.Info(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	out := &api.InfoResponse{
-		OpenRoundId:   info.OpenRoundID,
+		OpenRoundId:   r.reg.OpenRound().ID,
 		ServicePubkey: r.s.PubKey,
 		PhaseShift:    durationpb.New(r.cfg.Service.PhaseShift),
 		CycleGap:      durationpb.New(r.cfg.Service.CycleGap),
 	}
 
-	if info.ExecutingRoundId != nil {
-		out.ExecutingRoundId = *info.ExecutingRoundId
+	executing := r.reg.ExecutingRound()
+	if executing != nil {
+		out.ExecutingRoundId = executing.ID
 	}
 
 	return out, nil

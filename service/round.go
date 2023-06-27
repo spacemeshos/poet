@@ -52,7 +52,7 @@ func (r *round) isExecuted() bool {
 }
 
 type round struct {
-	epoch            uint32
+	epoch            uint
 	datadir          string
 	ID               string
 	challengesDb     *leveldb.DB
@@ -62,11 +62,11 @@ type round struct {
 	maxMembers       uint
 }
 
-func (r *round) Epoch() uint32 {
+func (r *round) Epoch() uint {
 	return r.epoch
 }
 
-func newRound(datadir string, epoch uint32, maxMembers uint) (*round, error) {
+func newRound(datadir string, epoch uint, maxMembers uint) (*round, error) {
 	id := strconv.FormatUint(uint64(epoch), 10)
 	datadir = filepath.Join(datadir, id)
 

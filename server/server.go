@@ -32,6 +32,7 @@ import (
 
 type Server struct {
 	svc          *service.Service
+	reg          service.Registration
 	cfg          config.Config
 	rpcListener  net.Listener
 	restListener net.Listener
@@ -65,13 +66,20 @@ func New(ctx context.Context, cfg config.Config) (*Server, error) {
 		}
 	}
 
-	svc, err := service.NewService(ctx, cfg.Service, cfg.DataDir)
+	roundsDir := filepath.Join(cfg.DataDir, "rounds")
+	reg, err := service.NewRegistry(ctx, cfg.Service, service.RealClock{}, roundsDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Registry: %v", err)
+	}
+
+	svc, err := service.NewService(ctx, cfg.Service, cfg.DataDir, reg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Service: %v", err)
 	}
 
 	return &Server{
 		svc:          svc,
+		reg:          reg,
 		cfg:          cfg,
 		rpcListener:  rpcListener,
 		restListener: restListener,
@@ -139,7 +147,7 @@ func (s *Server) Start(ctx context.Context) error {
 		return err
 	}
 
-	rpcServer := rpc.NewServer(s.svc, proofsDb, s.cfg)
+	rpcServer := rpc.NewServer(s.svc, s.reg, proofsDb, s.cfg)
 	grpcServer = grpc.NewServer(options...)
 
 	api.RegisterPoetServiceServer(grpcServer, rpcServer)
