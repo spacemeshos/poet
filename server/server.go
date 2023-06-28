@@ -146,6 +146,7 @@ func (s *Server) Start(ctx context.Context) error {
 	proxyRegstr = append(proxyRegstr, api.RegisterPoetServiceHandlerFromEndpoint)
 
 	reflection.Register(grpcServer)
+	grpc_prometheus.Register(grpcServer)
 
 	// Start the gRPC server listening for HTTP/2 connections.
 	serverGroup.Go(func() error {
