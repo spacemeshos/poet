@@ -166,8 +166,8 @@ func TestNewService(t *testing.T) {
 
 	cfg := service.Config{
 		Genesis:         service.Genesis(time.Now().Add(time.Second)),
-		EpochDuration:   time.Second * 2,
-		PhaseShift:      time.Second,
+		EpochDuration:   time.Second * 5,
+		PhaseShift:      time.Second * 2,
 		MaxRoundMembers: 100,
 	}
 
