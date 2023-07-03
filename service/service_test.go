@@ -53,24 +53,20 @@ func TestService_Recovery(t *testing.T) {
 	tempdir := t.TempDir()
 
 	// Generate groups of random challenges.
-	challengeGroupSize := byte(5)
+	challengeGroupSize := 5
 	challengeGroups := make([][]challenge, 3)
-	for g := byte(0); g < 3; g++ {
+	for g := 0; g < 3; g++ {
 		challengeGroup := make([]challenge, challengeGroupSize)
-		for i := byte(0); i < challengeGroupSize; i++ {
+		for i := 0; i < challengeGroupSize; i++ {
 			challengeGroup[i] = challenge{
-				data:   bytes.Repeat([]byte{g*10 + i}, 32),
-				nodeID: bytes.Repeat([]byte{-g*10 - i}, 32),
+				data:   bytes.Repeat([]byte{byte(g*10 + i)}, 32),
+				nodeID: bytes.Repeat([]byte{byte(-g*10 - i)}, 32),
 			}
 		}
 		challengeGroups[g] = challengeGroup
 	}
 
-	// Create a new service instance.
-	s, err := service.NewService(context.Background(), cfg, tempdir)
-	req.NoError(err)
-
-	submitChallenges := func(roundID string, challenges []challenge) {
+	submitChallenges := func(s *service.Service, roundID string, challenges []challenge) {
 		params := s.PowParams()
 		for _, challenge := range challenges {
 			nonce, _ := shared.FindSubmitPowNonce(
@@ -86,6 +82,10 @@ func TestService_Recovery(t *testing.T) {
 		}
 	}
 
+	// Create a new service instance.
+	s, err := service.NewService(context.Background(), cfg, tempdir)
+	req.NoError(err)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var eg errgroup.Group
@@ -93,7 +93,7 @@ func TestService_Recovery(t *testing.T) {
 	req.NoError(s.Start(context.Background()))
 
 	// Submit challenges to open round (0).
-	submitChallenges("0", challengeGroups[0])
+	submitChallenges(s, "0", challengeGroups[0])
 
 	// Wait for round 0 to start executing.
 	req.Eventually(func() bool {
@@ -103,7 +103,7 @@ func TestService_Recovery(t *testing.T) {
 	}, cfg.EpochDuration*2, time.Millisecond*100)
 
 	// Submit challenges to open round (1).
-	submitChallenges("1", challengeGroups[1])
+	submitChallenges(s, "1", challengeGroups[1])
 
 	cancel()
 	req.NoError(eg.Wait())
@@ -131,7 +131,7 @@ func TestService_Recovery(t *testing.T) {
 		return info.OpenRoundID == "2"
 	}, cfg.EpochDuration*2, time.Millisecond*100)
 
-	submitChallenges("2", challengeGroups[2])
+	submitChallenges(s, "2", challengeGroups[2])
 
 	for i := 0; i < len(challengeGroups); i++ {
 		proofMsg := <-s.ProofsChan()
