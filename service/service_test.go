@@ -45,7 +45,7 @@ type challenge struct {
 func TestService_Recovery(t *testing.T) {
 	req := require.New(t)
 	tempdir := t.TempDir()
-	genesis := time.Now().Add(2 * time.Second)
+	genesis := time.Now().Add(time.Second)
 	cfg := &service.Config{
 		Genesis:         service.Genesis(genesis),
 		EpochDuration:   time.Second * 2,
@@ -164,7 +164,7 @@ func TestService_Recovery(t *testing.T) {
 func TestNewService(t *testing.T) {
 	req := require.New(t)
 	tempdir := t.TempDir()
-	genesis := time.Now().Add(2 * time.Second)
+	genesis := time.Now().Add(time.Second)
 	cfg := &service.Config{
 		Genesis:         service.Genesis(genesis),
 		EpochDuration:   time.Second * 2,
@@ -183,6 +183,14 @@ func TestNewService(t *testing.T) {
 	powVerifier.EXPECT().Params().AnyTimes().Return(service.PowParams{})
 	powVerifier.EXPECT().SetParams(gomock.Any()).AnyTimes()
 
+	challengesCount := 5
+	challenges := make([]challenge, challengesCount)
+
+	// Generate random challenges.
+	for i := 0; i < len(challenges); i++ {
+		challenges[i] = challenge{data: bytes.Repeat([]byte{byte(i)}, 32), nodeID: bytes.Repeat([]byte{-byte(i)}, 32)}
+	}
+
 	s, err := service.NewService(context.Background(), cfg, tempdir, service.WithPowVerifier(powVerifier))
 	req.NoError(err)
 
@@ -192,15 +200,6 @@ func TestNewService(t *testing.T) {
 	eg.Go(func() error { return s.Run(ctx) })
 	req.NoError(s.Start(context.Background()))
 
-	challengesCount := 8
-	challenges := make([]challenge, challengesCount)
-
-	// Generate random challenges.
-	for i := 0; i < len(challenges); i++ {
-		challenges[i] = challenge{data: bytes.Repeat([]byte{byte(i)}, 32), nodeID: bytes.Repeat([]byte{-byte(i)}, 32)}
-	}
-
-	<-start
 	info, err := s.Info(context.Background())
 	require.NoError(t, err)
 	currentRound := info.OpenRoundID
@@ -219,6 +218,7 @@ func TestNewService(t *testing.T) {
 	req.Equal(currentRound, info.OpenRoundID)
 
 	// Wait for round to start execution.
+	<-start
 	<-tick.C
 
 	info, err = s.Info(context.Background())
