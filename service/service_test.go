@@ -164,20 +164,26 @@ func TestService_Recovery(t *testing.T) {
 func TestNewService(t *testing.T) {
 	req := require.New(t)
 	tempdir := t.TempDir()
-
-	cfg := service.Config{
-		Genesis:         service.Genesis(time.Now().Add(time.Second)),
+	genesis := time.Now().Add(2 * time.Second)
+	cfg := &service.Config{
+		Genesis:         service.Genesis(genesis),
 		EpochDuration:   time.Second * 2,
 		PhaseShift:      time.Second,
 		MaxRoundMembers: 100,
 	}
+	start := make(chan struct{})
+	var tick *time.Ticker
+	time.AfterFunc(time.Until(genesis), func() {
+		tick = time.NewTicker(cfg.EpochDuration)
+		close(start)
+	})
 
 	ctrl := gomock.NewController(t)
 	powVerifier := mocks.NewMockPowVerifier(ctrl)
 	powVerifier.EXPECT().Params().AnyTimes().Return(service.PowParams{})
 	powVerifier.EXPECT().SetParams(gomock.Any()).AnyTimes()
 
-	s, err := service.NewService(context.Background(), &cfg, tempdir, service.WithPowVerifier(powVerifier))
+	s, err := service.NewService(context.Background(), cfg, tempdir, service.WithPowVerifier(powVerifier))
 	req.NoError(err)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -194,6 +200,7 @@ func TestNewService(t *testing.T) {
 		challenges[i] = challenge{data: bytes.Repeat([]byte{byte(i)}, 32), nodeID: bytes.Repeat([]byte{-byte(i)}, 32)}
 	}
 
+	<-start
 	info, err := s.Info(context.Background())
 	require.NoError(t, err)
 	currentRound := info.OpenRoundID
@@ -212,22 +219,21 @@ func TestNewService(t *testing.T) {
 	req.Equal(currentRound, info.OpenRoundID)
 
 	// Wait for round to start execution.
-	req.Eventually(func() bool {
-		info, err := s.Info(context.Background())
-		req.NoError(err)
-		return info.ExecutingRoundId != nil && *info.ExecutingRoundId == currentRound
-	}, cfg.EpochDuration*2, time.Millisecond*100)
+	<-tick.C
+
+	info, err = s.Info(context.Background())
+	req.NoError(err)
+	req.Equal(*info.ExecutingRoundId, currentRound)
 
 	// Wait for end of execution.
-	req.Eventually(func() bool {
-		info, err := s.Info(context.Background())
-		req.NoError(err)
-		prevRoundID, err := strconv.Atoi(currentRound)
-		req.NoError(err)
-		currRoundID, err := strconv.Atoi(info.OpenRoundID)
-		req.NoError(err)
-		return currRoundID >= prevRoundID+1
-	}, time.Second, time.Millisecond*100)
+	<-tick.C
+	info, err = s.Info(context.Background())
+	req.NoError(err)
+	prevRoundID, err := strconv.Atoi(currentRound)
+	req.NoError(err)
+	currRoundID, err := strconv.Atoi(info.OpenRoundID)
+	req.NoError(err)
+	req.Greater(currRoundID, prevRoundID)
 
 	// Wait for proof message.
 	proofMsg := <-s.ProofsChan()
