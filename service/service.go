@@ -366,7 +366,7 @@ func (s *Service) Started() bool {
 	return s.started.Load()
 }
 
-func (s *Service) recover(ctx context.Context) (open *round, executing *round, err error) {
+func (s *Service) recover(ctx context.Context) (open, executing *round, err error) {
 	roundsDir := filepath.Join(s.datadir, "rounds")
 	logger := logging.FromContext(ctx).Named("recovery")
 	logger.Info("Recovering service state", zap.String("datadir", s.datadir))
