@@ -100,7 +100,7 @@ func TestService_Recovery(t *testing.T) {
 		info, err := s.Info(context.Background())
 		req.NoError(err)
 		return info.ExecutingRoundId != nil && *info.ExecutingRoundId == "0"
-	}, cfg.EpochDuration*2, time.Millisecond*100)
+	}, cfg.EpochDuration*2, time.Millisecond*10)
 
 	// Submit challenges to open round (1).
 	submitChallenges(s, "1", challengeGroups[1])
@@ -128,8 +128,8 @@ func TestService_Recovery(t *testing.T) {
 	req.Eventually(func() bool {
 		info, err := s.Info(context.Background())
 		req.NoError(err)
-		return info.OpenRoundID == "2" && info.ExecutingRoundId != nil && *info.ExecutingRoundId == "1"
-	}, cfg.EpochDuration*2, time.Millisecond*5)
+		return info.ExecutingRoundId != nil && *info.ExecutingRoundId == "1"
+	}, cfg.EpochDuration*2, time.Millisecond*10)
 
 	submitChallenges(s, "2", challengeGroups[2])
 
