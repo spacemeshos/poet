@@ -44,13 +44,20 @@ type challenge struct {
 
 func TestService_Recovery(t *testing.T) {
 	req := require.New(t)
+	tempdir := t.TempDir()
+	genesis := time.Now().Add(2 * time.Second)
 	cfg := &service.Config{
-		Genesis:         service.Genesis(time.Now().Add(time.Second)),
-		EpochDuration:   time.Second * 5,
-		PhaseShift:      time.Second * 2,
+		Genesis:         service.Genesis(genesis),
+		EpochDuration:   time.Second * 2,
+		PhaseShift:      time.Second,
 		MaxRoundMembers: 100,
 	}
-	tempdir := t.TempDir()
+	start := make(chan struct{})
+	var tick *time.Ticker
+	time.AfterFunc(time.Until(genesis), func() {
+		tick = time.NewTicker(cfg.EpochDuration)
+		close(start)
+	})
 
 	// Generate groups of random challenges.
 	challengeGroupSize := 5
@@ -96,11 +103,8 @@ func TestService_Recovery(t *testing.T) {
 	submitChallenges(s, "0", challengeGroups[0])
 
 	// Wait for round 0 to start executing.
-	req.Eventually(func() bool {
-		info, err := s.Info(context.Background())
-		req.NoError(err)
-		return info.ExecutingRoundId != nil && *info.ExecutingRoundId == "0"
-	}, cfg.EpochDuration*2, time.Millisecond*10)
+	<-start
+	<-tick.C
 
 	// Submit challenges to open round (1).
 	submitChallenges(s, "1", challengeGroups[1])
@@ -124,12 +128,9 @@ func TestService_Recovery(t *testing.T) {
 	req.Equal("0", *info.ExecutingRoundId)
 
 	req.NoError(s.Start(context.Background()))
+
 	// Wait for round 2 to open
-	req.Eventually(func() bool {
-		info, err := s.Info(context.Background())
-		req.NoError(err)
-		return info.ExecutingRoundId != nil && *info.ExecutingRoundId == "1"
-	}, cfg.EpochDuration*2, time.Millisecond*10)
+	<-tick.C
 
 	submitChallenges(s, "2", challengeGroups[2])
 
