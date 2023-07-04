@@ -46,8 +46,8 @@ func TestService_Recovery(t *testing.T) {
 	req := require.New(t)
 	cfg := &service.Config{
 		Genesis:         service.Genesis(time.Now().Add(time.Second)),
-		EpochDuration:   time.Second * 5,
-		PhaseShift:      time.Second * 2,
+		EpochDuration:   time.Second * 2,
+		PhaseShift:      time.Second,
 		MaxRoundMembers: 100,
 	}
 	tempdir := t.TempDir()
@@ -128,8 +128,8 @@ func TestService_Recovery(t *testing.T) {
 	req.Eventually(func() bool {
 		info, err := s.Info(context.Background())
 		req.NoError(err)
-		return info.OpenRoundID == "2"
-	}, cfg.EpochDuration*2, time.Millisecond*100)
+		return info.OpenRoundID == "2" && info.ExecutingRoundId != nil && *info.ExecutingRoundId == "1"
+	}, cfg.EpochDuration*4, time.Millisecond*10)
 
 	submitChallenges(s, "2", challengeGroups[2])
 
@@ -166,8 +166,8 @@ func TestNewService(t *testing.T) {
 
 	cfg := service.Config{
 		Genesis:         service.Genesis(time.Now().Add(time.Second)),
-		EpochDuration:   time.Second * 5,
-		PhaseShift:      time.Second * 2,
+		EpochDuration:   time.Second * 2,
+		PhaseShift:      time.Second,
 		MaxRoundMembers: 100,
 	}
 

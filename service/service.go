@@ -231,9 +231,6 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 
 	for {
 		select {
-		case cmd := <-s.commands:
-			cmd(s)
-
 		case result := <-roundResults:
 			if result.err == nil {
 				s.onNewProof(result.round.ID, result.round.execution)
@@ -247,6 +244,9 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 				return nil
 			})
 			s.executingRoundId = nil
+
+		case cmd := <-s.commands:
+			cmd(s)
 
 		case <-s.timer:
 			round := s.openRound
