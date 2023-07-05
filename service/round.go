@@ -108,7 +108,7 @@ func (r *round) submit(key, challenge []byte) error {
 	return err
 }
 
-func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer uint, fileWriterBufSize uint) error {
+func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer, fileWriterBufSize uint) error {
 	logger := logging.FromContext(ctx).With(zap.String("round", r.ID))
 	logger.Sugar().Infof("executing until %v...", end)
 
