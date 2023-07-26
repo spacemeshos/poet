@@ -92,11 +92,9 @@ func validateProof(t *testing.T, execution *executionState) {
 }
 
 func TestRound_TearDown(t *testing.T) {
-	t.Parallel()
 	req := require.New(t)
 
 	t.Run("no cleanup", func(t *testing.T) {
-		t.Parallel()
 		// Arrange
 		round, err := newRound(t.TempDir(), 0, 1)
 		req.NoError(err)
@@ -110,7 +108,6 @@ func TestRound_TearDown(t *testing.T) {
 	})
 
 	t.Run("cleanup", func(t *testing.T) {
-		t.Parallel()
 		// Arrange
 		round, err := newRound(t.TempDir(), 0, 1)
 		req.NoError(err)
@@ -126,7 +123,6 @@ func TestRound_TearDown(t *testing.T) {
 
 // Test creating new round.
 func TestRound_New(t *testing.T) {
-	t.Parallel()
 	req := require.New(t)
 
 	// Act
@@ -144,11 +140,9 @@ func TestRound_New(t *testing.T) {
 
 // Test submitting many challenges.
 func TestRound_Submit(t *testing.T) {
-	t.Parallel()
 	req := require.New(t)
 
 	t.Run("submit many different challenges", func(t *testing.T) {
-		t.Parallel()
 		// Arrange
 		round := newTestRound(t, withMaxMembers(32))
 		challenges, err := genChallenges(32)
@@ -168,7 +162,6 @@ func TestRound_Submit(t *testing.T) {
 		}
 	})
 	t.Run("submit challenges with same key", func(t *testing.T) {
-		t.Parallel()
 		// Arrange
 		round := newTestRound(t)
 		challenges, err := genChallenges(2)
@@ -186,7 +179,6 @@ func TestRound_Submit(t *testing.T) {
 		req.Equal(challenges[0], challenge)
 	})
 	t.Run("cannot submit to round in execution", func(t *testing.T) {
-		t.Parallel()
 		// Arrange
 		round := newTestRound(t)
 		challenge, err := genChallenge()
@@ -203,7 +195,6 @@ func TestRound_Submit(t *testing.T) {
 		req.ErrorIs(err, ErrRoundIsNotOpen)
 	})
 	t.Run("cannot oversubmit", func(t *testing.T) {
-		t.Parallel()
 		// Arrange
 		round := newTestRound(t, withMaxMembers(2))
 		challenges, err := genChallenges(3)
@@ -226,7 +217,6 @@ func TestRound_Submit(t *testing.T) {
 
 // Test round execution.
 func TestRound_Execute(t *testing.T) {
-	t.Parallel()
 	req := require.New(t)
 
 	// Arrange
@@ -246,10 +236,8 @@ func TestRound_Execute(t *testing.T) {
 }
 
 func TestRound_StateRecovery(t *testing.T) {
-	t.Parallel()
 	req := require.New(t)
 	t.Run("Recover open round", func(t *testing.T) {
-		t.Parallel()
 		tmpdir := t.TempDir()
 
 		// Arrange
@@ -268,7 +256,6 @@ func TestRound_StateRecovery(t *testing.T) {
 		req.False(recovered.isExecuted())
 	})
 	t.Run("Recover open round with members", func(t *testing.T) {
-		t.Parallel()
 		tmpdir := t.TempDir()
 
 		// Arrange
@@ -295,7 +282,6 @@ func TestRound_StateRecovery(t *testing.T) {
 		req.False(recovered.isExecuted())
 	})
 	t.Run("Load state of a freshly opened round", func(t *testing.T) {
-		t.Parallel()
 		// Arrange
 		round, err := newRound(t.TempDir(), 0, 1)
 		t.Cleanup(func() { assert.NoError(t, round.teardown(false)) })
@@ -308,7 +294,6 @@ func TestRound_StateRecovery(t *testing.T) {
 		req.False(round.isExecuted())
 	})
 	t.Run("Recover executing round", func(t *testing.T) {
-		t.Parallel()
 		tmpdir := t.TempDir()
 
 		// Arrange
@@ -341,7 +326,6 @@ func TestRound_StateRecovery(t *testing.T) {
 //   - Recover execution, and request shutdown before completion.
 //   - Recover execution again, and let it complete.
 func TestRound_ExecutionRecovery(t *testing.T) {
-	t.Parallel()
 	req := require.New(t)
 	tmpdir := t.TempDir()
 
