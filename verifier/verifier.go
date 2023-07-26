@@ -43,6 +43,9 @@ func Validate(proof shared.MerkleProof, labelHashFunc func(data []byte) []byte,
 		return fmt.Errorf("merkle proof not valid")
 	}
 
+	if len(parkingSnapshots) != len(proof.ProvenLeaves) {
+		return fmt.Errorf("merkle proof incomplete")
+	}
 	makeLabel := shared.MakeLabelFunc()
 	for id, label := range proof.ProvenLeaves {
 		expectedLabel := makeLabel(labelHashFunc, provenLeafIndices[id], parkingSnapshots[id])
