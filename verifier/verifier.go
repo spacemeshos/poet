@@ -20,6 +20,17 @@ func Validate(proof shared.MerkleProof, labelHashFunc func(data []byte) []byte,
 		return fmt.Errorf("number of proven leaves (%d) must be equal to security param (%d)",
 			len(proof.ProvenLeaves), securityParam)
 	}
+	if len(proof.ProvenLeaves)*36 < len(proof.ProofNodes) {
+		return fmt.Errorf("for every proven leaf (%d) there must be at most 36 proof nodes (%d)",
+			len(proof.ProvenLeaves), len(proof.ProofNodes),
+		)
+	}
+	if len(proof.ProvenLeaves) > len(proof.ProofNodes) {
+		return fmt.Errorf("for every proven leaf (%d) there must be at least 1 proof node (%d)",
+			len(proof.ProvenLeaves), len(proof.ProofNodes),
+		)
+	}
+
 	provenLeafIndices := asSortedSlice(shared.FiatShamir(proof.Root, numLeaves, securityParam))
 	provenLeaves := make([][]byte, 0, len(proof.ProvenLeaves))
 	for i := range proof.ProvenLeaves {
