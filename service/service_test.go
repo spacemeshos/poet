@@ -316,7 +316,6 @@ func TestSubmitIdempotency(t *testing.T) {
 
 func TestService_OpeningRounds(t *testing.T) {
 	t.Parallel()
-	req := require.New(t)
 
 	t.Run("before genesis", func(t *testing.T) {
 		t.Parallel()
@@ -328,7 +327,7 @@ func TestService_OpeningRounds(t *testing.T) {
 			},
 			t.TempDir(),
 		)
-		req.NoError(err)
+		require.NoError(t, err)
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -337,12 +336,12 @@ func TestService_OpeningRounds(t *testing.T) {
 
 		// Service instance should create open round 0.
 		info, err := s.Info(ctx)
-		req.NoError(err)
-		req.Equal("0", info.OpenRoundID)
-		req.Nil(info.ExecutingRoundId)
+		require.NoError(t, err)
+		require.Equal(t, "0", info.OpenRoundID)
+		require.Nil(t, info.ExecutingRoundId)
 
 		cancel()
-		req.NoError(eg.Wait())
+		require.NoError(t, eg.Wait())
 	})
 	t.Run("after genesis, but within phase shift", func(t *testing.T) {
 		t.Parallel()
@@ -355,7 +354,7 @@ func TestService_OpeningRounds(t *testing.T) {
 			},
 			t.TempDir(),
 		)
-		req.NoError(err)
+		require.NoError(t, err)
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -364,12 +363,12 @@ func TestService_OpeningRounds(t *testing.T) {
 
 		// Service instance should create open round 0.
 		info, err := s.Info(ctx)
-		req.NoError(err)
-		req.Equal("0", info.OpenRoundID)
-		req.Nil(info.ExecutingRoundId)
+		require.NoError(t, err)
+		require.Equal(t, "0", info.OpenRoundID)
+		require.Nil(t, info.ExecutingRoundId)
 
 		cancel()
-		req.NoError(eg.Wait())
+		require.NoError(t, eg.Wait())
 	})
 	t.Run("in first epoch", func(t *testing.T) {
 		t.Parallel()
@@ -381,7 +380,7 @@ func TestService_OpeningRounds(t *testing.T) {
 			},
 			t.TempDir(),
 		)
-		req.NoError(err)
+		require.NoError(t, err)
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -390,12 +389,12 @@ func TestService_OpeningRounds(t *testing.T) {
 
 		// Service instance should create open round 1.
 		info, err := s.Info(ctx)
-		req.NoError(err)
-		req.Equal("1", info.OpenRoundID)
-		req.Empty(info.ExecutingRoundId)
+		require.NoError(t, err)
+		require.Equal(t, "1", info.OpenRoundID)
+		require.Empty(t, info.ExecutingRoundId)
 
 		cancel()
-		req.NoError(eg.Wait())
+		require.NoError(t, eg.Wait())
 	})
 	t.Run("in distant epoch", func(t *testing.T) {
 		t.Parallel()
@@ -408,7 +407,7 @@ func TestService_OpeningRounds(t *testing.T) {
 			},
 			t.TempDir(),
 		)
-		req.NoError(err)
+		require.NoError(t, err)
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -417,18 +416,17 @@ func TestService_OpeningRounds(t *testing.T) {
 
 		// Service instance should create open round 1.
 		info, err := s.Info(ctx)
-		req.NoError(err)
-		req.Equal("100", info.OpenRoundID)
-		req.Empty(info.ExecutingRoundId)
+		require.NoError(t, err)
+		require.Equal(t, "100", info.OpenRoundID)
+		require.Empty(t, info.ExecutingRoundId)
 
 		cancel()
-		req.NoError(eg.Wait())
+		require.NoError(t, eg.Wait())
 	})
 }
 
 func TestService_Start(t *testing.T) {
 	t.Parallel()
-	req := require.New(t)
 
 	cfg := &service.Config{
 		Genesis:       service.Genesis(time.Now().Add(time.Minute)),
@@ -436,24 +434,24 @@ func TestService_Start(t *testing.T) {
 	}
 	t.Run("cannot start twice", func(t *testing.T) {
 		s, err := service.NewService(context.Background(), cfg, t.TempDir())
-		req.NoError(err)
+		require.NoError(t, err)
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 		var eg errgroup.Group
 		eg.Go(func() error { return s.Run(ctx) })
-		req.NoError(s.Start(context.Background()))
-		req.ErrorIs(s.Start(context.Background()), service.ErrAlreadyStarted)
+		require.NoError(t, s.Start(context.Background()))
+		require.ErrorIs(t, s.Start(context.Background()), service.ErrAlreadyStarted)
 		cancel()
-		req.NoError(eg.Wait())
+		require.NoError(t, eg.Wait())
 	})
 	t.Run("hang start respects context cancellation", func(t *testing.T) {
 		s, err := service.NewService(context.Background(), cfg, t.TempDir())
-		req.NoError(err)
+		require.NoError(t, err)
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*50)
 		defer cancel()
-		req.ErrorIs(s.Start(ctx), context.DeadlineExceeded)
+		require.ErrorIs(t, s.Start(ctx), context.DeadlineExceeded)
 	})
 }
 
