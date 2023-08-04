@@ -43,7 +43,6 @@ func TestGenMerkleHashFunc(t *testing.T) {
 
 func TestGenLabelHashFuncHash(t *testing.T) {
 	t.Parallel()
-	req := require.New(t)
 	challenge := []byte("a123123123mskofvuw098e71bnj91273")
 	data := []byte("12312390819023879012379184718920408data0123128991231239081")
 
@@ -55,7 +54,7 @@ func TestGenLabelHashFuncHash(t *testing.T) {
 	t.Run("generic implementation", func(t *testing.T) {
 		t.Parallel()
 		for i := 0; i < 10; i++ {
-			req.Equal(expected, genLabelHashFuncGeneric(challenge)(data))
+			require.Equal(t, expected, genLabelHashFuncGeneric(challenge)(data))
 		}
 	})
 	t.Run("minio implementation", func(t *testing.T) {
@@ -64,20 +63,19 @@ func TestGenLabelHashFuncHash(t *testing.T) {
 			t.Skip("SHA extensions are not supported")
 		}
 		for i := 0; i < 10; i++ {
-			req.Equal(expected, genLabelHashFuncMinio(challenge)(data))
+			require.Equal(t, expected, genLabelHashFuncMinio(challenge)(data))
 		}
 	})
 	t.Run("public hash func generator", func(t *testing.T) {
 		t.Parallel()
 		for i := 0; i < 10; i++ {
-			req.Equal(expected, GenLabelHashFunc(challenge)(data))
+			require.Equal(t, expected, GenLabelHashFunc(challenge)(data))
 		}
 	})
 }
 
 func TestGenMekleHashFuncHash(t *testing.T) {
 	t.Parallel()
-	req := require.New(t)
 	challenge := []byte("a123123123mskofvuw098e71bnj91273")
 	lChild, rChild := []byte("left-one"), []byte("right-one")
 
@@ -91,7 +89,7 @@ func TestGenMekleHashFuncHash(t *testing.T) {
 		var digest []byte
 		for i := 0; i < 10; i++ {
 			digest = genMerkleHashFuncGeneric(challenge)(digest, lChild, rChild)
-			req.Equal(expected, digest)
+			require.Equal(t, expected, digest)
 		}
 	})
 	t.Run("minio implementation", func(t *testing.T) {
@@ -102,7 +100,7 @@ func TestGenMekleHashFuncHash(t *testing.T) {
 		var digest []byte
 		for i := 0; i < 10; i++ {
 			digest = genMerkleHashFuncMinio(challenge)(digest, lChild, rChild)
-			req.Equal(expected, digest)
+			require.Equal(t, expected, digest)
 		}
 	})
 	t.Run("public hash func generator", func(t *testing.T) {
@@ -110,7 +108,7 @@ func TestGenMekleHashFuncHash(t *testing.T) {
 		var digest []byte
 		for i := 0; i < 10; i++ {
 			digest = GenMerkleHashFunc(challenge)(digest, lChild, rChild)
-			req.Equal(expected, digest)
+			require.Equal(t, expected, digest)
 		}
 	})
 }

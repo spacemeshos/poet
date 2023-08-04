@@ -92,32 +92,30 @@ func validateProof(t *testing.T, execution *executionState) {
 }
 
 func TestRound_TearDown(t *testing.T) {
-	req := require.New(t)
-
 	t.Run("no cleanup", func(t *testing.T) {
 		// Arrange
 		round, err := newRound(t.TempDir(), 0, 1)
-		req.NoError(err)
+		require.NoError(t, err)
 
 		// Act
-		req.NoError(round.teardown(false))
+		require.NoError(t, round.teardown(false))
 
 		// Verify
 		_, err = os.Stat(round.datadir)
-		req.NoError(err)
+		require.NoError(t, err)
 	})
 
 	t.Run("cleanup", func(t *testing.T) {
 		// Arrange
 		round, err := newRound(t.TempDir(), 0, 1)
-		req.NoError(err)
+		require.NoError(t, err)
 
 		// Act
-		req.NoError(round.teardown(true))
+		require.NoError(t, round.teardown(true))
 
 		// Verify
 		_, err = os.Stat(round.datadir)
-		req.ErrorIs(err, os.ErrNotExist)
+		require.ErrorIs(t, err, os.ErrNotExist)
 	})
 }
 
@@ -140,77 +138,75 @@ func TestRound_New(t *testing.T) {
 
 // Test submitting many challenges.
 func TestRound_Submit(t *testing.T) {
-	req := require.New(t)
-
 	t.Run("submit many different challenges", func(t *testing.T) {
 		// Arrange
 		round := newTestRound(t, withMaxMembers(32))
 		challenges, err := genChallenges(32)
-		req.NoError(err)
+		require.NoError(t, err)
 
 		// Act
 		for _, ch := range challenges {
-			req.NoError(round.submit(ch, ch))
+			require.NoError(t, round.submit(ch, ch))
 		}
 
 		// Verify
-		req.Equal(len(challenges), numChallenges(round))
+		require.Equal(t, len(challenges), numChallenges(round))
 		for _, ch := range challenges {
 			challengeInDb, err := round.challengesDb.Get(ch, nil)
-			req.NoError(err)
-			req.Equal(ch, challengeInDb)
+			require.NoError(t, err)
+			require.Equal(t, ch, challengeInDb)
 		}
 	})
 	t.Run("submit challenges with same key", func(t *testing.T) {
 		// Arrange
 		round := newTestRound(t)
 		challenges, err := genChallenges(2)
-		req.NoError(err)
+		require.NoError(t, err)
 
 		// Act
-		req.NoError(round.submit([]byte("key"), challenges[0]))
+		require.NoError(t, round.submit([]byte("key"), challenges[0]))
 		err = round.submit([]byte("key"), challenges[1])
 
 		// Verify
-		req.ErrorIs(err, ErrChallengeAlreadySubmitted)
-		req.Equal(1, numChallenges(round))
+		require.ErrorIs(t, err, ErrChallengeAlreadySubmitted)
+		require.Equal(t, 1, numChallenges(round))
 		challenge, err := round.challengesDb.Get([]byte("key"), nil)
-		req.NoError(err)
-		req.Equal(challenges[0], challenge)
+		require.NoError(t, err)
+		require.Equal(t, challenges[0], challenge)
 	})
 	t.Run("cannot submit to round in execution", func(t *testing.T) {
 		// Arrange
 		round := newTestRound(t)
 		challenge, err := genChallenge()
-		req.NoError(err)
+		require.NoError(t, err)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*10)
 		defer cancel()
 		err = round.execute(ctx, time.Now().Add(time.Hour), 1, 0)
-		req.ErrorIs(err, context.DeadlineExceeded)
+		require.ErrorIs(t, err, context.DeadlineExceeded)
 
 		// Act
 		err = round.submit([]byte("key"), challenge)
 
 		// Verify
-		req.ErrorIs(err, ErrRoundIsNotOpen)
+		require.ErrorIs(t, err, ErrRoundIsNotOpen)
 	})
 	t.Run("cannot oversubmit", func(t *testing.T) {
 		// Arrange
 		round := newTestRound(t, withMaxMembers(2))
 		challenges, err := genChallenges(3)
-		req.NoError(err)
+		require.NoError(t, err)
 
 		// Act
-		req.NoError(round.submit(challenges[0], challenges[0]))
-		req.NoError(round.submit(challenges[1], challenges[1]))
-		req.ErrorIs(round.submit(challenges[2], challenges[2]), ErrMaxMembersReached)
+		require.NoError(t, round.submit(challenges[0], challenges[0]))
+		require.NoError(t, round.submit(challenges[1], challenges[1]))
+		require.ErrorIs(t, round.submit(challenges[2], challenges[2]), ErrMaxMembersReached)
 
 		// Verify
-		req.Equal(2, numChallenges(round))
+		require.Equal(t, 2, numChallenges(round))
 		for _, ch := range challenges[:2] {
 			challengeInDb, err := round.challengesDb.Get(ch, nil)
-			req.NoError(err)
-			req.Equal(ch, challengeInDb)
+			require.NoError(t, err)
+			require.Equal(t, ch, challengeInDb)
 		}
 	})
 }
@@ -236,87 +232,86 @@ func TestRound_Execute(t *testing.T) {
 }
 
 func TestRound_StateRecovery(t *testing.T) {
-	req := require.New(t)
 	t.Run("Recover open round", func(t *testing.T) {
 		tmpdir := t.TempDir()
 
 		// Arrange
 		round, err := newRound(tmpdir, 0, 1)
-		req.NoError(err)
-		req.NoError(round.teardown(false))
+		require.NoError(t, err)
+		require.NoError(t, round.teardown(false))
 
 		// Act
 		recovered, err := newRound(tmpdir, 0, 1)
-		req.NoError(err)
+		require.NoError(t, err)
 		t.Cleanup(func() { assert.NoError(t, recovered.teardown(false)) })
-		req.NoError(recovered.loadState())
+		require.NoError(t, recovered.loadState())
 
 		// Verify
-		req.True(recovered.isOpen())
-		req.False(recovered.isExecuted())
+		require.True(t, recovered.isOpen())
+		require.False(t, recovered.isExecuted())
 	})
 	t.Run("Recover open round with members", func(t *testing.T) {
 		tmpdir := t.TempDir()
 
 		// Arrange
 		challenge, err := genChallenge()
-		req.NoError(err)
+		require.NoError(t, err)
 		{
 			round, err := newRound(tmpdir, 0, 1)
-			req.NoError(err)
-			req.NoError(round.submit([]byte("key"), challenge))
-			req.NoError(round.teardown(false))
+			require.NoError(t, err)
+			require.NoError(t, round.submit([]byte("key"), challenge))
+			require.NoError(t, round.teardown(false))
 		}
 
 		// Act
 		recovered, err := newRound(tmpdir, 0, 1)
-		req.NoError(err)
+		require.NoError(t, err)
 		t.Cleanup(func() { assert.NoError(t, recovered.teardown(false)) })
-		req.NoError(recovered.loadState())
+		require.NoError(t, recovered.loadState())
 
 		// Verify
-		req.ErrorIs(recovered.submit([]byte("key-2"), challenge), ErrMaxMembersReached)
-		req.Equal(1, numChallenges(recovered))
-		req.EqualValues(1, recovered.members)
-		req.True(recovered.isOpen())
-		req.False(recovered.isExecuted())
+		require.ErrorIs(t, recovered.submit([]byte("key-2"), challenge), ErrMaxMembersReached)
+		require.Equal(t, 1, numChallenges(recovered))
+		require.EqualValues(t, 1, recovered.members)
+		require.True(t, recovered.isOpen())
+		require.False(t, recovered.isExecuted())
 	})
 	t.Run("Load state of a freshly opened round", func(t *testing.T) {
 		// Arrange
 		round, err := newRound(t.TempDir(), 0, 1)
 		t.Cleanup(func() { assert.NoError(t, round.teardown(false)) })
-		req.NoError(err)
-		req.NoError(round.saveState())
+		require.NoError(t, err)
+		require.NoError(t, round.saveState())
 
 		// Act & verify
-		req.NoError(round.loadState())
-		req.True(round.isOpen())
-		req.False(round.isExecuted())
+		require.NoError(t, round.loadState())
+		require.True(t, round.isOpen())
+		require.False(t, round.isExecuted())
 	})
 	t.Run("Recover executing round", func(t *testing.T) {
 		tmpdir := t.TempDir()
 
 		// Arrange
 		round, err := newRound(tmpdir, 0, 1)
-		req.NoError(err)
+		require.NoError(t, err)
 		challenge, err := genChallenge()
-		req.NoError(err)
-		req.NoError(round.submit([]byte("key"), challenge))
+		require.NoError(t, err)
+		require.NoError(t, round.submit([]byte("key"), challenge))
 		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*10)
 		defer cancel()
-		req.ErrorIs(round.execute(ctx, time.Now().Add(time.Hour), 1, 0), context.DeadlineExceeded)
-		req.NoError(round.teardown(false))
+		require.ErrorIs(t, round.execute(ctx, time.Now().Add(time.Hour), 1, 0), context.DeadlineExceeded)
+		require.NoError(t, round.teardown(false))
 
 		// Act
 		recovered, err := newRound(tmpdir, 0, 1)
-		req.NoError(err)
+		require.NoError(t, err)
 		t.Cleanup(func() { assert.NoError(t, recovered.teardown(false)) })
-		req.NoError(recovered.loadState())
+		require.NoError(t, recovered.loadState())
 
 		// Verify
-		req.False(recovered.isOpen())
-		req.False(recovered.isExecuted())
-		req.NotZero(recovered.executionStarted)
+		require.False(t, recovered.isOpen())
+		require.False(t, recovered.isExecuted())
+		require.NotZero(t, recovered.executionStarted)
 	})
 }
 
