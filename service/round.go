@@ -7,8 +7,10 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync/atomic"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/merkle-tree/cache"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -58,8 +60,10 @@ type round struct {
 	challengesDb     *leveldb.DB
 	executionStarted time.Time
 	execution        *executionState
-	members          uint
+	members          atomic.Uint64
 	maxMembers       uint
+
+	metricsCollector prometheus.Collector
 }
 
 func (r *round) Epoch() uint32 {
@@ -76,7 +80,7 @@ func newRound(datadir string, epoch uint32, maxMembers uint) (*round, error) {
 		return nil, err
 	}
 
-	return &round{
+	r := &round{
 		epoch:        epoch,
 		datadir:      datadir,
 		ID:           id,
@@ -85,14 +89,24 @@ func newRound(datadir string, epoch uint32, maxMembers uint) (*round, error) {
 			SecurityParam: shared.T,
 		},
 		maxMembers: maxMembers,
-	}, nil
+	}
+	collector := newRoundsMetricCollector(r)
+	if err := prometheus.Register(collector); err != nil {
+		logging.FromContext(context.Background()).Error("failed to register round metric", zap.Error(err))
+	} else {
+		r.metricsCollector = collector
+	}
+
+	return r, nil
 }
 
-func (r *round) submit(key, challenge []byte) error {
+func (r *round) submit(ctx context.Context, key, challenge []byte) error {
 	if !r.isOpen() {
 		return ErrRoundIsNotOpen
 	}
-	if r.members >= r.maxMembers {
+	// Note: it doesn't matter that Load() is not atomic with Add() because
+	// calls to submit are synchronized
+	if r.members.Load() >= uint64(r.maxMembers) {
 		return ErrMaxMembersReached
 	}
 
@@ -103,14 +117,13 @@ func (r *round) submit(key, challenge []byte) error {
 	}
 	err := r.challengesDb.Put(key, challenge, &opt.WriteOptions{Sync: true})
 	if err == nil {
-		r.members += 1
+		r.members.Add(1)
 	}
 	return err
 }
 
 func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer, fileWriterBufSize uint) error {
 	logger := logging.FromContext(ctx).With(zap.String("round", r.ID))
-	logger.Sugar().Infof("executing until %v...", end)
 
 	r.executionStarted = time.Now()
 	if err := r.saveState(); err != nil {
@@ -122,6 +135,13 @@ func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer, file
 	} else {
 		r.execution.Members, r.execution.Statement = members, statement
 	}
+
+	logger.Info(
+		"executing round",
+		zap.Time("end", end),
+		zap.Int("members", len(r.execution.Members)),
+		zap.Binary("statement", r.execution.Statement),
+	)
 
 	if err := r.saveState(); err != nil {
 		return err
@@ -141,14 +161,19 @@ func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer, file
 		r.persistExecution,
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("generating proof: %w", err)
 	}
 	r.execution.NumLeaves, r.execution.NIP = numLeaves, nip
 	if err := r.saveState(); err != nil {
 		return err
 	}
 
-	logger.Sugar().Infof("execution ended, phi=%x, duration %v", r.execution.NIP.Root, time.Since(r.executionStarted))
+	logger.Info(
+		"execution ended",
+		zap.Binary("root", r.execution.NIP.Root),
+		zap.Uint64("num_leaves", r.execution.NumLeaves),
+		zap.Duration("duration", time.Since(r.executionStarted)),
+	)
 	return nil
 }
 
@@ -168,16 +193,11 @@ func (r *round) persistExecution(
 
 	r.execution.NumLeaves = numLeaves
 	r.execution.ParkedNodes = tree.GetParkedNodes(r.execution.ParkedNodes[:0])
-	if err := r.saveState(); err != nil {
-		return err
-	}
-
-	return nil
+	return r.saveState()
 }
 
 func (r *round) recoverExecution(ctx context.Context, end time.Time, fileWriterBufSize uint) error {
 	logger := logging.FromContext(ctx).With(zap.String("round", r.ID))
-	logger.With().Info("recovering execution", zap.Time("end", end))
 
 	started := time.Now()
 
@@ -192,6 +212,9 @@ func (r *round) recoverExecution(ctx context.Context, end time.Time, fileWriterB
 			return err
 		}
 	}
+
+	logger.With().
+		Info("recovering execution", zap.Time("end", end), zap.Int("members", len(r.execution.Members)), zap.Uint64("num_leaves", r.execution.NumLeaves))
 
 	numLeaves, nip, err := prover.GenerateProofRecovery(
 		ctx,
@@ -215,7 +238,12 @@ func (r *round) recoverExecution(ctx context.Context, end time.Time, fileWriterB
 		return err
 	}
 
-	logger.With().Info("finished round recovered execution", zap.Duration("duration", time.Since(started)))
+	logger.With().Info(
+		"finished round recovered execution",
+		zap.Binary("root", r.execution.NIP.Root),
+		zap.Uint64("num_leaves", r.execution.NumLeaves),
+		zap.Duration("duration", time.Since(started)),
+	)
 
 	return nil
 }
@@ -225,25 +253,29 @@ func (r *round) loadState() error {
 	filename := filepath.Join(r.datadir, roundStateFileBaseName)
 	state := roundState{}
 	if err := load(filename, &state); err != nil {
-		return err
+		return fmt.Errorf("loading state: %w", err)
 	}
 	if r.execution.SecurityParam != state.Execution.SecurityParam {
 		return errors.New("SecurityParam config mismatch")
 	}
 	r.execution = state.Execution
 	r.executionStarted = state.ExecutionStarted
-	r.members = state.Members
+	r.members.Store(uint64(state.Members))
 
 	return nil
 }
 
 func (r *round) saveState() error {
 	filename := filepath.Join(r.datadir, roundStateFileBaseName)
-	return persist(filename, &roundState{
+	err := persist(filename, &roundState{
 		ExecutionStarted: r.executionStarted,
 		Execution:        r.execution,
-		Members:          r.members,
+		Members:          uint(r.members.Load()),
 	})
+	if err != nil {
+		return fmt.Errorf("persisting state: %w", err)
+	}
+	return nil
 }
 
 func (r *round) calcMembersAndStatement() ([][]byte, []byte, error) {
@@ -271,13 +303,62 @@ func (r *round) calcMembersAndStatement() ([][]byte, []byte, error) {
 	return members, mtree.Root(), nil
 }
 
-func (r *round) teardown(cleanup bool) error {
+func (r *round) teardown(ctx context.Context, cleanup bool) error {
+	logger := logging.FromContext(ctx)
+	logger.Info("tearing down round", zap.String("round", r.ID), zap.Bool("cleanup", cleanup))
+	started := time.Now()
+	defer logger.Info(
+		"finished tearing down round",
+		zap.String("round", r.ID),
+		zap.Duration("duration", time.Since(started)),
+	)
+
+	if r.metricsCollector != nil {
+		prometheus.Unregister(r.metricsCollector)
+	}
+
 	if err := r.challengesDb.Close(); err != nil {
-		return err
+		return fmt.Errorf("closing DB: %w", err)
 	}
 
 	if cleanup {
 		return os.RemoveAll(r.datadir)
 	}
 	return r.saveState()
+}
+
+// Implementation of the Collector interface.
+func (r *roundMetricCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- r.totalMembersDesc
+}
+
+// Implementation of the Collector interface.
+func (r *roundMetricCollector) Collect(ch chan<- prometheus.Metric) {
+	m, err := prometheus.NewConstMetric(
+		r.totalMembersDesc,
+		prometheus.GaugeValue,
+		float64(r.round.members.Load()),
+	)
+	if err != nil {
+		logging.FromContext(context.Background()).Error("failed to create metric", zap.Error(err))
+	} else {
+		ch <- m
+	}
+}
+
+type roundMetricCollector struct {
+	round            *round
+	totalMembersDesc *prometheus.Desc
+}
+
+func newRoundsMetricCollector(round *round) prometheus.Collector {
+	return &roundMetricCollector{
+		round: round,
+		totalMembersDesc: prometheus.NewDesc(
+			prometheus.BuildFQName("poet", "round", "members_total"),
+			"the total number of members in a round",
+			nil,
+			prometheus.Labels{"epoch": round.ID},
+		),
+	}
 }

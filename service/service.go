@@ -232,13 +232,17 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 	for {
 		select {
 		case result := <-roundResults:
-			if result.err == nil {
+			switch {
+			case result.err == nil:
 				s.onNewProof(result.round.ID, result.round.execution)
-			} else {
-				logger.Error("round execution failed", zap.Error(result.err), zap.String("round", result.round.ID))
+			case errors.Is(result.err, context.Canceled):
+				logger.Info("round canceled", zap.String("round", result.round.ID))
+			default:
+				logger.Error("round failed", zap.Error(result.err), zap.String("round", result.round.ID))
 			}
+
 			eg.Go(func() error {
-				if err := result.round.teardown(result.err == nil); err != nil {
+				if err := result.round.teardown(ctx, result.err == nil); err != nil {
 					logger.Warn("round teardown failed", zap.Error(err), zap.String("round", result.round.ID))
 				}
 				return nil
@@ -277,17 +281,20 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 			for {
 				select {
 				default:
-					if err := s.openRound.teardown(false); err != nil {
+					if err := s.openRound.teardown(ctx, false); err != nil {
 						return fmt.Errorf("tearing down open round: %w", err)
 					}
 					return nil
 				case result := <-roundResults:
-					if result.err == nil {
+					switch {
+					case result.err == nil:
 						s.onNewProof(result.round.ID, result.round.execution)
-					} else {
-						logger.Error("round execution failed", zap.Error(result.err), zap.String("round", result.round.ID))
+					case errors.Is(result.err, context.Canceled):
+						logger.Info("round canceled", zap.String("round", result.round.ID))
+					default:
+						logger.Error("round failed", zap.Error(result.err), zap.String("round", result.round.ID))
 					}
-					if err := result.round.teardown(result.err == nil); err != nil {
+					if err := result.round.teardown(ctx, result.err == nil); err != nil {
 						logger.Warn("round teardown failed", zap.Error(err), zap.String("round", result.round.ID))
 					}
 				}
@@ -369,7 +376,7 @@ func (s *Service) Started() bool {
 func (s *Service) recover(ctx context.Context) (open, executing *round, err error) {
 	roundsDir := filepath.Join(s.datadir, "rounds")
 	logger := logging.FromContext(ctx).Named("recovery")
-	logger.Info("Recovering service state", zap.String("datadir", s.datadir))
+	logger.Info("recovering service state", zap.String("datadir", s.datadir))
 	entries, err := os.ReadDir(roundsDir)
 	if err != nil {
 		return nil, nil, err
@@ -395,24 +402,39 @@ func (s *Service) recover(ctx context.Context) (open, executing *round, err erro
 			return nil, nil, fmt.Errorf("invalid round state: %w", err)
 		}
 
-		if r.isExecuted() {
-			s.onNewProof(r.ID, r.execution)
-			continue
-		}
+		logger.Info("recovered round", zap.String("ID", r.ID), zap.Uint64("members", r.members.Load()))
 
-		if r.isOpen() {
-			logger.Info("found round in open state.", zap.String("ID", r.ID))
+		switch {
+		case r.isExecuted():
+			logger.Info(
+				"round is finished already",
+				zap.String("ID", r.ID),
+				zap.Time("started", r.executionStarted),
+				zap.Binary("root", r.execution.NIP.Root),
+				zap.Uint64("num_leaves", r.execution.NumLeaves),
+			)
+			s.onNewProof(r.ID, r.execution)
+		case r.isOpen():
+			logger.Info("round is open", zap.String("ID", r.ID))
 			// Keep the last open round as openRound (multiple open rounds state is possible
 			// only if recovery was previously disabled).
+			if open != nil {
+				logger.Warn("found more than 1 open round - overwriting", zap.String("previous", open.ID))
+			}
 			open = r
-			continue
+		default:
+			// Round is in executing state.
+			logger.Info(
+				"round is executing",
+				zap.String("ID", r.ID),
+				zap.Time("started", r.executionStarted),
+				zap.Uint64("num_leaves", r.execution.NumLeaves),
+			)
+			if executing != nil {
+				logger.Warn("found more than 1 executing round - overwriting", zap.String("previous", executing.ID))
+			}
+			executing = r
 		}
-
-		logger.Info("found round in executing state.", zap.String("ID", r.ID))
-		if executing != nil {
-			logger.Warn("found more than 1 executing round - overwriting", zap.String("previous", executing.ID))
-		}
-		executing = r
 	}
 
 	return open, executing, nil
@@ -454,7 +476,7 @@ func (s *Service) Submit(
 	s.commands <- func(s *Service) {
 		done <- response{
 			round: s.openRound.ID,
-			err:   s.openRound.submit(nodeID, challenge),
+			err:   s.openRound.submit(ctx, nodeID, challenge),
 			end:   s.roundEndTime(s.openRound),
 		}
 		close(done)
@@ -504,11 +526,11 @@ func (s *Service) newRound(ctx context.Context, epoch uint32) (*round, error) {
 	}
 
 	if err := r.saveState(); err != nil {
-		_ = r.teardown(true)
+		_ = r.teardown(ctx, true)
 		return nil, fmt.Errorf("saving state: %w", err)
 	}
 
-	logging.FromContext(ctx).Info("Round opened", zap.String("ID", r.ID))
+	logging.FromContext(ctx).Info("round opened", zap.String("ID", r.ID))
 	return r, nil
 }
 

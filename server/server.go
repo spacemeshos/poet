@@ -136,7 +136,8 @@ func (s *Server) Start(ctx context.Context) error {
 	})
 
 	if err := s.svc.Start(ctx); err != nil {
-		return err
+		stop()
+		return fmt.Errorf("service stopped with error: %v (serverGroup: %v)", err, serverGroup.Wait())
 	}
 
 	rpcServer := rpc.NewServer(s.svc, proofsDb, s.cfg)
@@ -150,7 +151,7 @@ func (s *Server) Start(ctx context.Context) error {
 
 	// Start the gRPC server listening for HTTP/2 connections.
 	serverGroup.Go(func() error {
-		logger.Sugar().Infof("RPC server listening on %s", s.rpcListener.Addr())
+		logger.Sugar().Infof("GRPC server listening on %s", s.rpcListener.Addr())
 		return grpcServer.Serve(s.rpcListener)
 	})
 
