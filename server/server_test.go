@@ -321,6 +321,8 @@ func TestCannotSubmitMoreThanMaxRoundMembers(t *testing.T) {
 		submitChallenge([]byte("challenge 3")),
 		status.Error(codes.ResourceExhausted, service.ErrMaxMembersReached.Error()),
 	)
+	cancel()
+	req.NoError(eg.Wait())
 }
 
 func TestGettingInitialPowParams(t *testing.T) {
