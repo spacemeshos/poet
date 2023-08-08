@@ -272,7 +272,7 @@ func TestRound_StateRecovery(t *testing.T) {
 		// Verify
 		require.ErrorIs(t, recovered.submit(context.Background(), []byte("key-2"), challenge), ErrMaxMembersReached)
 		require.Equal(t, 1, numChallenges(recovered))
-		require.EqualValues(t, 1, recovered.members.Load())
+		require.EqualValues(t, 1, recovered.members)
 		require.True(t, recovered.isOpen())
 		require.False(t, recovered.isExecuted())
 	})

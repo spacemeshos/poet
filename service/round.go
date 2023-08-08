@@ -7,10 +7,10 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"sync/atomic"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/merkle-tree/cache"
 	"github.com/syndtr/goleveldb/leveldb"
@@ -26,6 +26,13 @@ import (
 var (
 	ErrRoundIsNotOpen    = errors.New("round is not open")
 	ErrMaxMembersReached = errors.New("maximum number of round members reached")
+
+	membersMetric = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "poet",
+		Subsystem: "round",
+		Name:      "members_total",
+		Help:      "Number of members in a round",
+	}, []string{"ID"})
 )
 
 type executionState struct {
@@ -42,7 +49,6 @@ const roundStateFileBaseName = "state.bin"
 type roundState struct {
 	ExecutionStarted time.Time
 	Execution        *executionState
-	Members          uint
 }
 
 func (r *round) isOpen() bool {
@@ -60,10 +66,10 @@ type round struct {
 	challengesDb     *leveldb.DB
 	executionStarted time.Time
 	execution        *executionState
-	members          atomic.Uint64
+	members          uint
 	maxMembers       uint
 
-	metricsCollector prometheus.Collector
+	membersCounter prometheus.Counter
 }
 
 func (r *round) Epoch() uint32 {
@@ -80,6 +86,11 @@ func newRound(datadir string, epoch uint32, maxMembers uint) (*round, error) {
 		return nil, err
 	}
 
+	membersCounter, err := membersMetric.GetMetricWithLabelValues(id)
+	if err != nil {
+		logging.FromContext(context.Background()).Error("failed to get members metric", zap.Error(err))
+	}
+
 	r := &round{
 		epoch:        epoch,
 		datadir:      datadir,
@@ -88,14 +99,12 @@ func newRound(datadir string, epoch uint32, maxMembers uint) (*round, error) {
 		execution: &executionState{
 			SecurityParam: shared.T,
 		},
-		maxMembers: maxMembers,
+		members:        countMembersInDB(db),
+		maxMembers:     maxMembers,
+		membersCounter: membersCounter,
 	}
-	collector := newRoundsMetricCollector(r)
-	if err := prometheus.Register(collector); err != nil {
-		logging.FromContext(context.Background()).Error("failed to register round metric", zap.Error(err))
-	} else {
-		r.metricsCollector = collector
-	}
+
+	membersCounter.Add(float64(r.members))
 
 	return r, nil
 }
@@ -104,9 +113,8 @@ func (r *round) submit(ctx context.Context, key, challenge []byte) error {
 	if !r.isOpen() {
 		return ErrRoundIsNotOpen
 	}
-	// Note: it doesn't matter that Load() is not atomic with Add() because
-	// calls to submit are synchronized
-	if r.members.Load() >= uint64(r.maxMembers) {
+
+	if r.members >= r.maxMembers {
 		return ErrMaxMembersReached
 	}
 
@@ -117,7 +125,10 @@ func (r *round) submit(ctx context.Context, key, challenge []byte) error {
 	}
 	err := r.challengesDb.Put(key, challenge, &opt.WriteOptions{Sync: true})
 	if err == nil {
-		r.members.Add(1)
+		r.members += 1
+		if r.membersCounter != nil {
+			r.membersCounter.Inc()
+		}
 	}
 	return err
 }
@@ -260,7 +271,6 @@ func (r *round) loadState() error {
 	}
 	r.execution = state.Execution
 	r.executionStarted = state.ExecutionStarted
-	r.members.Store(uint64(state.Members))
 
 	return nil
 }
@@ -270,7 +280,6 @@ func (r *round) saveState() error {
 	err := persist(filename, &roundState{
 		ExecutionStarted: r.executionStarted,
 		Execution:        r.execution,
-		Members:          uint(r.members.Load()),
 	})
 	if err != nil {
 		return fmt.Errorf("persisting state: %w", err)
@@ -313,9 +322,7 @@ func (r *round) teardown(ctx context.Context, cleanup bool) error {
 		zap.Duration("duration", time.Since(started)),
 	)
 
-	if r.metricsCollector != nil {
-		prometheus.Unregister(r.metricsCollector)
-	}
+	membersMetric.DeleteLabelValues(r.ID)
 
 	if err := r.challengesDb.Close(); err != nil {
 		return fmt.Errorf("closing DB: %w", err)
@@ -327,38 +334,11 @@ func (r *round) teardown(ctx context.Context, cleanup bool) error {
 	return r.saveState()
 }
 
-// Implementation of the Collector interface.
-func (r *roundMetricCollector) Describe(ch chan<- *prometheus.Desc) {
-	ch <- r.totalMembersDesc
-}
-
-// Implementation of the Collector interface.
-func (r *roundMetricCollector) Collect(ch chan<- prometheus.Metric) {
-	m, err := prometheus.NewConstMetric(
-		r.totalMembersDesc,
-		prometheus.GaugeValue,
-		float64(r.round.members.Load()),
-	)
-	if err != nil {
-		logging.FromContext(context.Background()).Error("failed to create metric", zap.Error(err))
-	} else {
-		ch <- m
+func countMembersInDB(db *leveldb.DB) (count uint) {
+	iter := db.NewIterator(nil, nil)
+	defer iter.Release()
+	for iter.Next() {
+		count++
 	}
-}
-
-type roundMetricCollector struct {
-	round            *round
-	totalMembersDesc *prometheus.Desc
-}
-
-func newRoundsMetricCollector(round *round) prometheus.Collector {
-	return &roundMetricCollector{
-		round: round,
-		totalMembersDesc: prometheus.NewDesc(
-			prometheus.BuildFQName("poet", "round", "members_total"),
-			"the total number of members in a round",
-			nil,
-			prometheus.Labels{"epoch": round.ID},
-		),
-	}
+	return count
 }

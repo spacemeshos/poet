@@ -402,7 +402,7 @@ func (s *Service) recover(ctx context.Context) (open, executing *round, err erro
 			return nil, nil, fmt.Errorf("invalid round state: %w", err)
 		}
 
-		logger.Info("recovered round", zap.String("ID", r.ID), zap.Uint64("members", r.members.Load()))
+		logger.Info("recovered round", zap.String("ID", r.ID), zap.Uint("members", r.members))
 
 		switch {
 		case r.isExecuted():
