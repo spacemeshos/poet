@@ -321,6 +321,8 @@ func TestCannotSubmitMoreThanMaxRoundMembers(t *testing.T) {
 		submitChallenge([]byte("challenge 3")),
 		status.Error(codes.ResourceExhausted, service.ErrMaxMembersReached.Error()),
 	)
+	cancel()
+	req.NoError(eg.Wait())
 }
 
 // Test if cannot submit two different challenges with the same nodeID.

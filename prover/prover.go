@@ -45,6 +45,7 @@ var persist persistFunc = func(context.Context, *merkle.Tree, *cache.Writer, uin
 // Merkle proof using the challenge and the DAG.
 func GenerateProof(
 	ctx context.Context,
+	leavesCounter prometheus.Counter,
 	treeCfg TreeConfig,
 	labelHashFunc func(data []byte) []byte,
 	merkleHashFunc merkle.HashFunc,
@@ -58,12 +59,13 @@ func GenerateProof(
 	}
 	defer treeCache.Close()
 
-	return generateProof(ctx, labelHashFunc, tree, treeCache, limit, 0, securityParam, persist)
+	return generateProof(ctx, leavesCounter, labelHashFunc, tree, treeCache, limit, 0, securityParam, persist)
 }
 
 // GenerateProofRecovery recovers proof generation, from a given 'nextLeafID' and for a given 'parkedNodes' snapshot.
 func GenerateProofRecovery(
 	ctx context.Context,
+	leavesCounter prometheus.Counter,
 	treeCfg TreeConfig,
 	labelHashFunc func(data []byte) []byte,
 	merkleHashFunc merkle.HashFunc,
@@ -79,11 +81,12 @@ func GenerateProofRecovery(
 	}
 	defer treeCache.Close()
 
-	return generateProof(ctx, labelHashFunc, tree, treeCache, limit, nextLeafID, securityParam, persist)
+	return generateProof(ctx, leavesCounter, labelHashFunc, tree, treeCache, limit, nextLeafID, securityParam, persist)
 }
 
 // GenerateProofWithoutPersistency calls GenerateProof with disabled persistency functionality
 // and potential soft/hard-shutdown recovery.
+// Meant to be used for testing purposes only. Doesn't expose metrics too.
 func GenerateProofWithoutPersistency(
 	ctx context.Context,
 	treeCfg TreeConfig,
@@ -92,7 +95,8 @@ func GenerateProofWithoutPersistency(
 	limit time.Time,
 	securityParam uint8,
 ) (uint64, *shared.MerkleProof, error) {
-	return GenerateProof(ctx, treeCfg, labelHashFunc, merkleHashFunc, limit, securityParam, persist)
+	leavesCounter := prometheus.NewCounter(prometheus.CounterOpts{})
+	return GenerateProof(ctx, leavesCounter, treeCfg, labelHashFunc, merkleHashFunc, limit, securityParam, persist)
 }
 
 func makeProofTree(treeCfg TreeConfig, merkleHashFunc merkle.HashFunc) (*merkle.Tree, *cache.Writer, error) {
@@ -205,12 +209,12 @@ func makeRecoveryProofTree(
 
 func sequentialWork(
 	ctx context.Context,
+	leavesCounter prometheus.Counter,
 	labelHashFunc func(data []byte) []byte,
 	tree *merkle.Tree,
 	treeCache *cache.Writer,
 	end time.Time,
 	nextLeafID uint64,
-	securityParam uint8,
 	persist persistFunc,
 ) (uint64, error) {
 	var parkedNodes [][]byte
@@ -219,16 +223,7 @@ func sequentialWork(
 	finished := time.NewTimer(time.Until(end))
 	defer finished.Stop()
 
-	leavesCounter := prometheus.NewCounter(prometheus.CounterOpts{
-		Name: "poet_leaves",
-		Help: "Number of generated leaves",
-	})
 	leavesCounter.Add(float64(nextLeafID))
-
-	if err := prometheus.Register(leavesCounter); err != nil {
-		logging.FromContext(ctx).Error("failed to register prometheus leaves counter", zap.Error(err))
-	}
-	defer prometheus.Unregister(leavesCounter)
 
 	for {
 		// Generate the next leaf.
@@ -264,6 +259,7 @@ func sequentialWork(
 
 func generateProof(
 	ctx context.Context,
+	leavesCounter prometheus.Counter,
 	labelHashFunc func(data []byte) []byte,
 	tree *merkle.Tree,
 	treeCache *cache.Writer,
@@ -275,7 +271,7 @@ func generateProof(
 	logger := logging.FromContext(ctx)
 	logger.Info("generating proof", zap.Time("end", end), zap.Uint64("nextLeafID", nextLeafID))
 
-	leaves, err := sequentialWork(ctx, labelHashFunc, tree, treeCache, end, nextLeafID, securityParam, persist)
+	leaves, err := sequentialWork(ctx, leavesCounter, labelHashFunc, tree, treeCache, end, nextLeafID, persist)
 	if err != nil {
 		return 0, nil, err
 	}

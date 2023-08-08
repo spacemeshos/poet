@@ -71,7 +71,7 @@ func newTestRound(t *testing.T, opts ...newRoundOptionFunc) *round {
 
 	round, err := newRound(t.TempDir(), options.epoch, options.maxMembers)
 	require.NoError(t, err)
-	t.Cleanup(func() { assert.NoError(t, round.teardown(true)) })
+	t.Cleanup(func() { assert.NoError(t, round.teardown(context.Background(), true)) })
 	return round
 }
 
@@ -98,7 +98,7 @@ func TestRound_TearDown(t *testing.T) {
 		require.NoError(t, err)
 
 		// Act
-		require.NoError(t, round.teardown(false))
+		require.NoError(t, round.teardown(context.Background(), false))
 
 		// Verify
 		_, err = os.Stat(round.datadir)
@@ -111,7 +111,7 @@ func TestRound_TearDown(t *testing.T) {
 		require.NoError(t, err)
 
 		// Act
-		require.NoError(t, round.teardown(true))
+		require.NoError(t, round.teardown(context.Background(), true))
 
 		// Verify
 		_, err = os.Stat(round.datadir)
@@ -126,7 +126,7 @@ func TestRound_New(t *testing.T) {
 	// Act
 	round, err := newRound(t.TempDir(), 7, 1)
 	req.NoError(err)
-	t.Cleanup(func() { assert.NoError(t, round.teardown(true)) })
+	t.Cleanup(func() { assert.NoError(t, round.teardown(context.Background(), true)) })
 
 	// Verify
 	req.EqualValues(7, round.Epoch())
@@ -146,7 +146,7 @@ func TestRound_Submit(t *testing.T) {
 
 		// Act
 		for _, ch := range challenges {
-			require.NoError(t, round.submit(ch, ch))
+			require.NoError(t, round.submit(context.Background(), ch, ch))
 		}
 
 		// Verify
@@ -164,12 +164,12 @@ func TestRound_Submit(t *testing.T) {
 		require.NoError(t, err)
 
 		// Act
-		require.NoError(t, round.submit([]byte("key"), challenges[0]))
+		require.NoError(t, round.submit(context.Background(), []byte("key"), challenges[0]))
 
-		err = round.submit([]byte("key"), challenges[0])
+		err = round.submit(context.Background(), []byte("key"), challenges[0])
 		require.ErrorIs(t, err, ErrChallengeAlreadySubmitted)
 
-		err = round.submit([]byte("key"), challenges[1])
+		err = round.submit(context.Background(), []byte("key"), challenges[1])
 		require.ErrorIs(t, err, ErrConflictingRegistration)
 
 		// Verify
@@ -189,7 +189,7 @@ func TestRound_Submit(t *testing.T) {
 		require.ErrorIs(t, err, context.DeadlineExceeded)
 
 		// Act
-		err = round.submit([]byte("key"), challenge)
+		err = round.submit(context.Background(), []byte("key"), challenge)
 
 		// Verify
 		require.ErrorIs(t, err, ErrRoundIsNotOpen)
@@ -201,9 +201,9 @@ func TestRound_Submit(t *testing.T) {
 		require.NoError(t, err)
 
 		// Act
-		require.NoError(t, round.submit(challenges[0], challenges[0]))
-		require.NoError(t, round.submit(challenges[1], challenges[1]))
-		require.ErrorIs(t, round.submit(challenges[2], challenges[2]), ErrMaxMembersReached)
+		require.NoError(t, round.submit(context.Background(), challenges[0], challenges[0]))
+		require.NoError(t, round.submit(context.Background(), challenges[1], challenges[1]))
+		require.ErrorIs(t, round.submit(context.Background(), challenges[2], challenges[2]), ErrMaxMembersReached)
 
 		// Verify
 		require.Equal(t, 2, numChallenges(round))
@@ -223,7 +223,7 @@ func TestRound_Execute(t *testing.T) {
 	round := newTestRound(t)
 	challenge, err := genChallenge()
 	req.NoError(err)
-	req.NoError(round.submit([]byte("key"), challenge))
+	req.NoError(round.submit(context.Background(), []byte("key"), challenge))
 
 	// Act
 	req.NoError(round.execute(context.Background(), time.Now().Add(400*time.Millisecond), 1, 0))
@@ -242,12 +242,12 @@ func TestRound_StateRecovery(t *testing.T) {
 		// Arrange
 		round, err := newRound(tmpdir, 0, 1)
 		require.NoError(t, err)
-		require.NoError(t, round.teardown(false))
+		require.NoError(t, round.teardown(context.Background(), false))
 
 		// Act
 		recovered, err := newRound(tmpdir, 0, 1)
 		require.NoError(t, err)
-		t.Cleanup(func() { assert.NoError(t, recovered.teardown(false)) })
+		t.Cleanup(func() { assert.NoError(t, recovered.teardown(context.Background(), false)) })
 		require.NoError(t, recovered.loadState())
 
 		// Verify
@@ -263,18 +263,18 @@ func TestRound_StateRecovery(t *testing.T) {
 		{
 			round, err := newRound(tmpdir, 0, 1)
 			require.NoError(t, err)
-			require.NoError(t, round.submit([]byte("key"), challenge))
-			require.NoError(t, round.teardown(false))
+			require.NoError(t, round.submit(context.Background(), []byte("key"), challenge))
+			require.NoError(t, round.teardown(context.Background(), false))
 		}
 
 		// Act
 		recovered, err := newRound(tmpdir, 0, 1)
 		require.NoError(t, err)
-		t.Cleanup(func() { assert.NoError(t, recovered.teardown(false)) })
+		t.Cleanup(func() { assert.NoError(t, recovered.teardown(context.Background(), false)) })
 		require.NoError(t, recovered.loadState())
 
 		// Verify
-		require.ErrorIs(t, recovered.submit([]byte("key-2"), challenge), ErrMaxMembersReached)
+		require.ErrorIs(t, recovered.submit(context.Background(), []byte("key-2"), challenge), ErrMaxMembersReached)
 		require.Equal(t, 1, numChallenges(recovered))
 		require.EqualValues(t, 1, recovered.members)
 		require.True(t, recovered.isOpen())
@@ -283,7 +283,7 @@ func TestRound_StateRecovery(t *testing.T) {
 	t.Run("Load state of a freshly opened round", func(t *testing.T) {
 		// Arrange
 		round, err := newRound(t.TempDir(), 0, 1)
-		t.Cleanup(func() { assert.NoError(t, round.teardown(false)) })
+		t.Cleanup(func() { assert.NoError(t, round.teardown(context.Background(), false)) })
 		require.NoError(t, err)
 		require.NoError(t, round.saveState())
 
@@ -300,16 +300,16 @@ func TestRound_StateRecovery(t *testing.T) {
 		require.NoError(t, err)
 		challenge, err := genChallenge()
 		require.NoError(t, err)
-		require.NoError(t, round.submit([]byte("key"), challenge))
+		require.NoError(t, round.submit(context.Background(), []byte("key"), challenge))
 		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*10)
 		defer cancel()
 		require.ErrorIs(t, round.execute(ctx, time.Now().Add(time.Hour), 1, 0), context.DeadlineExceeded)
-		require.NoError(t, round.teardown(false))
+		require.NoError(t, round.teardown(context.Background(), false))
 
 		// Act
 		recovered, err := newRound(tmpdir, 0, 1)
 		require.NoError(t, err)
-		t.Cleanup(func() { assert.NoError(t, recovered.teardown(false)) })
+		t.Cleanup(func() { assert.NoError(t, recovered.teardown(context.Background(), false)) })
 		require.NoError(t, recovered.loadState())
 
 		// Verify
@@ -339,7 +339,7 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 		req.Zero(0, numChallenges(round))
 
 		for _, ch := range challenges {
-			req.NoError(round.submit(ch, ch))
+			req.NoError(round.submit(context.Background(), ch, ch))
 		}
 
 		ctx, stop := context.WithTimeout(context.Background(), 10*time.Millisecond)
@@ -348,7 +348,7 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 			round.execute(ctx, time.Now().Add(time.Hour), 1, 0),
 			context.DeadlineExceeded,
 		)
-		req.NoError(round.teardown(false))
+		req.NoError(round.teardown(context.Background(), false))
 	}
 
 	// Recover round execution and request shutdown before completion.
@@ -361,7 +361,7 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 		ctx, stop := context.WithTimeout(context.Background(), 10*time.Millisecond)
 		defer stop()
 		req.ErrorIs(round.recoverExecution(ctx, time.Now().Add(time.Hour), 0), context.DeadlineExceeded)
-		req.NoError(round.teardown(false))
+		req.NoError(round.teardown(context.Background(), false))
 	}
 
 	// Recover r2 execution again, and let it complete.
@@ -373,6 +373,6 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 
 		req.NoError(round.recoverExecution(context.Background(), time.Now().Add(400*time.Millisecond), 0))
 		validateProof(t, round.execution)
-		req.NoError(round.teardown(true))
+		req.NoError(round.teardown(context.Background(), true))
 	}
 }
