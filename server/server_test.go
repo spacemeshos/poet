@@ -359,7 +359,10 @@ func TestSubmittingChallengeTwice(t *testing.T) {
 	// Submitting the same challenge is OK
 	req.NoError(submitChallenge([]byte("challenge 1")))
 	// Submitting a different challenge with the same nodeID is not OK
-	req.ErrorIs(submitChallenge([]byte("challenge 2")), status.Error(codes.AlreadyExists, service.ErrConflictingRegistration.Error()))
+	req.ErrorIs(
+		submitChallenge([]byte("challenge 2")),
+		status.Error(codes.AlreadyExists, service.ErrConflictingRegistration.Error()),
+	)
 }
 
 func TestGettingInitialPowParams(t *testing.T) {
