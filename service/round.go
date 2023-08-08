@@ -32,14 +32,14 @@ var (
 		Subsystem: "round",
 		Name:      "members_total",
 		Help:      "Number of members in a round",
-	}, []string{"ID"})
+	}, []string{"id"})
 
 	leavesMetric = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "poet",
 		Subsystem: "round",
 		Name:      "leaves_total",
 		Help:      "Number of generated leaves in a round",
-	}, []string{"ID"})
+	}, []string{"id"})
 )
 
 type executionState struct {
