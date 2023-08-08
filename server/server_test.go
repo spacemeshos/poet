@@ -323,6 +323,45 @@ func TestCannotSubmitMoreThanMaxRoundMembers(t *testing.T) {
 	)
 }
 
+// Test if cannot submit two different challenges with the same nodeID.
+func TestSubmittingChallengeTwice(t *testing.T) {
+	t.Parallel()
+	req := require.New(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	cfg := config.DefaultConfig()
+	cfg.PoetDir = t.TempDir()
+	cfg.RawRPCListener = randomHost
+	cfg.RawRESTListener = randomHost
+
+	srv, client := spawnPoet(ctx, t, *cfg)
+
+	var eg errgroup.Group
+	eg.Go(func() error {
+		return srv.Start(ctx)
+	})
+
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	req.NoError(err)
+
+	submitChallenge := func(ch []byte) error {
+		_, err = client.Submit(context.Background(), &api.SubmitRequest{
+			Challenge: ch,
+			Pubkey:    pubKey,
+			Signature: ed25519.Sign(privKey, ch),
+		})
+		return err
+	}
+
+	// Act
+	req.NoError(submitChallenge([]byte("challenge 1")))
+	// Submitting the same challenge is OK
+	req.NoError(submitChallenge([]byte("challenge 1")))
+	// Submitting a different challenge with the same nodeID is not OK
+	req.ErrorIs(submitChallenge([]byte("challenge 2")), status.Error(codes.AlreadyExists, service.ErrConflictingRegistration.Error()))
+}
+
 func TestGettingInitialPowParams(t *testing.T) {
 	t.Parallel()
 	req := require.New(t)

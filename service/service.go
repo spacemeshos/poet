@@ -96,6 +96,7 @@ var (
 	ErrNotStarted                = errors.New("service not started")
 	ErrAlreadyStarted            = errors.New("already started")
 	ErrChallengeAlreadySubmitted = errors.New("challenge is already submitted")
+	ErrConflictingRegistration   = errors.New("conflicting registration")
 	ErrRoundNotFinished          = errors.New("round is not finished yet")
 )
 
