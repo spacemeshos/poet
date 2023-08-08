@@ -94,7 +94,7 @@ func newRound(datadir string, epoch uint32, maxMembers uint) (*round, error) {
 		return nil, err
 	}
 
-	// Note: using the panicking version of prometheus.NewCounterVec() because it panics
+	// Note: using the panicking version here because it panics
 	// only if the number of label values is not the same as the number of variable labels in Desc.
 	// There is only 1 label  (round ID), that  is passed, so it's safe to use.
 	membersCounter := membersMetric.WithLabelValues(id)
@@ -136,9 +136,7 @@ func (r *round) submit(ctx context.Context, key, challenge []byte) error {
 	err := r.challengesDb.Put(key, challenge, &opt.WriteOptions{Sync: true})
 	if err == nil {
 		r.members += 1
-		if r.membersCounter != nil {
-			r.membersCounter.Inc()
-		}
+		r.membersCounter.Inc()
 	}
 	return err
 }
