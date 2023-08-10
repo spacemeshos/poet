@@ -325,7 +325,7 @@ func TestCannotSubmitMoreThanMaxRoundMembers(t *testing.T) {
 	req.NoError(eg.Wait())
 }
 
-// Test if cannot submit two different challenges with the same nodeID.
+// Test submitting many challenges with the same nodeID.
 func TestSubmittingChallengeTwice(t *testing.T) {
 	t.Parallel()
 	req := require.New(t)
@@ -343,6 +343,7 @@ func TestSubmittingChallengeTwice(t *testing.T) {
 	eg.Go(func() error {
 		return srv.Start(ctx)
 	})
+	t.Cleanup(func() { assert.NoError(t, eg.Wait()) })
 
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	req.NoError(err)
