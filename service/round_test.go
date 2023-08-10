@@ -165,10 +165,14 @@ func TestRound_Submit(t *testing.T) {
 
 		// Act
 		require.NoError(t, round.submit(context.Background(), []byte("key"), challenges[0]))
+
+		err = round.submit(context.Background(), []byte("key"), challenges[0])
+		require.ErrorIs(t, err, ErrChallengeAlreadySubmitted)
+
 		err = round.submit(context.Background(), []byte("key"), challenges[1])
+		require.ErrorIs(t, err, ErrConflictingRegistration)
 
 		// Verify
-		require.ErrorIs(t, err, ErrChallengeAlreadySubmitted)
 		require.Equal(t, 1, numChallenges(round))
 		challenge, err := round.challengesDb.Get([]byte("key"), nil)
 		require.NoError(t, err)

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -128,17 +129,26 @@ func (r *round) submit(ctx context.Context, key, challenge []byte) error {
 		return ErrMaxMembersReached
 	}
 
-	if has, err := r.challengesDb.Has(key, nil); err != nil {
-		return err
-	} else if has {
+	registered, err := r.challengesDb.Get(key, nil)
+	switch {
+	case errors.Is(err, leveldb.ErrNotFound):
+		// OK - challenge is not registered yet.
+	case err != nil:
+		return fmt.Errorf("failed to check if challenge is registered: %w", err)
+	case bytes.Equal(challenge, registered):
 		return fmt.Errorf("%w: key: %X", ErrChallengeAlreadySubmitted, key)
+	default:
+		return ErrConflictingRegistration
 	}
-	err := r.challengesDb.Put(key, challenge, &opt.WriteOptions{Sync: true})
-	if err == nil {
-		r.members += 1
-		r.membersCounter.Inc()
+
+	if err := r.challengesDb.Put(key, challenge, &opt.WriteOptions{Sync: true}); err != nil {
+		return fmt.Errorf("failed to register challenge: %w", err)
 	}
-	return err
+
+	r.members += 1
+	r.membersCounter.Inc()
+
+	return nil
 }
 
 func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer, fileWriterBufSize uint) error {
