@@ -18,6 +18,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"go.uber.org/zap"
 
+	"github.com/spacemeshos/poet/db"
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/prover"
@@ -85,14 +86,29 @@ func (r *round) Epoch() uint32 {
 	return r.epoch
 }
 
-func newRound(datadir string, epoch uint32, maxMembers uint) (*round, error) {
+func newRound(dbdir, datadir string, epoch uint32, maxMembers uint) (*round, error) {
 	id := strconv.FormatUint(uint64(epoch), 10)
 	datadir = filepath.Join(datadir, id)
+	dbdir = filepath.Join(dbdir, id)
+	if dbdir == datadir {
+		// old DB path had additional nesting
+		dbdir = filepath.Join(dbdir, "challengesDb")
+	}
 
-	db, err := leveldb.OpenFile(filepath.Join(datadir, "challengesDb"), nil)
+	// Temporary migration to move DB to a new location.
+	// TODO(poszu): remove this code after all poets are migrated.
+	oldDbDir := filepath.Join(datadir, "challengesDb")
+	if err := db.Migrate(context.Background(), dbdir, oldDbDir); err != nil {
+		return nil, fmt.Errorf("migrating DB from %s: %w", oldDbDir, err)
+	}
+
+	db, err := leveldb.OpenFile(dbdir, nil)
 	if err != nil {
-		_ = os.RemoveAll(datadir)
-		return nil, err
+		return nil, fmt.Errorf("opening challenges DB: %w", err)
+	}
+
+	if err := os.MkdirAll(datadir, 0o700); err != nil {
+		return nil, fmt.Errorf("creating round datadir: %w", err)
 	}
 
 	// Note: using the panicking version here because it panics
@@ -109,12 +125,12 @@ func newRound(datadir string, epoch uint32, maxMembers uint) (*round, error) {
 		execution: &executionState{
 			SecurityParam: shared.T,
 		},
-		members:        countMembersInDB(db),
 		maxMembers:     maxMembers,
 		membersCounter: membersCounter,
 		leavesCounter:  leavesCounter,
 	}
 
+	r.members = countMembersInDB(r.challengesDb)
 	membersCounter.Add(float64(r.members))
 
 	return r, nil

@@ -24,6 +24,7 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"github.com/spacemeshos/poet/config"
+	"github.com/spacemeshos/poet/db"
 	"github.com/spacemeshos/poet/logging"
 	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
 	"github.com/spacemeshos/poet/rpc"
@@ -65,7 +66,7 @@ func New(ctx context.Context, cfg config.Config) (*Server, error) {
 		}
 	}
 
-	svc, err := service.NewService(ctx, cfg.Service, cfg.DataDir)
+	svc, err := service.NewService(ctx, cfg.Service, cfg.DataDir, service.WithDbdir(cfg.DbDir))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Service: %v", err)
 	}
@@ -122,7 +123,14 @@ func (s *Server) Start(ctx context.Context) error {
 		}),
 	}
 
-	proofsDbPath := filepath.Join(s.cfg.DataDir, "proofs")
+	proofsDbPath := filepath.Join(s.cfg.DbDir, "proofs")
+	// Temporary migration to move DB to a new location.
+	// TODO(poszu): remove this code after all poets are migrated.
+	oldProofsDbPath := filepath.Join(s.cfg.DataDir, "proofs")
+	if err := db.Migrate(ctx, proofsDbPath, oldProofsDbPath); err != nil {
+		return fmt.Errorf("migrating proofs DB %s -> %s: %w", oldProofsDbPath, proofsDbPath, err)
+	}
+
 	proofsDb, err := service.NewProofsDatabase(proofsDbPath, s.svc.ProofsChan())
 	if err != nil {
 		return fmt.Errorf("failed to create proofs DB: %w", err)
