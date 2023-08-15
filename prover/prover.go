@@ -195,7 +195,8 @@ func makeRecoveryProofTree(
 			if err != nil {
 				return nil, nil, fmt.Errorf("reading parked node in layer %d: %w", layer, err)
 			}
-			logging.FromContext(ctx).Info("recovered parked node", zap.Uint("layer", layer), zap.String("node", fmt.Sprintf("%X", parkedNode)))
+			logging.FromContext(ctx).
+				Info("recovered parked node", zap.Uint("layer", layer), zap.String("node", fmt.Sprintf("%X", parkedNode)))
 			parkedNodesMap[layer] = parkedNode
 		}
 	}
@@ -210,12 +211,13 @@ func makeRecoveryProofTree(
 		}
 	}
 
-	logging.FromContext(ctx).Info("all recovered parked nodes", zap.Array("nodes", zapcore.ArrayMarshalerFunc(func(enc zapcore.ArrayEncoder) error {
-		for _, node := range parkedNodes {
-			enc.AppendString(fmt.Sprintf("%X", node))
-		}
-		return nil
-	})))
+	logging.FromContext(ctx).
+		Info("all recovered parked nodes", zap.Array("nodes", zapcore.ArrayMarshalerFunc(func(enc zapcore.ArrayEncoder) error {
+			for _, node := range parkedNodes {
+				enc.AppendString(fmt.Sprintf("%X", node))
+			}
+			return nil
+		})))
 
 	layers := make(map[uint]bool)
 	for layer := range layersFiles {

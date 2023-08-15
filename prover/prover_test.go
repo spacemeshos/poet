@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/stretchr/testify/require"
-
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/merkle-tree/cache"
+	"github.com/stretchr/testify/require"
+
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/verifier"
@@ -119,6 +119,12 @@ func TestRecoverParkedNodes(t *testing.T) {
 	)
 	r.NoError(err)
 
-	err = verifier.Validate(*merkleProof, hash.GenLabelHashFunc(challenge), hash.GenMerkleHashFunc(challenge), leafs, 150)
+	err = verifier.Validate(
+		*merkleProof,
+		hash.GenLabelHashFunc(challenge),
+		hash.GenMerkleHashFunc(challenge),
+		leafs,
+		150,
+	)
 	r.NoError(err)
 }
