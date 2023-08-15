@@ -14,6 +14,7 @@ import (
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/merkle-tree/cache"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/shared"
@@ -25,11 +26,11 @@ const (
 
 	// LowestMerkleMinMemoryLayer set the lowest-allowed layer in which all layers above will be cached in-memory.
 	LowestMerkleMinMemoryLayer = 1
-
-	// The rate, in leaves, in which the proof generation state snapshot will be saved to disk
-	// to allow potential crash recovery.
-	hardShutdownCheckpointRate = 1 << 24
 )
+
+// The rate, in leaves, in which the proof generation state snapshot will be saved to disk
+// to allow potential crash recovery.
+var hardShutdownCheckpointRate = uint64(1 << 24)
 
 type TreeConfig struct {
 	MinMemoryLayer    uint
@@ -142,6 +143,8 @@ func makeRecoveryProofTree(
 		return nil, nil, fmt.Errorf("layer 0 cache file is missing")
 	}
 
+	parkedNodesMap := make(map[uint][]byte)
+
 	// Validate structure.
 	for layer, file := range layersFiles {
 		readWriter, err := layerFactory(uint(layer))
@@ -181,7 +184,38 @@ func makeRecoveryProofTree(
 				width,
 			)
 		}
+
+		// recover parked node
+		if expectedWidth%2 != 0 {
+			if err := readWriter.Seek(expectedWidth - 1); err != nil {
+				return nil, nil, fmt.Errorf("seeking to parked node in layer %d: %w", layer, err)
+			}
+
+			parkedNode, err := readWriter.ReadNext()
+			if err != nil {
+				return nil, nil, fmt.Errorf("reading parked node in layer %d: %w", layer, err)
+			}
+			logging.FromContext(ctx).Info("recovered parked node", zap.Uint("layer", layer), zap.String("node", fmt.Sprintf("%X", parkedNode)))
+			parkedNodesMap[layer] = parkedNode
+		}
 	}
+
+	// turn parkedNodesMap into a slice ordered by key
+	parkedNodes = parkedNodes[:0]
+	for layer := 0; layer < len(layersFiles); layer++ {
+		if node, ok := parkedNodesMap[uint(layer)]; ok {
+			parkedNodes = append(parkedNodes, node)
+		} else {
+			parkedNodes = append(parkedNodes, nil)
+		}
+	}
+
+	logging.FromContext(ctx).Info("all recovered parked nodes", zap.Array("nodes", zapcore.ArrayMarshalerFunc(func(enc zapcore.ArrayEncoder) error {
+		for _, node := range parkedNodes {
+			enc.AppendString(fmt.Sprintf("%X", node))
+		}
+		return nil
+	})))
 
 	layers := make(map[uint]bool)
 	for layer := range layersFiles {
