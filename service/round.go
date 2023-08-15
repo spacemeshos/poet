@@ -17,6 +17,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/logging"
@@ -226,7 +227,7 @@ func (r *round) persistExecution(
 	return r.saveState()
 }
 
-func (r *round) recoverExecution(ctx context.Context, end time.Time, fileWriterBufSize uint) error {
+func (r *round) recoverExecution(ctx context.Context, end time.Time, minMemoryLayer, fileWriterBufSize uint) error {
 	logger := logging.FromContext(ctx).With(zap.String("round", r.ID))
 
 	started := time.Now()
@@ -243,8 +244,18 @@ func (r *round) recoverExecution(ctx context.Context, end time.Time, fileWriterB
 		}
 	}
 
-	logger.With().
-		Info("recovering execution", zap.Time("end", end), zap.Int("members", len(r.execution.Members)), zap.Uint64("num_leaves", r.execution.NumLeaves))
+	logger.With().Info(
+		"recovering execution",
+		zap.Time("end", end),
+		zap.Int("members", len(r.execution.Members)),
+		zap.Uint64("num_leaves", r.execution.NumLeaves),
+		zap.Array("parked_nodes", zapcore.ArrayMarshalerFunc(func(enc zapcore.ArrayEncoder) error {
+			for _, node := range r.execution.ParkedNodes {
+				enc.AppendString(fmt.Sprintf("%X", node))
+			}
+			return nil
+		})),
+	)
 
 	numLeaves, nip, err := prover.GenerateProofRecovery(
 		ctx,
@@ -252,6 +263,7 @@ func (r *round) recoverExecution(ctx context.Context, end time.Time, fileWriterB
 		prover.TreeConfig{
 			Datadir:           r.datadir,
 			FileWriterBufSize: fileWriterBufSize,
+			MinMemoryLayer:    minMemoryLayer,
 		},
 		hash.GenLabelHashFunc(r.execution.Statement),
 		hash.GenMerkleHashFunc(r.execution.Statement),

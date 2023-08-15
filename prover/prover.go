@@ -3,6 +3,7 @@ package prover
 import (
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -13,6 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/merkle-tree/cache"
+	mshared "github.com/spacemeshos/merkle-tree/shared"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
@@ -211,6 +213,27 @@ func makeRecoveryProofTree(
 		}
 	}
 
+	// recover parked nodes from mem-cached layers
+	fileLayers := len(parkedNodes)
+	memLayerFactory := NewReadWriterMetaFactory(treeCfg.MinMemoryLayer, treeCfg.Datadir, treeCfg.FileWriterBufSize).GetFactory()
+	for layer := uint64(fileLayers); ; layer++ {
+		numNodes := nextLeafID / uint64(math.Pow(2, float64(layer)))
+		if numNodes == 0 {
+			break
+		}
+		if numNodes%2 == 0 {
+			parkedNodes = append(parkedNodes, nil)
+		} else {
+			node, err := GetNode(memLayerFactory, uint(layer), numNodes-1, merkleHashFunc)
+			if err != nil {
+				return nil, nil, fmt.Errorf("recovering parked node in layer %d: %w", layer, err)
+			}
+			logging.FromContext(ctx).
+				Info("recovered (mem) parked node", zap.Uint("layer", uint(layer)), zap.String("node", fmt.Sprintf("%X", node)))
+			parkedNodes = append(parkedNodes, node)
+		}
+	}
+
 	logging.FromContext(ctx).
 		Info("all recovered parked nodes", zap.Array("nodes", zapcore.ArrayMarshalerFunc(func(enc zapcore.ArrayEncoder) error {
 			for _, node := range parkedNodes {
@@ -375,4 +398,31 @@ func CalcTreeRoot(leaves [][]byte) ([]byte, error) {
 		}
 	}
 	return tree.Root(), nil
+}
+
+// GetNode returns the node at the given index in the given layer.
+// It will recursively calculate the node if it is not already cached.
+func GetNode(layerFactory mshared.LayerFactory, layer uint, index uint64, hash merkle.HashFunc) ([]byte, error) {
+	readWriter, err := layerFactory(uint(layer))
+	if err != nil {
+		return nil, err
+	}
+	defer readWriter.Close()
+
+	// Try to obtain from cache.
+	if err := readWriter.Seek(index); err == nil {
+		return readWriter.ReadNext()
+	}
+
+	left, err := GetNode(layerFactory, layer-1, index*2, hash)
+	if err != nil {
+		return nil, err
+	}
+
+	right, err := GetNode(layerFactory, layer-1, index*2+1, hash)
+	if err != nil {
+		return nil, err
+	}
+
+	return hash(nil, left, right), nil
 }

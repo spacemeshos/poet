@@ -83,7 +83,7 @@ func TestRecoverParkedNodes(t *testing.T) {
 		return nil
 	}
 
-	treeCfg := TreeConfig{Datadir: t.TempDir(), MinMemoryLayer: 20}
+	treeCfg := TreeConfig{Datadir: t.TempDir(), MinMemoryLayer: 5}
 
 	_, _, err := GenerateProof(
 		ctx,
