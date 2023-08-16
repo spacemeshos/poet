@@ -225,7 +225,7 @@ func makeRecoveryProofTree(
 	defer layerReader.Close()
 	memCachedParkedNodes, readCache, err := recoverMemCachedParkedNodes(layerReader, merkleHashFunc)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Recoveing parked nodes from top layer of disk-cache: %w", err)
+		return nil, nil, fmt.Errorf("recoveing parked nodes from top layer of disk-cache: %w", err)
 	}
 	parkedNodes = append(parkedNodes, memCachedParkedNodes...)
 
