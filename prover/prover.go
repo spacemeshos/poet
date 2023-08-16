@@ -29,11 +29,11 @@ const (
 
 	// LowestMerkleMinMemoryLayer set the lowest-allowed layer in which all layers above will be cached in-memory.
 	LowestMerkleMinMemoryLayer = 1
-)
 
-// The rate, in leaves, in which the proof generation state snapshot will be saved to disk
-// to allow potential crash recovery.
-var hardShutdownCheckpointRate = uint64(1 << 24)
+	// The rate, in leaves, in which the proof generation state snapshot will be saved to disk
+	// to allow potential crash recovery.
+	hardShutdownCheckpointRate = 1 << 24
+)
 
 type TreeConfig struct {
 	MinMemoryLayer    uint
@@ -41,9 +41,9 @@ type TreeConfig struct {
 	FileWriterBufSize uint
 }
 
-type persistFunc func(ctx context.Context, tree *merkle.Tree, treeCache *cache.Writer, nextLeafId uint64) error
+type persistFunc func(ctx context.Context, treeCache *cache.Writer, nextLeafId uint64) error
 
-var persist persistFunc = func(context.Context, *merkle.Tree, *cache.Writer, uint64) error { return nil }
+var persist persistFunc = func(context.Context, *cache.Writer, uint64) error { return nil }
 
 // GenerateProof computes the PoET DAG, uses Fiat-Shamir to derive a challenge from the Merkle root and generates a
 // Merkle proof using the challenge and the DAG.
@@ -196,13 +196,10 @@ func makeRecoveryProofTree(
 			if err := readWriter.Seek(expectedWidth - 1); err != nil {
 				return nil, nil, fmt.Errorf("seeking to parked node in layer %d: %w", layer, err)
 			}
-
 			parkedNode, err := readWriter.ReadNext()
 			if err != nil {
 				return nil, nil, fmt.Errorf("reading parked node in layer %d: %w", layer, err)
 			}
-			logging.FromContext(ctx).
-				Info("recovered parked node", zap.Uint("layer", layer), zap.String("node", fmt.Sprintf("%X", parkedNode)))
 			parkedNodesMap[layer] = parkedNode
 		}
 	}
@@ -228,7 +225,7 @@ func makeRecoveryProofTree(
 	parkedNodes = append(parkedNodes, memCachedParkedNodes...)
 
 	logging.FromContext(ctx).
-		Info("all recovered parked nodes", zap.Array("nodes", zapcore.ArrayMarshalerFunc(func(enc zapcore.ArrayEncoder) error {
+		Info("recovered parked nodes", zap.Array("nodes", zapcore.ArrayMarshalerFunc(func(enc zapcore.ArrayEncoder) error {
 			for _, node := range parkedNodes {
 				enc.AppendString(fmt.Sprintf("%X", node))
 			}
@@ -298,12 +295,12 @@ func sequentialWork(
 
 		select {
 		case <-ctx.Done():
-			if err := persist(ctx, tree, treeCache, nextLeafID); err != nil {
+			if err := persist(ctx, treeCache, nextLeafID); err != nil {
 				return 0, fmt.Errorf("persisting execution state: %w", err)
 			}
 			return nextLeafID, ctx.Err()
 		case <-finished.C:
-			if err := persist(ctx, tree, treeCache, nextLeafID); err != nil {
+			if err := persist(ctx, treeCache, nextLeafID); err != nil {
 				return 0, fmt.Errorf("persisting execution state: %w", err)
 			}
 			return nextLeafID, nil
@@ -311,7 +308,7 @@ func sequentialWork(
 		}
 
 		if nextLeafID%hardShutdownCheckpointRate == 0 {
-			if err := persist(ctx, tree, treeCache, nextLeafID); err != nil {
+			if err := persist(ctx, treeCache, nextLeafID); err != nil {
 				return 0, err
 			}
 		}
@@ -334,7 +331,7 @@ func generateProof(
 
 	leaves, err := sequentialWork(ctx, leavesCounter, labelHashFunc, tree, treeCache, end, nextLeafID, persist)
 	if err != nil {
-		return 0, nil, err
+		return leaves, nil, err
 	}
 
 	logger.Sugar().Infof("merkle tree construction finished with %d leaves, generating proof...", leaves)

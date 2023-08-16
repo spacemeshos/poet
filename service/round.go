@@ -210,7 +210,6 @@ func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer, file
 
 func (r *round) persistExecution(
 	ctx context.Context,
-	tree *merkle.Tree,
 	treeCache *cache.Writer,
 	numLeaves uint64,
 ) error {
@@ -223,7 +222,6 @@ func (r *round) persistExecution(
 	}
 
 	r.execution.NumLeaves = numLeaves
-	r.execution.ParkedNodes = tree.GetParkedNodes(r.execution.ParkedNodes[:0])
 	return r.saveState()
 }
 

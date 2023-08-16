@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/merkle-tree/cache"
 	"github.com/stretchr/testify/require"
 
@@ -59,9 +58,6 @@ func BenchmarkGetProof(b *testing.B) {
 func TestRecoverParkedNodes(t *testing.T) {
 	r := require.New(t)
 
-	// override snapshot interval
-	hardShutdownCheckpointRate = 1000
-
 	challenge := []byte("challenge this")
 	leavesCounter := prometheus.NewCounter(prometheus.CounterOpts{})
 
@@ -70,22 +66,15 @@ func TestRecoverParkedNodes(t *testing.T) {
 
 	limit := time.Now().Add(time.Second * 5)
 
-	var lastParkedNodes [][]byte
-	var lastLeafs uint64
-
-	persist := func(ctx context.Context, tree *merkle.Tree, treeCache *cache.Writer, numLeaves uint64) error {
+	persist := func(ctx context.Context, treeCache *cache.Writer, _ uint64) error {
 		// Call GetReader() so that the cache would flush and validate structure.
-		if _, err := treeCache.GetReader(); err != nil {
-			return err
-		}
-		lastParkedNodes = tree.GetParkedNodes(lastParkedNodes[:0])
-		lastLeafs = numLeaves
-		return nil
+		_, err := treeCache.GetReader()
+		return err
 	}
 
 	treeCfg := TreeConfig{Datadir: t.TempDir(), MinMemoryLayer: 5}
 
-	_, _, err := GenerateProof(
+	leaves, _, err := GenerateProof(
 		ctx,
 		leavesCounter,
 		treeCfg,
@@ -97,14 +86,7 @@ func TestRecoverParkedNodes(t *testing.T) {
 	)
 	r.ErrorIs(err, context.DeadlineExceeded)
 
-	for id, node := range lastParkedNodes {
-		if len(node) > 0 {
-			t.Logf("parked node %d: %X", id, node)
-		}
-	}
-
 	// recover without parked nodes
-
 	leafs, merkleProof, err := GenerateProofRecovery(
 		context.Background(),
 		leavesCounter,
@@ -113,7 +95,7 @@ func TestRecoverParkedNodes(t *testing.T) {
 		hash.GenMerkleHashFunc(challenge),
 		limit,
 		150,
-		lastLeafs,
+		leaves,
 		persist,
 	)
 	r.NoError(err)
