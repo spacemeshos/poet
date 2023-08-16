@@ -76,10 +76,9 @@ func GenerateProofRecovery(
 	limit time.Time,
 	securityParam uint8,
 	nextLeafID uint64,
-	parkedNodes [][]byte,
 	persist persistFunc,
 ) (uint64, *shared.MerkleProof, error) {
-	treeCache, tree, err := makeRecoveryProofTree(ctx, treeCfg, merkleHashFunc, nextLeafID, parkedNodes)
+	treeCache, tree, err := makeRecoveryProofTree(ctx, treeCfg, merkleHashFunc, nextLeafID)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -129,7 +128,6 @@ func makeRecoveryProofTree(
 	treeCfg TreeConfig,
 	merkleHashFunc merkle.HashFunc,
 	nextLeafID uint64,
-	parkedNodes [][]byte,
 ) (*cache.Writer, *merkle.Tree, error) {
 	// Don't use memory cache. Just utilize the existing files cache.
 	maxUint := ^uint(0)
@@ -210,7 +208,7 @@ func makeRecoveryProofTree(
 	}
 
 	// turn parkedNodesMap into a slice ordered by key
-	parkedNodes = parkedNodes[:0]
+	var parkedNodes [][]byte
 	for layer := 0; layer < len(layersFiles); layer++ {
 		if node, ok := parkedNodesMap[uint(layer)]; ok {
 			parkedNodes = append(parkedNodes, node)
@@ -410,13 +408,7 @@ func recoverMemCachedParkedNodes(
 	layerReader mshared.LayerReader,
 	merkleHashFunc merkle.HashFunc,
 ) ([][]byte, mshared.CacheReader, error) {
-	tmpDir, err := os.MkdirTemp(os.TempDir(), "poet-recovery-tree")
-	if err != nil {
-		return nil, nil, err
-	}
-	defer os.RemoveAll(tmpDir)
-	recoveryTreelayerFactory := NewReadWriterMetaFactory(0, tmpDir, 0).GetFactory()
-
+	recoveryTreelayerFactory := NewReadWriterMetaFactory(0, "", 0).GetFactory()
 	recoveryTreeCache := cache.NewWriter(func(uint) bool { return true }, recoveryTreelayerFactory)
 
 	tree, err := merkle.NewTreeBuilder().WithHashFunc(merkleHashFunc).WithCacheWriter(recoveryTreeCache).Build()

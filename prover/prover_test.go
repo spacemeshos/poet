@@ -114,7 +114,6 @@ func TestRecoverParkedNodes(t *testing.T) {
 		limit,
 		150,
 		lastLeafs,
-		[][]byte{},
 		persist,
 	)
 	r.NoError(err)

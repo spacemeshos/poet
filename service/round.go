@@ -269,7 +269,6 @@ func (r *round) recoverExecution(ctx context.Context, end time.Time, fileWriterB
 		end,
 		r.execution.SecurityParam,
 		r.execution.NumLeaves,
-		r.execution.ParkedNodes,
 		r.persistExecution,
 	)
 	if err != nil {
