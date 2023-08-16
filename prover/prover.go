@@ -223,7 +223,7 @@ func makeRecoveryProofTree(
 		return nil, nil, err
 	}
 	defer layerReader.Close()
-	memCachedParkedNodes, err := recoverMemCachedParkedNodes(layerReader, merkleHashFunc)
+	memCachedParkedNodes, readCache, err := recoverMemCachedParkedNodes(layerReader, merkleHashFunc)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Recoveing parked nodes from top layer of disk-cache: %w", err)
 	}
@@ -245,6 +245,15 @@ func makeRecoveryProofTree(
 	treeCache := cache.NewWriter(
 		cache.SpecificLayersPolicy(layers),
 		layerFactory)
+
+	// populate layers from topLayer up with layers from the rebuilt tree
+	rebuildLayers := readCache.Layers()
+	for layer, reader := range rebuildLayers {
+		if layer == 0 {
+			continue
+		}
+		treeCache.SetLayer(topLayer+uint(layer), reader)
+	}
 
 	tree, err := merkle.NewTreeBuilder().
 		WithHashFunc(merkleHashFunc).
@@ -397,10 +406,22 @@ func CalcTreeRoot(leaves [][]byte) ([]byte, error) {
 
 // build a small tree with the nodes from the top layer of the cache as leafs.
 // this tree will be used to get parked nodes for the merkle tree.
-func recoverMemCachedParkedNodes(layerReader mshared.LayerReader, merkleHashFunc merkle.HashFunc) ([][]byte, error) {
-	tree, err := merkle.NewTreeBuilder().WithHashFunc(merkleHashFunc).Build()
+func recoverMemCachedParkedNodes(
+	layerReader mshared.LayerReader,
+	merkleHashFunc merkle.HashFunc,
+) ([][]byte, mshared.CacheReader, error) {
+	tmpDir, err := os.MkdirTemp(os.TempDir(), "poet-recovery-tree")
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+	defer os.RemoveAll(tmpDir)
+	recoveryTreelayerFactory := NewReadWriterMetaFactory(0, tmpDir, 0).GetFactory()
+
+	recoveryTreeCache := cache.NewWriter(func(uint) bool { return true }, recoveryTreelayerFactory)
+
+	tree, err := merkle.NewTreeBuilder().WithHashFunc(merkleHashFunc).WithCacheWriter(recoveryTreeCache).Build()
+	if err != nil {
+		return nil, nil, err
 	}
 
 	// append nodes as leafs
@@ -410,12 +431,16 @@ func recoverMemCachedParkedNodes(layerReader mshared.LayerReader, merkleHashFunc
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("reading node from top layer of disk-cache: %w", err)
+			return nil, nil, fmt.Errorf("reading node from top layer of disk-cache: %w", err)
 		}
 		if err := tree.AddLeaf(node); err != nil {
-			return nil, fmt.Errorf("adding node to small tree: %w", err)
+			return nil, nil, fmt.Errorf("adding node to small tree: %w", err)
 		}
 	}
+	rdr, err := recoveryTreeCache.GetReader()
+	if err != nil {
+		return nil, nil, fmt.Errorf("getting reader for small tree: %w", err)
+	}
 	// the first parked node is for the leaves from the layerReader.
-	return tree.GetParkedNodes(nil)[1:], nil
+	return tree.GetParkedNodes(nil)[1:], rdr, nil
 }
