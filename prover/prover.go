@@ -2,7 +2,9 @@ package prover
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -13,7 +15,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/merkle-tree/cache"
+	mshared "github.com/spacemeshos/merkle-tree/shared"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/shared"
@@ -37,9 +41,9 @@ type TreeConfig struct {
 	FileWriterBufSize uint
 }
 
-type persistFunc func(ctx context.Context, tree *merkle.Tree, treeCache *cache.Writer, nextLeafId uint64) error
+type persistFunc func(ctx context.Context, treeCache *cache.Writer, nextLeafId uint64) error
 
-var persist persistFunc = func(context.Context, *merkle.Tree, *cache.Writer, uint64) error { return nil }
+var persist persistFunc = func(context.Context, *cache.Writer, uint64) error { return nil }
 
 // GenerateProof computes the PoET DAG, uses Fiat-Shamir to derive a challenge from the Merkle root and generates a
 // Merkle proof using the challenge and the DAG.
@@ -72,10 +76,9 @@ func GenerateProofRecovery(
 	limit time.Time,
 	securityParam uint8,
 	nextLeafID uint64,
-	parkedNodes [][]byte,
 	persist persistFunc,
 ) (uint64, *shared.MerkleProof, error) {
-	treeCache, tree, err := makeRecoveryProofTree(ctx, treeCfg, merkleHashFunc, nextLeafID, parkedNodes)
+	treeCache, tree, err := makeRecoveryProofTree(ctx, treeCfg, merkleHashFunc, nextLeafID)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -125,7 +128,6 @@ func makeRecoveryProofTree(
 	treeCfg TreeConfig,
 	merkleHashFunc merkle.HashFunc,
 	nextLeafID uint64,
-	parkedNodes [][]byte,
 ) (*cache.Writer, *merkle.Tree, error) {
 	// Don't use memory cache. Just utilize the existing files cache.
 	maxUint := ^uint(0)
@@ -142,8 +144,15 @@ func makeRecoveryProofTree(
 		return nil, nil, fmt.Errorf("layer 0 cache file is missing")
 	}
 
+	var topLayer uint
+	parkedNodesMap := make(map[uint][]byte)
+
 	// Validate structure.
 	for layer, file := range layersFiles {
+		if layer > topLayer {
+			topLayer = layer
+		}
+
 		readWriter, err := layerFactory(uint(layer))
 		if err != nil {
 			return nil, nil, err
@@ -181,7 +190,47 @@ func makeRecoveryProofTree(
 				width,
 			)
 		}
+
+		// recover parked node
+		if expectedWidth%2 != 0 {
+			if err := readWriter.Seek(expectedWidth - 1); err != nil {
+				return nil, nil, fmt.Errorf("seeking to parked node in layer %d: %w", layer, err)
+			}
+			parkedNode, err := readWriter.ReadNext()
+			if err != nil {
+				return nil, nil, fmt.Errorf("reading parked node in layer %d: %w", layer, err)
+			}
+			parkedNodesMap[layer] = parkedNode
+		}
 	}
+
+	// turn parkedNodesMap into a slice ordered by key
+	var parkedNodes [][]byte
+	for layer := 0; layer < len(layersFiles); layer++ {
+		if node, ok := parkedNodesMap[uint(layer)]; ok {
+			parkedNodes = append(parkedNodes, node)
+		} else {
+			parkedNodes = append(parkedNodes, nil)
+		}
+	}
+	layerReader, err := layerFactory(topLayer)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer layerReader.Close()
+	memCachedParkedNodes, readCache, err := recoverMemCachedParkedNodes(layerReader, merkleHashFunc)
+	if err != nil {
+		return nil, nil, fmt.Errorf("recoveing parked nodes from top layer of disk-cache: %w", err)
+	}
+	parkedNodes = append(parkedNodes, memCachedParkedNodes...)
+
+	logging.FromContext(ctx).
+		Info("recovered parked nodes", zap.Array("nodes", zapcore.ArrayMarshalerFunc(func(enc zapcore.ArrayEncoder) error {
+			for _, node := range parkedNodes {
+				enc.AppendString(fmt.Sprintf("%X", node))
+			}
+			return nil
+		})))
 
 	layers := make(map[uint]bool)
 	for layer := range layersFiles {
@@ -191,6 +240,15 @@ func makeRecoveryProofTree(
 	treeCache := cache.NewWriter(
 		cache.SpecificLayersPolicy(layers),
 		layerFactory)
+
+	// populate layers from topLayer up with layers from the rebuilt tree
+	rebuildLayers := readCache.Layers()
+	for layer, reader := range rebuildLayers {
+		if layer == 0 {
+			continue
+		}
+		treeCache.SetLayer(topLayer+uint(layer), reader)
+	}
 
 	tree, err := merkle.NewTreeBuilder().
 		WithHashFunc(merkleHashFunc).
@@ -237,12 +295,12 @@ func sequentialWork(
 
 		select {
 		case <-ctx.Done():
-			if err := persist(ctx, tree, treeCache, nextLeafID); err != nil {
+			if err := persist(ctx, treeCache, nextLeafID); err != nil {
 				return 0, fmt.Errorf("persisting execution state: %w", err)
 			}
 			return nextLeafID, ctx.Err()
 		case <-finished.C:
-			if err := persist(ctx, tree, treeCache, nextLeafID); err != nil {
+			if err := persist(ctx, treeCache, nextLeafID); err != nil {
 				return 0, fmt.Errorf("persisting execution state: %w", err)
 			}
 			return nextLeafID, nil
@@ -250,7 +308,7 @@ func sequentialWork(
 		}
 
 		if nextLeafID%hardShutdownCheckpointRate == 0 {
-			if err := persist(ctx, tree, treeCache, nextLeafID); err != nil {
+			if err := persist(ctx, treeCache, nextLeafID); err != nil {
 				return 0, err
 			}
 		}
@@ -273,7 +331,7 @@ func generateProof(
 
 	leaves, err := sequentialWork(ctx, leavesCounter, labelHashFunc, tree, treeCache, end, nextLeafID, persist)
 	if err != nil {
-		return 0, nil, err
+		return leaves, nil, err
 	}
 
 	logger.Sugar().Infof("merkle tree construction finished with %d leaves, generating proof...", leaves)
@@ -339,4 +397,39 @@ func CalcTreeRoot(leaves [][]byte) ([]byte, error) {
 		}
 	}
 	return tree.Root(), nil
+}
+
+// build a small tree with the nodes from the top layer of the cache as leafs.
+// this tree will be used to get parked nodes for the merkle tree.
+func recoverMemCachedParkedNodes(
+	layerReader mshared.LayerReader,
+	merkleHashFunc merkle.HashFunc,
+) ([][]byte, mshared.CacheReader, error) {
+	recoveryTreelayerFactory := NewReadWriterMetaFactory(0, "", 0).GetFactory()
+	recoveryTreeCache := cache.NewWriter(func(uint) bool { return true }, recoveryTreelayerFactory)
+
+	tree, err := merkle.NewTreeBuilder().WithHashFunc(merkleHashFunc).WithCacheWriter(recoveryTreeCache).Build()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// append nodes as leafs
+	for {
+		node, err := layerReader.ReadNext()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, nil, fmt.Errorf("reading node from top layer of disk-cache: %w", err)
+		}
+		if err := tree.AddLeaf(node); err != nil {
+			return nil, nil, fmt.Errorf("adding node to small tree: %w", err)
+		}
+	}
+	rdr, err := recoveryTreeCache.GetReader()
+	if err != nil {
+		return nil, nil, fmt.Errorf("getting reader for small tree: %w", err)
+	}
+	// the first parked node is for the leaves from the layerReader.
+	return tree.GetParkedNodes(nil)[1:], rdr, nil
 }
