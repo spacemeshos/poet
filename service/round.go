@@ -227,7 +227,7 @@ func (r *round) persistExecution(
 	return r.saveState()
 }
 
-func (r *round) recoverExecution(ctx context.Context, end time.Time, minMemoryLayer, fileWriterBufSize uint) error {
+func (r *round) recoverExecution(ctx context.Context, end time.Time, fileWriterBufSize uint) error {
 	logger := logging.FromContext(ctx).With(zap.String("round", r.ID))
 
 	started := time.Now()
@@ -263,7 +263,6 @@ func (r *round) recoverExecution(ctx context.Context, end time.Time, minMemoryLa
 		prover.TreeConfig{
 			Datadir:           r.datadir,
 			FileWriterBufSize: fileWriterBufSize,
-			MinMemoryLayer:    minMemoryLayer,
 		},
 		hash.GenLabelHashFunc(r.execution.Statement),
 		hash.GenMerkleHashFunc(r.execution.Statement),

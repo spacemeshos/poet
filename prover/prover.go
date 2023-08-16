@@ -2,7 +2,9 @@ package prover
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -144,10 +146,15 @@ func makeRecoveryProofTree(
 		return nil, nil, fmt.Errorf("layer 0 cache file is missing")
 	}
 
+	var topLayer uint
 	parkedNodesMap := make(map[uint][]byte)
 
 	// Validate structure.
 	for layer, file := range layersFiles {
+		if layer > topLayer {
+			topLayer = layer
+		}
+
 		readWriter, err := layerFactory(uint(layer))
 		if err != nil {
 			return nil, nil, err
@@ -211,31 +218,16 @@ func makeRecoveryProofTree(
 			parkedNodes = append(parkedNodes, nil)
 		}
 	}
-
-	// recover parked nodes from mem-cached layers
-	fileLayers := len(parkedNodes)
-	memLayerFactory := NewReadWriterMetaFactory(
-		treeCfg.MinMemoryLayer,
-		treeCfg.Datadir,
-		treeCfg.FileWriterBufSize,
-	).GetFactory()
-	for layer := fileLayers; ; layer++ {
-		numNodes := nextLeafID >> layer
-		if numNodes == 0 {
-			break
-		}
-		if numNodes%2 == 0 {
-			parkedNodes = append(parkedNodes, nil)
-		} else {
-			node, err := GetNode(memLayerFactory, layer, numNodes-1, merkleHashFunc)
-			if err != nil {
-				return nil, nil, fmt.Errorf("recovering parked node in layer %d: %w", layer, err)
-			}
-			logging.FromContext(ctx).
-				Info("recovered (mem) parked node", zap.Uint("layer", uint(layer)), zap.String("node", fmt.Sprintf("%X", node)))
-			parkedNodes = append(parkedNodes, node)
-		}
+	layerReader, err := layerFactory(topLayer)
+	if err != nil {
+		return nil, nil, err
 	}
+	defer layerReader.Close()
+	memCachedParkedNodes, err := recoverMemCachedParkedNodes(layerReader, merkleHashFunc)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Recoveing parked nodes from top layer of disk-cache: %w", err)
+	}
+	parkedNodes = append(parkedNodes, memCachedParkedNodes...)
 
 	logging.FromContext(ctx).
 		Info("all recovered parked nodes", zap.Array("nodes", zapcore.ArrayMarshalerFunc(func(enc zapcore.ArrayEncoder) error {
@@ -403,33 +395,27 @@ func CalcTreeRoot(leaves [][]byte) ([]byte, error) {
 	return tree.Root(), nil
 }
 
-// GetNode returns the node at the given index in the given layer.
-// It will recursively calculate the node if it is not already cached.
-func GetNode(layerFactory mshared.LayerFactory, layer int, index uint64, hash merkle.HashFunc) ([]byte, error) {
-	readWriter, err := layerFactory(uint(layer))
-	if err != nil {
-		return nil, err
-	}
-	defer readWriter.Close()
-
-	// Try to obtain from cache.
-	if err := readWriter.Seek(index); err == nil {
-		return readWriter.ReadNext()
-	}
-
-	if layer == 0 {
-		return nil, fmt.Errorf("cannot recreate leaf at index %d", index)
-	}
-
-	left, err := GetNode(layerFactory, layer-1, index*2, hash)
+// build a small tree with the nodes from the top layer of the cache as leafs.
+// this tree will be used to get parked nodes for the merkle tree.
+func recoverMemCachedParkedNodes(layerReader mshared.LayerReader, merkleHashFunc merkle.HashFunc) ([][]byte, error) {
+	tree, err := merkle.NewTreeBuilder().WithHashFunc(merkleHashFunc).Build()
 	if err != nil {
 		return nil, err
 	}
 
-	right, err := GetNode(layerFactory, layer-1, index*2+1, hash)
-	if err != nil {
-		return nil, err
+	// append nodes as leafs
+	for {
+		node, err := layerReader.ReadNext()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("reading node from top layer of disk-cache: %w", err)
+		}
+		if err := tree.AddLeaf(node); err != nil {
+			return nil, fmt.Errorf("adding node to small tree: %w", err)
+		}
 	}
-
-	return hash(nil, left, right), nil
+	// the first parked node is for the leaves from the layerReader.
+	return tree.GetParkedNodes(nil)[1:], nil
 }
