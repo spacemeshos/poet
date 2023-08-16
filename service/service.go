@@ -224,7 +224,7 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 		eg.Go(func() error {
 			unlock := lockOSThread(ctx, roundTidFile)
 			defer unlock()
-			err := round.recoverExecution(ctx, end, s.cfg.TreeFileBufferSize)
+			err := round.recoverExecution(ctx, end, s.cfg.TreeFileBufferSize, 0)
 			roundResults <- roundResult{round: round, err: err}
 			return nil
 		})
@@ -267,7 +267,7 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 			eg.Go(func() error {
 				unlock := lockOSThread(ctx, roundTidFile)
 				defer unlock()
-				err := round.execute(ctx, end, minMemoryLayer, s.cfg.TreeFileBufferSize)
+				err := round.execute(ctx, end, minMemoryLayer, s.cfg.TreeFileBufferSize, 0)
 				roundResults <- roundResult{round, err}
 				return nil
 			})

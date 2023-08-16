@@ -185,7 +185,7 @@ func TestRound_Submit(t *testing.T) {
 		require.NoError(t, err)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*10)
 		defer cancel()
-		err = round.execute(ctx, time.Now().Add(time.Hour), 1, 0)
+		err = round.execute(ctx, time.Now().Add(time.Hour), 1, 0, 0)
 		require.ErrorIs(t, err, context.DeadlineExceeded)
 
 		// Act
@@ -226,7 +226,7 @@ func TestRound_Execute(t *testing.T) {
 	req.NoError(round.submit(context.Background(), []byte("key"), challenge))
 
 	// Act
-	req.NoError(round.execute(context.Background(), time.Now().Add(400*time.Millisecond), 1, 0))
+	req.NoError(round.execute(context.Background(), time.Now().Add(400*time.Millisecond), 1, 0, 0))
 
 	// Verify
 	req.Equal(shared.T, round.execution.SecurityParam)
@@ -303,7 +303,7 @@ func TestRound_StateRecovery(t *testing.T) {
 		require.NoError(t, round.submit(context.Background(), []byte("key"), challenge))
 		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*10)
 		defer cancel()
-		require.ErrorIs(t, round.execute(ctx, time.Now().Add(time.Hour), 1, 0), context.DeadlineExceeded)
+		require.ErrorIs(t, round.execute(ctx, time.Now().Add(time.Hour), 1, 0, 0), context.DeadlineExceeded)
 		require.NoError(t, round.teardown(context.Background(), false))
 
 		// Act
@@ -345,7 +345,7 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 		ctx, stop := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer stop()
 		req.ErrorIs(
-			round.execute(ctx, time.Now().Add(time.Hour), 2, 0),
+			round.execute(ctx, time.Now().Add(time.Hour), 2, 0, 0),
 			context.DeadlineExceeded,
 		)
 		req.NoError(round.teardown(context.Background(), false))
@@ -360,7 +360,7 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 
 		ctx, stop := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer stop()
-		req.ErrorIs(round.recoverExecution(ctx, time.Now().Add(time.Hour), 0), context.DeadlineExceeded)
+		req.ErrorIs(round.recoverExecution(ctx, time.Now().Add(time.Hour), 0, 0), context.DeadlineExceeded)
 		req.NoError(round.teardown(context.Background(), false))
 	}
 
@@ -371,7 +371,7 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 		req.Equal(len(challenges), numChallenges(round))
 		req.NoError(round.loadState())
 
-		req.NoError(round.recoverExecution(context.Background(), time.Now().Add(200*time.Millisecond), 0))
+		req.NoError(round.recoverExecution(context.Background(), time.Now().Add(time.Hour), 0, 33076))
 		validateProof(t, round.execution)
 		req.NoError(round.teardown(context.Background(), true))
 	}

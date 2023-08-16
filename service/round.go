@@ -151,7 +151,7 @@ func (r *round) submit(ctx context.Context, key, challenge []byte) error {
 	return nil
 }
 
-func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer, fileWriterBufSize uint) error {
+func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer, fileWriterBufSize uint, maxSize uint64) error {
 	logger := logging.FromContext(ctx).With(zap.String("round", r.ID))
 
 	r.executionStarted = time.Now()
@@ -176,6 +176,17 @@ func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer, file
 		return err
 	}
 
+	finished := time.NewTimer(time.Until(end))
+	defer finished.Stop()
+	isDone := func(leaf uint64) bool {
+		select {
+		case <-finished.C:
+			return true
+		default:
+			return maxSize > 0 && leaf >= maxSize
+		}
+	}
+
 	numLeaves, nip, err := prover.GenerateProof(
 		ctx,
 		r.leavesCounter,
@@ -186,7 +197,7 @@ func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer, file
 		},
 		hash.GenLabelHashFunc(r.execution.Statement),
 		hash.GenMerkleHashFunc(r.execution.Statement),
-		end,
+		isDone,
 		r.execution.SecurityParam,
 		r.persistExecution,
 	)
@@ -226,10 +237,22 @@ func (r *round) persistExecution(
 	return r.saveState()
 }
 
-func (r *round) recoverExecution(ctx context.Context, end time.Time, fileWriterBufSize uint) error {
+func (r *round) recoverExecution(ctx context.Context, end time.Time, fileWriterBufSize uint, maxSize uint64) error {
 	logger := logging.FromContext(ctx).With(zap.String("round", r.ID))
 
 	started := time.Now()
+
+	finished := time.NewTimer(time.Until(end))
+	defer finished.Stop()
+
+	isDone := func(leaf uint64) bool {
+		select {
+		case <-finished.C:
+			return true
+		default:
+			return maxSize > 0 && leaf >= maxSize
+		}
+	}
 
 	if r.execution.Members == nil || r.execution.Statement == nil {
 		logger.Debug("calculating members and statement")
@@ -252,10 +275,11 @@ func (r *round) recoverExecution(ctx context.Context, end time.Time, fileWriterB
 		prover.TreeConfig{
 			Datadir:           r.datadir,
 			FileWriterBufSize: fileWriterBufSize,
+			MaxSize:           maxSize,
 		},
 		hash.GenLabelHashFunc(r.execution.Statement),
 		hash.GenMerkleHashFunc(r.execution.Statement),
-		end,
+		isDone,
 		r.execution.SecurityParam,
 		r.execution.NumLeaves,
 		r.execution.ParkedNodes,

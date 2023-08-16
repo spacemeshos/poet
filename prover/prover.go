@@ -35,6 +35,7 @@ type TreeConfig struct {
 	MinMemoryLayer    uint
 	Datadir           string
 	FileWriterBufSize uint
+	MaxSize           uint64
 }
 
 type persistFunc func(ctx context.Context, tree *merkle.Tree, treeCache *cache.Writer, nextLeafId uint64) error
@@ -49,7 +50,7 @@ func GenerateProof(
 	treeCfg TreeConfig,
 	labelHashFunc func(data []byte) []byte,
 	merkleHashFunc merkle.HashFunc,
-	limit time.Time,
+	isDone func(uint64) bool,
 	securityParam uint8,
 	persist persistFunc,
 ) (uint64, *shared.MerkleProof, error) {
@@ -59,7 +60,7 @@ func GenerateProof(
 	}
 	defer treeCache.Close()
 
-	return generateProof(ctx, leavesCounter, labelHashFunc, tree, treeCache, limit, 0, securityParam, persist)
+	return generateProof(ctx, leavesCounter, labelHashFunc, tree, treeCache, isDone, 0, securityParam, persist)
 }
 
 // GenerateProofRecovery recovers proof generation, from a given 'nextLeafID' and for a given 'parkedNodes' snapshot.
@@ -69,7 +70,7 @@ func GenerateProofRecovery(
 	treeCfg TreeConfig,
 	labelHashFunc func(data []byte) []byte,
 	merkleHashFunc merkle.HashFunc,
-	limit time.Time,
+	isDone func(uint64) bool,
 	securityParam uint8,
 	nextLeafID uint64,
 	parkedNodes [][]byte,
@@ -81,7 +82,7 @@ func GenerateProofRecovery(
 	}
 	defer treeCache.Close()
 
-	return generateProof(ctx, leavesCounter, labelHashFunc, tree, treeCache, limit, nextLeafID, securityParam, persist)
+	return generateProof(ctx, leavesCounter, labelHashFunc, tree, treeCache, isDone, nextLeafID, securityParam, persist)
 }
 
 // GenerateProofWithoutPersistency calls GenerateProof with disabled persistency functionality
@@ -96,7 +97,10 @@ func GenerateProofWithoutPersistency(
 	securityParam uint8,
 ) (uint64, *shared.MerkleProof, error) {
 	leavesCounter := prometheus.NewCounter(prometheus.CounterOpts{})
-	return GenerateProof(ctx, leavesCounter, treeCfg, labelHashFunc, merkleHashFunc, limit, securityParam, persist)
+	isDone := func(uint64) bool {
+		return time.Now().After(limit)
+	}
+	return GenerateProof(ctx, leavesCounter, treeCfg, labelHashFunc, merkleHashFunc, isDone, securityParam, persist)
 }
 
 func makeProofTree(treeCfg TreeConfig, merkleHashFunc merkle.HashFunc) (*merkle.Tree, *cache.Writer, error) {
@@ -213,15 +217,12 @@ func sequentialWork(
 	labelHashFunc func(data []byte) []byte,
 	tree *merkle.Tree,
 	treeCache *cache.Writer,
-	end time.Time,
+	isDone func(nextLeafId uint64) bool,
 	nextLeafID uint64,
 	persist persistFunc,
 ) (uint64, error) {
 	var parkedNodes [][]byte
 	makeLabel := shared.MakeLabelFunc()
-
-	finished := time.NewTimer(time.Until(end))
-	defer finished.Stop()
 
 	leavesCounter.Add(float64(nextLeafID))
 
@@ -235,17 +236,19 @@ func sequentialWork(
 		nextLeafID++
 		leavesCounter.Inc()
 
+		if isDone(nextLeafID) {
+			if err := persist(ctx, tree, treeCache, nextLeafID); err != nil {
+				return 0, fmt.Errorf("persisting execution state: %w", err)
+			}
+			return nextLeafID, nil
+		}
+
 		select {
 		case <-ctx.Done():
 			if err := persist(ctx, tree, treeCache, nextLeafID); err != nil {
 				return 0, fmt.Errorf("persisting execution state: %w", err)
 			}
 			return nextLeafID, ctx.Err()
-		case <-finished.C:
-			if err := persist(ctx, tree, treeCache, nextLeafID); err != nil {
-				return 0, fmt.Errorf("persisting execution state: %w", err)
-			}
-			return nextLeafID, nil
 		default:
 		}
 
@@ -263,15 +266,15 @@ func generateProof(
 	labelHashFunc func(data []byte) []byte,
 	tree *merkle.Tree,
 	treeCache *cache.Writer,
-	end time.Time,
+	isDone func(uint64) bool,
 	nextLeafID uint64,
 	securityParam uint8,
 	persist persistFunc,
 ) (uint64, *shared.MerkleProof, error) {
 	logger := logging.FromContext(ctx)
-	logger.Info("generating proof", zap.Time("end", end), zap.Uint64("nextLeafID", nextLeafID))
+	logger.Info("generating proof", zap.Uint64("nextLeafID", nextLeafID))
 
-	leaves, err := sequentialWork(ctx, leavesCounter, labelHashFunc, tree, treeCache, end, nextLeafID, persist)
+	leaves, err := sequentialWork(ctx, leavesCounter, labelHashFunc, tree, treeCache, isDone, nextLeafID, persist)
 	if err != nil {
 		return 0, nil, err
 	}
