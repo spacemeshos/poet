@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"os"
 
 	"github.com/c0mm4nd/go-ripemd"
 	"github.com/spacemeshos/go-scale"
@@ -17,9 +16,6 @@ const (
 	// T is the security param which determines the number of leaves
 	// to be included in a non-interactive proof.
 	T uint8 = 150
-
-	// OwnerReadWrite is a standard owner read / write file permission.
-	OwnerReadWrite = os.FileMode(0o600)
 )
 
 type LabelHash func(data []byte) []byte
