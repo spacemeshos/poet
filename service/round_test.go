@@ -347,10 +347,10 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 			req.NoError(round.submit(context.Background(), ch, ch))
 		}
 
-		ctx, stop := context.WithTimeout(context.Background(), 10*time.Millisecond)
+		ctx, stop := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer stop()
 		req.ErrorIs(
-			round.execute(ctx, time.Now().Add(time.Hour), 1, 0),
+			round.execute(ctx, time.Now().Add(time.Hour), 2, 0),
 			context.DeadlineExceeded,
 		)
 		req.NoError(round.teardown(context.Background(), false))
@@ -363,7 +363,7 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 		req.Equal(len(challenges), numChallenges(round))
 		req.NoError(round.loadState())
 
-		ctx, stop := context.WithTimeout(context.Background(), 10*time.Millisecond)
+		ctx, stop := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer stop()
 		req.ErrorIs(round.recoverExecution(ctx, time.Now().Add(time.Hour), 0), context.DeadlineExceeded)
 		req.NoError(round.teardown(context.Background(), false))
