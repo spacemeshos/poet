@@ -126,12 +126,12 @@ func newRound(dbdir, datadir string, epoch uint32, maxMembers uint) (*round, err
 		execution: &executionState{
 			SecurityParam: shared.T,
 		},
+		members:        countMembersInDB(db),
 		maxMembers:     maxMembers,
 		membersCounter: membersCounter,
 		leavesCounter:  leavesCounter,
 	}
 
-	r.members = countMembersInDB(r.challengesDb)
 	membersCounter.Add(float64(r.members))
 
 	return r, nil
