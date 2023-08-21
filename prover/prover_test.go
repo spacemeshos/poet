@@ -1,6 +1,7 @@
 package prover
 
 import (
+	"bytes"
 	"context"
 	"testing"
 	"time"
@@ -108,4 +109,42 @@ func TestRecoverParkedNodes(t *testing.T) {
 		150,
 	)
 	r.NoError(err)
+}
+
+func TestTreeRecovery(t *testing.T) {
+	t.Parallel()
+	test := func(t *testing.T, leafs uint64) {
+		t.Parallel()
+		r := require.New(t)
+		dataDir := t.TempDir()
+		// Create a tree and add some nodes to it
+		treeCfg := TreeConfig{
+			MinMemoryLayer: 3,
+			Datadir:        dataDir,
+		}
+		merklehashFuncFunc := hash.GenMerkleHashFunc([]byte{})
+		tree, treeCache, err := makeProofTree(treeCfg, merklehashFuncFunc)
+		r.NoError(err)
+
+		for i := uint64(0); i < leafs; i++ {
+			err := tree.AddLeaf(bytes.Repeat([]byte{byte(i)}, 32))
+			r.NoError(err)
+		}
+		treeCache.Close()
+
+		// recover the tree
+		treeCache, recoveredTree, err := makeRecoveryProofTree(context.Background(), treeCfg, merklehashFuncFunc, leafs)
+		r.NoError(err)
+		defer treeCache.Close()
+		// compare the trees by examining their roots and parked nodes
+		r.Equal(tree.Root(), recoveredTree.Root())
+		r.Equal(tree.GetParkedNodes(nil), recoveredTree.GetParkedNodes(nil))
+	}
+
+	t.Run("odd number of leafs", func(t *testing.T) {
+		test(t, 1005)
+	})
+	t.Run("even number of leafs", func(t *testing.T) {
+		test(t, 1000)
+	})
 }
