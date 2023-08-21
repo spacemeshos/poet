@@ -14,7 +14,6 @@ import (
 	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	proxy "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -79,9 +78,7 @@ func New(ctx context.Context, cfg config.Config) (*Server, error) {
 }
 
 func (s *Server) Close() error {
-	result := multierror.Append(nil, s.rpcListener.Close())
-	result = multierror.Append(result, s.restListener.Close())
-	return result
+	return errors.Join(s.rpcListener.Close(), s.restListener.Close())
 }
 
 // GrpcAddr returns the address that server is listening on for GRPC.
@@ -182,9 +179,7 @@ func (s *Server) Start(ctx context.Context) error {
 	// Wait for the server to shut down gracefully
 	<-ctx.Done()
 	grpcServer.GracefulStop()
-	result := multierror.Append(nil, server.Shutdown(context.Background()))
-	result = multierror.Append(result, serverGroup.Wait())
-	return result.ErrorOrNil()
+	return errors.Join(server.Shutdown(context.Background()), serverGroup.Wait())
 }
 
 // loggerInterceptor returns UnaryServerInterceptor handler to log all RPC server incoming requests.

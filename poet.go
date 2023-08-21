@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -13,7 +14,6 @@ import (
 	"runtime/pprof"
 	"time"
 
-	"github.com/hashicorp/go-multierror"
 	"github.com/jessevdk/go-flags"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
@@ -112,7 +112,7 @@ func poetMain() (err error) {
 		}
 		defer func() {
 			if e := f.Close(); e != nil {
-				err = multierror.Append(err, e).ErrorOrNil()
+				err = errors.Join(err, e)
 			}
 		}()
 		if err := pprof.StartCPUProfile(f); err != nil {
