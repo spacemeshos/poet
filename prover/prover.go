@@ -210,7 +210,7 @@ func makeRecoveryProofTree(
 		if node, ok := parkedNodesMap[uint(layer)]; ok {
 			parkedNodes = append(parkedNodes, node)
 		} else {
-			parkedNodes = append(parkedNodes, nil)
+			parkedNodes = append(parkedNodes, []byte{})
 		}
 	}
 	layerReader, err := layerFactory(topLayer)
