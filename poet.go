@@ -20,6 +20,7 @@ import (
 
 	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/logging"
+	"github.com/spacemeshos/poet/migrations"
 	"github.com/spacemeshos/poet/server"
 )
 
@@ -71,6 +72,11 @@ func poetMain() (err error) {
 	// Show version at startup.
 	logger.Sugar().
 		Infof("version: %s, dir: %v, datadir: %v, genesis: %v", version, cfg.PoetDir, cfg.DataDir, cfg.Service.Genesis)
+
+	// Migrate data if needed
+	if err := migrations.Migrate(ctx, cfg); err != nil {
+		return fmt.Errorf("migrations failed: %w", err)
+	}
 
 	if cfg.MetricsPort != nil {
 		// Start Prometheus

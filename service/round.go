@@ -19,7 +19,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/spacemeshos/poet/db"
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/prover"
@@ -91,17 +90,6 @@ func newRound(dbdir, datadir string, epoch uint32, maxMembers uint) (*round, err
 	id := strconv.FormatUint(uint64(epoch), 10)
 	datadir = filepath.Join(datadir, id)
 	dbdir = filepath.Join(dbdir, id)
-	if dbdir == datadir {
-		// old DB path had additional nesting
-		dbdir = filepath.Join(dbdir, "challengesDb")
-	}
-
-	// Temporary migration to move DB to a new location.
-	// TODO(poszu): remove this code after all poets are migrated.
-	oldDbDir := filepath.Join(datadir, "challengesDb")
-	if err := db.Migrate(context.Background(), dbdir, oldDbDir); err != nil {
-		return nil, fmt.Errorf("migrating DB from %s: %w", oldDbDir, err)
-	}
 
 	db, err := leveldb.OpenFile(dbdir, nil)
 	if err != nil {

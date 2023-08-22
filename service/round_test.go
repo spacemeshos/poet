@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -380,53 +379,4 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 		validateProof(t, round.execution)
 		req.NoError(round.teardown(context.Background(), true))
 	}
-}
-
-func TestRound_MigratingToNewDb(t *testing.T) {
-	req := require.New(t)
-	dataDir := t.TempDir()
-
-	r, err := newRound(dataDir, dataDir, 0, 10)
-	req.NoError(err)
-
-	req.NoError(r.submit(context.Background(), []byte("key1"), []byte("c1")))
-	req.NoError(r.submit(context.Background(), []byte("key2"), []byte("c2")))
-	req.Equal(2, numChallenges(r))
-	req.NoError(r.teardown(context.Background(), false))
-	// db is preserved
-	_, err = os.Stat(filepath.Join(dataDir, "0", "challengesDb"))
-	req.NoError(err)
-
-	// open round with different DB location
-	dbDir := t.TempDir()
-	r, err = newRound(dbDir, dataDir, 0, 10)
-	req.NoError(err)
-
-	// old db doesnt exist anymore
-	_, err = os.Stat(filepath.Join(dataDir, "0", "challengesDb"))
-	req.ErrorIs(err, os.ErrNotExist)
-
-	// new db contains the migrated challenges
-	req.EqualValues(2, r.members)
-	req.Equal(2, numChallenges(r))
-	value, err := r.challengesDb.Get([]byte("key1"), nil)
-	req.NoError(err)
-	req.Equal([]byte("c1"), value)
-	value, err = r.challengesDb.Get([]byte("key2"), nil)
-	req.NoError(err)
-	req.Equal([]byte("c2"), value)
-	req.NoError(r.teardown(context.Background(), false))
-
-	// open again - should skip migration
-	r, err = newRound(dbDir, dataDir, 0, 10)
-	req.EqualValues(2, r.members)
-	req.NoError(err)
-	req.Equal(2, numChallenges(r))
-	value, err = r.challengesDb.Get([]byte("key1"), nil)
-	req.NoError(err)
-	req.Equal([]byte("c1"), value)
-	value, err = r.challengesDb.Get([]byte("key2"), nil)
-	req.NoError(err)
-	req.Equal([]byte("c2"), value)
-	req.NoError(r.teardown(context.Background(), false))
 }
