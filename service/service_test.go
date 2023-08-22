@@ -24,8 +24,6 @@ import (
 )
 
 func TestParsingGenesisTime(t *testing.T) {
-	t.Parallel()
-
 	timeStr := "2006-01-02T15:04:05Z"
 	var genesis service.Genesis
 	err := genesis.UnmarshalFlag(timeStr)
@@ -48,7 +46,7 @@ func TestService_Recovery(t *testing.T) {
 	genesis := time.Now().Add(time.Second)
 	cfg := &service.Config{
 		Genesis:         service.Genesis(genesis),
-		EpochDuration:   time.Second * 2,
+		EpochDuration:   time.Second * 4,
 		PhaseShift:      time.Second,
 		MaxRoundMembers: 100,
 	}
@@ -167,7 +165,7 @@ func TestNewService(t *testing.T) {
 	genesis := time.Now().Add(time.Second)
 	cfg := &service.Config{
 		Genesis:         service.Genesis(genesis),
-		EpochDuration:   time.Second * 2,
+		EpochDuration:   time.Second * 4,
 		PhaseShift:      time.Second,
 		MaxRoundMembers: 100,
 	}
@@ -263,7 +261,6 @@ func TestNewService(t *testing.T) {
 }
 
 func TestNewServiceCannotSetNilVerifier(t *testing.T) {
-	t.Parallel()
 	tempdir := t.TempDir()
 
 	_, err := service.NewService(
@@ -275,10 +272,11 @@ func TestNewServiceCannotSetNilVerifier(t *testing.T) {
 	require.ErrorContains(t, err, "pow verifier cannot be nil")
 }
 
-func TestSubmitIdempotency(t *testing.T) {
+func TestSubmitIdempotence(t *testing.T) {
 	req := require.New(t)
+	genesis := time.Now().Add(time.Second)
 	cfg := service.Config{
-		Genesis:         service.Genesis(time.Now().Add(time.Second)),
+		Genesis:         service.Genesis(genesis),
 		EpochDuration:   time.Hour,
 		PhaseShift:      time.Second / 2,
 		CycleGap:        time.Second / 4,
@@ -315,10 +313,7 @@ func TestSubmitIdempotency(t *testing.T) {
 }
 
 func TestService_OpeningRounds(t *testing.T) {
-	t.Parallel()
-
 	t.Run("before genesis", func(t *testing.T) {
-		t.Parallel()
 		s, err := service.NewService(
 			context.Background(),
 			&service.Config{
@@ -344,7 +339,6 @@ func TestService_OpeningRounds(t *testing.T) {
 		require.NoError(t, eg.Wait())
 	})
 	t.Run("after genesis, but within phase shift", func(t *testing.T) {
-		t.Parallel()
 		s, err := service.NewService(
 			context.Background(),
 			&service.Config{
@@ -371,7 +365,6 @@ func TestService_OpeningRounds(t *testing.T) {
 		require.NoError(t, eg.Wait())
 	})
 	t.Run("in first epoch", func(t *testing.T) {
-		t.Parallel()
 		s, err := service.NewService(
 			context.Background(),
 			&service.Config{
@@ -397,7 +390,6 @@ func TestService_OpeningRounds(t *testing.T) {
 		require.NoError(t, eg.Wait())
 	})
 	t.Run("in distant epoch", func(t *testing.T) {
-		t.Parallel()
 		s, err := service.NewService(
 			context.Background(),
 			&service.Config{
@@ -426,8 +418,6 @@ func TestService_OpeningRounds(t *testing.T) {
 }
 
 func TestService_Start(t *testing.T) {
-	t.Parallel()
-
 	cfg := &service.Config{
 		Genesis:       service.Genesis(time.Now().Add(time.Minute)),
 		EpochDuration: time.Hour,
@@ -456,10 +446,10 @@ func TestService_Start(t *testing.T) {
 }
 
 func TestService_Recovery_MissingOpenRound(t *testing.T) {
-	t.Parallel()
 	req := require.New(t)
+	genesis := time.Now().Add(time.Second)
 	cfg := &service.Config{
-		Genesis:       service.Genesis(time.Now().Add(time.Second)),
+		Genesis:       service.Genesis(genesis),
 		EpochDuration: time.Hour,
 		PhaseShift:    time.Second,
 	}
@@ -520,10 +510,11 @@ func TestService_Recovery_MissingOpenRound(t *testing.T) {
 // of the previous round.
 func TestService_PowChallengeRotation(t *testing.T) {
 	req := require.New(t)
+	genesis := time.Now().Add(time.Second)
 	cfg := service.Config{
-		Genesis:             service.Genesis(time.Now()),
-		EpochDuration:       time.Second,
-		PhaseShift:          time.Second / 2,
+		Genesis:             service.Genesis(genesis),
+		EpochDuration:       time.Second * 4,
+		PhaseShift:          time.Second,
 		InitialPowChallenge: "initial challenge",
 		PowDifficulty:       7,
 	}
