@@ -78,7 +78,8 @@ func New(ctx context.Context, cfg config.Config) (*Server, error) {
 }
 
 func (s *Server) Close() error {
-	return errors.Join(s.rpcListener.Close(), s.restListener.Close())
+	err := s.rpcListener.Close()
+	return errors.Join(err, s.restListener.Close())
 }
 
 // GrpcAddr returns the address that server is listening on for GRPC.
@@ -179,7 +180,8 @@ func (s *Server) Start(ctx context.Context) error {
 	// Wait for the server to shut down gracefully
 	<-ctx.Done()
 	grpcServer.GracefulStop()
-	return errors.Join(server.Shutdown(context.Background()), serverGroup.Wait())
+	err = server.Shutdown(context.Background())
+	return errors.Join(err, serverGroup.Wait())
 }
 
 // loggerInterceptor returns UnaryServerInterceptor handler to log all RPC server incoming requests.

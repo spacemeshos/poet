@@ -111,9 +111,7 @@ func poetMain() (err error) {
 			logger.Error("could not create CPU profile", zap.Error(err))
 		}
 		defer func() {
-			if e := f.Close(); e != nil {
-				err = errors.Join(err, e)
-			}
+			err = errors.Join(err, f.Close())
 		}()
 		if err := pprof.StartCPUProfile(f); err != nil {
 			logger.Error("could not start CPU profile", zap.Error(err))
