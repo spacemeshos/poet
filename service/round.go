@@ -125,7 +125,7 @@ func newRound(dbdir, datadir string, epoch uint32, maxMembers uint) (*round, err
 	return r, nil
 }
 
-func (r *round) submit(ctx context.Context, key, challenge []byte) error {
+func (r *round) submit(ctx context.Context, key, challenge []byte, sync ...bool) error {
 	if !r.isOpen() {
 		return ErrRoundIsNotOpen
 	}
@@ -146,7 +146,7 @@ func (r *round) submit(ctx context.Context, key, challenge []byte) error {
 		return ErrConflictingRegistration
 	}
 
-	if err := r.challengesDb.Put(key, challenge, &opt.WriteOptions{Sync: true}); err != nil {
+	if err := r.challengesDb.Put(key, challenge, &opt.WriteOptions{Sync: sync[0]}); err != nil {
 		return fmt.Errorf("failed to register challenge: %w", err)
 	}
 

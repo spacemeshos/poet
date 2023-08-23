@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"crypto/rand"
+	"encoding/binary"
 	"os"
 	"testing"
 	"time"
@@ -59,7 +60,7 @@ func withMaxMembers(maxMembers uint) newRoundOptionFunc {
 	}
 }
 
-func newTestRound(t *testing.T, opts ...newRoundOptionFunc) *round {
+func newTestRound(t testing.TB, opts ...newRoundOptionFunc) *round {
 	t.Helper()
 	options := newRoundOption{
 		epoch:      7,
@@ -379,4 +380,28 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 		validateProof(t, round.execution)
 		req.NoError(round.teardown(context.Background(), true))
 	}
+}
+
+func benchmarkRoundSubmit(b *testing.B, sync bool) {
+	b.SetParallelism(1)
+
+	round := newTestRound(b, withMaxMembers(10000000000))
+	challenge, err := genChallenge()
+	require.NoError(b, err)
+
+	key := make([]byte, 8)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		binary.LittleEndian.PutUint64(key, uint64(i))
+		require.NoError(b, round.submit(context.Background(), key, challenge, sync))
+	}
+
+}
+
+func BenchmarkRoundSubmitSync(b *testing.B) {
+	benchmarkRoundSubmit(b, true)
+}
+
+func BenchmarkRoundSubmitNoSync(b *testing.B) {
+	benchmarkRoundSubmit(b, false)
 }
