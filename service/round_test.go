@@ -69,7 +69,7 @@ func newTestRound(t *testing.T, opts ...newRoundOptionFunc) *round {
 		opt(&options)
 	}
 
-	round, err := newRound(t.TempDir(), options.epoch, options.maxMembers)
+	round, err := newRound(t.TempDir(), t.TempDir(), options.epoch, options.maxMembers)
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, round.teardown(context.Background(), true)) })
 	return round
@@ -94,7 +94,7 @@ func validateProof(t *testing.T, execution *executionState) {
 func TestRound_TearDown(t *testing.T) {
 	t.Run("no cleanup", func(t *testing.T) {
 		// Arrange
-		round, err := newRound(t.TempDir(), 0, 1)
+		round, err := newRound(t.TempDir(), t.TempDir(), 0, 1)
 		require.NoError(t, err)
 
 		// Act
@@ -107,7 +107,7 @@ func TestRound_TearDown(t *testing.T) {
 
 	t.Run("cleanup", func(t *testing.T) {
 		// Arrange
-		round, err := newRound(t.TempDir(), 0, 1)
+		round, err := newRound(t.TempDir(), t.TempDir(), 0, 1)
 		require.NoError(t, err)
 
 		// Act
@@ -124,7 +124,7 @@ func TestRound_New(t *testing.T) {
 	req := require.New(t)
 
 	// Act
-	round, err := newRound(t.TempDir(), 7, 1)
+	round, err := newRound(t.TempDir(), t.TempDir(), 7, 1)
 	req.NoError(err)
 	t.Cleanup(func() { assert.NoError(t, round.teardown(context.Background(), true)) })
 
@@ -237,15 +237,16 @@ func TestRound_Execute(t *testing.T) {
 
 func TestRound_StateRecovery(t *testing.T) {
 	t.Run("Recover open round", func(t *testing.T) {
+		dbdir := t.TempDir()
 		tmpdir := t.TempDir()
 
 		// Arrange
-		round, err := newRound(tmpdir, 0, 1)
+		round, err := newRound(dbdir, tmpdir, 0, 1)
 		require.NoError(t, err)
 		require.NoError(t, round.teardown(context.Background(), false))
 
 		// Act
-		recovered, err := newRound(tmpdir, 0, 1)
+		recovered, err := newRound(dbdir, tmpdir, 0, 1)
 		require.NoError(t, err)
 		t.Cleanup(func() { assert.NoError(t, recovered.teardown(context.Background(), false)) })
 		require.NoError(t, recovered.loadState())
@@ -255,20 +256,21 @@ func TestRound_StateRecovery(t *testing.T) {
 		require.False(t, recovered.isExecuted())
 	})
 	t.Run("Recover open round with members", func(t *testing.T) {
+		dbdir := t.TempDir()
 		tmpdir := t.TempDir()
 
 		// Arrange
 		challenge, err := genChallenge()
 		require.NoError(t, err)
 		{
-			round, err := newRound(tmpdir, 0, 1)
+			round, err := newRound(dbdir, tmpdir, 0, 1)
 			require.NoError(t, err)
 			require.NoError(t, round.submit(context.Background(), []byte("key"), challenge))
 			require.NoError(t, round.teardown(context.Background(), false))
 		}
 
 		// Act
-		recovered, err := newRound(tmpdir, 0, 1)
+		recovered, err := newRound(dbdir, tmpdir, 0, 1)
 		require.NoError(t, err)
 		t.Cleanup(func() { assert.NoError(t, recovered.teardown(context.Background(), false)) })
 		require.NoError(t, recovered.loadState())
@@ -282,7 +284,7 @@ func TestRound_StateRecovery(t *testing.T) {
 	})
 	t.Run("Load state of a freshly opened round", func(t *testing.T) {
 		// Arrange
-		round, err := newRound(t.TempDir(), 0, 1)
+		round, err := newRound(t.TempDir(), t.TempDir(), 0, 1)
 		t.Cleanup(func() { assert.NoError(t, round.teardown(context.Background(), false)) })
 		require.NoError(t, err)
 		require.NoError(t, round.saveState())
@@ -293,10 +295,11 @@ func TestRound_StateRecovery(t *testing.T) {
 		require.False(t, round.isExecuted())
 	})
 	t.Run("Recover executing round", func(t *testing.T) {
+		dbdir := t.TempDir()
 		tmpdir := t.TempDir()
 
 		// Arrange
-		round, err := newRound(tmpdir, 0, 1)
+		round, err := newRound(dbdir, tmpdir, 0, 1)
 		require.NoError(t, err)
 		challenge, err := genChallenge()
 		require.NoError(t, err)
@@ -307,7 +310,7 @@ func TestRound_StateRecovery(t *testing.T) {
 		require.NoError(t, round.teardown(context.Background(), false))
 
 		// Act
-		recovered, err := newRound(tmpdir, 0, 1)
+		recovered, err := newRound(dbdir, tmpdir, 0, 1)
 		require.NoError(t, err)
 		t.Cleanup(func() { assert.NoError(t, recovered.teardown(context.Background(), false)) })
 		require.NoError(t, recovered.loadState())
@@ -326,6 +329,7 @@ func TestRound_StateRecovery(t *testing.T) {
 //   - Recover execution again, and let it complete.
 func TestRound_ExecutionRecovery(t *testing.T) {
 	req := require.New(t)
+	dbdir := t.TempDir()
 	tmpdir := t.TempDir()
 
 	// Arrange
@@ -334,7 +338,7 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 
 	// Execute round, and request shutdown before completion.
 	{
-		round, err := newRound(tmpdir, 1, 32)
+		round, err := newRound(dbdir, tmpdir, 1, 32)
 		req.NoError(err)
 		req.Zero(0, numChallenges(round))
 
@@ -353,7 +357,7 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 
 	// Recover round execution and request shutdown before completion.
 	{
-		round, err := newRound(tmpdir, 1, 32)
+		round, err := newRound(dbdir, tmpdir, 1, 32)
 		req.NoError(err)
 		req.Equal(len(challenges), numChallenges(round))
 		req.NoError(round.loadState())
@@ -366,7 +370,7 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 
 	// Recover r2 execution again, and let it complete.
 	{
-		round, err := newRound(tmpdir, 1, 32)
+		round, err := newRound(dbdir, tmpdir, 1, 32)
 		req.NoError(err)
 		req.Equal(len(challenges), numChallenges(round))
 		req.NoError(round.loadState())

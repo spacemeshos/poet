@@ -43,6 +43,7 @@ type challenge struct {
 func TestService_Recovery(t *testing.T) {
 	req := require.New(t)
 	tempdir := t.TempDir()
+	dbdir := t.TempDir()
 	genesis := time.Now().Add(time.Second)
 	cfg := &service.Config{
 		Genesis:         service.Genesis(genesis),
@@ -88,7 +89,7 @@ func TestService_Recovery(t *testing.T) {
 	}
 
 	// Create a new service instance.
-	s, err := service.NewService(context.Background(), cfg, tempdir)
+	s, err := service.NewService(context.Background(), cfg, dbdir, tempdir)
 	req.NoError(err)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -111,7 +112,7 @@ func TestService_Recovery(t *testing.T) {
 	req.NoError(eg.Wait())
 
 	// Create a new service instance.
-	s, err = service.NewService(context.Background(), cfg, tempdir)
+	s, err = service.NewService(context.Background(), cfg, dbdir, tempdir)
 	req.NoError(err)
 
 	ctx, cancel = context.WithCancel(context.Background())
@@ -161,7 +162,6 @@ func TestService_Recovery(t *testing.T) {
 
 func TestNewService(t *testing.T) {
 	req := require.New(t)
-	tempdir := t.TempDir()
 	genesis := time.Now().Add(time.Second)
 	cfg := &service.Config{
 		Genesis:         service.Genesis(genesis),
@@ -189,7 +189,13 @@ func TestNewService(t *testing.T) {
 		challenges[i] = challenge{data: bytes.Repeat([]byte{byte(i)}, 32), nodeID: bytes.Repeat([]byte{-byte(i)}, 32)}
 	}
 
-	s, err := service.NewService(context.Background(), cfg, tempdir, service.WithPowVerifier(powVerifier))
+	s, err := service.NewService(
+		context.Background(),
+		cfg,
+		t.TempDir(),
+		t.TempDir(),
+		service.WithPowVerifier(powVerifier),
+	)
 	req.NoError(err)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -261,12 +267,11 @@ func TestNewService(t *testing.T) {
 }
 
 func TestNewServiceCannotSetNilVerifier(t *testing.T) {
-	tempdir := t.TempDir()
-
 	_, err := service.NewService(
 		context.Background(),
 		config.DefaultConfig().Service,
-		tempdir,
+		t.TempDir(),
+		t.TempDir(),
 		service.WithPowVerifier(nil),
 	)
 	require.ErrorContains(t, err, "pow verifier cannot be nil")
@@ -288,7 +293,13 @@ func TestSubmitIdempotence(t *testing.T) {
 
 	verifier := mocks.NewMockPowVerifier(gomock.NewController(t))
 
-	s, err := service.NewService(context.Background(), &cfg, t.TempDir(), service.WithPowVerifier(verifier))
+	s, err := service.NewService(
+		context.Background(),
+		&cfg,
+		t.TempDir(),
+		t.TempDir(),
+		service.WithPowVerifier(verifier),
+	)
 	req.NoError(err)
 
 	verifier.EXPECT().Params().Times(2).Return(service.PowParams{})
@@ -321,6 +332,7 @@ func TestService_OpeningRounds(t *testing.T) {
 				EpochDuration: time.Hour,
 			},
 			t.TempDir(),
+			t.TempDir(),
 		)
 		require.NoError(t, err)
 
@@ -347,6 +359,7 @@ func TestService_OpeningRounds(t *testing.T) {
 				PhaseShift:    time.Minute * 10,
 			},
 			t.TempDir(),
+			t.TempDir(),
 		)
 		require.NoError(t, err)
 
@@ -371,6 +384,7 @@ func TestService_OpeningRounds(t *testing.T) {
 				Genesis:       service.Genesis(time.Now().Add(-time.Minute)),
 				EpochDuration: time.Hour,
 			},
+			t.TempDir(),
 			t.TempDir(),
 		)
 		require.NoError(t, err)
@@ -398,6 +412,7 @@ func TestService_OpeningRounds(t *testing.T) {
 				PhaseShift:    time.Minute,
 			},
 			t.TempDir(),
+			t.TempDir(),
 		)
 		require.NoError(t, err)
 
@@ -423,7 +438,7 @@ func TestService_Start(t *testing.T) {
 		EpochDuration: time.Hour,
 	}
 	t.Run("cannot start twice", func(t *testing.T) {
-		s, err := service.NewService(context.Background(), cfg, t.TempDir())
+		s, err := service.NewService(context.Background(), cfg, t.TempDir(), t.TempDir())
 		require.NoError(t, err)
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -436,7 +451,7 @@ func TestService_Start(t *testing.T) {
 		require.NoError(t, eg.Wait())
 	})
 	t.Run("hang start respects context cancellation", func(t *testing.T) {
-		s, err := service.NewService(context.Background(), cfg, t.TempDir())
+		s, err := service.NewService(context.Background(), cfg, t.TempDir(), t.TempDir())
 		require.NoError(t, err)
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*50)
@@ -455,9 +470,10 @@ func TestService_Recovery_MissingOpenRound(t *testing.T) {
 	}
 
 	tempdir := t.TempDir()
+	dbdir := t.TempDir()
 
 	// Create a new service instance.
-	s, err := service.NewService(context.Background(), cfg, tempdir)
+	s, err := service.NewService(context.Background(), cfg, dbdir, tempdir)
 	req.NoError(err)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -480,7 +496,7 @@ func TestService_Recovery_MissingOpenRound(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// Create a new service instance.
-	s, err = service.NewService(context.Background(), cfg, tempdir)
+	s, err = service.NewService(context.Background(), cfg, dbdir, tempdir)
 	req.NoError(err)
 
 	ctx, cancel = context.WithCancel(context.Background())
@@ -519,7 +535,7 @@ func TestService_PowChallengeRotation(t *testing.T) {
 		PowDifficulty:       7,
 	}
 
-	s, err := service.NewService(context.Background(), &cfg, t.TempDir())
+	s, err := service.NewService(context.Background(), &cfg, t.TempDir(), t.TempDir())
 	req.NoError(err)
 
 	ctx, cancel := context.WithCancel(context.Background())

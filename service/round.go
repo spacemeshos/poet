@@ -86,14 +86,18 @@ func (r *round) Epoch() uint32 {
 	return r.epoch
 }
 
-func newRound(datadir string, epoch uint32, maxMembers uint) (*round, error) {
+func newRound(dbdir, datadir string, epoch uint32, maxMembers uint) (*round, error) {
 	id := strconv.FormatUint(uint64(epoch), 10)
 	datadir = filepath.Join(datadir, id)
+	dbdir = filepath.Join(dbdir, id)
 
-	db, err := leveldb.OpenFile(filepath.Join(datadir, "challengesDb"), nil)
+	db, err := leveldb.OpenFile(dbdir, nil)
 	if err != nil {
-		_ = os.RemoveAll(datadir)
-		return nil, err
+		return nil, fmt.Errorf("opening challenges DB: %w", err)
+	}
+
+	if err := os.MkdirAll(datadir, 0o700); err != nil {
+		return nil, fmt.Errorf("creating round datadir: %w", err)
 	}
 
 	// Note: using the panicking version here because it panics

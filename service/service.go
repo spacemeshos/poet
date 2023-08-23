@@ -68,6 +68,7 @@ type Service struct {
 	timer    <-chan time.Time
 
 	cfg            *Config
+	dbdir          string
 	datadir        string
 	minMemoryLayer uint
 
@@ -118,7 +119,7 @@ func WithPowVerifier(v PowVerifier) OptionFunc {
 
 // NewService creates a new instance of Poet Service.
 // It should be started with `Service::Run`.
-func NewService(ctx context.Context, cfg *Config, datadir string, opts ...OptionFunc) (*Service, error) {
+func NewService(ctx context.Context, cfg *Config, dbdir, datadir string, opts ...OptionFunc) (*Service, error) {
 	options := option{
 		verifier: NewPowVerifier(NewPowParams([]byte(cfg.InitialPowChallenge), cfg.PowDifficulty)),
 	}
@@ -170,6 +171,7 @@ func NewService(ctx context.Context, cfg *Config, datadir string, opts ...Option
 		cfg:            cfg,
 		minMemoryLayer: minMemoryLayer,
 		datadir:        datadir,
+		dbdir:          dbdir,
 		privKey:        privateKey,
 		PubKey:         privateKey.Public().(ed25519.PublicKey),
 		powVerifiers: powVerifiers{
@@ -376,6 +378,7 @@ func (s *Service) Started() bool {
 
 func (s *Service) recover(ctx context.Context) (open, executing *round, err error) {
 	roundsDir := filepath.Join(s.datadir, "rounds")
+	roundsDbDir := filepath.Join(s.dbdir, "rounds")
 	logger := logging.FromContext(ctx).Named("recovery")
 	logger.Info("recovering service state", zap.String("datadir", s.datadir))
 	entries, err := os.ReadDir(roundsDir)
@@ -393,7 +396,7 @@ func (s *Service) recover(ctx context.Context) (open, executing *round, err erro
 		if err != nil {
 			return nil, nil, fmt.Errorf("entry is not a uint32 %s", entry.Name())
 		}
-		r, err := newRound(roundsDir, uint32(epoch), s.cfg.MaxRoundMembers)
+		r, err := newRound(roundsDbDir, roundsDir, uint32(epoch), s.cfg.MaxRoundMembers)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to create round: %w", err)
 		}
@@ -521,7 +524,15 @@ func (s *Service) Info(ctx context.Context) (*InfoResponse, error) {
 // newRound creates a new round with the given epoch.
 func (s *Service) newRound(ctx context.Context, epoch uint32) (*round, error) {
 	roundsDir := filepath.Join(s.datadir, "rounds")
-	r, err := newRound(roundsDir, epoch, s.cfg.MaxRoundMembers)
+	roundsDbDir := filepath.Join(s.dbdir, "rounds")
+	logging.FromContext(ctx).Info(
+		"opening round",
+		zap.Uint32("epoch", epoch),
+		zap.String("roundsDir", roundsDir),
+		zap.String("roundsdbdir", roundsDbDir),
+	)
+
+	r, err := newRound(roundsDbDir, roundsDir, epoch, s.cfg.MaxRoundMembers)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a new round: %w", err)
 	}

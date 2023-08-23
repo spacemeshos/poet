@@ -20,6 +20,7 @@ import (
 )
 
 const (
+	defaultDbDirName                = "db"
 	defaultDataDirname              = "data"
 	defaultLogDirname               = "logs"
 	defaultMaxLogFiles              = 3
@@ -45,7 +46,8 @@ var (
 type Config struct {
 	PoetDir         string  `long:"poetdir"        description:"The base directory that contains poet's data, logs, configuration file, etc."`
 	ConfigFile      string  `long:"configfile"     description:"Path to configuration file"                                                   short:"c"`
-	DataDir         string  `long:"datadir"        description:"The directory to store poet's data within"                                    short:"b"`
+	DataDir         string  `long:"datadir"        description:"The directory to store poet's data within."                                   short:"b"`
+	DbDir           string  `long:"dbdir"          description:"The directory to store DBs within"`
 	LogDir          string  `long:"logdir"         description:"Directory to log output."`
 	DebugLog        bool    `long:"debuglog"       description:"Enable debug logs"`
 	JSONLog         bool    `long:"jsonlog"        description:"Whether to log in JSON format"`
@@ -72,6 +74,7 @@ func DefaultConfig() *Config {
 	return &Config{
 		PoetDir:         poetDir,
 		DataDir:         filepath.Join(poetDir, defaultDataDirname),
+		DbDir:           filepath.Join(poetDir, defaultDbDirName),
 		LogDir:          filepath.Join(poetDir, defaultLogDirname),
 		MaxLogFiles:     defaultMaxLogFiles,
 		MaxLogFileSize:  defaultMaxLogFileSize,
@@ -124,6 +127,9 @@ func SetupConfig(cfg *Config) (*Config, error) {
 		}
 		if cfg.LogDir == defaultCfg.LogDir {
 			cfg.LogDir = filepath.Join(cfg.PoetDir, defaultLogDirname)
+		}
+		if cfg.DbDir == defaultCfg.DbDir {
+			cfg.DbDir = filepath.Join(cfg.PoetDir, defaultDbDirName)
 		}
 	}
 

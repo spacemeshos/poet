@@ -64,7 +64,7 @@ func New(ctx context.Context, cfg config.Config) (*Server, error) {
 		}
 	}
 
-	svc, err := service.NewService(ctx, cfg.Service, cfg.DataDir)
+	svc, err := service.NewService(ctx, cfg.Service, cfg.DbDir, cfg.DataDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Service: %v", err)
 	}
@@ -120,7 +120,7 @@ func (s *Server) Start(ctx context.Context) error {
 		}),
 	}
 
-	proofsDbPath := filepath.Join(s.cfg.DataDir, "proofs")
+	proofsDbPath := filepath.Join(s.cfg.DbDir, "proofs")
 	proofsDb, err := service.NewProofsDatabase(proofsDbPath, s.svc.ProofsChan())
 	if err != nil {
 		return fmt.Errorf("failed to create proofs DB: %w", err)
