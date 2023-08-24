@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/binary"
+	mrand "math/rand"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -50,6 +52,7 @@ func numChallenges(r *round) int {
 type newRoundOption struct {
 	epoch      uint32
 	maxMembers uint
+	dbdir      string
 }
 
 type newRoundOptionFunc func(*newRoundOption)
@@ -60,17 +63,24 @@ func withMaxMembers(maxMembers uint) newRoundOptionFunc {
 	}
 }
 
+func withDbDir(dir string) newRoundOptionFunc {
+	return func(o *newRoundOption) {
+		o.dbdir = dir
+	}
+}
+
 func newTestRound(t testing.TB, opts ...newRoundOptionFunc) *round {
 	t.Helper()
 	options := newRoundOption{
 		epoch:      7,
 		maxMembers: 10,
+		dbdir:      t.TempDir(),
 	}
 	for _, opt := range opts {
 		opt(&options)
 	}
 
-	round, err := newRound(t.TempDir(), t.TempDir(), options.epoch, options.maxMembers)
+	round, err := newRound(options.dbdir, t.TempDir(), options.epoch, options.maxMembers)
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, round.teardown(context.Background(), true)) })
 	return round
@@ -382,10 +392,20 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 	}
 }
 
-func benchmarkRoundSubmit(b *testing.B, sync bool) {
-	b.SetParallelism(1)
+var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
-	round := newTestRound(b, withMaxMembers(10000000000))
+func randSeq(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letters[mrand.Intn(len(letters))]
+	}
+	return string(b)
+}
+
+func benchmarkRoundSubmit(b *testing.B, sync bool, opts ...newRoundOptionFunc) {
+	b.SetParallelism(1)
+	opts = append(opts, withMaxMembers(1000000000))
+	round := newTestRound(b, opts...)
 	challenge, err := genChallenge()
 	require.NoError(b, err)
 
@@ -398,10 +418,18 @@ func benchmarkRoundSubmit(b *testing.B, sync bool) {
 
 }
 
-func BenchmarkRoundSubmitSync(b *testing.B) {
-	benchmarkRoundSubmit(b, true)
+func BenchmarkRoundSubmitSyncNVME(b *testing.B) {
+	benchmarkRoundSubmit(b, true, withDbDir(b.TempDir()))
 }
 
-func BenchmarkRoundSubmitNoSync(b *testing.B) {
-	benchmarkRoundSubmit(b, false)
+func BenchmarkRoundSubmitNoSyncNVME(b *testing.B) {
+	benchmarkRoundSubmit(b, false, withDbDir(b.TempDir()))
+}
+
+func BenchmarkRoundSubmitSyncHDD(b *testing.B) {
+	benchmarkRoundSubmit(b, true, withDbDir(filepath.Join("/mnt/md127/withsync", randSeq(6))))
+}
+
+func BenchmarkRoundSubmitNoSyncHDD(b *testing.B) {
+	benchmarkRoundSubmit(b, false, withDbDir(filepath.Join("/mnt/md127/nosync", randSeq(6))))
 }
