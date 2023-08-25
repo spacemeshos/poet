@@ -2,12 +2,12 @@ package server
 
 import (
 	"context"
+	"crypto/ed25519"
 	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,16 +25,21 @@ import (
 
 	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/logging"
+	"github.com/spacemeshos/poet/registration"
 	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
 	"github.com/spacemeshos/poet/rpc"
 	"github.com/spacemeshos/poet/service"
+	"github.com/spacemeshos/poet/transport"
 )
 
 type Server struct {
 	svc          *service.Service
+	reg          *registration.Registration
 	cfg          config.Config
 	rpcListener  net.Listener
 	restListener net.Listener
+
+	privateKey ed25519.PrivateKey
 }
 
 func New(ctx context.Context, cfg config.Config) (*Server, error) {
@@ -65,22 +70,64 @@ func New(ctx context.Context, cfg config.Config) (*Server, error) {
 		}
 	}
 
-	svc, err := service.NewService(ctx, cfg.Service, cfg.DbDir, cfg.DataDir)
+	// Load state
+	s, err := loadState(cfg.DataDir)
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		_, privateKey, err := ed25519.GenerateKey(nil)
+		if err != nil {
+			return nil, fmt.Errorf("generating key: %w", err)
+		}
+		s = &state{
+			PrivKey: privateKey,
+		}
+		if err := s.save(cfg.DataDir); err != nil {
+			return nil, fmt.Errorf("saving state: %w", err)
+		}
+	case err != nil:
+		return nil, fmt.Errorf("loading state: %w", err)
+	}
+	privateKey := ed25519.NewKeyFromSeed(s.PrivKey[:32])
+
+	transport := transport.NewInMemory()
+	reg, err := registration.NewRegistration(
+		ctx,
+		cfg.Genesis.Time(),
+		cfg.DbDir,
+		transport,
+		registration.WithConfig(cfg.Registration),
+		registration.WithRoundConfig(cfg.Round),
+		registration.WithPrivateKey(privateKey),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("creating registration service: %w", err)
+	}
+
+	svc, err := service.NewService(
+		ctx,
+		cfg.Genesis.Time(),
+		cfg.DataDir,
+		transport,
+		service.WithConfig(cfg.Service),
+		service.WithRoundConfig(cfg.Round),
+		service.WithPrivateKey(privateKey),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Service: %v", err)
 	}
 
 	return &Server{
 		svc:          svc,
+		reg:          reg,
 		cfg:          cfg,
 		rpcListener:  rpcListener,
 		restListener: restListener,
+		privateKey:   privateKey,
 	}, nil
 }
 
 func (s *Server) Close() error {
-	err := s.rpcListener.Close()
-	return errors.Join(err, s.restListener.Close())
+	return s.reg.Close()
 }
 
 // GrpcAddr returns the address that server is listening on for GRPC.
@@ -128,25 +175,15 @@ func (s *Server) Start(ctx context.Context) error {
 		}),
 	}
 
-	proofsDbPath := filepath.Join(s.cfg.DbDir, "proofs")
-	proofsDb, err := service.NewProofsDatabase(proofsDbPath, s.svc.ProofsChan())
-	if err != nil {
-		return fmt.Errorf("failed to create proofs DB: %w", err)
-	}
 	serverGroup.Go(func() error {
-		return proofsDb.Run(ctx)
+		return s.reg.Run(ctx)
 	})
 
 	serverGroup.Go(func() error {
 		return s.svc.Run(ctx)
 	})
 
-	if err := s.svc.Start(ctx); err != nil {
-		stop()
-		return fmt.Errorf("service stopped with error: %v (serverGroup: %v)", err, serverGroup.Wait())
-	}
-
-	rpcServer := rpc.NewServer(s.svc, proofsDb, s.cfg)
+	rpcServer := rpc.NewServer(s.svc, s.reg, s.cfg)
 	grpcServer = grpc.NewServer(options...)
 
 	api.RegisterPoetServiceServer(grpcServer, rpcServer)
@@ -189,7 +226,7 @@ func (s *Server) Start(ctx context.Context) error {
 	// Wait for the server to shut down gracefully
 	<-ctx.Done()
 	grpcServer.GracefulStop()
-	err = server.Shutdown(context.Background())
+	err := server.Shutdown(context.Background())
 	return errors.Join(err, serverGroup.Wait())
 }
 

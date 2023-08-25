@@ -232,3 +232,10 @@ func HashMembershipTreeNode(buf, lChild, rChild []byte) []byte {
 	_, _ = hasher.Write(rChild)
 	return hasher.Sum(buf)
 }
+
+// Non-Interactive Proof of sequential work.
+type NIP struct {
+	MerkleProof
+	Epoch  uint
+	Leaves uint64
+}

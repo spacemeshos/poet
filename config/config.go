@@ -15,30 +15,20 @@ import (
 
 	"github.com/jessevdk/go-flags"
 
+	"github.com/spacemeshos/poet/config/round_config"
 	"github.com/spacemeshos/poet/logging"
+	"github.com/spacemeshos/poet/registration"
 	"github.com/spacemeshos/poet/service"
 )
 
 const (
-	defaultDbDirName                = "db"
-	defaultDataDirname              = "data"
-	defaultLogDirname               = "logs"
-	defaultMaxLogFiles              = 3
-	defaultMaxLogFileSize           = 10
-	defaultRPCPort                  = 50002
-	defaultRESTPort                 = 8080
-	defaultMemoryLayers             = 26 // Up to (1 << 26) * 2 - 1 Merkle tree cache nodes (32 bytes each) will be held in-memory
-	defaultTreeFileBufferSize       = 4096
-	defaultEstimatedLeavesPerSecond = 78000
-	defaultMaxRoundMembers          = 1 << 32
-	defaultSubmitFlushInterval      = 100 * time.Millisecond
-	defaultMaxSubmitBatchSize       = 1000
-)
-
-var (
-	defaultEpochDuration = 30 * time.Second
-	defaultPhaseShift    = 5 * time.Second
-	defaultCycleGap      = 5 * time.Second
+	defaultDbDirName      = "db"
+	defaultDataDirname    = "data"
+	defaultLogDirname     = "logs"
+	defaultMaxLogFiles    = 3
+	defaultMaxLogFileSize = 10
+	defaultRPCPort        = 50002
+	defaultRESTPort       = 8080
 )
 
 // Config defines the configuration options for poet.
@@ -46,6 +36,7 @@ var (
 // See loadConfig for further details regarding the
 // configuration loading+parsing process.
 type Config struct {
+	Genesis         Genesis `long:"genesis-time"   description:"Genesis timestamp in RFC3339 format"`
 	PoetDir         string  `long:"poetdir"        description:"The base directory that contains poet's data, logs, configuration file, etc."`
 	ConfigFile      string  `long:"configfile"     description:"Path to configuration file"                                                   short:"c"`
 	DataDir         string  `long:"datadir"        description:"The directory to store poet's data within."                                   short:"b"`
@@ -62,7 +53,25 @@ type Config struct {
 	CPUProfile string `long:"cpuprofile" description:"Write CPU profile to the specified file"`
 	Profile    string `long:"profile"    description:"Enable HTTP profiling on given port -- must be between 1024 and 65535"`
 
-	Service *service.Config `group:"Service"`
+	Round        round_config.Config `group:"Round"`
+	Registration registration.Config `group:"Registration"`
+	Service      service.Config      `group:"Service"`
+}
+
+type Genesis time.Time
+
+// UnmarshalFlag implements flags.Unmarshaler.
+func (g *Genesis) UnmarshalFlag(value string) error {
+	t, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return err
+	}
+	*g = Genesis(t)
+	return nil
+}
+
+func (g Genesis) Time() time.Time {
+	return time.Time(g)
 }
 
 // DefaultConfig returns a config with default hardcoded values.
@@ -74,6 +83,7 @@ func DefaultConfig() *Config {
 	}
 
 	return &Config{
+		Genesis:         Genesis(time.Now()),
 		PoetDir:         poetDir,
 		DataDir:         filepath.Join(poetDir, defaultDataDirname),
 		DbDir:           filepath.Join(poetDir, defaultDbDirName),
@@ -82,18 +92,9 @@ func DefaultConfig() *Config {
 		MaxLogFileSize:  defaultMaxLogFileSize,
 		RawRPCListener:  fmt.Sprintf("localhost:%d", defaultRPCPort),
 		RawRESTListener: fmt.Sprintf("localhost:%d", defaultRESTPort),
-		Service: &service.Config{
-			Genesis:                  service.Genesis(time.Now()),
-			EpochDuration:            defaultEpochDuration,
-			PhaseShift:               defaultPhaseShift,
-			CycleGap:                 defaultCycleGap,
-			MemoryLayers:             defaultMemoryLayers,
-			TreeFileBufferSize:       defaultTreeFileBufferSize,
-			EstimatedLeavesPerSecond: defaultEstimatedLeavesPerSecond,
-			MaxRoundMembers:          defaultMaxRoundMembers,
-			MaxSubmitBatchSize:       defaultMaxSubmitBatchSize,
-			SubmitFlushInterval:      defaultSubmitFlushInterval,
-		},
+		Round:           round_config.DefaultConfig(),
+		Registration:    registration.DefaultConfig(),
+		Service:         service.DefaultConfig(),
 	}
 }
 

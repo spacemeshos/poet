@@ -5,7 +5,8 @@ import (
 	"context"
 	"crypto/ed25519"
 	"errors"
-	"sync"
+	"strconv"
+	"time"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -14,16 +15,16 @@ import (
 
 	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/logging"
+	"github.com/spacemeshos/poet/registration"
 	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
 	"github.com/spacemeshos/poet/service"
 )
 
 // rpcServer is a gRPC, RPC front end to poet.
 type rpcServer struct {
-	proofsDb *service.ProofsDatabase
-	s        *service.Service
-	cfg      config.Config
-	sync.Mutex
+	registration *registration.Registration
+	s            *service.Service
+	cfg          config.Config
 }
 
 // A compile time check to ensure that rpcService fully implements
@@ -33,18 +34,18 @@ var _ api.PoetServiceServer = (*rpcServer)(nil)
 // NewServer creates and returns a new instance of the rpcServer.
 func NewServer(
 	svc *service.Service,
-	proofsDb *service.ProofsDatabase,
+	registration *registration.Registration,
 	cfg config.Config,
 ) *rpcServer {
 	return &rpcServer{
-		proofsDb: proofsDb,
-		s:        svc,
-		cfg:      cfg,
+		s:            svc,
+		registration: registration,
+		cfg:          cfg,
 	}
 }
 
 func (r *rpcServer) PowParams(_ context.Context, _ *api.PowParamsRequest) (*api.PowParamsResponse, error) {
-	params := r.s.PowParams()
+	params := r.registration.PowParams()
 	return &api.PowParamsResponse{
 		PowParams: &api.PowParams{
 			Challenge:  params.Challenge,
@@ -62,23 +63,18 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 		return nil, status.Error(codes.InvalidArgument, "invalid signature")
 	}
 
-	powParams := service.PowParams{
+	powParams := registration.PowParams{
 		Challenge:  in.GetPowParams().GetChallenge(),
 		Difficulty: uint(in.GetPowParams().GetDifficulty()),
 	}
 
-	result, err := r.s.Submit(ctx, in.Challenge, in.Pubkey, in.Nonce, powParams)
+	epoch, end, err := r.registration.Submit(ctx, in.Challenge, in.Pubkey, in.Nonce, powParams)
 	switch {
-	case errors.Is(err, service.ErrNotStarted):
-		return nil, status.Error(
-			codes.FailedPrecondition,
-			"cannot submit a challenge because poet service is not started",
-		)
-	case errors.Is(err, service.ErrInvalidPow) || errors.Is(err, service.ErrInvalidPowParams):
+	case errors.Is(err, registration.ErrInvalidPow) || errors.Is(err, registration.ErrInvalidPowParams):
 		return nil, status.Error(codes.InvalidArgument, err.Error())
-	case errors.Is(err, service.ErrMaxMembersReached):
+	case errors.Is(err, registration.ErrMaxMembersReached):
 		return nil, status.Error(codes.ResourceExhausted, err.Error())
-	case errors.Is(err, service.ErrConflictingRegistration):
+	case errors.Is(err, registration.ErrConflictingRegistration):
 		return nil, status.Error(codes.AlreadyExists, err.Error())
 	case err != nil:
 		logging.FromContext(ctx).Warn("unknown error submitting challenge", zap.Error(err))
@@ -86,35 +82,32 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 	}
 
 	out := new(api.SubmitResponse)
-	out.RoundId = result.Round
-	out.RoundEnd = durationpb.New(result.RoundEnd)
+	out.RoundId = strconv.FormatUint(uint64(epoch), 10)
+	out.RoundEnd = durationpb.New(time.Until(end))
 	return out, nil
 }
 
 func (r *rpcServer) Info(ctx context.Context, in *api.InfoRequest) (*api.InfoResponse, error) {
-	info, err := r.s.Info(ctx)
-	if err != nil {
-		return nil, err
-	}
+	openId, executingId := r.registration.Info(ctx)
 
 	out := &api.InfoResponse{
-		OpenRoundId:   info.OpenRoundID,
-		ServicePubkey: r.s.PubKey,
-		PhaseShift:    durationpb.New(r.cfg.Service.PhaseShift),
-		CycleGap:      durationpb.New(r.cfg.Service.CycleGap),
+		OpenRoundId:   strconv.FormatUint(uint64(openId), 10),
+		ServicePubkey: r.registration.Pubkey(),
+		PhaseShift:    durationpb.New(r.cfg.Round.PhaseShift),
+		CycleGap:      durationpb.New(r.cfg.Round.CycleGap),
 	}
 
-	if info.ExecutingRoundId != nil {
-		out.ExecutingRoundId = *info.ExecutingRoundId
+	if executingId != nil {
+		out.ExecutingRoundId = strconv.FormatUint(uint64(*executingId), 10)
 	}
 
 	return out, nil
 }
 
 func (r *rpcServer) Proof(ctx context.Context, in *api.ProofRequest) (*api.ProofResponse, error) {
-	proofMsg, err := r.proofsDb.Get(ctx, in.RoundId)
+	proofMsg, err := r.registration.Proof(ctx, in.RoundId)
 	switch {
-	case errors.Is(err, service.ErrNotFound):
+	case errors.Is(err, registration.ErrNotFound):
 		return nil, status.Error(codes.NotFound, "proof not found")
 	case err == nil:
 		proof := proofMsg.Proof
