@@ -246,7 +246,8 @@ func (r *round) flushPendingSubmitsLocked() {
 	if r.batch == nil {
 		return
 	}
-	logging.FromContext(context.Background()).Debug("flushing pending submits", zap.Int("num", len(r.pendingSubmits)), zap.String("round", r.ID))
+	logging.FromContext(context.Background()).
+		Debug("flushing pending submits", zap.Int("num", len(r.pendingSubmits)), zap.String("round", r.ID))
 	err := r.challengesDb.Write(r.batch, &opt.WriteOptions{Sync: true})
 	for _, pending := range r.pendingSubmits {
 		pending.done <- err
