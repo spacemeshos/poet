@@ -414,7 +414,7 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 
 func TestFlushingSubmits(t *testing.T) {
 	t.Parallel()
-	t.Run("submitted challenges are flushed asynchonously", func(t *testing.T) {
+	t.Run("submitted challenges are flushed asynchronously", func(t *testing.T) {
 		t.Parallel()
 		// Arrange
 		round := newTestRound(t, withSubmitFlushInterval(time.Hour))
