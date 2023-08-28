@@ -43,6 +43,14 @@ var (
 		Name:      "leaves_total",
 		Help:      "Number of generated leaves in a round",
 	}, []string{"id"})
+
+	batchWriteLatencyMetric = promauto.NewHistogram(prometheus.HistogramOpts{
+		Namespace: "poet",
+		Subsystem: "round",
+		Name:      "batch_write_latency_seconds",
+		Help:      "Latency of batch write operations",
+		Buckets:   prometheus.ExponentialBuckets(0.0001, 1.5, 20),
+	})
 )
 
 type executionState struct {
@@ -248,7 +256,11 @@ func (r *round) flushPendingSubmitsLocked() {
 	}
 	logging.FromContext(context.Background()).
 		Debug("flushing pending submits", zap.Int("num", len(r.pendingSubmits)), zap.String("round", r.ID))
+	start := time.Now()
 	err := r.challengesDb.Write(r.batch, &opt.WriteOptions{Sync: true})
+	if err == nil {
+		batchWriteLatencyMetric.Observe(time.Since(start).Seconds())
+	}
 	for _, pending := range r.pendingSubmits {
 		pending.done <- err
 		close(pending.done)
