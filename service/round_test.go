@@ -431,14 +431,14 @@ func TestFlushingSubmits(t *testing.T) {
 	t.Run("flush pending submits after flush interval", func(t *testing.T) {
 		t.Parallel()
 		// Arrange
-		round := newTestRound(t, withSubmitFlushInterval(10*time.Millisecond))
+		round := newTestRound(t, withSubmitFlushInterval(time.Millisecond))
 		challenge, err := genChallenge()
 		require.NoError(t, err)
 
 		// Act
 		_, err = round.submit(context.Background(), []byte("key"), challenge)
 		require.NoError(t, err)
-		time.Sleep(20 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 
 		// Verify
 		require.Equal(t, 1, numChallenges(round))
