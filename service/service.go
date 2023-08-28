@@ -31,7 +31,9 @@ type Config struct {
 	InitialPowChallenge string `long:"pow-challenge"  description:"The initial PoW challenge for the first round"`
 	PowDifficulty       uint   `long:"pow-difficulty" description:"PoW difficulty (in the number of leading zero bits)"`
 
-	MaxRoundMembers uint `long:"max-round-members" description:"the maximum number of members in a round"`
+	MaxSubmitBatchSize  int           `long:"max-submit-batch-size" description:"The maximum number of challenges to submit in a single batch"`
+	SubmitFlushInterval time.Duration `long:"submit-flush-interval" description:"The interval between flushes of the submit queue"`
+	MaxRoundMembers     uint          `long:"max-round-members"     description:"The maximum number of members in a round"`
 
 	// Merkle-Tree related configuration:
 	EstimatedLeavesPerSecond uint `long:"lps"              description:"Estimated number of leaves generated per second"`
@@ -396,7 +398,14 @@ func (s *Service) recover(ctx context.Context) (open, executing *round, err erro
 		if err != nil {
 			return nil, nil, fmt.Errorf("entry is not a uint32 %s", entry.Name())
 		}
-		r, err := newRound(roundsDbDir, roundsDir, uint32(epoch), s.cfg.MaxRoundMembers)
+		r, err := newRound(
+			roundsDbDir,
+			roundsDir,
+			uint32(epoch),
+			withMaxMembers(s.cfg.MaxRoundMembers),
+			withMaxSubmitBatchSize(s.cfg.MaxSubmitBatchSize),
+			withSubmitFlushInterval(s.cfg.SubmitFlushInterval),
+		)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to create round: %w", err)
 		}
@@ -473,24 +482,38 @@ func (s *Service) Submit(
 
 	type response struct {
 		round string
+		done  <-chan error
 		err   error
 		end   time.Time
 	}
-	done := make(chan response, 1)
+	cmdFinished := make(chan response, 1)
 	s.commands <- func(s *Service) {
-		done <- response{
+		done, err := s.openRound.submit(ctx, nodeID, challenge)
+		cmdFinished <- response{
 			round: s.openRound.ID,
-			err:   s.openRound.submit(ctx, nodeID, challenge),
+			done:  done,
+			err:   err,
 			end:   s.roundEndTime(s.openRound),
 		}
-		close(done)
+		close(cmdFinished)
 	}
 
 	select {
-	case resp := <-done:
+	case resp := <-cmdFinished:
 		switch {
 		case resp.err == nil:
-			logger.Debug("submitted challenge for round", zap.String("round", resp.round))
+			logger.Debug("async-submitted challenge for round", zap.String("round", resp.round))
+			// wait for actually submitted
+			select {
+			case <-ctx.Done():
+				logger.Debug("context canceled while waiting for challenge to be submitted")
+				return nil, ctx.Err()
+			case err := <-resp.done:
+				if err != nil {
+					logger.Debug("challenge registration failed", zap.Error(err))
+					return nil, err
+				}
+			}
 		case errors.Is(resp.err, ErrChallengeAlreadySubmitted):
 		case resp.err != nil:
 			return nil, resp.err
@@ -532,7 +555,14 @@ func (s *Service) newRound(ctx context.Context, epoch uint32) (*round, error) {
 		zap.String("roundsdbdir", roundsDbDir),
 	)
 
-	r, err := newRound(roundsDbDir, roundsDir, epoch, s.cfg.MaxRoundMembers)
+	r, err := newRound(
+		roundsDbDir,
+		roundsDir,
+		epoch,
+		withMaxMembers(s.cfg.MaxRoundMembers),
+		withMaxSubmitBatchSize(s.cfg.MaxSubmitBatchSize),
+		withSubmitFlushInterval(s.cfg.SubmitFlushInterval),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create a new round: %w", err)
 	}

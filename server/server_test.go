@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/hash"
+	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/prover"
 	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
 	"github.com/spacemeshos/poet/server"
@@ -399,4 +401,74 @@ func TestGettingInitialPowParams(t *testing.T) {
 
 	cancel()
 	req.NoError(eg.Wait())
+}
+
+func TestLoadSubmits(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping load test in short mode")
+	}
+	req := require.New(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ctx = logging.NewContext(ctx, logging.New(zapcore.InfoLevel, "log.log", false))
+
+	cfg := config.DefaultConfig()
+	cfg.PoetDir = t.TempDir()
+	cfg.Service.EpochDuration = time.Minute * 2
+	cfg.Service.PhaseShift = time.Minute
+	cfg.RawRPCListener = randomHost
+	cfg, err := config.SetupConfig(cfg)
+	req.NoError(err)
+
+	srv, err := server.New(context.Background(), *cfg)
+	req.NoError(err)
+
+	concurrentSubmits := 10000
+	// spawn clients
+	clients := make([]api.PoetServiceClient, 0, concurrentSubmits)
+	for i := 0; i < concurrentSubmits; i++ {
+		conn, err := grpc.Dial(
+			srv.GrpcAddr().String(),
+			grpc.WithTransportCredentials(insecure.NewCredentials()))
+		req.NoError(err)
+		t.Cleanup(func() { assert.NoError(t, conn.Close()) })
+		clients = append(clients, api.NewPoetServiceClient(conn))
+	}
+
+	// Submit challenges
+	var egSrv errgroup.Group
+	egSrv.Go(func() error {
+		return srv.Start(ctx)
+	})
+	start := time.Now()
+	var eg errgroup.Group
+
+	for _, client := range clients {
+		client := client
+		eg.Go(func() error {
+			pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+			req.NoError(err)
+
+			challenge := make([]byte, 32)
+			_, err = rand.Read(challenge)
+			req.NoError(err)
+
+			powParams, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
+			require.NoError(t, err)
+
+			signature := ed25519.Sign(privKey, challenge)
+			_, err = client.Submit(context.Background(), &api.SubmitRequest{
+				Challenge: challenge,
+				Pubkey:    pubKey,
+				PowParams: powParams.PowParams,
+				Signature: signature,
+			})
+			req.NoError(err)
+			return nil
+		})
+	}
+	eg.Wait()
+	t.Logf("submitting %d challenges took %v", concurrentSubmits, time.Since(start))
+	cancel()
+	egSrv.Wait()
 }
