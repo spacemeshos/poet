@@ -49,7 +49,7 @@ var (
 		Subsystem: "round",
 		Name:      "batch_write_latency_seconds",
 		Help:      "Latency of batch write operations",
-		Buckets:   prometheus.ExponentialBuckets(0.0001, 1.5, 20),
+		Buckets:   prometheus.ExponentialBuckets(0.001, 1.5, 20),
 	})
 )
 

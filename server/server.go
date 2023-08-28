@@ -104,7 +104,7 @@ func (s *Server) Start(ctx context.Context) error {
 	// grpc metrics
 	metrics := grpc_prometheus.NewServerMetrics(
 		grpc_prometheus.WithServerHandlingTimeHistogram(
-			grpc_prometheus.WithHistogramBuckets(prometheus.ExponentialBuckets(0.0001, 2, 20)),
+			grpc_prometheus.WithHistogramBuckets(prometheus.ExponentialBuckets(0.001, 2, 16)),
 		),
 	)
 
