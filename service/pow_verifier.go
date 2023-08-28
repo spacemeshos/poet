@@ -87,8 +87,12 @@ func (v *powVerifiers) SetParams(p PowParams) {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
-	v.previous = v.current
-	v.current.SetParams(p)
+	v.previous = &powVerifier{
+		params: v.current.Params(),
+	}
+	v.current = &powVerifier{
+		params: p,
+	}
 }
 
 func (v *powVerifiers) Params() PowParams {
