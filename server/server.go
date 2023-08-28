@@ -12,8 +12,9 @@ import (
 
 	"github.com/google/uuid"
 	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
 	proxy "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -100,13 +101,20 @@ func (s *Server) Start(ctx context.Context) error {
 
 	logger := logging.FromContext(ctx)
 
+	// grpc metrics
+	metrics := grpc_prometheus.NewServerMetrics(
+		grpc_prometheus.WithServerHandlingTimeHistogram(
+			grpc_prometheus.WithHistogramBuckets(prometheus.ExponentialBuckets(0.001, 2, 16)),
+		),
+	)
+
 	// Initialize and register the implementation of gRPC interface
 	var grpcServer *grpc.Server
 	var proxyRegstr []func(context.Context, *proxy.ServeMux, string, []grpc.DialOption) error
 	options := []grpc.ServerOption{
 		grpc.UnaryInterceptor(grpcmw.ChainUnaryServer(
 			loggerInterceptor(logger),
-			grpc_prometheus.UnaryServerInterceptor,
+			metrics.UnaryServerInterceptor(),
 		)),
 		// XXX: this is done to prevent routers from cleaning up our connections (e.g aws load balances..)
 		// TODO: these parameters work for now but we might need to revisit or add them as configuration
@@ -145,7 +153,8 @@ func (s *Server) Start(ctx context.Context) error {
 	proxyRegstr = append(proxyRegstr, api.RegisterPoetServiceHandlerFromEndpoint)
 
 	reflection.Register(grpcServer)
-	grpc_prometheus.Register(grpcServer)
+	metrics.InitializeMetrics(grpcServer)
+	prometheus.Register(metrics)
 
 	// Start the gRPC server listening for HTTP/2 connections.
 	serverGroup.Go(func() error {

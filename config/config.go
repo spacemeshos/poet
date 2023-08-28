@@ -31,6 +31,8 @@ const (
 	defaultTreeFileBufferSize       = 4096
 	defaultEstimatedLeavesPerSecond = 78000
 	defaultMaxRoundMembers          = 1 << 32
+	defaultSubmitFlushInterval      = 100 * time.Millisecond
+	defaultMaxSubmitBatchSize       = 1000
 )
 
 var (
@@ -89,6 +91,8 @@ func DefaultConfig() *Config {
 			TreeFileBufferSize:       defaultTreeFileBufferSize,
 			EstimatedLeavesPerSecond: defaultEstimatedLeavesPerSecond,
 			MaxRoundMembers:          defaultMaxRoundMembers,
+			MaxSubmitBatchSize:       defaultMaxSubmitBatchSize,
+			SubmitFlushInterval:      defaultSubmitFlushInterval,
 		},
 	}
 }
