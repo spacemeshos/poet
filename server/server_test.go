@@ -404,6 +404,9 @@ func TestGettingInitialPowParams(t *testing.T) {
 }
 
 func TestLoadSubmits(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping load test in short mode")
+	}
 	req := require.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()

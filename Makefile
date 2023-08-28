@@ -5,6 +5,9 @@ PROJECT := poet
 BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 VERSION ?= $(shell git describe --tags)
 
+# Flags appended to `go test` command in `make test`
+TEST_FLAGS ?=
+
 GOLANGCI_LINT_VERSION := v1.52.0
 STATICCHECK_VERSION := v0.4.3
 GOTESTSUM_VERSION := v1.10.0
@@ -91,7 +94,7 @@ all: build
 .PHONY: all
 
 test:
-	$(GOTESTSUM) -- -race -timeout 5m -p 1 ./...
+	$(GOTESTSUM) -- -race -timeout 5m -p 1 $(TEST_FLAGS) ./...
 .PHONY: test
 
 install: install-buf install-protoc $(GOVULNCHECK) $(GOLINES)
