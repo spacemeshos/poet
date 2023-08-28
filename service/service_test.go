@@ -24,6 +24,7 @@ import (
 )
 
 func TestParsingGenesisTime(t *testing.T) {
+	t.Parallel()
 	timeStr := "2006-01-02T15:04:05Z"
 	var genesis service.Genesis
 	err := genesis.UnmarshalFlag(timeStr)
@@ -46,10 +47,12 @@ func TestService_Recovery(t *testing.T) {
 	dbdir := t.TempDir()
 	genesis := time.Now().Add(time.Second)
 	cfg := &service.Config{
-		Genesis:         service.Genesis(genesis),
-		EpochDuration:   time.Second * 4,
-		PhaseShift:      time.Second,
-		MaxRoundMembers: 100,
+		Genesis:             service.Genesis(genesis),
+		EpochDuration:       time.Second * 2,
+		PhaseShift:          time.Second,
+		PowDifficulty:       3,
+		MaxRoundMembers:     100,
+		SubmitFlushInterval: time.Microsecond,
 	}
 	start := make(chan struct{})
 	var tick *time.Ticker
@@ -164,10 +167,11 @@ func TestNewService(t *testing.T) {
 	req := require.New(t)
 	genesis := time.Now().Add(time.Second)
 	cfg := &service.Config{
-		Genesis:         service.Genesis(genesis),
-		EpochDuration:   time.Second * 4,
-		PhaseShift:      time.Second,
-		MaxRoundMembers: 100,
+		Genesis:             service.Genesis(genesis),
+		EpochDuration:       time.Second * 4,
+		PhaseShift:          time.Second,
+		MaxRoundMembers:     100,
+		SubmitFlushInterval: time.Microsecond,
 	}
 	start := make(chan struct{})
 	var tick *time.Ticker
@@ -281,11 +285,12 @@ func TestSubmitIdempotence(t *testing.T) {
 	req := require.New(t)
 	genesis := time.Now().Add(time.Second)
 	cfg := service.Config{
-		Genesis:         service.Genesis(genesis),
-		EpochDuration:   time.Hour,
-		PhaseShift:      time.Second / 2,
-		CycleGap:        time.Second / 4,
-		MaxRoundMembers: 100,
+		Genesis:             service.Genesis(genesis),
+		EpochDuration:       time.Hour,
+		PhaseShift:          time.Second / 2,
+		CycleGap:            time.Second / 4,
+		MaxRoundMembers:     100,
+		SubmitFlushInterval: time.Microsecond,
 	}
 	challenge := []byte("challenge")
 	nodeID := []byte("nodeID")
@@ -433,11 +438,13 @@ func TestService_OpeningRounds(t *testing.T) {
 }
 
 func TestService_Start(t *testing.T) {
+	t.Parallel()
 	cfg := &service.Config{
 		Genesis:       service.Genesis(time.Now().Add(time.Minute)),
 		EpochDuration: time.Hour,
 	}
 	t.Run("cannot start twice", func(t *testing.T) {
+		t.Parallel()
 		s, err := service.NewService(context.Background(), cfg, t.TempDir(), t.TempDir())
 		require.NoError(t, err)
 
@@ -451,6 +458,7 @@ func TestService_Start(t *testing.T) {
 		require.NoError(t, eg.Wait())
 	})
 	t.Run("hang start respects context cancellation", func(t *testing.T) {
+		t.Parallel()
 		s, err := service.NewService(context.Background(), cfg, t.TempDir(), t.TempDir())
 		require.NoError(t, err)
 
@@ -461,6 +469,7 @@ func TestService_Start(t *testing.T) {
 }
 
 func TestService_Recovery_MissingOpenRound(t *testing.T) {
+	t.Parallel()
 	req := require.New(t)
 	genesis := time.Now().Add(time.Second)
 	cfg := &service.Config{
@@ -525,6 +534,7 @@ func TestService_Recovery_MissingOpenRound(t *testing.T) {
 // The challenge should be changed to the root of PoET proof Merkle tree
 // of the previous round.
 func TestService_PowChallengeRotation(t *testing.T) {
+	t.Parallel()
 	req := require.New(t)
 	genesis := time.Now().Add(time.Second)
 	cfg := service.Config{

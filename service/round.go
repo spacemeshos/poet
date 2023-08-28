@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -68,6 +69,11 @@ func (r *round) isExecuted() bool {
 	return r.execution.NIP != nil
 }
 
+type pendingSubmit struct {
+	done      chan<- error
+	challenge []byte
+}
+
 type round struct {
 	epoch            uint32
 	datadir          string
@@ -80,13 +86,56 @@ type round struct {
 
 	membersCounter prometheus.Counter
 	leavesCounter  prometheus.Counter
+
+	// protects concurrent access to batch and pendingSubmits
+	// (both are used in submit and flushPendingSubmits) while
+	// the latter can be ran on a goroutine.
+	batchMutex     sync.Mutex
+	batch          *leveldb.Batch
+	pendingSubmits map[string]pendingSubmit
+	flushInterval  time.Duration
+	maxBatchSize   int
 }
 
 func (r *round) Epoch() uint32 {
 	return r.epoch
 }
 
-func newRound(dbdir, datadir string, epoch uint32, maxMembers uint) (*round, error) {
+type newRoundOptions struct {
+	submitFlushInterval time.Duration
+	maxMembers          uint
+	maxSubmitBatchSize  int
+}
+
+type newRoundOptionFunc func(*newRoundOptions)
+
+func withMaxMembers(maxMembers uint) newRoundOptionFunc {
+	return func(o *newRoundOptions) {
+		o.maxMembers = maxMembers
+	}
+}
+
+func withSubmitFlushInterval(interval time.Duration) newRoundOptionFunc {
+	return func(o *newRoundOptions) {
+		o.submitFlushInterval = interval
+	}
+}
+
+func withMaxSubmitBatchSize(size int) newRoundOptionFunc {
+	return func(o *newRoundOptions) {
+		o.maxSubmitBatchSize = size
+	}
+}
+
+func newRound(dbdir, datadir string, epoch uint32, options ...newRoundOptionFunc) (*round, error) {
+	opts := newRoundOptions{
+		submitFlushInterval: time.Microsecond,
+		maxMembers:          1 << 32,
+		maxSubmitBatchSize:  1000,
+	}
+	for _, opt := range options {
+		opt(&opts)
+	}
 	id := strconv.FormatUint(uint64(epoch), 10)
 	datadir = filepath.Join(datadir, id)
 	dbdir = filepath.Join(dbdir, id)
@@ -115,9 +164,11 @@ func newRound(dbdir, datadir string, epoch uint32, maxMembers uint) (*round, err
 			SecurityParam: shared.T,
 		},
 		members:        countMembersInDB(db),
-		maxMembers:     maxMembers,
+		maxMembers:     opts.maxMembers,
 		membersCounter: membersCounter,
 		leavesCounter:  leavesCounter,
+		maxBatchSize:   opts.maxSubmitBatchSize,
+		flushInterval:  opts.submitFlushInterval,
 	}
 
 	membersCounter.Add(float64(r.members))
@@ -125,39 +176,93 @@ func newRound(dbdir, datadir string, epoch uint32, maxMembers uint) (*round, err
 	return r, nil
 }
 
-func (r *round) submit(ctx context.Context, key, challenge []byte) error {
+// submit a challenge to the round under the given key.
+// The challenges are collected in a batch and persisted to disk periodically.
+// Returns an error if it was not possible to add the challenge to the batch (for example, duplicated key)
+// and a channel to which the final result will be sent when the challenge is persisted.
+// The caller must await the returned channel to make sure that the challenge is persisted.
+func (r *round) submit(ctx context.Context, key, challenge []byte) (<-chan error, error) {
 	if !r.isOpen() {
-		return ErrRoundIsNotOpen
+		return nil, ErrRoundIsNotOpen
 	}
 
-	if r.members >= r.maxMembers {
-		return ErrMaxMembersReached
+	r.batchMutex.Lock()
+	defer r.batchMutex.Unlock()
+
+	if r.members+uint(len(r.pendingSubmits)) >= r.maxMembers {
+		return nil, ErrMaxMembersReached
+	}
+
+	if r.batch == nil {
+		r.pendingSubmits = make(map[string]pendingSubmit)
+		r.batch = leveldb.MakeBatch(r.maxBatchSize)
+		time.AfterFunc(r.flushInterval, r.flushPendingSubmits)
+	} else if r.batch.Len() >= r.maxBatchSize {
+		r.flushPendingSubmitsLocked()
+		r.pendingSubmits = make(map[string]pendingSubmit)
+		r.batch = leveldb.MakeBatch(r.maxBatchSize)
+		// rely on the already scheduled flush
+	}
+
+	pending, ok := r.pendingSubmits[string(key)]
+	if ok {
+		switch {
+		case bytes.Equal(challenge, pending.challenge):
+			return nil, fmt.Errorf("%w: key: %X", ErrChallengeAlreadySubmitted, key)
+		default:
+			return nil, ErrConflictingRegistration
+		}
 	}
 
 	registered, err := r.challengesDb.Get(key, nil)
 	switch {
 	case errors.Is(err, leveldb.ErrNotFound):
+
 		// OK - challenge is not registered yet.
 	case err != nil:
-		return fmt.Errorf("failed to check if challenge is registered: %w", err)
+		return nil, fmt.Errorf("failed to check if challenge is registered: %w", err)
 	case bytes.Equal(challenge, registered):
-		return fmt.Errorf("%w: key: %X", ErrChallengeAlreadySubmitted, key)
+		return nil, fmt.Errorf("%w: key: %X", ErrChallengeAlreadySubmitted, key)
 	default:
-		return ErrConflictingRegistration
+		return nil, ErrConflictingRegistration
 	}
 
-	if err := r.challengesDb.Put(key, challenge, &opt.WriteOptions{Sync: true}); err != nil {
-		return fmt.Errorf("failed to register challenge: %w", err)
+	r.batch.Put(key, challenge)
+	done := make(chan error, 1)
+	r.pendingSubmits[string(key)] = pendingSubmit{
+		done,
+		challenge,
 	}
+	return done, nil
+}
 
-	r.members += 1
-	r.membersCounter.Inc()
+func (r *round) flushPendingSubmits() {
+	r.batchMutex.Lock()
+	defer r.batchMutex.Unlock()
+	r.flushPendingSubmitsLocked()
+}
 
-	return nil
+func (r *round) flushPendingSubmitsLocked() {
+	if r.batch == nil {
+		return
+	}
+	logging.FromContext(context.Background()).Debug("flushing pending submits", zap.Int("num", len(r.pendingSubmits)), zap.String("round", r.ID))
+	err := r.challengesDb.Write(r.batch, &opt.WriteOptions{Sync: true})
+	for _, pending := range r.pendingSubmits {
+		pending.done <- err
+		close(pending.done)
+	}
+	r.members += uint(len(r.pendingSubmits))
+	r.membersCounter.Add(float64(len(r.pendingSubmits)))
+
+	r.pendingSubmits = nil
+	r.batch = nil
 }
 
 func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer, fileWriterBufSize uint) error {
 	logger := logging.FromContext(ctx).With(zap.String("round", r.ID))
+
+	r.flushPendingSubmits()
 
 	r.executionStarted = time.Now()
 	if err := r.saveState(); err != nil {
@@ -353,6 +458,8 @@ func (r *round) teardown(ctx context.Context, cleanup bool) error {
 		zap.String("round", r.ID),
 		zap.Duration("duration", time.Since(started)),
 	)
+
+	r.flushPendingSubmits()
 
 	membersMetric.DeleteLabelValues(r.ID)
 	leavesMetric.DeleteLabelValues(r.ID)
