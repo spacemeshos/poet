@@ -197,11 +197,6 @@ func (r *round) submit(ctx context.Context, key, challenge []byte) (<-chan error
 		r.pendingSubmits = make(map[string]pendingSubmit)
 		r.batch = leveldb.MakeBatch(r.maxBatchSize)
 		time.AfterFunc(r.flushInterval, r.flushPendingSubmits)
-	} else if r.batch.Len() >= r.maxBatchSize {
-		r.flushPendingSubmitsLocked()
-		r.pendingSubmits = make(map[string]pendingSubmit)
-		r.batch = leveldb.MakeBatch(r.maxBatchSize)
-		// rely on the already scheduled flush
 	}
 
 	pending, ok := r.pendingSubmits[string(key)]
@@ -233,6 +228,11 @@ func (r *round) submit(ctx context.Context, key, challenge []byte) (<-chan error
 		done,
 		challenge,
 	}
+
+	if r.batch.Len() >= r.maxBatchSize {
+		r.flushPendingSubmitsLocked()
+	}
+
 	return done, nil
 }
 
