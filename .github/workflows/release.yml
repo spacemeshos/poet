@@ -14,8 +14,7 @@ jobs:
       - name: set up go
         uses: actions/setup-go@v4
         with:
-          check-latest: true
-          go-version-file: "go.mod"
+          go-version: 'stable'
       - name: setup env
         run: make install
       - name: lint
