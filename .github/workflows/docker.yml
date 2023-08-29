@@ -38,3 +38,5 @@ jobs:
           context: .
           push: true
           tags: spacemeshos/poet:latest, spacemeshos/poet:${{ GITHUB.SHA  }}, spacemeshos/poet:${{steps.tagger.outputs.tag}}
+          build-args: |
+            version=${{steps.tagger.outputs.tag}}
