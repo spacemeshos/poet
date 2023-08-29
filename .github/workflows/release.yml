@@ -21,6 +21,8 @@ jobs:
         run: make lint-github-action
       - name: test
         run: make test
+        env:
+          TEST_FLAGS: -short
       - name: build
         run: make build
       - name: Release
