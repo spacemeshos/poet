@@ -16,7 +16,11 @@ import (
 // It opens both DBs and copies all the data from the old DB to the new one.
 func Migrate(ctx context.Context, targetDbDir, oldDbDir string) error {
 	log := logging.FromContext(ctx)
-	log.Info("attempting DB location migration", zap.String("oldDbDir", oldDbDir), zap.String("targetDbDir", targetDbDir))
+	log.Info(
+		"attempting DB location migration",
+		zap.String("oldDbDir", oldDbDir),
+		zap.String("targetDbDir", targetDbDir),
+	)
 	if oldDbDir == targetDbDir {
 		log.Debug("skipping in-place DB migration")
 		return nil
