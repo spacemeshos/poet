@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/syndtr/goleveldb/leveldb"
 )
 
 func genChallenge() ([]byte, error) {
@@ -31,10 +30,10 @@ func genChallenges(num int) ([][]byte, error) {
 
 func newTestRound(t *testing.T, epoch uint, opts ...newRoundOptionFunc) *round {
 	t.Helper()
-	db, err := leveldb.OpenFile(t.TempDir(), nil)
+	r, err := newRound(epoch, t.TempDir(), opts...)
 	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
-	return newRound(epoch, db, opts...)
+	t.Cleanup(func() { require.NoError(t, r.Close()) })
+	return r
 }
 
 // Test submitting many challenges.
@@ -134,22 +133,21 @@ func TestRound_Submit(t *testing.T) {
 }
 
 func TestRound_Reopen(t *testing.T) {
-	db, err := leveldb.OpenFile(t.TempDir(), nil)
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, db.Close()) })
-
+	dbdir := t.TempDir()
 	// Arrange
 	challenge, err := genChallenge()
 	require.NoError(t, err)
 	{
-		round := newRound(0, db)
+		round, err := newRound(0, dbdir)
+		require.NoError(t, err)
 		_, err = round.submit(context.Background(), []byte("key"), challenge)
 		require.NoError(t, err)
 		require.NoError(t, round.Close())
 	}
 
 	// Act
-	recovered := newRound(0, db)
+	recovered, err := newRound(0, dbdir)
+	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, recovered.Close()) })
 
 	// Verify

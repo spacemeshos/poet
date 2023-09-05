@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"sync"
 	"time"
@@ -68,6 +69,7 @@ type newRoundOptions struct {
 	submitFlushInterval time.Duration
 	maxMembers          int
 	maxSubmitBatchSize  int
+	failIfNotExists     bool
 }
 
 type newRoundOptionFunc func(*newRoundOptions)
@@ -90,7 +92,13 @@ func withMaxSubmitBatchSize(size int) newRoundOptionFunc {
 	}
 }
 
-func newRound(epoch uint, db *leveldb.DB, options ...newRoundOptionFunc) *round {
+func withFailfIfNotExists() newRoundOptionFunc {
+	return func(o *newRoundOptions) {
+		o.failIfNotExists = true
+	}
+}
+
+func newRound(epoch uint, dbdir string, options ...newRoundOptionFunc) (*round, error) {
 	id := strconv.FormatUint(uint64(epoch), 10)
 	opts := newRoundOptions{
 		submitFlushInterval: time.Microsecond,
@@ -99,6 +107,12 @@ func newRound(epoch uint, db *leveldb.DB, options ...newRoundOptionFunc) *round 
 	}
 	for _, opt := range options {
 		opt(&opts)
+	}
+
+	dbdir = filepath.Join(dbdir, "rounds", epochToRoundId(epoch))
+	db, err := leveldb.OpenFile(dbdir, &opt.Options{ErrorIfMissing: opts.failIfNotExists})
+	if err != nil {
+		return nil, fmt.Errorf("failed to open round db: %w", err)
 	}
 
 	// Note: using the panicking version here because it panics
@@ -118,7 +132,7 @@ func newRound(epoch uint, db *leveldb.DB, options ...newRoundOptionFunc) *round 
 
 	membersCounter.Add(float64(r.members))
 
-	return r
+	return r, nil
 }
 
 // submit a challenge to the round under the given key.
@@ -247,5 +261,5 @@ func (r *round) getMembers() (members [][]byte) {
 
 func (r *round) Close() error {
 	r.flushPendingSubmits()
-	return nil
+	return r.db.Close()
 }

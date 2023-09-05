@@ -16,17 +16,6 @@ import (
 	"github.com/spacemeshos/poet/shared"
 )
 
-// func TestNewServiceCannotSetNilVerifier(t *testing.T) {
-// 	_, err := service.NewService(
-// 		context.Background(),
-// 		config.DefaultConfig().Service,
-// 		t.TempDir(),
-// 		t.TempDir(),
-// 		service.WithPowVerifier(nil),
-// 	)
-// 	require.ErrorContains(t, err, "pow verifier cannot be nil")
-// }
-
 func TestSubmitIdempotence(t *testing.T) {
 	req := require.New(t)
 	genesis := time.Now().Add(time.Second)
@@ -160,39 +149,45 @@ func TestService_OpeningRounds(t *testing.T) {
 // The challenge should be changed to the root of PoET proof Merkle tree
 // of the previous round.
 func TestService_PowChallengeRotation(t *testing.T) {
-	genesis := time.Now().Add(time.Second)
+	genesis := time.Now()
 
 	proofs := make(chan shared.NIP, 1)
 
 	workerSvc := mocks.NewMockWorkerService(gomock.NewController(t))
 	workerSvc.EXPECT().RegisterForProofs(gomock.Any()).Return(proofs)
-	workerSvc.EXPECT().ExecuteRound(gomock.Any(), gomock.Any(), 0).Return(nil).AnyTimes()
+	workerSvc.EXPECT().
+		ExecuteRound(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, epoch uint, _ []byte) error {
+			proofs <- shared.NIP{
+				MerkleProof: shared.MerkleProof{
+					Root: []byte{1, 2, 3, 4},
+				},
+				Epoch: epoch,
+			}
+			return nil
+		}).
+		AnyTimes()
 
 	reg, err := registration.NewRegistration(
 		context.Background(),
 		genesis,
 		t.TempDir(),
 		workerSvc,
+		registration.WithRoundConfig(round_config.Config{EpochDuration: 10 * time.Millisecond}),
 	)
 	require.NoError(t, err)
+
+	params0 := reg.PowParams()
+	require.NotEqual(t, []byte{1, 2, 3, 4}, params0.Challenge)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var eg errgroup.Group
 	eg.Go(func() error { return reg.Run(ctx) })
 
-	params0 := reg.PowParams()
-	require.NotEqual(t, []byte{1, 2, 3, 4}, params0.Challenge)
-
-	proofs <- shared.NIP{
-		MerkleProof: shared.MerkleProof{
-			Root: []byte{1, 2, 3, 4},
-		},
-	}
-
 	require.Eventually(t, func() bool {
 		return bytes.Equal([]byte{1, 2, 3, 4}, reg.PowParams().Challenge)
-	}, time.Second, time.Millisecond*10)
+	}, time.Second, time.Millisecond)
 
 	cancel()
 	require.NoError(t, eg.Wait())
