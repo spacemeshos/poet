@@ -13,7 +13,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: set up go
         uses: actions/setup-go@v4
         with:
@@ -35,7 +35,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: set up go
         uses: actions/setup-go@v4
         with:
@@ -65,7 +65,7 @@ jobs:
           - windows-latest
     steps:
       - name: checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: set up go
         uses: actions/setup-go@v4
         with:
@@ -92,7 +92,7 @@ jobs:
   coverage:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: set up go
         uses: actions/setup-go@v4
         with:
