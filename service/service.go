@@ -161,6 +161,12 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 		default:
 			logger.Error("recovered round execution failed", zap.Error(err), zap.Uint("epoch", round.epoch))
 		}
+		eg.Go(func() error {
+			if err := round.teardown(ctx, err == nil); err != nil {
+				logger.Warn("round teardown failed", zap.Error(err))
+			}
+			return nil
+		})
 	}
 
 	closedRounds := s.registration.RegisterForRoundClosed(ctx)
@@ -170,21 +176,26 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 		case closedRound := <-closedRounds:
 			logger := logger.With(zap.Uint("epoch", closedRound.Epoch))
 			logger.Info(
-				"received closed round to execute",
+				"received round to execute",
 				zap.Binary("root", closedRound.MembershipRoot),
 			)
 			if s.roundCfg.RoundEnd(s.genesis, closedRound.Epoch).Before(time.Now()) {
 				logger.Info("skipping past round")
 				continue
 			}
-			round, err := s.newRound(ctx, closedRound.Epoch, closedRound.MembershipRoot)
+
+			round, err := newRound(
+				filepath.Join(s.datadir, "rounds"),
+				closedRound.Epoch,
+				withMembershipRoot(closedRound.MembershipRoot),
+			)
 			if err != nil {
-				return fmt.Errorf("failed to open new round: %w", err)
+				return fmt.Errorf("failed to create a new round: %w", err)
 			}
+
 			unlock := lockOSThread(ctx, roundTidFile)
-			exeCtx := logging.NewContext(ctx, logger)
 			err = round.execute(
-				exeCtx,
+				logging.NewContext(ctx, logger),
 				s.roundCfg.RoundEnd(s.genesis, round.epoch),
 				s.minMemoryLayer,
 				s.cfg.TreeFileBufferSize,
@@ -295,24 +306,6 @@ func (s *Service) recover(ctx context.Context) (executing *round, err error) {
 	}
 
 	return executing, nil
-}
-
-// newRound creates a new round with the given epoch.
-func (s *Service) newRound(ctx context.Context, epoch uint, membershipRoot []byte) (*round, error) {
-	logging.FromContext(ctx).Info("opening round", zap.Uint("epoch", epoch))
-
-	r, err := newRound(filepath.Join(s.datadir, "rounds"), epoch, withMembershipRoot(membershipRoot))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create a new round: %w", err)
-	}
-
-	if err := r.saveState(); err != nil {
-		_ = r.teardown(ctx, true)
-		return nil, fmt.Errorf("saving state: %w", err)
-	}
-
-	logging.FromContext(ctx).Info("round opened", zap.Uint("epoch", r.epoch), zap.String("datadir", r.datadir))
-	return r, nil
 }
 
 func (s *Service) onNewProof(ctx context.Context, epoch uint, execution *executionState) {
