@@ -16,3 +16,4 @@ ignore:
   - "release"
   - "**/*_scale.go"
   - "**/*mock*.go"
+  - "**/mocks/*.go"
