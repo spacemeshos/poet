@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/opt"
 	"go.uber.org/zap"
 
 	"github.com/spacemeshos/poet/logging"
@@ -14,24 +15,28 @@ import (
 // Temporary code to migrate a database to a new location.
 // It opens both DBs and copies all the data from the old DB to the new one.
 func Migrate(ctx context.Context, targetDbDir, oldDbDir string) error {
-	log := logging.FromContext(ctx).With(zap.String("oldDbDir", oldDbDir), zap.String("targetDbDir", targetDbDir))
+	log := logging.FromContext(ctx)
+	log.Info(
+		"attempting DB location migration",
+		zap.String("oldDbDir", oldDbDir),
+		zap.String("targetDbDir", targetDbDir),
+	)
 	if oldDbDir == targetDbDir {
 		log.Debug("skipping in-place DB migration")
 		return nil
 	}
-	if _, err := os.Stat(oldDbDir); os.IsNotExist(err) {
+
+	oldDb, err := leveldb.OpenFile(oldDbDir, &opt.Options{ErrorIfMissing: true})
+	switch {
+	case os.IsNotExist(err):
 		log.Debug("skipping DB migration - old DB doesn't exist")
 		return nil
-	}
-	log.Info("migrating DB location")
-
-	oldDb, err := leveldb.OpenFile(oldDbDir, nil)
-	if err != nil {
+	case err != nil:
 		return fmt.Errorf("opening old DB: %w", err)
 	}
 	defer oldDb.Close()
 
-	targetDb, err := leveldb.OpenFile(targetDbDir, nil)
+	targetDb, err := leveldb.OpenFile(targetDbDir, &opt.Options{ErrorIfExist: true})
 	if err != nil {
 		return fmt.Errorf("opening target DB: %w", err)
 	}

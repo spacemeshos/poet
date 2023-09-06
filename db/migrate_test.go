@@ -77,3 +77,21 @@ func TestSkipMigrateInPlace(t *testing.T) {
 func TestSkipMigrateSrcDoesntExist(t *testing.T) {
 	require.NoError(t, db.Migrate(context.Background(), t.TempDir(), "i-dont-exist"))
 }
+
+func TestDontMigrateIfTargetExists(t *testing.T) {
+	sourcePath := t.TempDir()
+	srcDb, err := leveldb.OpenFile(sourcePath, nil)
+	require.NoError(t, err)
+	srcDb.Close()
+
+	// Target already exists
+	targetPath := t.TempDir()
+	targetDb, err := leveldb.OpenFile(targetPath, nil)
+	require.NoError(t, err)
+	targetDb.Close()
+
+	// migrate the database
+	err = db.Migrate(context.Background(), targetPath, sourcePath)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "already exists")
+}
