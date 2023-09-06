@@ -89,6 +89,7 @@ func NewService(
 		opt(options)
 	}
 	if options.privateKey == nil {
+		logging.FromContext(ctx).Info("generating new private key")
 		_, privateKey, err := ed25519.GenerateKey(nil)
 		if err != nil {
 			return nil, fmt.Errorf("generating key: %w", err)
@@ -96,27 +97,14 @@ func NewService(
 		options.privateKey = privateKey
 	}
 
-	estimatedLeaves := uint64(
-		options.roundCfg.EpochDuration.Seconds()-options.roundCfg.CycleGap.Seconds(),
-	) * uint64(
-		options.cfg.EstimatedLeavesPerSecond,
-	)
+	estimatedLeaves := uint64(options.roundCfg.RoundDuration().Seconds()) * uint64(options.cfg.EstimatedLeavesPerSecond)
 	minMemoryLayer := uint(0)
 	if totalLayers := mshared.RootHeightFromWidth(estimatedLeaves); totalLayers > options.cfg.MemoryLayers {
 		minMemoryLayer = totalLayers - options.cfg.MemoryLayers
 	}
 
-	logger := logging.FromContext(ctx)
-	logger.Sugar().Infof("creating poet service. min memory layer: %v. genesis: %v", minMemoryLayer, genesis.String())
-	logger.Info(
-		"epoch configuration",
-		zap.Duration("duration", options.roundCfg.EpochDuration),
-		zap.Duration("cycle gap", options.roundCfg.CycleGap),
-		zap.Duration("phase shift", options.roundCfg.PhaseShift),
-	)
-
 	roundsDir := filepath.Join(datadir, "rounds")
-	if _, err := os.Stat(roundsDir); os.IsNotExist(err) {
+	if _, err := os.Stat(roundsDir); errors.Is(err, os.ErrNotExist) {
 		if err := os.Mkdir(roundsDir, 0o700); err != nil {
 			return nil, err
 		}
@@ -132,7 +120,8 @@ func NewService(
 		registration:   registration,
 	}
 
-	logging.FromContext(ctx).Sugar().Infof("service public key: %x", s.privKey.Public().(ed25519.PublicKey))
+	logging.FromContext(ctx).
+		Info("created poet worker service", zap.Binary("pubkey", s.privKey.Public().(ed25519.PublicKey)), zap.Time("genesis", s.genesis), zap.Uint("min memory layer", s.minMemoryLayer), zap.Object("round config", s.roundCfg))
 
 	return s, nil
 }
@@ -179,8 +168,9 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 				"received round to execute",
 				zap.Binary("root", closedRound.MembershipRoot),
 			)
-			if s.roundCfg.RoundEnd(s.genesis, closedRound.Epoch).Before(time.Now()) {
-				logger.Info("skipping past round")
+			end := s.roundCfg.RoundEnd(s.genesis, closedRound.Epoch)
+			if end.Before(time.Now()) {
+				logger.Info("skipping past round", zap.Time("expected end", end))
 				continue
 			}
 
@@ -196,7 +186,7 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 			unlock := lockOSThread(ctx, roundTidFile)
 			err = round.execute(
 				logging.NewContext(ctx, logger),
-				s.roundCfg.RoundEnd(s.genesis, round.epoch),
+				end,
 				s.minMemoryLayer,
 				s.cfg.TreeFileBufferSize,
 			)
@@ -252,7 +242,7 @@ func (s *Service) Run(ctx context.Context) error {
 func (s *Service) recover(ctx context.Context) (executing *round, err error) {
 	roundsDir := filepath.Join(s.datadir, "rounds")
 	logger := logging.FromContext(ctx).Named("recovery")
-	logger.Info("recovering service state", zap.String("datadir", s.datadir))
+	logger.Info("recovering worker state", zap.String("datadir", s.datadir))
 	entries, err := os.ReadDir(roundsDir)
 	if err != nil {
 		return nil, err
@@ -266,7 +256,7 @@ func (s *Service) recover(ctx context.Context) (executing *round, err error) {
 
 		epoch, err := strconv.ParseUint(entry.Name(), 10, 32)
 		if err != nil {
-			return nil, fmt.Errorf("entry is not a uint32 %s", entry.Name())
+			return nil, fmt.Errorf("entry is not an uint32 %s", entry.Name())
 		}
 		r, err := newRound(roundsDir, uint(epoch))
 		if err != nil {
@@ -286,7 +276,7 @@ func (s *Service) recover(ctx context.Context) (executing *round, err error) {
 				"round is finished already",
 				zap.Time("started", r.executionStarted),
 				zap.Binary("root", r.execution.NIP.Root),
-				zap.Uint64("num_leaves", r.execution.NumLeaves),
+				zap.Uint64("leaves", r.execution.NumLeaves),
 			)
 			s.onNewProof(ctx, r.epoch, r.execution)
 			r.teardown(ctx, true)
@@ -296,7 +286,7 @@ func (s *Service) recover(ctx context.Context) (executing *round, err error) {
 			logger.Info(
 				"round is executing",
 				zap.Time("started", r.executionStarted),
-				zap.Uint64("num_leaves", r.execution.NumLeaves),
+				zap.Uint64("leaves", r.execution.NumLeaves),
 			)
 			if executing != nil {
 				logger.Warn("found more than 1 executing round - overwriting", zap.Uint("previous", executing.epoch))
@@ -309,6 +299,8 @@ func (s *Service) recover(ctx context.Context) (executing *round, err error) {
 }
 
 func (s *Service) onNewProof(ctx context.Context, epoch uint, execution *executionState) {
+	logging.FromContext(ctx).
+		Info("publishing new proof", zap.Uint("epoch", epoch), zap.Uint64("leaves", execution.NumLeaves))
 	s.registration.NewProof(ctx, shared.NIP{
 		MerkleProof: *execution.NIP,
 		Leaves:      execution.NumLeaves,

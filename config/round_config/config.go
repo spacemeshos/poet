@@ -1,6 +1,10 @@
 package round_config
 
-import "time"
+import (
+	"time"
+
+	"go.uber.org/zap/zapcore"
+)
 
 const (
 	defaultEpochDuration = 30 * time.Second
@@ -30,6 +34,10 @@ func (c *Config) RoundEnd(genesis time.Time, epoch uint) time.Time {
 	return c.RoundStart(genesis, epoch).Add(c.EpochDuration).Add(-c.CycleGap)
 }
 
+func (c *Config) RoundDuration() time.Duration {
+	return c.EpochDuration - c.CycleGap
+}
+
 // Calculate ID of the open round at a given point in time.
 func (c *Config) OpenRoundId(genesis, when time.Time) uint {
 	sinceGenesis := when.Sub(genesis)
@@ -37,4 +45,13 @@ func (c *Config) OpenRoundId(genesis, when time.Time) uint {
 		return 0
 	}
 	return uint(int(sinceGenesis-c.PhaseShift)/int(c.EpochDuration)) + 1
+}
+
+// implement zap.ObjectMarshaler interface.
+func (c Config) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddDuration("epoch-duration", c.EpochDuration)
+	enc.AddDuration("phase-shift", c.PhaseShift)
+	enc.AddDuration("cycle-gap", c.CycleGap)
+
+	return nil
 }
