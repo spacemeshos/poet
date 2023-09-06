@@ -13,6 +13,9 @@ type transport interface {
 	registration.WorkerService
 }
 
+// inMemory is an in-memory implementation of transport.
+// It allows binding a Registration service with a Worker service
+// in a standalone mode by an in-memory channel.
 type inMemory struct {
 	closedRounds chan service.ClosedRound
 	proofs       chan shared.NIP
