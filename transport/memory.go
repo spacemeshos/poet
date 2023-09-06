@@ -23,8 +23,8 @@ type inMemory struct {
 
 func NewInMemory() transport {
 	return &inMemory{
-		closedRounds: make(chan service.ClosedRound, 2),
-		proofs:       make(chan shared.NIP, 2),
+		closedRounds: make(chan service.ClosedRound, 1),
+		proofs:       make(chan shared.NIP, 1),
 	}
 }
 
