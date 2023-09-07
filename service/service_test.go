@@ -15,6 +15,7 @@ import (
 	"github.com/spacemeshos/poet/service"
 	"github.com/spacemeshos/poet/service/mocks"
 	"github.com/spacemeshos/poet/shared"
+	"github.com/spacemeshos/poet/transport"
 	"github.com/spacemeshos/poet/verifier"
 )
 
@@ -140,6 +141,40 @@ func TestNewService(t *testing.T) {
 			shared.T,
 		)
 		req.NoError(err)
+	}
+
+	cancel()
+	req.NoError(eg.Wait())
+}
+
+func TestSkipPastRounds(t *testing.T) {
+	req := require.New(t)
+
+	transport := transport.NewInMemory()
+	s, err := service.NewService(
+		context.Background(),
+		time.Now().Add(-time.Second),
+		t.TempDir(),
+		transport,
+		service.WithRoundConfig(round_config.Config{
+			EpochDuration: time.Millisecond,
+		}),
+	)
+	req.NoError(err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var eg errgroup.Group
+	eg.Go(func() error { return s.Run(ctx) })
+
+	proofs := transport.RegisterForProofs(context.Background())
+	// Try executing round in the past, should be ignored
+	transport.ExecuteRound(ctx, 0, nil)
+
+	select {
+	case <-proofs:
+		t.Fatal("should not receive proof")
+	case <-time.After(time.Millisecond * 100):
 	}
 
 	cancel()
