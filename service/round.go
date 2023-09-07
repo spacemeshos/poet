@@ -52,7 +52,7 @@ type roundState struct {
 	Execution        *persistedRoundState
 }
 
-func (r *round) isExecuted() bool {
+func (r *round) IsFinished() bool {
 	return r.execution.NIP != nil
 }
 
@@ -68,13 +68,13 @@ type round struct {
 
 type newRoundOptionFunc func(*round)
 
-func withMembershipRoot(root []byte) newRoundOptionFunc {
+func WithMembershipRoot(root []byte) newRoundOptionFunc {
 	return func(r *round) {
 		r.execution.Statement = root
 	}
 }
 
-func newRound(datadir string, epoch uint, opts ...newRoundOptionFunc) (*round, error) {
+func NewRound(datadir string, epoch uint, opts ...newRoundOptionFunc) (*round, error) {
 	id := strconv.FormatUint(uint64(epoch), 10)
 	datadir = filepath.Join(datadir, id)
 
@@ -104,7 +104,7 @@ func newRound(datadir string, epoch uint, opts ...newRoundOptionFunc) (*round, e
 	return r, nil
 }
 
-func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer, fileWriterBufSize uint) error {
+func (r *round) Execute(ctx context.Context, end time.Time, minMemoryLayer, fileWriterBufSize uint) error {
 	r.executionStarted = time.Now()
 	if err := r.saveState(); err != nil {
 		return err
@@ -164,7 +164,7 @@ func (r *round) persistExecution(
 	return r.saveState()
 }
 
-func (r *round) recoverExecution(ctx context.Context, end time.Time, fileWriterBufSize uint) error {
+func (r *round) RecoverExecution(ctx context.Context, end time.Time, fileWriterBufSize uint) error {
 	logger := logging.FromContext(ctx).With(zap.Uint("epoch", r.epoch))
 	logger.With().Info(
 		"recovering execution",
@@ -241,7 +241,7 @@ func (r *round) saveState() error {
 	return nil
 }
 
-func (r *round) teardown(ctx context.Context, cleanup bool) error {
+func (r *round) Teardown(ctx context.Context, cleanup bool) error {
 	logger := logging.FromContext(ctx)
 	logger.Info("tearing down round", zap.Uint("epoch", r.epoch), zap.Bool("cleanup", cleanup))
 	started := time.Now()

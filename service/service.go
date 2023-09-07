@@ -140,7 +140,7 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 	if round := roundToResume; round != nil {
 		end := s.roundCfg.RoundEnd(s.genesis, round.epoch)
 		unlock := lockOSThread(ctx, roundTidFile)
-		err := round.recoverExecution(ctx, end, s.cfg.TreeFileBufferSize)
+		err := round.RecoverExecution(ctx, end, s.cfg.TreeFileBufferSize)
 		unlock()
 		switch {
 		case err == nil:
@@ -151,7 +151,7 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 			logger.Error("recovered round execution failed", zap.Error(err), zap.Uint("epoch", round.epoch))
 		}
 		eg.Go(func() error {
-			if err := round.teardown(ctx, err == nil); err != nil {
+			if err := round.Teardown(ctx, err == nil); err != nil {
 				logger.Warn("round teardown failed", zap.Error(err))
 			}
 			return nil
@@ -174,17 +174,17 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 				continue
 			}
 
-			round, err := newRound(
+			round, err := NewRound(
 				filepath.Join(s.datadir, "rounds"),
 				closedRound.Epoch,
-				withMembershipRoot(closedRound.MembershipRoot),
+				WithMembershipRoot(closedRound.MembershipRoot),
 			)
 			if err != nil {
 				return fmt.Errorf("failed to create a new round: %w", err)
 			}
 
 			unlock := lockOSThread(ctx, roundTidFile)
-			err = round.execute(
+			err = round.Execute(
 				logging.NewContext(ctx, logger),
 				end,
 				s.minMemoryLayer,
@@ -201,7 +201,7 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 			}
 
 			eg.Go(func() error {
-				if err := round.teardown(ctx, err == nil); err != nil {
+				if err := round.Teardown(ctx, err == nil); err != nil {
 					logger.Warn("round teardown failed", zap.Error(err))
 				}
 				return nil
@@ -258,7 +258,7 @@ func (s *Service) recover(ctx context.Context) (executing *round, err error) {
 		if err != nil {
 			return nil, fmt.Errorf("entry is not an uint32 %s", entry.Name())
 		}
-		r, err := newRound(roundsDir, uint(epoch))
+		r, err := NewRound(roundsDir, uint(epoch))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create round: %w", err)
 		}
@@ -271,7 +271,7 @@ func (s *Service) recover(ctx context.Context) (executing *round, err error) {
 		logger.Info("recovered round", zap.Uint("epoch", r.epoch))
 
 		switch {
-		case r.isExecuted():
+		case r.IsFinished():
 			logger.Info(
 				"round is finished already",
 				zap.Time("started", r.executionStarted),
@@ -279,7 +279,7 @@ func (s *Service) recover(ctx context.Context) (executing *round, err error) {
 				zap.Uint64("leaves", r.execution.NumLeaves),
 			)
 			s.onNewProof(ctx, r.epoch, r.execution)
-			r.teardown(ctx, true)
+			r.Teardown(ctx, true)
 
 		default:
 			// Round is in executing state.
@@ -301,9 +301,11 @@ func (s *Service) recover(ctx context.Context) (executing *round, err error) {
 func (s *Service) onNewProof(ctx context.Context, epoch uint, execution *executionState) {
 	logging.FromContext(ctx).
 		Info("publishing new proof", zap.Uint("epoch", epoch), zap.Uint64("leaves", execution.NumLeaves))
-	s.registration.NewProof(ctx, shared.NIP{
+	if err := s.registration.NewProof(ctx, shared.NIP{
 		MerkleProof: *execution.NIP,
 		Leaves:      execution.NumLeaves,
 		Epoch:       epoch,
-	})
+	}); err != nil {
+		logging.FromContext(ctx).Error("failed to publish new proof", zap.Error(err))
+	}
 }

@@ -3,6 +3,7 @@ package service_test
 import (
 	"bytes"
 	"context"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -176,6 +177,57 @@ func TestSkipPastRounds(t *testing.T) {
 		t.Fatal("should not receive proof")
 	case <-time.After(time.Millisecond * 100):
 	}
+
+	cancel()
+	req.NoError(eg.Wait())
+}
+
+func TestRecoverFinishedRound(t *testing.T) {
+	req := require.New(t)
+
+	datadir := t.TempDir()
+	// manually create a round and execute it
+	round, err := service.NewRound(
+		filepath.Join(datadir, "rounds"),
+		9876,
+		service.WithMembershipRoot([]byte{1, 2, 3, 4}),
+	)
+	req.NoError(err)
+	err = round.Execute(context.Background(), time.Now().Add(time.Millisecond*10), 0, 0)
+	req.NoError(err)
+	req.True(round.IsFinished())
+
+	transport := transport.NewInMemory()
+	s, err := service.NewService(
+		context.Background(),
+		time.Now(),
+		datadir,
+		transport,
+		service.WithRoundConfig(round_config.Config{
+			EpochDuration: time.Hour,
+		}),
+	)
+	req.NoError(err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	var eg errgroup.Group
+	eg.Go(func() error { return s.Run(ctx) })
+
+	proofs := transport.RegisterForProofs(context.Background())
+	var proof shared.NIP
+	req.Eventually(func() bool {
+		select {
+		case p := <-proofs:
+			proof = p
+			return true
+		default:
+			return false
+		}
+	}, time.Second, time.Millisecond)
+
+	req.Equal(uint(9876), proof.Epoch)
+	req.NoDirExists(filepath.Join(datadir, "rounds", "9876"))
 
 	cancel()
 	req.NoError(eg.Wait())
