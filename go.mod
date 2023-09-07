@@ -12,7 +12,7 @@ require (
 	github.com/natefinch/atomic v1.0.1
 	github.com/nullstyle/go-xdr v0.0.0-20180726165426-f4c839f75077
 	github.com/prometheus/client_golang v1.16.0
-	github.com/spacemeshos/go-scale v1.1.10
+	github.com/spacemeshos/go-scale v1.1.11
 	github.com/spacemeshos/merkle-tree v0.2.2
 	github.com/spacemeshos/sha256-simd v0.1.0
 	github.com/stretchr/testify v1.8.4
@@ -23,7 +23,7 @@ require (
 	golang.org/x/sync v0.3.0
 	golang.org/x/sys v0.12.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20230822172742-b8732ec3820d
-	google.golang.org/grpc v1.57.0
+	google.golang.org/grpc v1.58.0
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
