@@ -110,7 +110,6 @@ func New(ctx context.Context, cfg config.Config) (*Server, error) {
 		transport,
 		service.WithConfig(cfg.Service),
 		service.WithRoundConfig(cfg.Round),
-		service.WithPrivateKey(privateKey),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Service: %v", err)

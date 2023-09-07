@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"crypto/ed25519"
 	"errors"
 	"fmt"
 	"os"
@@ -32,8 +31,6 @@ type Service struct {
 	roundCfg       round_config.Config
 	datadir        string
 	minMemoryLayer uint
-
-	privKey ed25519.PrivateKey
 }
 
 type ClosedRound struct {
@@ -47,18 +44,11 @@ type RegistrationService interface {
 }
 
 type newServiceOption struct {
-	privateKey ed25519.PrivateKey
-	cfg        Config
-	roundCfg   round_config.Config
+	cfg      Config
+	roundCfg round_config.Config
 }
 
 type newServiceOptionFunc func(*newServiceOption)
-
-func WithPrivateKey(privateKey ed25519.PrivateKey) newServiceOptionFunc {
-	return func(o *newServiceOption) {
-		o.privateKey = privateKey
-	}
-}
 
 func WithConfig(cfg Config) newServiceOptionFunc {
 	return func(o *newServiceOption) {
@@ -88,14 +78,6 @@ func NewService(
 	for _, opt := range opts {
 		opt(options)
 	}
-	if options.privateKey == nil {
-		logging.FromContext(ctx).Info("generating new private key")
-		_, privateKey, err := ed25519.GenerateKey(nil)
-		if err != nil {
-			return nil, fmt.Errorf("generating key: %w", err)
-		}
-		options.privateKey = privateKey
-	}
 
 	estimatedLeaves := uint64(options.roundCfg.RoundDuration().Seconds()) * uint64(options.cfg.EstimatedLeavesPerSecond)
 	minMemoryLayer := uint(0)
@@ -116,12 +98,15 @@ func NewService(
 		roundCfg:       options.roundCfg,
 		minMemoryLayer: minMemoryLayer,
 		datadir:        datadir,
-		privKey:        options.privateKey,
 		registration:   registration,
 	}
 
-	logging.FromContext(ctx).
-		Info("created poet worker service", zap.Binary("pubkey", s.privKey.Public().(ed25519.PublicKey)), zap.Time("genesis", s.genesis), zap.Uint("min memory layer", s.minMemoryLayer), zap.Object("round config", s.roundCfg))
+	logging.FromContext(ctx).Info(
+		"created poet worker service",
+		zap.Time("genesis", s.genesis),
+		zap.Uint("min memory layer", s.minMemoryLayer),
+		zap.Object("round config", s.roundCfg),
+	)
 
 	return s, nil
 }
