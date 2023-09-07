@@ -7,8 +7,8 @@ package mocks
 import (
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	service "github.com/spacemeshos/poet/service"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockPowVerifier is a mock of PowVerifier interface.
@@ -43,9 +43,33 @@ func (m *MockPowVerifier) Params() service.PowParams {
 }
 
 // Params indicates an expected call of Params.
-func (mr *MockPowVerifierMockRecorder) Params() *gomock.Call {
+func (mr *MockPowVerifierMockRecorder) Params() *PowVerifierParamsCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Params", reflect.TypeOf((*MockPowVerifier)(nil).Params))
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Params", reflect.TypeOf((*MockPowVerifier)(nil).Params))
+	return &PowVerifierParamsCall{Call: call}
+}
+
+// PowVerifierParamsCall wrap *gomock.Call
+type PowVerifierParamsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *PowVerifierParamsCall) Return(arg0 service.PowParams) *PowVerifierParamsCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *PowVerifierParamsCall) Do(f func() service.PowParams) *PowVerifierParamsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *PowVerifierParamsCall) DoAndReturn(f func() service.PowParams) *PowVerifierParamsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // SetParams mocks base method.
@@ -55,9 +79,33 @@ func (m *MockPowVerifier) SetParams(arg0 service.PowParams) {
 }
 
 // SetParams indicates an expected call of SetParams.
-func (mr *MockPowVerifierMockRecorder) SetParams(arg0 interface{}) *gomock.Call {
+func (mr *MockPowVerifierMockRecorder) SetParams(arg0 interface{}) *PowVerifierSetParamsCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetParams", reflect.TypeOf((*MockPowVerifier)(nil).SetParams), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetParams", reflect.TypeOf((*MockPowVerifier)(nil).SetParams), arg0)
+	return &PowVerifierSetParamsCall{Call: call}
+}
+
+// PowVerifierSetParamsCall wrap *gomock.Call
+type PowVerifierSetParamsCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *PowVerifierSetParamsCall) Return() *PowVerifierSetParamsCall {
+	c.Call = c.Call.Return()
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *PowVerifierSetParamsCall) Do(f func(service.PowParams)) *PowVerifierSetParamsCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *PowVerifierSetParamsCall) DoAndReturn(f func(service.PowParams)) *PowVerifierSetParamsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
 
 // Verify mocks base method.
@@ -69,7 +117,31 @@ func (m *MockPowVerifier) Verify(arg0, arg1 []byte, arg2 uint64) error {
 }
 
 // Verify indicates an expected call of Verify.
-func (mr *MockPowVerifierMockRecorder) Verify(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockPowVerifierMockRecorder) Verify(arg0, arg1, arg2 interface{}) *PowVerifierVerifyCall {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Verify", reflect.TypeOf((*MockPowVerifier)(nil).Verify), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Verify", reflect.TypeOf((*MockPowVerifier)(nil).Verify), arg0, arg1, arg2)
+	return &PowVerifierVerifyCall{Call: call}
+}
+
+// PowVerifierVerifyCall wrap *gomock.Call
+type PowVerifierVerifyCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *PowVerifierVerifyCall) Return(arg0 error) *PowVerifierVerifyCall {
+	c.Call = c.Call.Return(arg0)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *PowVerifierVerifyCall) Do(f func([]byte, []byte, uint64) error) *PowVerifierVerifyCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *PowVerifierVerifyCall) DoAndReturn(f func([]byte, []byte, uint64) error) *PowVerifierVerifyCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
 }
