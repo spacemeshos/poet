@@ -40,9 +40,6 @@ func TestSubmitIdempotence(t *testing.T) {
 		t.TempDir(),
 		workerSvc,
 		registration.WithPowVerifier(verifier),
-		registration.WithConfig(registration.Config{
-			MaxRoundMembers: 100,
-		}),
 		registration.WithRoundConfig(roundCfg),
 	)
 	req.NoError(err)
@@ -69,7 +66,7 @@ func TestSubmitIdempotence(t *testing.T) {
 	req.NoError(eg.Wait())
 }
 
-func TestService_OpeningRounds(t *testing.T) {
+func TestOpeningRounds(t *testing.T) {
 	t.Run("before genesis", func(t *testing.T) {
 		reg, err := registration.NewRegistration(
 			context.Background(),
@@ -148,7 +145,7 @@ func TestService_OpeningRounds(t *testing.T) {
 // Test if Proof of Work challenge is rotated every round.
 // The challenge should be changed to the root of PoET proof Merkle tree
 // of the previous round.
-func TestService_PowChallengeRotation(t *testing.T) {
+func TestPowChallengeRotation(t *testing.T) {
 	genesis := time.Now()
 
 	proofs := make(chan shared.NIP, 1)
@@ -191,4 +188,54 @@ func TestService_PowChallengeRotation(t *testing.T) {
 
 	cancel()
 	require.NoError(t, eg.Wait())
+}
+
+func TestRecoveringRoundInProgress(t *testing.T) {
+	req := require.New(t)
+	genesis := time.Now()
+
+	roundCfg := round_config.Config{
+		EpochDuration: time.Hour,
+		PhaseShift:    time.Second / 2,
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	verifier := mocks.NewMockPowVerifier(gomock.NewController(t))
+	workerSvc := mocks.NewMockWorkerService(gomock.NewController(t))
+	workerSvc.EXPECT().RegisterForProofs(gomock.Any()).Return(make(<-chan shared.NIP, 1))
+	workerSvc.EXPECT().ExecuteRound(gomock.Any(), gomock.Eq(uint(0)), gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ uint, _ []byte) error {
+			cancel()
+			return nil
+		},
+	)
+
+	s, err := registration.NewRegistration(
+		context.Background(),
+		genesis,
+		t.TempDir(),
+		workerSvc,
+		registration.WithPowVerifier(verifier),
+		registration.WithRoundConfig(roundCfg),
+	)
+	req.NoError(err)
+
+	defer cancel()
+	var eg errgroup.Group
+	eg.Go(func() error { return s.Run(ctx) })
+
+	req.NoError(eg.Wait())
+
+	// Restart the registration service.
+	// The round in progress should be recovered and executed again.
+	ctx, cancel = context.WithCancel(context.Background())
+	workerSvc.EXPECT().RegisterForProofs(gomock.Any()).Return(make(<-chan shared.NIP, 1))
+	workerSvc.EXPECT().ExecuteRound(gomock.Any(), gomock.Eq(uint(0)), gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ uint, _ []byte) error {
+			cancel()
+			return nil
+		},
+	)
+	req.NoError(s.Run(ctx))
 }
