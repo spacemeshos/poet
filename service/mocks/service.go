@@ -8,9 +8,9 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	service "github.com/spacemeshos/poet/service"
 	shared "github.com/spacemeshos/poet/shared"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockRegistrationService is a mock of RegistrationService interface.

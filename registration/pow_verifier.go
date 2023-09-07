@@ -14,7 +14,7 @@ var (
 	ErrInvalidPowParams = errors.New("invalid proof of work parameters")
 )
 
-//go:generate mockgen -package mocks -destination mocks/pow_verifier.go . PowVerifier
+//go:generate mockgen -typed -package mocks -destination mocks/pow_verifier.go . PowVerifier
 
 type PowVerifier interface {
 	// Verify the proof of work.

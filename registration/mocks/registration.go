@@ -8,8 +8,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	gomock "github.com/golang/mock/gomock"
 	shared "github.com/spacemeshos/poet/shared"
+	gomock "go.uber.org/mock/gomock"
 )
 
 // MockWorkerService is a mock of WorkerService interface.
