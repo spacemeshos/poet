@@ -131,10 +131,15 @@ func poetMain() (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to create server: %w", err)
 	}
+
 	if err := server.Start(ctx); err != nil {
-		return fmt.Errorf("failure in server: %w", err)
+		errClosing := server.Close()
+		return fmt.Errorf("failure in server: %w (closing: %w)", err, errClosing)
 	}
 
+	if err := server.Close(); err != nil {
+		return fmt.Errorf("failed closing server: %w", err)
+	}
 	return nil
 }
 

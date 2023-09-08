@@ -66,6 +66,7 @@ func TestInfoEndpoint(t *testing.T) {
 	cfg.Round.CycleGap = 7 * time.Minute
 
 	srv, client := spawnPoet(ctx, t, *cfg)
+	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
 
 	var eg errgroup.Group
 	eg.Go(func() error {
@@ -97,6 +98,7 @@ func TestSubmitSignatureVerification(t *testing.T) {
 	cfg.Registration.PowDifficulty = 0
 
 	srv, client := spawnPoet(ctx, t, *cfg)
+	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
 
 	var eg errgroup.Group
 	eg.Go(func() error {
@@ -145,6 +147,7 @@ func TestSubmitPowVerification(t *testing.T) {
 	cfg.Registration.PowDifficulty = 3
 
 	srv, client := spawnPoet(ctx, t, *cfg)
+	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
 
 	var eg errgroup.Group
 	eg.Go(func() error {
@@ -209,6 +212,7 @@ func TestSubmitAndGetProof(t *testing.T) {
 	cfg.Registration.PowDifficulty = 0
 
 	srv, client := spawnPoet(ctx, t, *cfg)
+	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
 
 	var eg errgroup.Group
 	eg.Go(func() error {
@@ -281,6 +285,7 @@ func TestCannotSubmitMoreThanMaxRoundMembers(t *testing.T) {
 	cfg.Registration.PowDifficulty = 0
 
 	srv, client := spawnPoet(ctx, t, *cfg)
+	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
 
 	var eg errgroup.Group
 	eg.Go(func() error {
@@ -328,6 +333,7 @@ func TestSubmittingChallengeTwice(t *testing.T) {
 	cfg.Registration.PowDifficulty = 0
 
 	srv, client := spawnPoet(ctx, t, *cfg)
+	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
 
 	var eg errgroup.Group
 	eg.Go(func() error {
@@ -394,7 +400,7 @@ func TestPersistingPowParams(t *testing.T) {
 	ctx, cancel = context.WithCancel(context.Background())
 	defer cancel()
 	srv, client = spawnPoet(ctx, t, *cfg)
-	defer srv.Close()
+	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
 	eg.Go(func() error {
 		return srv.Start(ctx)
 	})
@@ -432,7 +438,8 @@ func TestPersistingKeys(t *testing.T) {
 	ctx, cancel = context.WithCancel(context.Background())
 	defer cancel()
 	srv, client = spawnPoet(ctx, t, *cfg)
-	defer srv.Close()
+	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
+
 	eg.Go(func() error {
 		return srv.Start(ctx)
 	})
@@ -460,6 +467,7 @@ func TestLoadSubmits(t *testing.T) {
 	req.NoError(err)
 
 	srv, err := server.New(context.Background(), *cfg)
+	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
 	req.NoError(err)
 
 	concurrentSubmits := 10000
