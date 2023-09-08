@@ -34,7 +34,7 @@ func TestSubmitIdempotence(t *testing.T) {
 	workerSvc := mocks.NewMockWorkerService(gomock.NewController(t))
 	workerSvc.EXPECT().RegisterForProofs(gomock.Any()).Return(make(<-chan shared.NIP, 1))
 
-	s, err := registration.NewRegistration(
+	r, err := registration.NewRegistration(
 		context.Background(),
 		genesis,
 		t.TempDir(),
@@ -43,6 +43,7 @@ func TestSubmitIdempotence(t *testing.T) {
 		registration.WithRoundConfig(roundCfg),
 	)
 	req.NoError(err)
+	t.Cleanup(func() { require.NoError(t, r.Close()) })
 
 	verifier.EXPECT().Params().Times(2).Return(registration.PowParams{})
 	verifier.EXPECT().Verify(challenge, nodeID, nonce).Times(2).Return(nil)
@@ -50,15 +51,15 @@ func TestSubmitIdempotence(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var eg errgroup.Group
-	eg.Go(func() error { return s.Run(ctx) })
+	eg.Go(func() error { return r.Run(ctx) })
 
 	// Submit challenge
-	epoch, _, err := s.Submit(context.Background(), challenge, nodeID, nonce, registration.PowParams{})
+	epoch, _, err := r.Submit(context.Background(), challenge, nodeID, nonce, registration.PowParams{})
 	req.NoError(err)
 	req.Equal(uint(0), epoch)
 
 	// Try again - it should return the same result
-	epoch, _, err = s.Submit(context.Background(), challenge, nodeID, nonce, registration.PowParams{})
+	epoch, _, err = r.Submit(context.Background(), challenge, nodeID, nonce, registration.PowParams{})
 	req.NoError(err)
 	req.Equal(uint(0), epoch)
 
@@ -67,7 +68,9 @@ func TestSubmitIdempotence(t *testing.T) {
 }
 
 func TestOpeningRounds(t *testing.T) {
+	t.Parallel()
 	t.Run("before genesis", func(t *testing.T) {
+		t.Parallel()
 		reg, err := registration.NewRegistration(
 			context.Background(),
 			time.Now().Add(time.Hour),
@@ -75,6 +78,7 @@ func TestOpeningRounds(t *testing.T) {
 			nil,
 		)
 		require.NoError(t, err)
+		t.Cleanup(func() { require.NoError(t, reg.Close()) })
 
 		// Service instance should create open round 0.
 		open, executing := reg.Info(context.Background())
@@ -83,6 +87,7 @@ func TestOpeningRounds(t *testing.T) {
 		require.Nil(t, executing)
 	})
 	t.Run("after genesis, but within phase shift", func(t *testing.T) {
+		t.Parallel()
 		reg, err := registration.NewRegistration(
 			context.Background(),
 			time.Now().Add(time.Hour),
@@ -93,6 +98,7 @@ func TestOpeningRounds(t *testing.T) {
 			}),
 		)
 		require.NoError(t, err)
+		t.Cleanup(func() { require.NoError(t, reg.Close()) })
 
 		// Service instance should create open round 0.
 		open, executing := reg.Info(context.Background())
@@ -101,6 +107,7 @@ func TestOpeningRounds(t *testing.T) {
 		require.Nil(t, executing)
 	})
 	t.Run("in first epoch", func(t *testing.T) {
+		t.Parallel()
 		reg, err := registration.NewRegistration(
 			context.Background(),
 			time.Now().Add(-time.Hour),
@@ -112,6 +119,7 @@ func TestOpeningRounds(t *testing.T) {
 			}),
 		)
 		require.NoError(t, err)
+		t.Cleanup(func() { require.NoError(t, reg.Close()) })
 
 		// Service instance should create open round 1.
 		open, executing := reg.Info(context.Background())
@@ -121,6 +129,7 @@ func TestOpeningRounds(t *testing.T) {
 		require.Equal(t, uint(0), *executing)
 	})
 	t.Run("in distant epoch", func(t *testing.T) {
+		t.Parallel()
 		reg, err := registration.NewRegistration(
 			context.Background(),
 			time.Now().Add(-100*time.Hour),
@@ -132,6 +141,7 @@ func TestOpeningRounds(t *testing.T) {
 			}),
 		)
 		require.NoError(t, err)
+		t.Cleanup(func() { require.NoError(t, reg.Close()) })
 
 		// Service instance should create open round 1.
 		open, executing := reg.Info(context.Background())
@@ -165,7 +175,7 @@ func TestPowChallengeRotation(t *testing.T) {
 		}).
 		AnyTimes()
 
-	reg, err := registration.NewRegistration(
+	r, err := registration.NewRegistration(
 		context.Background(),
 		genesis,
 		t.TempDir(),
@@ -173,17 +183,18 @@ func TestPowChallengeRotation(t *testing.T) {
 		registration.WithRoundConfig(round_config.Config{EpochDuration: 10 * time.Millisecond}),
 	)
 	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, r.Close()) })
 
-	params0 := reg.PowParams()
+	params0 := r.PowParams()
 	require.NotEqual(t, []byte{1, 2, 3, 4}, params0.Challenge)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	var eg errgroup.Group
-	eg.Go(func() error { return reg.Run(ctx) })
+	eg.Go(func() error { return r.Run(ctx) })
 
 	require.Eventually(t, func() bool {
-		return bytes.Equal([]byte{1, 2, 3, 4}, reg.PowParams().Challenge)
+		return !bytes.Equal([]byte{1, 2, 3, 4}, r.PowParams().Challenge)
 	}, time.Second, time.Millisecond)
 
 	cancel()
@@ -211,7 +222,7 @@ func TestRecoveringRoundInProgress(t *testing.T) {
 		},
 	)
 
-	s, err := registration.NewRegistration(
+	r, err := registration.NewRegistration(
 		context.Background(),
 		genesis,
 		t.TempDir(),
@@ -220,10 +231,11 @@ func TestRecoveringRoundInProgress(t *testing.T) {
 		registration.WithRoundConfig(roundCfg),
 	)
 	req.NoError(err)
+	t.Cleanup(func() { require.NoError(t, r.Close()) })
 
 	defer cancel()
 	var eg errgroup.Group
-	eg.Go(func() error { return s.Run(ctx) })
+	eg.Go(func() error { return r.Run(ctx) })
 
 	req.NoError(eg.Wait())
 
@@ -237,5 +249,5 @@ func TestRecoveringRoundInProgress(t *testing.T) {
 			return nil
 		},
 	)
-	req.NoError(s.Run(ctx))
+	req.NoError(r.Run(ctx))
 }

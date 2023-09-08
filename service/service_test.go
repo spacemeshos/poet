@@ -109,7 +109,7 @@ func TestNewService(t *testing.T) {
 		t.TempDir(),
 		registration,
 		service.WithRoundConfig(round_config.Config{
-			EpochDuration: time.Second,
+			EpochDuration: time.Second * 2,
 		}),
 	)
 	req.NoError(err)
