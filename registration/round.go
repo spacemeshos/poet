@@ -128,6 +128,7 @@ func newRound(epoch uint, dbdir string, options ...newRoundOptionFunc) (*round, 
 		maxMembers:     opts.maxMembers,
 		maxBatchSize:   opts.maxSubmitBatchSize,
 		flushInterval:  opts.submitFlushInterval,
+		pendingSubmits: make(map[string]pendingSubmit),
 	}
 
 	membersCounter.Add(float64(r.members))
@@ -148,12 +149,6 @@ func (r *round) submit(ctx context.Context, key, challenge []byte) (<-chan error
 		return nil, ErrMaxMembersReached
 	}
 
-	if r.batch == nil {
-		r.pendingSubmits = make(map[string]pendingSubmit)
-		r.batch = leveldb.MakeBatch(r.maxBatchSize)
-		time.AfterFunc(r.flushInterval, r.flushPendingSubmits)
-	}
-
 	pending, ok := r.pendingSubmits[string(key)]
 	if ok {
 		switch {
@@ -162,6 +157,11 @@ func (r *round) submit(ctx context.Context, key, challenge []byte) (<-chan error
 		default:
 			return nil, ErrConflictingRegistration
 		}
+	}
+
+	if r.batch == nil {
+		r.batch = leveldb.MakeBatch(r.maxBatchSize)
+		time.AfterFunc(r.flushInterval, r.flushPendingSubmits)
 	}
 
 	registered, err := r.db.Get(key, nil)
@@ -198,7 +198,7 @@ func (r *round) flushPendingSubmits() {
 }
 
 func (r *round) flushPendingSubmitsLocked() {
-	if r.batch == nil {
+	if r.batch == nil || r.batch.Len() == 0 {
 		return
 	}
 	logging.FromContext(context.Background()).
@@ -215,7 +215,7 @@ func (r *round) flushPendingSubmitsLocked() {
 	r.members += len(r.pendingSubmits)
 	r.membersCounter.Add(float64(len(r.pendingSubmits)))
 
-	r.pendingSubmits = nil
+	r.pendingSubmits = make(map[string]pendingSubmit)
 	r.batch = nil
 }
 
