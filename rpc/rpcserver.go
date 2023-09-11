@@ -76,6 +76,8 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 		return nil, status.Error(codes.ResourceExhausted, err.Error())
 	case errors.Is(err, registration.ErrConflictingRegistration):
 		return nil, status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, context.Canceled):
+		return nil, status.Error(codes.Canceled, err.Error())
 	case err != nil:
 		logging.FromContext(ctx).Warn("unknown error submitting challenge", zap.Error(err))
 		return nil, status.Error(codes.Internal, "unknown error submitting challenge")

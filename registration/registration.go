@@ -303,20 +303,19 @@ func (r *Registration) Submit(
 	logger.Debug("verified challenge", zap.String("node_id", hex.EncodeToString(nodeID)))
 
 	r.openRoundMutex.RLock()
-	defer r.openRoundMutex.RUnlock()
 	epoch = r.openRound.epoch
 	done, err := r.openRound.submit(ctx, nodeID, challenge)
+	r.openRoundMutex.RUnlock()
+
 	switch {
 	case err == nil:
 		logger.Debug("async-submitted challenge for round", zap.Uint("round", epoch))
 		// wait for actually submitted
 		select {
 		case <-ctx.Done():
-			logger.Debug("context canceled while waiting for challenge to be submitted")
 			return 0, time.Time{}, ctx.Err()
 		case err := <-done:
 			if err != nil {
-				logger.Warn("challenge registration failed", zap.Error(err))
 				return 0, time.Time{}, err
 			}
 		}
@@ -325,7 +324,7 @@ func (r *Registration) Submit(
 		return 0, time.Time{}, err
 	}
 
-	return epoch, r.genesis.Add(r.roundCfg.PhaseShift).Add(time.Duration(epoch+1) * r.roundCfg.EpochDuration), nil
+	return epoch, r.roundCfg.RoundEnd(r.genesis, epoch), nil
 }
 
 func (r *Registration) Info(ctx context.Context) (openRoundId uint, executingRoundId *uint) {
