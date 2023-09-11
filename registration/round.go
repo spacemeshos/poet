@@ -92,7 +92,7 @@ func withMaxSubmitBatchSize(size int) newRoundOptionFunc {
 	}
 }
 
-func withFailfIfNotExists() newRoundOptionFunc {
+func failIfNotExists() newRoundOptionFunc {
 	return func(o *newRoundOptions) {
 		o.failIfNotExists = true
 	}

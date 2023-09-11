@@ -225,7 +225,7 @@ func (r *Registration) recoverExecution(ctx context.Context) error {
 		return nil
 	}
 
-	opts := append(r.newRoundOpts(), withFailfIfNotExists())
+	opts := append(r.newRoundOpts(), failIfNotExists())
 	round, err := newRound(*executing, r.dbdir, opts...)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
@@ -252,7 +252,7 @@ func (r *Registration) onNewProof(ctx context.Context, proof shared.NIP) error {
 
 	// Retrieve the list of round members for the round.
 	// This is temporary until we remove the list of members from the proof.
-	opts := append(r.newRoundOpts(), withFailfIfNotExists())
+	opts := append(r.newRoundOpts(), failIfNotExists())
 	round, err := newRound(proof.Epoch, r.dbdir, opts...)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
