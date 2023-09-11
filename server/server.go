@@ -90,7 +90,7 @@ func New(ctx context.Context, cfg config.Config) (*Server, error) {
 	privateKey := ed25519.NewKeyFromSeed(s.PrivKey[:32])
 
 	transport := transport.NewInMemory()
-	reg, err := registration.NewRegistration(
+	reg, err := registration.New(
 		ctx,
 		cfg.Genesis.Time(),
 		cfg.DbDir,
@@ -103,7 +103,7 @@ func New(ctx context.Context, cfg config.Config) (*Server, error) {
 		return nil, fmt.Errorf("creating registration service: %w", err)
 	}
 
-	svc, err := service.NewService(
+	svc, err := service.New(
 		ctx,
 		cfg.Genesis.Time(),
 		cfg.DataDir,

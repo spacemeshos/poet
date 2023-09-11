@@ -31,7 +31,7 @@ func TestService_Recovery(t *testing.T) {
 
 	// Create a new service instance.
 	registration.EXPECT().RegisterForRoundClosed(gomock.Any()).Return(closedRoundsChan)
-	s, err := service.NewService(
+	s, err := service.New(
 		context.Background(),
 		genesis,
 		tempdir,
@@ -62,7 +62,7 @@ func TestService_Recovery(t *testing.T) {
 			proofs <- proof
 			return nil
 		})
-	s, err = service.NewService(
+	s, err = service.New(
 		context.Background(),
 		genesis,
 		tempdir,
@@ -103,7 +103,7 @@ func TestNewService(t *testing.T) {
 
 	// Create a new service instance.
 	registration.EXPECT().RegisterForRoundClosed(gomock.Any()).Return(closedRoundsChan)
-	s, err := service.NewService(
+	s, err := service.New(
 		context.Background(),
 		genesis,
 		t.TempDir(),
@@ -152,7 +152,7 @@ func TestSkipPastRounds(t *testing.T) {
 	req := require.New(t)
 
 	transport := transport.NewInMemory()
-	s, err := service.NewService(
+	s, err := service.New(
 		context.Background(),
 		time.Now().Add(-time.Second),
 		t.TempDir(),
@@ -198,7 +198,7 @@ func TestRecoverFinishedRound(t *testing.T) {
 	req.True(round.IsFinished())
 
 	transport := transport.NewInMemory()
-	s, err := service.NewService(
+	s, err := service.New(
 		context.Background(),
 		time.Now(),
 		datadir,

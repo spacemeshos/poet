@@ -34,7 +34,7 @@ func TestSubmitIdempotence(t *testing.T) {
 	workerSvc := mocks.NewMockWorkerService(gomock.NewController(t))
 	workerSvc.EXPECT().RegisterForProofs(gomock.Any()).Return(make(<-chan shared.NIP, 1))
 
-	r, err := registration.NewRegistration(
+	r, err := registration.New(
 		context.Background(),
 		genesis,
 		t.TempDir(),
@@ -71,7 +71,7 @@ func TestOpeningRounds(t *testing.T) {
 	t.Parallel()
 	t.Run("before genesis", func(t *testing.T) {
 		t.Parallel()
-		reg, err := registration.NewRegistration(
+		reg, err := registration.New(
 			context.Background(),
 			time.Now().Add(time.Hour),
 			t.TempDir(),
@@ -88,7 +88,7 @@ func TestOpeningRounds(t *testing.T) {
 	})
 	t.Run("after genesis, but within phase shift", func(t *testing.T) {
 		t.Parallel()
-		reg, err := registration.NewRegistration(
+		reg, err := registration.New(
 			context.Background(),
 			time.Now().Add(time.Hour),
 			t.TempDir(),
@@ -108,7 +108,7 @@ func TestOpeningRounds(t *testing.T) {
 	})
 	t.Run("in first epoch", func(t *testing.T) {
 		t.Parallel()
-		reg, err := registration.NewRegistration(
+		reg, err := registration.New(
 			context.Background(),
 			time.Now().Add(-time.Hour),
 			t.TempDir(),
@@ -130,7 +130,7 @@ func TestOpeningRounds(t *testing.T) {
 	})
 	t.Run("in distant epoch", func(t *testing.T) {
 		t.Parallel()
-		reg, err := registration.NewRegistration(
+		reg, err := registration.New(
 			context.Background(),
 			time.Now().Add(-100*time.Hour),
 			t.TempDir(),
@@ -175,7 +175,7 @@ func TestPowChallengeRotation(t *testing.T) {
 		}).
 		AnyTimes()
 
-	r, err := registration.NewRegistration(
+	r, err := registration.New(
 		context.Background(),
 		genesis,
 		t.TempDir(),
@@ -222,7 +222,7 @@ func TestRecoveringRoundInProgress(t *testing.T) {
 		},
 	)
 
-	r, err := registration.NewRegistration(
+	r, err := registration.New(
 		context.Background(),
 		genesis,
 		t.TempDir(),

@@ -252,8 +252,7 @@ func (r *round) getMembers() (members [][]byte) {
 	iter := r.db.NewIterator(nil, nil)
 	defer iter.Release()
 	for iter.Next() {
-		member := make([]byte, len(iter.Value()))
-		copy(member, iter.Value())
+		member := append([]byte{}, iter.Value()...)
 		members = append(members, member)
 	}
 	return members

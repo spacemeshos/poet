@@ -62,9 +62,9 @@ func WithRoundConfig(cfg round_config.Config) newServiceOptionFunc {
 	}
 }
 
-// NewService creates a new instance of Poet Service.
+// New creates a new instance of a worker service.
 // It should be started with `Service::Run`.
-func NewService(
+func New(
 	ctx context.Context,
 	genesis time.Time,
 	datadir string,

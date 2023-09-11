@@ -82,7 +82,7 @@ func WithConfig(cfg Config) newRegistrationOptionFunc {
 	}
 }
 
-func NewRegistration(
+func New(
 	ctx context.Context,
 	genesis time.Time,
 	dbdir string,

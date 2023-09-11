@@ -42,20 +42,20 @@ func Migrate(ctx context.Context, targetDbDir, oldDbDir string) error {
 	}
 	defer targetDb.Close()
 
-	trans, err := targetDb.OpenTransaction()
+	tx, err := targetDb.OpenTransaction()
 	if err != nil {
 		return fmt.Errorf("opening new DB transaction: %w", err)
 	}
 	iter := oldDb.NewIterator(nil, nil)
 	defer iter.Release()
 	for iter.Next() {
-		if err := trans.Put(iter.Key(), iter.Value(), nil); err != nil {
-			trans.Discard()
+		if err := tx.Put(iter.Key(), iter.Value(), nil); err != nil {
+			tx.Discard()
 			return fmt.Errorf("migrating key %X: %w", iter.Key(), err)
 		}
 	}
 	iter.Release()
-	if err := trans.Commit(); err != nil {
+	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("committing DB transaction: %w", err)
 	}
 

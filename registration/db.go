@@ -88,50 +88,50 @@ func (db *database) GetProof(ctx context.Context, roundID string) (*proofData, e
 }
 
 func (db *database) SavePowChallenge(ctx context.Context, challenge []byte) error {
-	trans, err := db.db.OpenTransaction()
+	tx, err := db.db.OpenTransaction()
 	if err != nil {
 		return err
 	}
 
-	current, err := trans.Get([]byte("pow_challenge"), nil)
+	current, err := tx.Get([]byte("pow_challenge"), nil)
 	switch {
 	case errors.Is(err, leveldb.ErrNotFound):
 		// do nothing
 	case err != nil:
-		trans.Discard()
+		tx.Discard()
 		return fmt.Errorf("querying current pow challenge: %w", err)
 	default:
-		if err := trans.Put([]byte("pow_challenge_previous"), current, nil); err != nil {
+		if err := tx.Put([]byte("pow_challenge_previous"), current, nil); err != nil {
 			logging.FromContext(ctx).Warn("failed to save previous pow challenge", zap.Error(err))
 		}
 	}
-	if err := trans.Put([]byte("pow_challenge"), challenge, nil); err != nil {
-		trans.Discard()
+	if err := tx.Put([]byte("pow_challenge"), challenge, nil); err != nil {
+		tx.Discard()
 		return fmt.Errorf("saving pow challenge: %w", err)
 	}
-	return trans.Commit()
+	return tx.Commit()
 }
 
 func (db *database) GetPowChallenges(ctx context.Context) (current, previous []byte, err error) {
-	trans, err := db.db.OpenTransaction()
+	tx, err := db.db.OpenTransaction()
 	if err != nil {
 		return nil, nil, err
 	}
 
-	current, err = trans.Get([]byte("pow_challenge"), nil)
+	current, err = tx.Get([]byte("pow_challenge"), nil)
 	if err != nil {
-		trans.Discard()
+		tx.Discard()
 		return nil, nil, fmt.Errorf("getting current pow challenge: %w", err)
 	}
-	previous, err = trans.Get([]byte("pow_challenge_previous"), nil)
+	previous, err = tx.Get([]byte("pow_challenge_previous"), nil)
 	switch {
 	case errors.Is(err, leveldb.ErrNotFound):
 		previous = nil
 	case err != nil:
-		trans.Discard()
+		tx.Discard()
 		return nil, nil, fmt.Errorf("getting previous pow challenge: %w", err)
 	}
-	trans.Commit()
+	tx.Commit()
 	return current, previous, nil
 }
 
