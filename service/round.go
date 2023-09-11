@@ -18,7 +18,7 @@ import (
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
-	"github.com/spacemeshos/poet/util"
+	"github.com/spacemeshos/poet/state"
 )
 
 var leavesMetric = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -208,25 +208,25 @@ func (r *round) RecoverExecution(ctx context.Context, end time.Time, fileWriterB
 // loadState recovers persisted state from disk.
 func (r *round) loadState() error {
 	filename := filepath.Join(r.datadir, roundStateFileBaseName)
-	state := roundState{}
-	if err := util.Load(filename, &state); err != nil {
+	s := roundState{}
+	if err := state.Load(filename, &s); err != nil {
 		return fmt.Errorf("loading state: %w", err)
 	}
-	if r.execution.SecurityParam != state.Execution.SecurityParam {
+	if r.execution.SecurityParam != s.Execution.SecurityParam {
 		return errors.New("SecurityParam config mismatch")
 	}
-	r.execution.NIP = state.Execution.NIP
-	r.execution.NumLeaves = state.Execution.NumLeaves
-	r.execution.Statement = state.Execution.Statement
-	r.execution.SecurityParam = state.Execution.SecurityParam
-	r.executionStarted = state.ExecutionStarted
+	r.execution.NIP = s.Execution.NIP
+	r.execution.NumLeaves = s.Execution.NumLeaves
+	r.execution.Statement = s.Execution.Statement
+	r.execution.SecurityParam = s.Execution.SecurityParam
+	r.executionStarted = s.ExecutionStarted
 
 	return nil
 }
 
 func (r *round) saveState() error {
 	filename := filepath.Join(r.datadir, roundStateFileBaseName)
-	err := util.Persist(filename, &roundState{
+	err := state.Persist(filename, &roundState{
 		ExecutionStarted: r.executionStarted,
 		Execution: &persistedRoundState{
 			SecurityParam: r.execution.SecurityParam,

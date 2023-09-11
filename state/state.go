@@ -1,4 +1,4 @@
-package util
+package state
 
 import (
 	"bytes"
@@ -25,12 +25,12 @@ func Persist(filename string, v any) error {
 }
 
 func Load(filename string, v any) error {
-	data, err := os.ReadFile(filename) //#nosec G304
+	f, err := os.Open(filename) //#nosec G304
 	if err != nil {
 		return fmt.Errorf("loading file: %w", err)
 	}
 
-	_, err = xdr.Unmarshal(bytes.NewReader(data), v)
+	_, err = xdr.Unmarshal(f, v)
 	if err != nil {
 		return fmt.Errorf("deserializing: %w", err)
 	}

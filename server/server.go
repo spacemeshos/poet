@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/google/uuid"
@@ -29,8 +30,16 @@ import (
 	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
 	"github.com/spacemeshos/poet/rpc"
 	"github.com/spacemeshos/poet/service"
+	"github.com/spacemeshos/poet/state"
 	"github.com/spacemeshos/poet/transport"
 )
+
+const stateFilename = "state.bin"
+
+// The server state is persisted to disk.
+type serverState struct {
+	PrivKey []byte
+}
 
 type Server struct {
 	svc          *service.Service
@@ -71,23 +80,25 @@ func New(ctx context.Context, cfg config.Config) (*Server, error) {
 	}
 
 	// Load state
-	s, err := loadState(cfg.DataDir)
+	s := &serverState{}
+	err = state.Load(filepath.Join(cfg.DataDir, stateFilename), s)
 	switch {
 	case errors.Is(err, os.ErrNotExist):
-		_, privateKey, err := ed25519.GenerateKey(nil)
+		pubKey, privateKey, err := ed25519.GenerateKey(nil)
 		if err != nil {
 			return nil, fmt.Errorf("generating key: %w", err)
 		}
-		s = &state{
+		s = &serverState{
 			PrivKey: privateKey,
 		}
-		if err := s.save(cfg.DataDir); err != nil {
+		if err := state.Persist(filepath.Join(cfg.DataDir, stateFilename), s); err != nil {
 			return nil, fmt.Errorf("saving state: %w", err)
 		}
+		logging.FromContext(ctx).Info("generated new keys", zap.Binary("public key", pubKey))
 	case err != nil:
 		return nil, fmt.Errorf("loading state: %w", err)
 	}
-	privateKey := ed25519.NewKeyFromSeed(s.PrivKey[:32])
+	privateKey := s.PrivKey
 
 	transport := transport.NewInMemory()
 	reg, err := registration.New(
