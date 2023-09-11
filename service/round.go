@@ -28,7 +28,8 @@ var leavesMetric = promauto.NewCounterVec(prometheus.CounterOpts{
 	Help:      "Number of generated leaves in a round",
 }, []string{"id"})
 
-// TODO(brozansk): align with `executionState` when migrated to new state structure.
+// TODO(poszu): align with `executionState` when migrated to new state structure
+// (https://github.com/spacemeshos/poet/issues/384).
 type persistedRoundState struct {
 	SecurityParam uint8
 	Members       [][]byte // Deprecated

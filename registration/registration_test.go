@@ -165,11 +165,14 @@ func TestPowChallengeRotation(t *testing.T) {
 	workerSvc.EXPECT().
 		ExecuteRound(gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, epoch uint, _ []byte) error {
-			proofs <- shared.NIP{
+			select {
+			case proofs <- shared.NIP{
 				MerkleProof: shared.MerkleProof{
 					Root: []byte{1, 2, 3, 4},
 				},
 				Epoch: epoch,
+			}:
+			default:
 			}
 			return nil
 		}).
