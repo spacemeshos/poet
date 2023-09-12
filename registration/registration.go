@@ -142,8 +142,8 @@ func (r *Registration) Pubkey() ed25519.PublicKey {
 	return r.privKey.Public().(ed25519.PublicKey)
 }
 
-func (r *Registration) Close() (res error) {
-	return errors.Join(res, r.db.Close(), r.openRound.Close())
+func (r *Registration) Close() error {
+	return errors.Join(r.db.Close(), r.openRound.Close())
 }
 
 func (r *Registration) closeRound(ctx context.Context) error {
