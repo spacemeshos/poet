@@ -15,7 +15,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/spacemeshos/poet/config/round_config"
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/shared"
 )
@@ -60,7 +59,6 @@ type newRegistrationOptionFunc func(*newRegistrationOptions)
 type newRegistrationOptions struct {
 	powVerifier PowVerifier
 	privKey     ed25519.PrivateKey
-	roundCfg    round_config.Config
 	cfg         Config
 }
 
@@ -76,12 +74,6 @@ func WithPrivateKey(privKey ed25519.PrivateKey) newRegistrationOptionFunc {
 	}
 }
 
-func WithRoundConfig(roundCfg round_config.Config) newRegistrationOptionFunc {
-	return func(opts *newRegistrationOptions) {
-		opts.roundCfg = roundCfg
-	}
-}
-
 func WithConfig(cfg Config) newRegistrationOptionFunc {
 	return func(opts *newRegistrationOptions) {
 		opts.cfg = cfg
@@ -93,11 +85,11 @@ func New(
 	genesis time.Time,
 	dbdir string,
 	workerSvc WorkerService,
+	roundCfg roundConfig,
 	opts ...newRegistrationOptionFunc,
 ) (*Registration, error) {
 	options := newRegistrationOptions{
-		roundCfg: round_config.DefaultConfig(),
-		cfg:      DefaultConfig(),
+		cfg: DefaultConfig(),
 	}
 	for _, opt := range opts {
 		opt(&options)
@@ -120,7 +112,7 @@ func New(
 	r := &Registration{
 		genesis:   genesis,
 		cfg:       options.cfg,
-		roundCfg:  &options.roundCfg,
+		roundCfg:  roundCfg,
 		dbdir:     dbdir,
 		privKey:   options.privKey,
 		db:        db,

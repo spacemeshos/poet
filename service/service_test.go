@@ -11,8 +11,8 @@ import (
 	"go.uber.org/mock/gomock"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/spacemeshos/poet/config/round_config"
 	"github.com/spacemeshos/poet/hash"
+	"github.com/spacemeshos/poet/server"
 	"github.com/spacemeshos/poet/service"
 	"github.com/spacemeshos/poet/service/mocks"
 	"github.com/spacemeshos/poet/shared"
@@ -36,9 +36,7 @@ func TestService_Recovery(t *testing.T) {
 		genesis,
 		tempdir,
 		registration,
-		service.WithRoundConfig(round_config.Config{
-			EpochDuration: time.Hour,
-		}),
+		&server.RoundConfig{EpochDuration: time.Hour},
 	)
 	req.NoError(err)
 
@@ -67,9 +65,7 @@ func TestService_Recovery(t *testing.T) {
 		genesis,
 		tempdir,
 		registration,
-		service.WithRoundConfig(round_config.Config{
-			EpochDuration: time.Second,
-		}),
+		&server.RoundConfig{EpochDuration: time.Second},
 	)
 	req.NoError(err)
 
@@ -108,9 +104,7 @@ func TestNewService(t *testing.T) {
 		genesis,
 		t.TempDir(),
 		registration,
-		service.WithRoundConfig(round_config.Config{
-			EpochDuration: time.Second * 2,
-		}),
+		&server.RoundConfig{EpochDuration: time.Second * 2},
 	)
 	req.NoError(err)
 
@@ -157,9 +151,7 @@ func TestSkipPastRounds(t *testing.T) {
 		time.Now().Add(-time.Second),
 		t.TempDir(),
 		transport,
-		service.WithRoundConfig(round_config.Config{
-			EpochDuration: time.Millisecond,
-		}),
+		&server.RoundConfig{EpochDuration: time.Millisecond},
 	)
 	req.NoError(err)
 
@@ -203,9 +195,7 @@ func TestRecoverFinishedRound(t *testing.T) {
 		time.Now(),
 		datadir,
 		transport,
-		service.WithRoundConfig(round_config.Config{
-			EpochDuration: time.Hour,
-		}),
+		&server.RoundConfig{EpochDuration: time.Hour},
 	)
 	req.NoError(err)
 

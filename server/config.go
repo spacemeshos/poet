@@ -1,6 +1,6 @@
 // Copyright (c) 2013-2017 The btcsuite developers
 // Copyright (c) 2015-2016 The Decred developers
-// Copyright (c) 2017-2019 The Spacemesh developers
+// Copyright (c) 2017-2023 The Spacemesh developers
 
 package server
 
@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"github.com/jessevdk/go-flags"
+	"go.uber.org/zap/zapcore"
 
-	"github.com/spacemeshos/poet/config/round_config"
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/registration"
 	"github.com/spacemeshos/poet/service"
@@ -29,6 +29,10 @@ const (
 	defaultMaxLogFileSize = 10
 	defaultRPCPort        = 50002
 	defaultRESTPort       = 8080
+
+	defaultEpochDuration = 30 * time.Second
+	defaultPhaseShift    = 15 * time.Second
+	defaultCycleGap      = 10 * time.Second
 )
 
 // Config defines the configuration options for poet.
@@ -53,7 +57,7 @@ type Config struct {
 	CPUProfile string `long:"cpuprofile" description:"Write CPU profile to the specified file"`
 	Profile    string `long:"profile"    description:"Enable HTTP profiling on given port -- must be between 1024 and 65535"`
 
-	Round        round_config.Config `group:"Round"`
+	Round        *RoundConfig        `group:"Round"`
 	Registration registration.Config `group:"Registration"`
 	Service      service.Config      `group:"Service"`
 }
@@ -92,7 +96,7 @@ func DefaultConfig() *Config {
 		MaxLogFileSize:  defaultMaxLogFileSize,
 		RawRPCListener:  fmt.Sprintf("localhost:%d", defaultRPCPort),
 		RawRESTListener: fmt.Sprintf("localhost:%d", defaultRESTPort),
-		Round:           round_config.DefaultConfig(),
+		Round:           DefaultRoundConfig(),
 		Registration:    registration.DefaultConfig(),
 		Service:         service.DefaultConfig(),
 	}
@@ -176,4 +180,48 @@ func cleanAndExpandPath(path string) string {
 	// NOTE: The os.ExpandEnv doesn't work with Windows-style %VARIABLE%,
 	// but the variables can still be expanded via POSIX-style $VARIABLE.
 	return filepath.Clean(os.ExpandEnv(path))
+}
+
+type RoundConfig struct {
+	EpochDuration time.Duration `long:"epoch-duration" description:"Epoch duration"`
+	PhaseShift    time.Duration `long:"phase-shift"`
+	CycleGap      time.Duration `long:"cycle-gap"`
+}
+
+func DefaultRoundConfig() *RoundConfig {
+	return &RoundConfig{
+		EpochDuration: defaultEpochDuration,
+		PhaseShift:    defaultPhaseShift,
+		CycleGap:      defaultCycleGap,
+	}
+}
+
+func (c *RoundConfig) RoundStart(genesis time.Time, epoch uint) time.Time {
+	return genesis.Add(c.PhaseShift).Add(c.EpochDuration * time.Duration(epoch))
+}
+
+func (c *RoundConfig) RoundEnd(genesis time.Time, epoch uint) time.Time {
+	return c.RoundStart(genesis, epoch).Add(c.EpochDuration).Add(-c.CycleGap)
+}
+
+func (c *RoundConfig) RoundDuration() time.Duration {
+	return c.EpochDuration - c.CycleGap
+}
+
+// Calculate ID of the open round at a given point in time.
+func (c *RoundConfig) OpenRoundId(genesis, when time.Time) uint {
+	sinceGenesis := when.Sub(genesis)
+	if sinceGenesis < c.PhaseShift {
+		return 0
+	}
+	return uint(int(sinceGenesis-c.PhaseShift)/int(c.EpochDuration)) + 1
+}
+
+// implement zap.ObjectMarshaler interface.
+func (c RoundConfig) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddDuration("epoch-duration", c.EpochDuration)
+	enc.AddDuration("phase-shift", c.PhaseShift)
+	enc.AddDuration("cycle-gap", c.CycleGap)
+
+	return nil
 }

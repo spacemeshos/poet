@@ -15,7 +15,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/spacemeshos/poet/config/round_config"
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/service/tid"
 	"github.com/spacemeshos/poet/shared"
@@ -28,7 +27,7 @@ type Service struct {
 
 	genesis        time.Time
 	cfg            Config
-	roundCfg       round_config.Config
+	roundCfg       roundConfig
 	datadir        string
 	minMemoryLayer uint
 }
@@ -43,9 +42,13 @@ type RegistrationService interface {
 	NewProof(ctx context.Context, proof shared.NIP) error
 }
 
+type roundConfig interface {
+	RoundEnd(genesis time.Time, epoch uint) time.Time
+	RoundDuration() time.Duration
+}
+
 type newServiceOption struct {
-	cfg      Config
-	roundCfg round_config.Config
+	cfg Config
 }
 
 type newServiceOptionFunc func(*newServiceOption)
@@ -56,12 +59,6 @@ func WithConfig(cfg Config) newServiceOptionFunc {
 	}
 }
 
-func WithRoundConfig(cfg round_config.Config) newServiceOptionFunc {
-	return func(o *newServiceOption) {
-		o.roundCfg = cfg
-	}
-}
-
 // New creates a new instance of a worker service.
 // It should be started with `Service::Run`.
 func New(
@@ -69,17 +66,17 @@ func New(
 	genesis time.Time,
 	datadir string,
 	registration RegistrationService,
+	roundCfg roundConfig,
 	opts ...newServiceOptionFunc,
 ) (*Service, error) {
 	options := &newServiceOption{
-		cfg:      DefaultConfig(),
-		roundCfg: round_config.DefaultConfig(),
+		cfg: DefaultConfig(),
 	}
 	for _, opt := range opts {
 		opt(options)
 	}
 
-	estimatedLeaves := uint64(options.roundCfg.RoundDuration().Seconds()) * uint64(options.cfg.EstimatedLeavesPerSecond)
+	estimatedLeaves := uint64(roundCfg.RoundDuration().Seconds()) * uint64(options.cfg.EstimatedLeavesPerSecond)
 	minMemoryLayer := uint(0)
 	if totalLayers := mshared.RootHeightFromWidth(estimatedLeaves); totalLayers > options.cfg.MemoryLayers {
 		minMemoryLayer = totalLayers - options.cfg.MemoryLayers
@@ -95,7 +92,7 @@ func New(
 	s := &Service{
 		genesis:        genesis,
 		cfg:            options.cfg,
-		roundCfg:       options.roundCfg,
+		roundCfg:       roundCfg,
 		minMemoryLayer: minMemoryLayer,
 		datadir:        datadir,
 		registration:   registration,
@@ -105,7 +102,6 @@ func New(
 		"created poet worker service",
 		zap.Time("genesis", s.genesis),
 		zap.Uint("min memory layer", s.minMemoryLayer),
-		zap.Object("round config", s.roundCfg),
 	)
 
 	return s, nil

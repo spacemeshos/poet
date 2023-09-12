@@ -10,9 +10,9 @@ import (
 	"go.uber.org/mock/gomock"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/spacemeshos/poet/config/round_config"
 	"github.com/spacemeshos/poet/registration"
 	"github.com/spacemeshos/poet/registration/mocks"
+	"github.com/spacemeshos/poet/server"
 	"github.com/spacemeshos/poet/shared"
 )
 
@@ -20,7 +20,7 @@ func TestSubmitIdempotence(t *testing.T) {
 	req := require.New(t)
 	genesis := time.Now().Add(time.Second)
 
-	roundCfg := round_config.Config{
+	roundCfg := server.RoundConfig{
 		EpochDuration: time.Hour,
 		PhaseShift:    time.Second / 2,
 		CycleGap:      time.Second / 4,
@@ -39,8 +39,8 @@ func TestSubmitIdempotence(t *testing.T) {
 		genesis,
 		t.TempDir(),
 		workerSvc,
+		&roundCfg,
 		registration.WithPowVerifier(verifier),
-		registration.WithRoundConfig(roundCfg),
 	)
 	req.NoError(err)
 	t.Cleanup(func() { require.NoError(t, r.Close()) })
@@ -76,6 +76,7 @@ func TestOpeningRounds(t *testing.T) {
 			time.Now().Add(time.Hour),
 			t.TempDir(),
 			nil,
+			server.DefaultRoundConfig(),
 		)
 		require.NoError(t, err)
 		t.Cleanup(func() { require.NoError(t, reg.Close()) })
@@ -93,9 +94,7 @@ func TestOpeningRounds(t *testing.T) {
 			time.Now().Add(time.Hour),
 			t.TempDir(),
 			nil,
-			registration.WithRoundConfig(round_config.Config{
-				PhaseShift: time.Minute * 10,
-			}),
+			&server.RoundConfig{PhaseShift: time.Minute * 10},
 		)
 		require.NoError(t, err)
 		t.Cleanup(func() { require.NoError(t, reg.Close()) })
@@ -113,10 +112,10 @@ func TestOpeningRounds(t *testing.T) {
 			time.Now().Add(-time.Hour),
 			t.TempDir(),
 			nil,
-			registration.WithRoundConfig(round_config.Config{
+			&server.RoundConfig{
 				EpochDuration: time.Hour,
 				PhaseShift:    time.Minute * 10,
-			}),
+			},
 		)
 		require.NoError(t, err)
 		t.Cleanup(func() { require.NoError(t, reg.Close()) })
@@ -135,10 +134,10 @@ func TestOpeningRounds(t *testing.T) {
 			time.Now().Add(-100*time.Hour),
 			t.TempDir(),
 			nil,
-			registration.WithRoundConfig(round_config.Config{
+			&server.RoundConfig{
 				EpochDuration: time.Hour,
 				PhaseShift:    time.Minute,
-			}),
+			},
 		)
 		require.NoError(t, err)
 		t.Cleanup(func() { require.NoError(t, reg.Close()) })
@@ -183,7 +182,7 @@ func TestPowChallengeRotation(t *testing.T) {
 		genesis,
 		t.TempDir(),
 		workerSvc,
-		registration.WithRoundConfig(round_config.Config{EpochDuration: 10 * time.Millisecond}),
+		&server.RoundConfig{EpochDuration: 10 * time.Millisecond},
 	)
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, r.Close()) })
@@ -208,7 +207,7 @@ func TestRecoveringRoundInProgress(t *testing.T) {
 	req := require.New(t)
 	genesis := time.Now()
 
-	roundCfg := round_config.Config{
+	roundCfg := server.RoundConfig{
 		EpochDuration: time.Hour,
 		PhaseShift:    time.Second / 2,
 	}
@@ -230,8 +229,8 @@ func TestRecoveringRoundInProgress(t *testing.T) {
 		genesis,
 		t.TempDir(),
 		workerSvc,
+		&roundCfg,
 		registration.WithPowVerifier(verifier),
-		registration.WithRoundConfig(roundCfg),
 	)
 	req.NoError(err)
 	t.Cleanup(func() { require.NoError(t, r.Close()) })

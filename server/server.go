@@ -105,8 +105,8 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		cfg.Genesis.Time(),
 		cfg.DbDir,
 		transport,
+		cfg.Round,
 		registration.WithConfig(cfg.Registration),
-		registration.WithRoundConfig(cfg.Round),
 		registration.WithPrivateKey(privateKey),
 	)
 	if err != nil {
@@ -118,8 +118,8 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		cfg.Genesis.Time(),
 		cfg.DataDir,
 		transport,
+		cfg.Round,
 		service.WithConfig(cfg.Service),
-		service.WithRoundConfig(cfg.Round),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Service: %v", err)

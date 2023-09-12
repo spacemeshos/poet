@@ -1,4 +1,4 @@
-package rpc
+package rpc_test
 
 import (
 	"context"
@@ -10,13 +10,14 @@ import (
 	"google.golang.org/grpc/status"
 
 	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
+	"github.com/spacemeshos/poet/rpc"
 	"github.com/spacemeshos/poet/server"
 )
 
 func Test_Submit_DoesNotPanicOnMissingPubKey(t *testing.T) {
 	// Arrange
 	cfg := server.DefaultConfig()
-	sv := NewServer(nil, nil, cfg.Round.PhaseShift, cfg.Round.CycleGap)
+	sv := rpc.NewServer(nil, nil, cfg.Round.PhaseShift, cfg.Round.CycleGap)
 
 	// Act
 	in := &api.SubmitRequest{}
@@ -35,7 +36,7 @@ func Test_Submit_DoesNotPanicOnMissingPubKey(t *testing.T) {
 func Test_Submit_DoesNotPanicOnMissingSignature(t *testing.T) {
 	// Arrange
 	cfg := server.DefaultConfig()
-	sv := NewServer(nil, nil, cfg.Round.PhaseShift, cfg.Round.CycleGap)
+	sv := rpc.NewServer(nil, nil, cfg.Round.PhaseShift, cfg.Round.CycleGap)
 	pub, _, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
 

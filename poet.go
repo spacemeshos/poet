@@ -68,9 +68,15 @@ func poetMain() (err error) {
 		logger.Info("shutdown complete")
 	}()
 
-	// Show version at startup.
-	logger.Sugar().
-		Infof("version: %s, dir: %v, datadir: %v, genesis: %v", version, cfg.PoetDir, cfg.DataDir, cfg.Genesis.Time())
+	logger.Info(
+		"starting up poet",
+		zap.String("version", version),
+		zap.String("poet dir", cfg.PoetDir),
+		zap.String("datadir", cfg.DataDir),
+		zap.String("dbdir", cfg.DbDir),
+		zap.Time("genesis", cfg.Genesis.Time()),
+		zap.Object("round config", cfg.Round),
+	)
 
 	// Migrate data if needed
 	if err := migrations.Migrate(ctx, cfg); err != nil {
