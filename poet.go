@@ -18,7 +18,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 
-	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/migrations"
 	"github.com/spacemeshos/poet/server"
@@ -33,26 +32,26 @@ var version = "unknown"
 // os.Exit() is called.
 func poetMain() (err error) {
 	// Start with a default Config with sane settings
-	cfg := config.DefaultConfig()
+	cfg := server.DefaultConfig()
 	// Pre-parse the command line to check for an alternative Config file
-	cfg, err = config.ParseFlags(cfg)
+	cfg, err = server.ParseFlags(cfg)
 	if err != nil {
 		return err
 	}
 	// Load configuration file overwriting defaults with any specified options
 	// Parse CLI options and overwrite/add any specified options
-	cfg, err = config.ReadConfigFile(cfg)
+	cfg, err = server.ReadConfigFile(cfg)
 	if err != nil {
 		return err
 	}
 
-	cfg, err = config.SetupConfig(cfg)
+	cfg, err = server.SetupConfig(cfg)
 	if err != nil {
 		return err
 	}
 	// Finally, parse the remaining command line options again to ensure
 	// they take precedence.
-	cfg, err = config.ParseFlags(cfg)
+	cfg, err = server.ParseFlags(cfg)
 	if err != nil {
 		return err
 	}
@@ -69,9 +68,15 @@ func poetMain() (err error) {
 		logger.Info("shutdown complete")
 	}()
 
-	// Show version at startup.
-	logger.Sugar().
-		Infof("version: %s, dir: %v, datadir: %v, genesis: %v", version, cfg.PoetDir, cfg.DataDir, cfg.Service.Genesis.Time())
+	logger.Info(
+		"starting up poet",
+		zap.String("version", version),
+		zap.String("poet dir", cfg.PoetDir),
+		zap.String("datadir", cfg.DataDir),
+		zap.String("dbdir", cfg.DbDir),
+		zap.Time("genesis", cfg.Genesis.Time()),
+		zap.Object("round config", cfg.Round),
+	)
 
 	// Migrate data if needed
 	if err := migrations.Migrate(ctx, cfg); err != nil {
@@ -131,10 +136,15 @@ func poetMain() (err error) {
 	if err != nil {
 		return fmt.Errorf("failed to create server: %w", err)
 	}
+
 	if err := server.Start(ctx); err != nil {
-		return fmt.Errorf("failure in server: %w", err)
+		errClosing := server.Close()
+		return fmt.Errorf("failure in server: %w (closing: %w)", err, errClosing)
 	}
 
+	if err := server.Close(); err != nil {
+		return fmt.Errorf("failed closing server: %w", err)
+	}
 	return nil
 }
 

@@ -1,8 +1,8 @@
 // Copyright (c) 2013-2017 The btcsuite developers
 // Copyright (c) 2015-2016 The Decred developers
-// Copyright (c) 2017-2019 The Spacemesh developers
+// Copyright (c) 2017-2023 The Spacemesh developers
 
-package config
+package server
 
 import (
 	"context"
@@ -14,31 +14,25 @@ import (
 	"time"
 
 	"github.com/jessevdk/go-flags"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/spacemeshos/poet/logging"
+	"github.com/spacemeshos/poet/registration"
 	"github.com/spacemeshos/poet/service"
 )
 
 const (
-	defaultDbDirName                = "db"
-	defaultDataDirname              = "data"
-	defaultLogDirname               = "logs"
-	defaultMaxLogFiles              = 3
-	defaultMaxLogFileSize           = 10
-	defaultRPCPort                  = 50002
-	defaultRESTPort                 = 8080
-	defaultMemoryLayers             = 26 // Up to (1 << 26) * 2 - 1 Merkle tree cache nodes (32 bytes each) will be held in-memory
-	defaultTreeFileBufferSize       = 4096
-	defaultEstimatedLeavesPerSecond = 78000
-	defaultMaxRoundMembers          = 1 << 32
-	defaultSubmitFlushInterval      = 100 * time.Millisecond
-	defaultMaxSubmitBatchSize       = 1000
-)
+	defaultDbDirName      = "db"
+	defaultDataDirname    = "data"
+	defaultLogDirname     = "logs"
+	defaultMaxLogFiles    = 3
+	defaultMaxLogFileSize = 10
+	defaultRPCPort        = 50002
+	defaultRESTPort       = 8080
 
-var (
 	defaultEpochDuration = 30 * time.Second
-	defaultPhaseShift    = 5 * time.Second
-	defaultCycleGap      = 5 * time.Second
+	defaultPhaseShift    = 15 * time.Second
+	defaultCycleGap      = 10 * time.Second
 )
 
 // Config defines the configuration options for poet.
@@ -46,6 +40,7 @@ var (
 // See loadConfig for further details regarding the
 // configuration loading+parsing process.
 type Config struct {
+	Genesis         Genesis `long:"genesis-time"   description:"Genesis timestamp in RFC3339 format"`
 	PoetDir         string  `long:"poetdir"        description:"The base directory that contains poet's data, logs, configuration file, etc."`
 	ConfigFile      string  `long:"configfile"     description:"Path to configuration file"                                                   short:"c"`
 	DataDir         string  `long:"datadir"        description:"The directory to store poet's data within."                                   short:"b"`
@@ -62,7 +57,25 @@ type Config struct {
 	CPUProfile string `long:"cpuprofile" description:"Write CPU profile to the specified file"`
 	Profile    string `long:"profile"    description:"Enable HTTP profiling on given port -- must be between 1024 and 65535"`
 
-	Service *service.Config `group:"Service"`
+	Round        *RoundConfig        `group:"Round"`
+	Registration registration.Config `group:"Registration"`
+	Service      service.Config      `group:"Service"`
+}
+
+type Genesis time.Time
+
+// UnmarshalFlag implements flags.Unmarshaler.
+func (g *Genesis) UnmarshalFlag(value string) error {
+	t, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		return err
+	}
+	*g = Genesis(t)
+	return nil
+}
+
+func (g Genesis) Time() time.Time {
+	return time.Time(g)
 }
 
 // DefaultConfig returns a config with default hardcoded values.
@@ -74,6 +87,7 @@ func DefaultConfig() *Config {
 	}
 
 	return &Config{
+		Genesis:         Genesis(time.Now()),
 		PoetDir:         poetDir,
 		DataDir:         filepath.Join(poetDir, defaultDataDirname),
 		DbDir:           filepath.Join(poetDir, defaultDbDirName),
@@ -82,18 +96,9 @@ func DefaultConfig() *Config {
 		MaxLogFileSize:  defaultMaxLogFileSize,
 		RawRPCListener:  fmt.Sprintf("localhost:%d", defaultRPCPort),
 		RawRESTListener: fmt.Sprintf("localhost:%d", defaultRESTPort),
-		Service: &service.Config{
-			Genesis:                  service.Genesis(time.Now()),
-			EpochDuration:            defaultEpochDuration,
-			PhaseShift:               defaultPhaseShift,
-			CycleGap:                 defaultCycleGap,
-			MemoryLayers:             defaultMemoryLayers,
-			TreeFileBufferSize:       defaultTreeFileBufferSize,
-			EstimatedLeavesPerSecond: defaultEstimatedLeavesPerSecond,
-			MaxRoundMembers:          defaultMaxRoundMembers,
-			MaxSubmitBatchSize:       defaultMaxSubmitBatchSize,
-			SubmitFlushInterval:      defaultSubmitFlushInterval,
-		},
+		Round:           DefaultRoundConfig(),
+		Registration:    registration.DefaultConfig(),
+		Service:         service.DefaultConfig(),
 	}
 }
 
@@ -175,4 +180,48 @@ func cleanAndExpandPath(path string) string {
 	// NOTE: The os.ExpandEnv doesn't work with Windows-style %VARIABLE%,
 	// but the variables can still be expanded via POSIX-style $VARIABLE.
 	return filepath.Clean(os.ExpandEnv(path))
+}
+
+type RoundConfig struct {
+	EpochDuration time.Duration `long:"epoch-duration" description:"Epoch duration"`
+	PhaseShift    time.Duration `long:"phase-shift"`
+	CycleGap      time.Duration `long:"cycle-gap"`
+}
+
+func DefaultRoundConfig() *RoundConfig {
+	return &RoundConfig{
+		EpochDuration: defaultEpochDuration,
+		PhaseShift:    defaultPhaseShift,
+		CycleGap:      defaultCycleGap,
+	}
+}
+
+func (c *RoundConfig) RoundStart(genesis time.Time, epoch uint) time.Time {
+	return genesis.Add(c.PhaseShift).Add(c.EpochDuration * time.Duration(epoch))
+}
+
+func (c *RoundConfig) RoundEnd(genesis time.Time, epoch uint) time.Time {
+	return c.RoundStart(genesis, epoch).Add(c.EpochDuration).Add(-c.CycleGap)
+}
+
+func (c *RoundConfig) RoundDuration() time.Duration {
+	return c.EpochDuration - c.CycleGap
+}
+
+// Calculate ID of the open round at a given point in time.
+func (c *RoundConfig) OpenRoundId(genesis, when time.Time) uint {
+	sinceGenesis := when.Sub(genesis)
+	if sinceGenesis < c.PhaseShift {
+		return 0
+	}
+	return uint(int(sinceGenesis-c.PhaseShift)/int(c.EpochDuration)) + 1
+}
+
+// implement zap.ObjectMarshaler interface.
+func (c RoundConfig) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddDuration("epoch-duration", c.EpochDuration)
+	enc.AddDuration("phase-shift", c.PhaseShift)
+	enc.AddDuration("cycle-gap", c.CycleGap)
+
+	return nil
 }

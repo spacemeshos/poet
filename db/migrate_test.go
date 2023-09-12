@@ -3,6 +3,7 @@ package db_test
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -75,7 +76,7 @@ func TestSkipMigrateInPlace(t *testing.T) {
 }
 
 func TestSkipMigrateSrcDoesntExist(t *testing.T) {
-	require.NoError(t, db.Migrate(context.Background(), t.TempDir(), "i-dont-exist"))
+	require.NoError(t, db.Migrate(context.Background(), t.TempDir(), filepath.Join(t.TempDir(), "i-dont-exist")))
 }
 
 func TestDontMigrateIfTargetExists(t *testing.T) {

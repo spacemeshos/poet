@@ -12,38 +12,37 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 
-	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/prover"
+	"github.com/spacemeshos/poet/registration"
 	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
 	"github.com/spacemeshos/poet/server"
-	"github.com/spacemeshos/poet/service"
 	"github.com/spacemeshos/poet/shared"
 	"github.com/spacemeshos/poet/verifier"
 )
 
 const randomHost = "localhost:0"
 
-func spawnPoet(ctx context.Context, t *testing.T, cfg config.Config) (*server.Server, api.PoetServiceClient) {
+func spawnPoet(ctx context.Context, t *testing.T, cfg server.Config) (*server.Server, api.PoetServiceClient) {
 	t.Helper()
 	req := require.New(t)
 
-	_, err := config.SetupConfig(&cfg)
+	_, err := server.SetupConfig(&cfg)
 	req.NoError(err)
 
-	srv, err := server.New(context.Background(), cfg)
+	srv, err := server.New(ctx, cfg)
 	req.NoError(err)
 
 	conn, err := grpc.DialContext(
-		context.Background(),
+		ctx,
 		srv.GrpcAddr().String(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()))
 	req.NoError(err)
@@ -52,47 +51,22 @@ func spawnPoet(ctx context.Context, t *testing.T, cfg config.Config) (*server.Se
 	return srv, api.NewPoetServiceClient(conn)
 }
 
-// Test poet service startup.
-func TestPoetStart(t *testing.T) {
-	t.Parallel()
-	req := require.New(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	cfg := config.DefaultConfig()
-	cfg.PoetDir = t.TempDir()
-	cfg.RawRPCListener = randomHost
-	cfg.RawRESTListener = randomHost
-
-	srv, client := spawnPoet(ctx, t, *cfg)
-
-	var eg errgroup.Group
-	eg.Go(func() error {
-		return srv.Start(ctx)
-	})
-
-	resp, err := client.Info(context.Background(), &api.InfoRequest{})
-	req.NoError(err)
-	req.Equal("0", resp.OpenRoundId)
-
-	cancel()
-	req.NoError(eg.Wait())
-}
-
 func TestInfoEndpoint(t *testing.T) {
 	t.Parallel()
 	req := require.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
-	cfg := config.DefaultConfig()
+	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
-	cfg.Service.PhaseShift = 5 * time.Minute
-	cfg.Service.CycleGap = 7 * time.Minute
+	cfg.Round.PhaseShift = 5 * time.Minute
+	cfg.Round.CycleGap = 7 * time.Minute
 
 	srv, client := spawnPoet(ctx, t, *cfg)
+	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
 
 	var eg errgroup.Group
 	eg.Go(func() error {
@@ -103,8 +77,8 @@ func TestInfoEndpoint(t *testing.T) {
 	req.NoError(err)
 	req.Equal("0", info.OpenRoundId)
 	req.Equal("", info.GetExecutingRoundId())
-	req.Equal(cfg.Service.PhaseShift, info.PhaseShift.AsDuration())
-	req.Equal(cfg.Service.CycleGap, info.CycleGap.AsDuration())
+	req.Equal(cfg.Round.PhaseShift, info.PhaseShift.AsDuration())
+	req.Equal(cfg.Round.CycleGap, info.CycleGap.AsDuration())
 	req.NotEmpty(info.ServicePubkey)
 
 	cancel()
@@ -116,13 +90,16 @@ func TestSubmitSignatureVerification(t *testing.T) {
 	req := require.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
-	cfg := config.DefaultConfig()
+	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
+	cfg.Registration.PowDifficulty = 0
 
 	srv, client := spawnPoet(ctx, t, *cfg)
+	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
 
 	var eg errgroup.Group
 	eg.Go(func() error {
@@ -142,10 +119,14 @@ func TestSubmitSignatureVerification(t *testing.T) {
 	})
 	req.ErrorIs(err, status.Error(codes.InvalidArgument, "invalid signature"))
 
+	powParams, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
+	req.NoError(err)
+
 	signature := ed25519.Sign(privKey, challenge)
 	_, err = client.Submit(context.Background(), &api.SubmitRequest{
 		Challenge: challenge,
 		Pubkey:    pubKey,
+		PowParams: powParams.PowParams,
 		Signature: signature,
 	})
 	req.NoError(err)
@@ -159,15 +140,16 @@ func TestSubmitPowVerification(t *testing.T) {
 	req := require.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
-	cfg := config.DefaultConfig()
+	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
-	cfg.Service.InitialPowChallenge = "pow challenge"
-	cfg.Service.PowDifficulty = 3
+	cfg.Registration.PowDifficulty = 3
 
 	srv, client := spawnPoet(ctx, t, *cfg)
+	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
 
 	var eg errgroup.Group
 	eg.Go(func() error {
@@ -190,12 +172,14 @@ func TestSubmitPowVerification(t *testing.T) {
 	req.ErrorIs(err, status.Error(codes.InvalidArgument, "invalid proof of work parameters"))
 
 	// Submit data with valid signature and pow
+	resp, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
+	req.NoError(err)
 	nonce, err := shared.FindSubmitPowNonce(
 		context.Background(),
-		[]byte(cfg.Service.InitialPowChallenge),
+		resp.PowParams.Challenge,
 		challenge,
 		pubKey,
-		cfg.Service.PowDifficulty,
+		uint(resp.PowParams.Difficulty),
 	)
 	req.NoError(err)
 
@@ -204,10 +188,7 @@ func TestSubmitPowVerification(t *testing.T) {
 		Challenge: challenge,
 		Pubkey:    pubKey,
 		Signature: signature,
-		PowParams: &api.PowParams{
-			Challenge:  []byte(cfg.Service.InitialPowChallenge),
-			Difficulty: uint32(cfg.Service.PowDifficulty),
-		},
+		PowParams: resp.PowParams,
 	})
 	req.NoError(err)
 
@@ -221,17 +202,20 @@ func TestSubmitAndGetProof(t *testing.T) {
 	req := require.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
-	cfg := config.DefaultConfig()
+	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
-	cfg.Service.Genesis = service.Genesis(time.Now().Add(time.Second))
-	cfg.Service.EpochDuration = time.Second
-	cfg.Service.PhaseShift = 0
-	cfg.Service.CycleGap = 0
+	cfg.Genesis = server.Genesis(time.Now().Add(time.Second))
+	cfg.Round.EpochDuration = time.Second * 2
+	cfg.Round.PhaseShift = 0
+	cfg.Round.CycleGap = 0
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
+	cfg.Registration.PowDifficulty = 0
 
 	srv, client := spawnPoet(ctx, t, *cfg)
+	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
 
 	var eg errgroup.Group
 	eg.Go(func() error {
@@ -239,13 +223,18 @@ func TestSubmitAndGetProof(t *testing.T) {
 	})
 
 	// Submit a challenge
-	challenge := []byte("poet challenge")
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	req.NoError(err)
+	challenge := []byte("poet challenge")
+
+	powParams, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
+	req.NoError(err)
+
 	signature := ed25519.Sign(privKey, challenge)
 	resp, err := client.Submit(context.Background(), &api.SubmitRequest{
 		Challenge: challenge,
 		Pubkey:    pubKey,
+		PowParams: powParams.PowParams,
 		Signature: signature,
 	})
 	req.NoError(err)
@@ -290,19 +279,25 @@ func TestCannotSubmitMoreThanMaxRoundMembers(t *testing.T) {
 	req := require.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
-	cfg := config.DefaultConfig()
+	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
-	cfg.Service.MaxRoundMembers = 2
+	cfg.Registration.MaxRoundMembers = 2
+	cfg.Registration.PowDifficulty = 0
 
 	srv, client := spawnPoet(ctx, t, *cfg)
+	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
 
 	var eg errgroup.Group
 	eg.Go(func() error {
 		return srv.Start(ctx)
 	})
+
+	powParams, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
+	req.NoError(err)
 
 	submitChallenge := func(ch []byte) error {
 		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
@@ -311,6 +306,7 @@ func TestCannotSubmitMoreThanMaxRoundMembers(t *testing.T) {
 		_, err = client.Submit(context.Background(), &api.SubmitRequest{
 			Challenge: ch,
 			Pubkey:    pubKey,
+			PowParams: powParams.PowParams,
 			Signature: signature,
 		})
 		return err
@@ -321,7 +317,7 @@ func TestCannotSubmitMoreThanMaxRoundMembers(t *testing.T) {
 	req.NoError(submitChallenge([]byte("challenge 2")))
 	req.ErrorIs(
 		submitChallenge([]byte("challenge 3")),
-		status.Error(codes.ResourceExhausted, service.ErrMaxMembersReached.Error()),
+		status.Error(codes.ResourceExhausted, registration.ErrMaxMembersReached.Error()),
 	)
 	cancel()
 	req.NoError(eg.Wait())
@@ -333,13 +329,16 @@ func TestSubmittingChallengeTwice(t *testing.T) {
 	req := require.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
-	cfg := config.DefaultConfig()
+	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
+	cfg.Registration.PowDifficulty = 0
 
 	srv, client := spawnPoet(ctx, t, *cfg)
+	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
 
 	var eg errgroup.Group
 	eg.Go(func() error {
@@ -350,10 +349,14 @@ func TestSubmittingChallengeTwice(t *testing.T) {
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	req.NoError(err)
 
+	powParams, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
+	req.NoError(err)
+
 	submitChallenge := func(ch []byte) error {
 		_, err = client.Submit(context.Background(), &api.SubmitRequest{
 			Challenge: ch,
 			Pubkey:    pubKey,
+			PowParams: powParams.PowParams,
 			Signature: ed25519.Sign(privKey, ch),
 		})
 		return err
@@ -366,25 +369,20 @@ func TestSubmittingChallengeTwice(t *testing.T) {
 	// Submitting a different challenge with the same nodeID is not OK
 	req.ErrorIs(
 		submitChallenge([]byte("challenge 2")),
-		status.Error(codes.AlreadyExists, service.ErrConflictingRegistration.Error()),
+		status.Error(codes.AlreadyExists, registration.ErrConflictingRegistration.Error()),
 	)
 }
 
-func TestGettingInitialPowParams(t *testing.T) {
+func TestPersistingPowParams(t *testing.T) {
 	t.Parallel()
 	req := require.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
-	powChallenge := "initial challenge"
-	powDifficulty := uint(77)
-
-	cfg := config.DefaultConfig()
+	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
-	cfg.Service.Genesis = service.Genesis(time.Now().Add(time.Second))
-	cfg.Service.EpochDuration = time.Second
-	cfg.Service.InitialPowChallenge = powChallenge
-	cfg.Service.PowDifficulty = powDifficulty
+	cfg.Registration.PowDifficulty = uint(77)
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 
@@ -396,11 +394,66 @@ func TestGettingInitialPowParams(t *testing.T) {
 
 	resp, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
 	req.NoError(err)
-	req.EqualValues(powChallenge, resp.PowParams.Challenge)
-	req.EqualValues(powDifficulty, resp.PowParams.Difficulty)
+	req.EqualValues(cfg.Registration.PowDifficulty, resp.PowParams.Difficulty)
+
+	powChallenge := resp.PowParams.Challenge
 
 	cancel()
 	req.NoError(eg.Wait())
+	req.NoError(srv.Close())
+
+	// Restart the server
+	ctx, cancel = context.WithCancel(context.Background())
+	defer cancel()
+	srv, client = spawnPoet(ctx, t, *cfg)
+	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
+	eg.Go(func() error {
+		return srv.Start(ctx)
+	})
+	resp, err = client.PowParams(context.Background(), &api.PowParamsRequest{})
+	req.NoError(err)
+	req.EqualValues(cfg.Registration.PowDifficulty, resp.PowParams.Difficulty)
+	req.Equal(powChallenge, resp.PowParams.Challenge)
+}
+
+func TestPersistingKeys(t *testing.T) {
+	t.Parallel()
+	req := require.New(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
+
+	cfg := server.DefaultConfig()
+	cfg.PoetDir = t.TempDir()
+	cfg.RawRPCListener = randomHost
+	cfg.RawRESTListener = randomHost
+
+	srv, client := spawnPoet(ctx, t, *cfg)
+	var eg errgroup.Group
+	eg.Go(func() error {
+		return srv.Start(ctx)
+	})
+
+	info, err := client.Info(context.Background(), &api.InfoRequest{})
+	req.NoError(err)
+
+	cancel()
+	req.NoError(eg.Wait())
+	req.NoError(srv.Close())
+
+	// Restart the server
+	ctx, cancel = context.WithCancel(context.Background())
+	defer cancel()
+	srv, client = spawnPoet(ctx, t, *cfg)
+	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
+
+	eg.Go(func() error {
+		return srv.Start(ctx)
+	})
+	info2, err := client.Info(context.Background(), &api.InfoRequest{})
+	req.NoError(err)
+
+	req.Equal(info.ServicePubkey, info2.ServicePubkey)
 }
 
 func TestLoadSubmits(t *testing.T) {
@@ -410,17 +463,19 @@ func TestLoadSubmits(t *testing.T) {
 	req := require.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	ctx = logging.NewContext(ctx, logging.New(zapcore.InfoLevel, "log.log", false))
+	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
-	cfg := config.DefaultConfig()
+	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
-	cfg.Service.EpochDuration = time.Minute * 2
-	cfg.Service.PhaseShift = time.Minute
+	cfg.Round.EpochDuration = time.Minute * 2
+	cfg.Round.PhaseShift = time.Minute
 	cfg.RawRPCListener = randomHost
-	cfg, err := config.SetupConfig(cfg)
+	cfg.RawRESTListener = randomHost
+	cfg, err := server.SetupConfig(cfg)
 	req.NoError(err)
 
 	srv, err := server.New(context.Background(), *cfg)
+	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
 	req.NoError(err)
 
 	concurrentSubmits := 10000

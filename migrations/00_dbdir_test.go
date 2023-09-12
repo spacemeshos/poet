@@ -9,12 +9,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/syndtr/goleveldb/leveldb"
 
-	"github.com/spacemeshos/poet/config"
+	"github.com/spacemeshos/poet/server"
 )
 
 func TestMigrateRoundsDb(t *testing.T) {
 	// Prepare
-	cfg := config.Config{
+	cfg := server.Config{
 		DataDir: t.TempDir(),
 		DbDir:   t.TempDir(),
 	}
@@ -50,7 +50,7 @@ func TestMigrateRoundsDb(t *testing.T) {
 }
 
 func TestMigrateRoundsDb_NothingToMigrate(t *testing.T) {
-	cfg := config.Config{
+	cfg := server.Config{
 		DataDir: t.TempDir(),
 		DbDir:   t.TempDir(),
 	}
