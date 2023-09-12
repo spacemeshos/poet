@@ -12,7 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -38,11 +38,11 @@ func spawnPoet(ctx context.Context, t *testing.T, cfg server.Config) (*server.Se
 	_, err := server.SetupConfig(&cfg)
 	req.NoError(err)
 
-	srv, err := server.New(context.Background(), cfg)
+	srv, err := server.New(ctx, cfg)
 	req.NoError(err)
 
 	conn, err := grpc.DialContext(
-		context.Background(),
+		ctx,
 		srv.GrpcAddr().String(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()))
 	req.NoError(err)
@@ -56,6 +56,7 @@ func TestInfoEndpoint(t *testing.T) {
 	req := require.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
 	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
@@ -89,6 +90,7 @@ func TestSubmitSignatureVerification(t *testing.T) {
 	req := require.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
 	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
@@ -138,6 +140,7 @@ func TestSubmitPowVerification(t *testing.T) {
 	req := require.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
 	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
@@ -199,6 +202,7 @@ func TestSubmitAndGetProof(t *testing.T) {
 	req := require.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
 	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
@@ -275,6 +279,7 @@ func TestCannotSubmitMoreThanMaxRoundMembers(t *testing.T) {
 	req := require.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
 	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
@@ -324,6 +329,7 @@ func TestSubmittingChallengeTwice(t *testing.T) {
 	req := require.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
 	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
@@ -372,6 +378,7 @@ func TestPersistingPowParams(t *testing.T) {
 	req := require.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
 	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
@@ -414,6 +421,7 @@ func TestPersistingKeys(t *testing.T) {
 	req := require.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
 	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
@@ -455,13 +463,14 @@ func TestLoadSubmits(t *testing.T) {
 	req := require.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	ctx = logging.NewContext(ctx, logging.New(zapcore.InfoLevel, "log.log", false))
+	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
 	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
 	cfg.Round.EpochDuration = time.Minute * 2
 	cfg.Round.PhaseShift = time.Minute
 	cfg.RawRPCListener = randomHost
+	cfg.RawRESTListener = randomHost
 	cfg, err := server.SetupConfig(cfg)
 	req.NoError(err)
 

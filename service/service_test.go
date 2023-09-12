@@ -3,6 +3,8 @@ package service_test
 import (
 	"bytes"
 	"context"
+	"errors"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -217,7 +219,10 @@ func TestRecoverFinishedRound(t *testing.T) {
 	}, time.Second, time.Millisecond)
 
 	req.Equal(uint(9876), proof.Epoch)
-	req.NoDirExists(filepath.Join(datadir, "rounds", "9876"))
+	req.Eventually(func() bool {
+		_, err := os.Lstat(filepath.Join(datadir, "rounds", "9876"))
+		return errors.Is(err, os.ErrNotExist)
+	}, time.Second, 10*time.Millisecond)
 
 	cancel()
 	req.NoError(eg.Wait())

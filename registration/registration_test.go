@@ -209,7 +209,7 @@ func TestRecoveringRoundInProgress(t *testing.T) {
 
 	roundCfg := server.RoundConfig{
 		EpochDuration: time.Hour,
-		PhaseShift:    time.Second / 2,
+		PhaseShift:    time.Second,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

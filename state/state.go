@@ -29,6 +29,7 @@ func Load(filename string, v any) error {
 	if err != nil {
 		return fmt.Errorf("loading file: %w", err)
 	}
+	defer f.Close()
 
 	_, err = xdr.Unmarshal(f, v)
 	if err != nil {
