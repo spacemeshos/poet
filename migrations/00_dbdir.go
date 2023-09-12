@@ -9,12 +9,12 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/db"
 	"github.com/spacemeshos/poet/logging"
+	"github.com/spacemeshos/poet/server"
 )
 
-func migrateDbDir(ctx context.Context, cfg *config.Config) error {
+func migrateDbDir(ctx context.Context, cfg *server.Config) error {
 	if err := migrateProofsDb(ctx, cfg); err != nil {
 		return fmt.Errorf("migrating proofs DB: %w", err)
 	}
@@ -25,7 +25,7 @@ func migrateDbDir(ctx context.Context, cfg *config.Config) error {
 	return nil
 }
 
-func migrateRoundsDbs(ctx context.Context, cfg *config.Config) error {
+func migrateRoundsDbs(ctx context.Context, cfg *server.Config) error {
 	roundsDataDir := filepath.Join(cfg.DataDir, "rounds")
 	// check if dir exists
 	if _, err := os.Stat(roundsDataDir); os.IsNotExist(err) {
@@ -57,7 +57,7 @@ func migrateRoundsDbs(ctx context.Context, cfg *config.Config) error {
 	return nil
 }
 
-func migrateProofsDb(ctx context.Context, cfg *config.Config) error {
+func migrateProofsDb(ctx context.Context, cfg *server.Config) error {
 	proofsDbPath := filepath.Join(cfg.DbDir, "proofs")
 	oldProofsDbPath := filepath.Join(cfg.DataDir, "proofs")
 	if err := db.Migrate(ctx, proofsDbPath, oldProofsDbPath); err != nil {

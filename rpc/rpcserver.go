@@ -13,7 +13,6 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/durationpb"
 
-	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/registration"
 	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
@@ -24,7 +23,8 @@ import (
 type rpcServer struct {
 	registration *registration.Registration
 	s            *service.Service
-	cfg          config.Config
+	phaseShift   time.Duration
+	cycleGap     time.Duration
 }
 
 // A compile time check to ensure that rpcService fully implements
@@ -35,12 +35,13 @@ var _ api.PoetServiceServer = (*rpcServer)(nil)
 func NewServer(
 	svc *service.Service,
 	registration *registration.Registration,
-	cfg config.Config,
+	phaseShift, cycleGap time.Duration,
 ) *rpcServer {
 	return &rpcServer{
 		s:            svc,
 		registration: registration,
-		cfg:          cfg,
+		phaseShift:   phaseShift,
+		cycleGap:     cycleGap,
 	}
 }
 
@@ -95,8 +96,8 @@ func (r *rpcServer) Info(ctx context.Context, in *api.InfoRequest) (*api.InfoRes
 	out := &api.InfoResponse{
 		OpenRoundId:   strconv.FormatUint(uint64(openId), 10),
 		ServicePubkey: r.registration.Pubkey(),
-		PhaseShift:    durationpb.New(r.cfg.Round.PhaseShift),
-		CycleGap:      durationpb.New(r.cfg.Round.CycleGap),
+		PhaseShift:    durationpb.New(r.phaseShift),
+		CycleGap:      durationpb.New(r.cycleGap),
 	}
 
 	if executingId != nil {

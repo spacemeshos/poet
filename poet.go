@@ -18,7 +18,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 
-	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/migrations"
 	"github.com/spacemeshos/poet/server"
@@ -33,26 +32,26 @@ var version = "unknown"
 // os.Exit() is called.
 func poetMain() (err error) {
 	// Start with a default Config with sane settings
-	cfg := config.DefaultConfig()
+	cfg := server.DefaultConfig()
 	// Pre-parse the command line to check for an alternative Config file
-	cfg, err = config.ParseFlags(cfg)
+	cfg, err = server.ParseFlags(cfg)
 	if err != nil {
 		return err
 	}
 	// Load configuration file overwriting defaults with any specified options
 	// Parse CLI options and overwrite/add any specified options
-	cfg, err = config.ReadConfigFile(cfg)
+	cfg, err = server.ReadConfigFile(cfg)
 	if err != nil {
 		return err
 	}
 
-	cfg, err = config.SetupConfig(cfg)
+	cfg, err = server.SetupConfig(cfg)
 	if err != nil {
 		return err
 	}
 	// Finally, parse the remaining command line options again to ensure
 	// they take precedence.
-	cfg, err = config.ParseFlags(cfg)
+	cfg, err = server.ParseFlags(cfg)
 	if err != nil {
 		return err
 	}

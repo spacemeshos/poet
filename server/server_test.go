@@ -19,7 +19,6 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 
-	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/prover"
@@ -32,11 +31,11 @@ import (
 
 const randomHost = "localhost:0"
 
-func spawnPoet(ctx context.Context, t *testing.T, cfg config.Config) (*server.Server, api.PoetServiceClient) {
+func spawnPoet(ctx context.Context, t *testing.T, cfg server.Config) (*server.Server, api.PoetServiceClient) {
 	t.Helper()
 	req := require.New(t)
 
-	_, err := config.SetupConfig(&cfg)
+	_, err := server.SetupConfig(&cfg)
 	req.NoError(err)
 
 	srv, err := server.New(context.Background(), cfg)
@@ -58,7 +57,7 @@ func TestInfoEndpoint(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cfg := config.DefaultConfig()
+	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
@@ -91,7 +90,7 @@ func TestSubmitSignatureVerification(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cfg := config.DefaultConfig()
+	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
@@ -140,7 +139,7 @@ func TestSubmitPowVerification(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cfg := config.DefaultConfig()
+	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
@@ -201,9 +200,9 @@ func TestSubmitAndGetProof(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cfg := config.DefaultConfig()
+	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
-	cfg.Genesis = config.Genesis(time.Now().Add(time.Second))
+	cfg.Genesis = server.Genesis(time.Now().Add(time.Second))
 	cfg.Round.EpochDuration = time.Second * 2
 	cfg.Round.PhaseShift = 0
 	cfg.Round.CycleGap = 0
@@ -277,7 +276,7 @@ func TestCannotSubmitMoreThanMaxRoundMembers(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cfg := config.DefaultConfig()
+	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
@@ -326,7 +325,7 @@ func TestSubmittingChallengeTwice(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cfg := config.DefaultConfig()
+	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
@@ -374,7 +373,7 @@ func TestPersistingPowParams(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cfg := config.DefaultConfig()
+	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
 	cfg.Registration.PowDifficulty = uint(77)
 	cfg.RawRPCListener = randomHost
@@ -416,7 +415,7 @@ func TestPersistingKeys(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cfg := config.DefaultConfig()
+	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
@@ -458,12 +457,12 @@ func TestLoadSubmits(t *testing.T) {
 	defer cancel()
 	ctx = logging.NewContext(ctx, logging.New(zapcore.InfoLevel, "log.log", false))
 
-	cfg := config.DefaultConfig()
+	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
 	cfg.Round.EpochDuration = time.Minute * 2
 	cfg.Round.PhaseShift = time.Minute
 	cfg.RawRPCListener = randomHost
-	cfg, err := config.SetupConfig(cfg)
+	cfg, err := server.SetupConfig(cfg)
 	req.NoError(err)
 
 	srv, err := server.New(context.Background(), *cfg)

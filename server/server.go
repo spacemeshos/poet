@@ -24,7 +24,6 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
 
-	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/registration"
 	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
@@ -44,14 +43,14 @@ type serverState struct {
 type Server struct {
 	svc          *service.Service
 	reg          *registration.Registration
-	cfg          config.Config
+	cfg          Config
 	rpcListener  net.Listener
 	restListener net.Listener
 
 	privateKey ed25519.PrivateKey
 }
 
-func New(ctx context.Context, cfg config.Config) (*Server, error) {
+func New(ctx context.Context, cfg Config) (*Server, error) {
 	// Resolve the RPC listener
 	addr, err := net.ResolveTCPAddr("tcp", cfg.RawRPCListener)
 	if err != nil {
@@ -193,7 +192,7 @@ func (s *Server) Start(ctx context.Context) error {
 		return s.svc.Run(ctx)
 	})
 
-	rpcServer := rpc.NewServer(s.svc, s.reg, s.cfg)
+	rpcServer := rpc.NewServer(s.svc, s.reg, s.cfg.Round.PhaseShift, s.cfg.Round.CycleGap)
 	grpcServer = grpc.NewServer(options...)
 
 	api.RegisterPoetServiceServer(grpcServer, rpcServer)

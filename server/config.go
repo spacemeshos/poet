@@ -2,7 +2,7 @@
 // Copyright (c) 2015-2016 The Decred developers
 // Copyright (c) 2017-2019 The Spacemesh developers
 
-package config
+package server
 
 import (
 	"context"

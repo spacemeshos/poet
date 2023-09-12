@@ -27,6 +27,12 @@ type WorkerService interface {
 	RegisterForProofs(ctx context.Context) <-chan shared.NIP
 }
 
+type roundConfig interface {
+	OpenRoundId(genesis, now time.Time) uint
+	RoundStart(genesis time.Time, epoch uint) time.Time
+	RoundEnd(genesis time.Time, epoch uint) time.Time
+}
+
 // Registration orchestrates rounds functionality
 // It is responsible for:
 //   - registering challenges,
@@ -36,7 +42,7 @@ type WorkerService interface {
 type Registration struct {
 	genesis  time.Time
 	cfg      Config
-	roundCfg round_config.Config
+	roundCfg roundConfig
 	dbdir    string
 	privKey  ed25519.PrivateKey
 
@@ -114,7 +120,7 @@ func New(
 	r := &Registration{
 		genesis:   genesis,
 		cfg:       options.cfg,
-		roundCfg:  options.roundCfg,
+		roundCfg:  &options.roundCfg,
 		dbdir:     dbdir,
 		privKey:   options.privKey,
 		db:        db,
