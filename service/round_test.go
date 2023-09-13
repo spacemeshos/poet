@@ -112,7 +112,6 @@ func TestRound_StateRecovery(t *testing.T) {
 		recovered, err := NewRound(tmpdir, 0)
 		require.NoError(t, err)
 		t.Cleanup(func() { assert.NoError(t, recovered.Teardown(context.Background(), false)) })
-		require.NoError(t, recovered.loadState())
 
 		// Verify
 		require.False(t, recovered.IsFinished())
@@ -132,7 +131,6 @@ func TestRound_StateRecovery(t *testing.T) {
 		recovered, err := NewRound(tmpdir, 0)
 		require.NoError(t, err)
 		t.Cleanup(func() { assert.NoError(t, recovered.Teardown(context.Background(), false)) })
-		require.NoError(t, recovered.loadState())
 
 		// Verify
 		require.False(t, recovered.IsFinished())
@@ -167,7 +165,6 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 	{
 		round, err := NewRound(tmpdir, 1)
 		req.NoError(err)
-		req.NoError(round.loadState())
 
 		ctx, stop := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer stop()
@@ -179,7 +176,6 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 	{
 		round, err := NewRound(tmpdir, 1)
 		req.NoError(err)
-		req.NoError(round.loadState())
 
 		req.NoError(round.RecoverExecution(context.Background(), time.Now().Add(400*time.Millisecond), 0))
 		validateProof(t, round.execution)
