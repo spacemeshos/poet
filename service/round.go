@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -100,6 +101,17 @@ func NewRound(datadir string, epoch uint, opts ...newRoundOptionFunc) (*round, e
 
 	for _, opt := range opts {
 		opt(r)
+	}
+
+	err := r.loadState()
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		// No state file, this is a new round.
+		if err := r.saveState(); err != nil {
+			return nil, err
+		}
+	case err != nil:
+		return nil, err
 	}
 
 	return r, nil

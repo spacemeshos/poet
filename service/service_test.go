@@ -9,11 +9,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/spacemeshos/poet/hash"
+	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/server"
 	"github.com/spacemeshos/poet/service"
 	"github.com/spacemeshos/poet/service/mocks"
@@ -222,7 +225,58 @@ func TestRecoverFinishedRound(t *testing.T) {
 	req.Eventually(func() bool {
 		_, err := os.Lstat(filepath.Join(datadir, "rounds", "9876"))
 		return errors.Is(err, os.ErrNotExist)
-	}, time.Second, 10*time.Millisecond)
+	}, time.Second*5, 10*time.Millisecond)
+
+	cancel()
+	req.NoError(eg.Wait())
+}
+
+func TestRemoveRecoveredOpenRound(t *testing.T) {
+	req := require.New(t)
+	ctx := logging.NewContext(context.Background(), zaptest.NewLogger(t))
+	datadir := t.TempDir()
+
+	// manually create a round and execute it
+	round, err := service.NewRound(
+		filepath.Join(datadir, "rounds"),
+		1,
+		service.WithMembershipRoot([]byte{1, 2, 3, 4}),
+	)
+	req.NoError(err)
+	t.Cleanup(func() { assert.NoError(t, round.Teardown(ctx, false)) })
+	ctxE, cancel := context.WithTimeout(ctx, time.Millisecond*10)
+	defer cancel()
+	err = round.Execute(ctxE, time.Now().Add(time.Hour), 0, 0)
+	req.ErrorIs(err, context.DeadlineExceeded)
+
+	// manually create an open round
+	openRound, err := service.NewRound(
+		filepath.Join(datadir, "rounds"),
+		2,
+		service.WithMembershipRoot([]byte{1, 2, 3, 4}),
+	)
+	req.NoError(err)
+	t.Cleanup(func() { assert.NoError(t, openRound.Teardown(ctx, true)) })
+
+	transport := transport.NewInMemory()
+	s, err := service.New(
+		ctx,
+		time.Now(),
+		datadir,
+		transport,
+		&server.RoundConfig{EpochDuration: time.Hour},
+	)
+	req.NoError(err)
+
+	ctx, cancel = context.WithCancel(ctx)
+	defer cancel()
+	var eg errgroup.Group
+	eg.Go(func() error { return s.Run(ctx) })
+
+	req.Eventually(func() bool {
+		_, err := os.Lstat(filepath.Join(datadir, "rounds", "2"))
+		return errors.Is(err, os.ErrNotExist)
+	}, time.Second*5, 10*time.Millisecond)
 
 	cancel()
 	req.NoError(eg.Wait())

@@ -244,11 +244,6 @@ func (s *Service) recover(ctx context.Context) (executing *round, err error) {
 			return nil, fmt.Errorf("failed to create round: %w", err)
 		}
 
-		err = r.loadState()
-		if err != nil {
-			return nil, fmt.Errorf("invalid round state: %w", err)
-		}
-
 		logger.Info("recovered round", zap.Uint("epoch", r.epoch))
 
 		switch {
@@ -261,9 +256,11 @@ func (s *Service) recover(ctx context.Context) (executing *round, err error) {
 			)
 			s.onNewProof(ctx, r.epoch, r.execution)
 			r.Teardown(ctx, true)
-
+		case r.executionStarted.IsZero():
+			// An open round from a previous poet version
+			logger.Info("round is open, removing it", zap.Uint("epoch", r.epoch))
+			r.Teardown(ctx, true)
 		default:
-			// Round is in executing state.
 			logger.Info(
 				"round is executing",
 				zap.Time("started", r.executionStarted),
