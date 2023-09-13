@@ -1,0 +1,17 @@
+[Unit]
+Description=poet
+After=network.target
+StartLimitIntervalSec=1
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+User=poet
+Group=poet
+WorkingDirectory=/home/poet/services
+ExecStart=PATH_TO_THE_POET_BINARY--configfile=PATH_TO_THE_POET_CONFIG/poet_config.conf --datadir=PATH_TO_POET_DATA/data --logdir=PATH_TO_POET_LOGS/logs --poetdir=PATH_TO_POET_DIR/.poet
+KillSignal=SIGINT
+
+[Install]
+WantedBy=multi-user.target
