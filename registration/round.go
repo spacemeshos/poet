@@ -215,7 +215,7 @@ func (r *round) flushPendingSubmitsLocked() {
 	r.members += len(r.pendingSubmits)
 	r.membersCounter.Add(float64(len(r.pendingSubmits)))
 
-	r.pendingSubmits = make(map[string]pendingSubmit)
+	clear(r.pendingSubmits)
 	r.batch = nil
 }
 
