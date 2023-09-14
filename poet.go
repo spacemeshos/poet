@@ -44,11 +44,8 @@ func poetMain() (err error) {
 	if err != nil {
 		return err
 	}
+	server.SetupConfig(cfg)
 
-	cfg, err = server.SetupConfig(cfg)
-	if err != nil {
-		return err
-	}
 	// Finally, parse the remaining command line options again to ensure
 	// they take precedence.
 	cfg, err = server.ParseFlags(cfg)

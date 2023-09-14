@@ -42,6 +42,8 @@ func main() {
 	securityParam := shared.T
 
 	tempdir, _ := os.MkdirTemp("", "poet-test")
+	defer os.RemoveAll(tempdir)
+
 	proofGenStarted := time.Now()
 	end := proofGenStarted.Add(cfg.Duration)
 	leafs, merkleProof, err := prover.GenerateProofWithoutPersistency(

@@ -82,13 +82,6 @@ func New(
 		minMemoryLayer = totalLayers - options.cfg.MemoryLayers
 	}
 
-	roundsDir := filepath.Join(datadir, "rounds")
-	if _, err := os.Stat(roundsDir); errors.Is(err, os.ErrNotExist) {
-		if err := os.Mkdir(roundsDir, 0o700); err != nil {
-			return nil, err
-		}
-	}
-
 	s := &Service{
 		genesis:        genesis,
 		cfg:            options.cfg,
@@ -222,12 +215,16 @@ func (s *Service) Run(ctx context.Context) error {
 
 func (s *Service) recover(ctx context.Context) (executing *round, err error) {
 	roundsDir := filepath.Join(s.datadir, "rounds")
-	logger := logging.FromContext(ctx).Named("recovery")
-	logger.Info("recovering worker state", zap.String("datadir", s.datadir))
 	entries, err := os.ReadDir(roundsDir)
-	if err != nil {
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		return nil, nil
+	case err != nil:
 		return nil, err
 	}
+
+	logger := logging.FromContext(ctx).Named("recovery")
+	logger.Info("recovering worker state", zap.String("datadir", s.datadir))
 
 	for _, entry := range entries {
 		logger.Sugar().Infof("recovering entry %s", entry.Name())

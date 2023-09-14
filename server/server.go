@@ -66,7 +66,6 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	restListener, err := net.Listen(addr.Network(), addr.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen: %v", err)
@@ -157,17 +156,22 @@ func (s *Server) Start(ctx context.Context) error {
 
 	logger := logging.FromContext(ctx)
 
-	// grpc metrics
 	metrics := grpc_prometheus.NewServerMetrics(
 		grpc_prometheus.WithServerHandlingTimeHistogram(
 			grpc_prometheus.WithHistogramBuckets(prometheus.ExponentialBuckets(0.001, 2, 16)),
 		),
 	)
 
-	// Initialize and register the implementation of gRPC interface
-	var grpcServer *grpc.Server
-	var proxyRegstr []func(context.Context, *proxy.ServeMux, string, []grpc.DialOption) error
-	options := []grpc.ServerOption{
+	serverGroup.Go(func() error {
+		return s.reg.Run(ctx)
+	})
+
+	serverGroup.Go(func() error {
+		return s.svc.Run(ctx)
+	})
+
+	rpcServer := rpc.NewServer(s.svc, s.reg, s.cfg.Round.PhaseShift, s.cfg.Round.CycleGap)
+	grpcServer := grpc.NewServer(
 		grpc.UnaryInterceptor(grpcmw.ChainUnaryServer(
 			loggerInterceptor(logger),
 			metrics.UnaryServerInterceptor(),
@@ -182,22 +186,9 @@ func (s *Server) Start(ctx context.Context) error {
 			Time:                  time.Minute,
 			Timeout:               time.Minute * 3,
 		}),
-	}
-
-	serverGroup.Go(func() error {
-		return s.reg.Run(ctx)
-	})
-
-	serverGroup.Go(func() error {
-		return s.svc.Run(ctx)
-	})
-
-	rpcServer := rpc.NewServer(s.svc, s.reg, s.cfg.Round.PhaseShift, s.cfg.Round.CycleGap)
-	grpcServer = grpc.NewServer(options...)
+	)
 
 	api.RegisterPoetServiceServer(grpcServer, rpcServer)
-	proxyRegstr = append(proxyRegstr, api.RegisterPoetServiceHandlerFromEndpoint)
-
 	reflection.Register(grpcServer)
 	metrics.InitializeMetrics(grpcServer)
 	prometheus.Register(metrics)
@@ -210,16 +201,16 @@ func (s *Server) Start(ctx context.Context) error {
 
 	// Start the REST proxy for the gRPC server above.
 	mux := proxy.NewServeMux()
-	for _, r := range proxyRegstr {
-		err := r(
-			ctx,
-			mux,
-			s.rpcListener.Addr().String(),
-			[]grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())},
-		)
-		if err != nil {
-			return err
-		}
+	err := api.RegisterPoetServiceHandlerFromEndpoint(
+		ctx,
+		mux,
+		s.rpcListener.Addr().String(),
+		[]grpc.DialOption{
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+		},
+	)
+	if err != nil {
+		return err
 	}
 
 	server := &http.Server{Handler: mux, ReadHeaderTimeout: time.Second * 5}
@@ -234,8 +225,10 @@ func (s *Server) Start(ctx context.Context) error {
 
 	// Wait for the server to shut down gracefully
 	<-ctx.Done()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	err = server.Shutdown(shutdownCtx)
 	grpcServer.GracefulStop()
-	err := server.Shutdown(context.Background())
 	return errors.Join(err, serverGroup.Wait())
 }
 

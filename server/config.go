@@ -1,16 +1,10 @@
-// Copyright (c) 2013-2017 The btcsuite developers
-// Copyright (c) 2015-2016 The Decred developers
-// Copyright (c) 2017-2023 The Spacemesh developers
-
 package server
 
 import (
 	"context"
 	"fmt"
 	"os"
-	"os/user"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/jessevdk/go-flags"
@@ -35,10 +29,6 @@ const (
 	defaultCycleGap      = 10 * time.Second
 )
 
-// Config defines the configuration options for poet.
-//
-// See loadConfig for further details regarding the
-// configuration loading+parsing process.
 type Config struct {
 	Genesis         Genesis `long:"genesis-time"   description:"Genesis timestamp in RFC3339 format"`
 	PoetDir         string  `long:"poetdir"        description:"The base directory that contains poet's data, logs, configuration file, etc."`
@@ -125,8 +115,8 @@ func ReadConfigFile(cfg *Config) (*Config, error) {
 	return cfg, nil
 }
 
-// SetupConfig expands paths and initializes filesystem.
-func SetupConfig(cfg *Config) (*Config, error) {
+// SetupConfig adjusts the paths in the config to be relative to the poetdir.
+func SetupConfig(cfg *Config) {
 	// If the provided poet directory is not the default, we'll modify the
 	// path to all of the files and directories that will live within it.
 	defaultCfg := DefaultConfig()
@@ -141,45 +131,6 @@ func SetupConfig(cfg *Config) (*Config, error) {
 			cfg.DbDir = filepath.Join(cfg.PoetDir, defaultDbDirName)
 		}
 	}
-
-	// Create the poet directory if it doesn't already exist.
-	if err := os.MkdirAll(cfg.PoetDir, 0o700); err != nil {
-		return nil, fmt.Errorf("failed to create %v: %w", cfg.PoetDir, err)
-	}
-
-	// As soon as we're done parsing configuration options, ensure all paths
-	// to directories and files are cleaned and expanded before attempting
-	// to use them later on.
-	cfg.DataDir = cleanAndExpandPath(cfg.DataDir)
-	cfg.LogDir = cleanAndExpandPath(cfg.LogDir)
-
-	return cfg, nil
-}
-
-// cleanAndExpandPath expands environment variables and leading ~ in the
-// passed path, cleans the result, and returns it.
-// This function is taken from https://github.com/btcsuite/btcd
-func cleanAndExpandPath(path string) string {
-	if path == "" {
-		return ""
-	}
-
-	// Expand initial ~ to OS specific home directory.
-	if strings.HasPrefix(path, "~") {
-		var homeDir string
-		user, err := user.Current()
-		if err == nil {
-			homeDir = user.HomeDir
-		} else {
-			homeDir = os.Getenv("HOME")
-		}
-
-		path = strings.Replace(path, "~", homeDir, 1)
-	}
-
-	// NOTE: The os.ExpandEnv doesn't work with Windows-style %VARIABLE%,
-	// but the variables can still be expanded via POSIX-style $VARIABLE.
-	return filepath.Clean(os.ExpandEnv(path))
 }
 
 type RoundConfig struct {
