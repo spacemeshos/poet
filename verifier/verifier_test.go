@@ -133,6 +133,5 @@ func TestValidateFailLabelValidation(t *testing.T) {
 	)
 	r.NoError(err)
 	err = Validate(*merkleProof, BadLabelHashFunc, hash.GenMerkleHashFunc(challenge), leafs, securityParam)
-	r.Error(err)
-	r.Regexp("label at index 0 incorrect - expected: [0-f]* actual: [0-f]*", err.Error())
+	r.ErrorContains(err, "label at index 0 incorrect")
 }

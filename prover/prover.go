@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -43,17 +44,14 @@ type TreeConfig struct {
 
 type persistFunc func(ctx context.Context, treeCache *cache.Writer, nextLeafId uint64) error
 
-var persist persistFunc = func(context.Context, *cache.Writer, uint64) error { return nil }
-
-// GenerateProof computes the PoET DAG, uses Fiat-Shamir to derive a challenge from the Merkle root and generates a
-// Merkle proof using the challenge and the DAG.
+// GenerateProof generates the Proof of Sequential Work. It stops when the given deadline is reached.
 func GenerateProof(
 	ctx context.Context,
 	leavesCounter prometheus.Counter,
 	treeCfg TreeConfig,
 	labelHashFunc func(data []byte) []byte,
 	merkleHashFunc merkle.HashFunc,
-	limit time.Time,
+	deadline time.Time,
 	securityParam uint8,
 	persist persistFunc,
 ) (uint64, *shared.MerkleProof, error) {
@@ -63,17 +61,17 @@ func GenerateProof(
 	}
 	defer treeCache.Close()
 
-	return generateProof(ctx, leavesCounter, labelHashFunc, tree, treeCache, limit, 0, securityParam, persist)
+	return generateProof(ctx, leavesCounter, labelHashFunc, tree, treeCache, deadline, 0, securityParam, persist)
 }
 
-// GenerateProofRecovery recovers proof generation, from a given 'nextLeafID' and for a given 'parkedNodes' snapshot.
+// GenerateProofRecovery recovers proof generation, from a given 'nextLeafID'.
 func GenerateProofRecovery(
 	ctx context.Context,
 	leavesCounter prometheus.Counter,
 	treeCfg TreeConfig,
 	labelHashFunc func(data []byte) []byte,
 	merkleHashFunc merkle.HashFunc,
-	limit time.Time,
+	deadline time.Time,
 	securityParam uint8,
 	nextLeafID uint64,
 	persist persistFunc,
@@ -84,35 +82,50 @@ func GenerateProofRecovery(
 	}
 	defer treeCache.Close()
 
-	return generateProof(ctx, leavesCounter, labelHashFunc, tree, treeCache, limit, nextLeafID, securityParam, persist)
+	return generateProof(
+		ctx,
+		leavesCounter,
+		labelHashFunc,
+		tree,
+		treeCache,
+		deadline,
+		nextLeafID,
+		securityParam,
+		persist,
+	)
 }
 
-// GenerateProofWithoutPersistency calls GenerateProof with disabled persistency functionality
-// and potential soft/hard-shutdown recovery.
-// Meant to be used for testing purposes only. Doesn't expose metrics too.
+// GenerateProofWithoutPersistency calls GenerateProof with disabled persistency functionality.
+// Tree recovery will not be possible. Meant to be used for testing purposes only.
+// It doesn't expose metrics too.
 func GenerateProofWithoutPersistency(
 	ctx context.Context,
 	treeCfg TreeConfig,
 	labelHashFunc func(data []byte) []byte,
 	merkleHashFunc merkle.HashFunc,
-	limit time.Time,
+	deadline time.Time,
 	securityParam uint8,
 ) (uint64, *shared.MerkleProof, error) {
 	leavesCounter := prometheus.NewCounter(prometheus.CounterOpts{})
-	return GenerateProof(ctx, leavesCounter, treeCfg, labelHashFunc, merkleHashFunc, limit, securityParam, persist)
+	return GenerateProof(
+		ctx,
+		leavesCounter,
+		treeCfg,
+		labelHashFunc,
+		merkleHashFunc,
+		deadline,
+		securityParam,
+		func(context.Context, *cache.Writer, uint64) error { return nil },
+	)
 }
 
 func makeProofTree(treeCfg TreeConfig, merkleHashFunc merkle.HashFunc) (*merkle.Tree, *cache.Writer, error) {
-	if treeCfg.MinMemoryLayer < LowestMerkleMinMemoryLayer {
-		treeCfg.MinMemoryLayer = LowestMerkleMinMemoryLayer
-	}
-	metaFactory := NewReadWriterMetaFactory(treeCfg.MinMemoryLayer, treeCfg.Datadir, treeCfg.FileWriterBufSize)
-
+	minMemoryLayer := max(treeCfg.MinMemoryLayer, LowestMerkleMinMemoryLayer)
 	treeCache := cache.NewWriter(
 		cache.Combine(
 			cache.SpecificLayersPolicy(map[uint]bool{0: true}),
 			cache.MinHeightPolicy(MerkleMinCacheLayer)),
-		metaFactory.GetFactory(),
+		GetLayerFactory(minMemoryLayer, treeCfg.Datadir, treeCfg.FileWriterBufSize),
 	)
 
 	tree, err := merkle.NewTreeBuilder().WithHashFunc(merkleHashFunc).WithCacheWriter(treeCache).Build()
@@ -130,8 +143,7 @@ func makeRecoveryProofTree(
 	nextLeafID uint64,
 ) (*cache.Writer, *merkle.Tree, error) {
 	// Don't use memory cache. Just utilize the existing files cache.
-	maxUint := ^uint(0)
-	layerFactory := NewReadWriterMetaFactory(maxUint, treeCfg.Datadir, treeCfg.FileWriterBufSize).GetFactory()
+	layerFactory := GetLayerFactory(math.MaxUint, treeCfg.Datadir, treeCfg.FileWriterBufSize)
 
 	layersFiles, err := getLayersFiles(treeCfg.Datadir)
 	if err != nil {
@@ -139,8 +151,7 @@ func makeRecoveryProofTree(
 	}
 
 	// Validate that layer 0 exists.
-	_, ok := layersFiles[0]
-	if !ok {
+	if _, ok := layersFiles[0]; !ok {
 		return nil, nil, fmt.Errorf("layer 0 cache file is missing")
 	}
 
@@ -149,11 +160,9 @@ func makeRecoveryProofTree(
 
 	// Validate structure.
 	for layer, file := range layersFiles {
-		if layer > topLayer {
-			topLayer = layer
-		}
+		topLayer = max(topLayer, layer)
 
-		readWriter, err := layerFactory(uint(layer))
+		readWriter, err := layerFactory(layer)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -225,7 +234,7 @@ func makeRecoveryProofTree(
 	parkedNodes = append(parkedNodes, memCachedParkedNodes...)
 
 	logging.FromContext(ctx).
-		Info("recovered parked nodes", zap.Array("nodes", zapcore.ArrayMarshalerFunc(func(enc zapcore.ArrayEncoder) error {
+		Debug("recovered parked nodes", zap.Array("nodes", zapcore.ArrayMarshalerFunc(func(enc zapcore.ArrayEncoder) error {
 			for _, node := range parkedNodes {
 				enc.AppendString(fmt.Sprintf("%X", node))
 			}
@@ -384,29 +393,13 @@ func getLayersFiles(datadir string) (map[uint]string, error) {
 	return files, nil
 }
 
-// Calculate the root of a Merkle Tree with given leaves.
-func CalcTreeRoot(leaves [][]byte) ([]byte, error) {
-	tree, err := merkle.NewTreeBuilder().WithHashFunc(shared.HashMembershipTreeNode).Build()
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate tree: %w", err)
-	}
-	for _, member := range leaves {
-		err := tree.AddLeaf(member)
-		if err != nil {
-			return nil, fmt.Errorf("failed to add leaf: %w", err)
-		}
-	}
-	return tree.Root(), nil
-}
-
 // build a small tree with the nodes from the top layer of the cache as leafs.
 // this tree will be used to get parked nodes for the merkle tree.
 func recoverMemCachedParkedNodes(
 	layerReader mshared.LayerReader,
 	merkleHashFunc merkle.HashFunc,
 ) ([][]byte, mshared.CacheReader, error) {
-	recoveryTreelayerFactory := NewReadWriterMetaFactory(0, "", 0).GetFactory()
-	recoveryTreeCache := cache.NewWriter(func(uint) bool { return true }, recoveryTreelayerFactory)
+	recoveryTreeCache := cache.NewWriter(func(uint) bool { return true }, GetLayerFactory(0, "", 0))
 
 	tree, err := merkle.NewTreeBuilder().WithHashFunc(merkleHashFunc).WithCacheWriter(recoveryTreeCache).Build()
 	if err != nil {

@@ -2,10 +2,12 @@ package verifier
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"slices"
 
 	"github.com/spacemeshos/merkle-tree"
+	"golang.org/x/exp/maps"
 
 	"github.com/spacemeshos/poet/shared"
 )
@@ -22,50 +24,37 @@ func Validate(proof shared.MerkleProof, labelHashFunc func(data []byte) []byte,
 		)
 	}
 
-	provenLeafIndices := asSortedSlice(shared.FiatShamir(proof.Root, numLeaves, securityParam))
-	provenLeaves := make([][]byte, 0, len(proof.ProvenLeaves))
-	for i := range proof.ProvenLeaves {
-		provenLeaves = append(provenLeaves, proof.ProvenLeaves[i][:])
-	}
-	proofNodes := make([][]byte, 0, len(proof.ProofNodes))
-	for i := range proof.ProofNodes {
-		proofNodes = append(proofNodes, proof.ProofNodes[i][:])
-	}
+	provenLeafIndices := maps.Keys((shared.FiatShamir(proof.Root, numLeaves, securityParam)))
+	slices.Sort(provenLeafIndices)
+
 	valid, parkingSnapshots, err := merkle.ValidatePartialTreeWithParkingSnapshots(
 		provenLeafIndices,
-		provenLeaves,
-		proofNodes,
+		proof.ProvenLeaves,
+		proof.ProofNodes,
 		proof.Root,
 		merkleHashFunc,
 	)
 	if err != nil {
-		return fmt.Errorf("error while validating merkle proof: %v", err)
+		return fmt.Errorf("error while validating merkle proof: %w", err)
 	}
 	if !valid {
-		return fmt.Errorf("merkle proof not valid")
+		return errors.New("merkle proof not valid")
 	}
 	if len(parkingSnapshots) != len(proof.ProvenLeaves) {
-		return fmt.Errorf("merkle proof not valid")
+		return fmt.Errorf(
+			"merkle proof not valid: len(parkingSnapshots) != len(proof.ProvenLeaves) (%d != %d)",
+			len(parkingSnapshots),
+			len(proof.ProvenLeaves),
+		)
 	}
 
 	makeLabel := shared.MakeLabelFunc()
 	for id, label := range proof.ProvenLeaves {
 		expectedLabel := makeLabel(labelHashFunc, provenLeafIndices[id], parkingSnapshots[id])
-		if !bytes.Equal(expectedLabel, label[:]) {
+		if !bytes.Equal(expectedLabel, label) {
 			return fmt.Errorf("label at index %d incorrect - expected: %x actual: %x", id, expectedLabel, label)
 		}
 	}
 
 	return nil
-}
-
-func asSortedSlice(s map[uint64]bool) []uint64 {
-	ret := make([]uint64, 0, len(s))
-	for key, value := range s {
-		if value {
-			ret = append(ret, key)
-		}
-	}
-	slices.Sort(ret)
-	return ret
 }

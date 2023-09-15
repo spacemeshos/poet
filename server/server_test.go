@@ -21,7 +21,6 @@ import (
 
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/logging"
-	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/registration"
 	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
 	"github.com/spacemeshos/poet/server"
@@ -35,8 +34,7 @@ func spawnPoet(ctx context.Context, t *testing.T, cfg server.Config) (*server.Se
 	t.Helper()
 	req := require.New(t)
 
-	_, err := server.SetupConfig(&cfg)
-	req.NoError(err)
+	server.SetupConfig(&cfg)
 
 	srv, err := server.New(ctx, cfg)
 	req.NoError(err)
@@ -263,8 +261,8 @@ func TestSubmitAndGetProof(t *testing.T) {
 		ProofNodes:   proof.Proof.Proof.ProofNodes,
 	}
 
-	root, err := prover.CalcTreeRoot(proof.Proof.Members)
-	req.NoError(err)
+	// single-element tree: the leaf is the root
+	root := proof.Proof.Members[0]
 
 	labelHashFunc := hash.GenLabelHashFunc(root)
 	merkleHashFunc := hash.GenMerkleHashFunc(root)
@@ -471,8 +469,7 @@ func TestLoadSubmits(t *testing.T) {
 	cfg.Round.PhaseShift = time.Minute
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
-	cfg, err := server.SetupConfig(cfg)
-	req.NoError(err)
+	server.SetupConfig(cfg)
 
 	srv, err := server.New(context.Background(), *cfg)
 	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
