@@ -3,7 +3,7 @@ package verifier
 import (
 	"bytes"
 	"fmt"
-	"sort"
+	"slices"
 
 	"github.com/spacemeshos/merkle-tree"
 
@@ -60,12 +60,12 @@ func Validate(proof shared.MerkleProof, labelHashFunc func(data []byte) []byte,
 }
 
 func asSortedSlice(s map[uint64]bool) []uint64 {
-	var ret []uint64
+	ret := make([]uint64, 0, len(s))
 	for key, value := range s {
 		if value {
 			ret = append(ret, key)
 		}
 	}
-	sort.Slice(ret, func(i, j int) bool { return ret[i] < ret[j] })
+	slices.Sort(ret)
 	return ret
 }
