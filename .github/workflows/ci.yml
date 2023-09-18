@@ -1,5 +1,8 @@
 name: CI
 
+env:
+  go-version: "1.21"
+
 on:
   merge_group:
   pull_request:
@@ -18,7 +21,7 @@ jobs:
         uses: actions/setup-go@v4
         with:
           check-latest: true
-          go-version-file: "go.mod"
+          go-version: ${{ env.go-version }}
       - name: fmt, tidy, generate
         run: |
           make install
@@ -40,7 +43,7 @@ jobs:
         uses: actions/setup-go@v4
         with:
           check-latest: true
-          go-version-file: "go.mod"
+          go-version: ${{ env.go-version }}
       - name: setup env
         run: make install
       - name: lint
@@ -70,7 +73,7 @@ jobs:
         uses: actions/setup-go@v4
         with:
           check-latest: true
-          go-version-file: "go.mod"
+          go-version: ${{ env.go-version }}
       - name: setup env
         run: make install
       - name: Clear test cache
@@ -97,7 +100,7 @@ jobs:
         uses: actions/setup-go@v4
         with:
           check-latest: true
-          go-version-file: "go.mod"
+          go-version: ${{ env.go-version }}
       - name: setup env
         run: make install
       - name: test coverage
