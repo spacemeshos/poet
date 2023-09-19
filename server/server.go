@@ -207,6 +207,7 @@ func (s *Server) Start(ctx context.Context) error {
 		s.rpcListener.Addr().String(),
 		[]grpc.DialOption{
 			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(s.cfg.MaxGrpcRespSize)),
 		},
 	)
 	if err != nil {

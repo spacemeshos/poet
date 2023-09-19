@@ -23,6 +23,7 @@ const (
 	defaultMaxLogFileSize = 10
 	defaultRPCPort        = 50002
 	defaultRESTPort       = 8080
+	defaultMaxGrpcMsgSize = 8 * 1024 * 1024
 
 	defaultEpochDuration = 30 * time.Second
 	defaultPhaseShift    = 15 * time.Second
@@ -30,19 +31,20 @@ const (
 )
 
 type Config struct {
-	Genesis         Genesis `long:"genesis-time"   description:"Genesis timestamp in RFC3339 format"`
-	PoetDir         string  `long:"poetdir"        description:"The base directory that contains poet's data, logs, configuration file, etc."`
-	ConfigFile      string  `long:"configfile"     description:"Path to configuration file"                                                   short:"c"`
-	DataDir         string  `long:"datadir"        description:"The directory to store poet's data within."                                   short:"b"`
-	DbDir           string  `long:"dbdir"          description:"The directory to store DBs within"`
-	LogDir          string  `long:"logdir"         description:"Directory to log output."`
-	DebugLog        bool    `long:"debuglog"       description:"Enable debug logs"`
-	JSONLog         bool    `long:"jsonlog"        description:"Whether to log in JSON format"`
-	MaxLogFiles     int     `long:"maxlogfiles"    description:"Maximum logfiles to keep (0 for no rotation)"`
-	MaxLogFileSize  int     `long:"maxlogfilesize" description:"Maximum logfile size in MB"`
-	RawRPCListener  string  `long:"rpclisten"      description:"The interface/port/socket to listen for RPC connections"                      short:"r"`
-	RawRESTListener string  `long:"restlisten"     description:"The interface/port/socket to listen for REST connections"                     short:"w"`
-	MetricsPort     *uint16 `long:"metrics-port"   description:"The port to expose metrics"`
+	Genesis         Genesis `long:"genesis-time"       description:"Genesis timestamp in RFC3339 format"`
+	PoetDir         string  `long:"poetdir"            description:"The base directory that contains poet's data, logs, configuration file, etc."`
+	ConfigFile      string  `long:"configfile"         description:"Path to configuration file"                                                   short:"c"`
+	DataDir         string  `long:"datadir"            description:"The directory to store poet's data within."                                   short:"b"`
+	DbDir           string  `long:"dbdir"              description:"The directory to store DBs within"`
+	LogDir          string  `long:"logdir"             description:"Directory to log output."`
+	DebugLog        bool    `long:"debuglog"           description:"Enable debug logs"`
+	JSONLog         bool    `long:"jsonlog"            description:"Whether to log in JSON format"`
+	MaxLogFiles     int     `long:"maxlogfiles"        description:"Maximum logfiles to keep (0 for no rotation)"`
+	MaxLogFileSize  int     `long:"maxlogfilesize"     description:"Maximum logfile size in MB"`
+	RawRPCListener  string  `long:"rpclisten"          description:"The interface/port/socket to listen for RPC connections"                      short:"r"`
+	RawRESTListener string  `long:"restlisten"         description:"The interface/port/socket to listen for REST connections"                     short:"w"`
+	MetricsPort     *uint16 `long:"metrics-port"       description:"The port to expose metrics"`
+	MaxGrpcRespSize int     `long:"max-grpc-resp-size" description:"Maximum size of GRPC response in bytes"`
 
 	CPUProfile string `long:"cpuprofile" description:"Write CPU profile to the specified file"`
 	Profile    string `long:"profile"    description:"Enable HTTP profiling on given port -- must be between 1024 and 65535"`

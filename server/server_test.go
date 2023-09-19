@@ -30,14 +30,22 @@ import (
 
 const randomHost = "localhost:0"
 
-func spawnPoet(ctx context.Context, t *testing.T, cfg server.Config) (*server.Server, api.PoetServiceClient) {
+func spawnPoetServer(ctx context.Context, t *testing.T, cfg server.Config) *server.Server {
 	t.Helper()
 	req := require.New(t)
 
 	server.SetupConfig(&cfg)
-
 	srv, err := server.New(ctx, cfg)
 	req.NoError(err)
+
+	return srv
+}
+
+func spawnPoet(ctx context.Context, t *testing.T, cfg server.Config) (*server.Server, api.PoetServiceClient) {
+	t.Helper()
+	req := require.New(t)
+
+	srv := spawnPoetServer(ctx, t, cfg)
 
 	conn, err := grpc.DialContext(
 		ctx,
