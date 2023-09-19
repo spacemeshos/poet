@@ -63,7 +63,7 @@ $(GOLINES):
 	@go install github.com/segmentio/golines@v0.11.0
 
 $(BIN_DIR)/mockgen:
-	go install go.uber.org/mock/mockgen@v0.2.0
+	go install go.uber.org/mock/mockgen@v0.3.0
 
 install-buf:
 	@mkdir -p $(BIN_DIR)
