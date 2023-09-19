@@ -116,20 +116,27 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 		unlock := lockOSThread(ctx, roundTidFile)
 		err := round.RecoverExecution(ctx, end, s.cfg.TreeFileBufferSize)
 		unlock()
+		cleanupRound := func(err error) {
+			eg.Go(func() error {
+				if err := round.Teardown(ctx, err == nil); err != nil {
+					logger.Warn("round teardown failed", zap.Error(err), zap.Uint("epoch", round.epoch))
+				}
+				return nil
+			})
+		}
 		switch {
 		case err == nil:
 			s.onNewProof(ctx, round.epoch, round.execution)
+			cleanupRound(nil)
 		case errors.Is(err, context.Canceled):
 			logger.Info("recovered round execution canceled", zap.Uint("epoch", round.epoch))
+			cleanupRound(err)
+			return nil
 		default:
 			logger.Error("recovered round execution failed", zap.Error(err), zap.Uint("epoch", round.epoch))
+			cleanupRound(err)
+			return err
 		}
-		eg.Go(func() error {
-			if err := round.Teardown(ctx, err == nil); err != nil {
-				logger.Warn("round teardown failed", zap.Error(err))
-			}
-			return nil
-		})
 	}
 
 	closedRounds := s.registration.RegisterForRoundClosed(ctx)
@@ -183,7 +190,7 @@ func (s *Service) loop(ctx context.Context, roundToResume *round) error {
 
 		case <-ctx.Done():
 			logger.Info("service shutting down")
-			return eg.Wait()
+			return nil
 		}
 	}
 }

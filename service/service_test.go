@@ -281,3 +281,53 @@ func TestRemoveRecoveredOpenRound(t *testing.T) {
 	cancel()
 	req.NoError(eg.Wait())
 }
+
+// Test that the service doesn't restart a round afresh if it's recovered execution is canceled.
+// This is a regression test for https://github.com/spacemeshos/poet/issues/400
+func TestServiceCancelRecoveredRound(t *testing.T) {
+	req := require.New(t)
+	tempdir := t.TempDir()
+	genesis := time.Now()
+	ctx := logging.NewContext(context.Background(), zaptest.NewLogger(t))
+
+	closedRoundsChan := make(chan service.ClosedRound)
+	registration := mocks.NewMockRegistrationService(gomock.NewController(t))
+	registration.EXPECT().RegisterForRoundClosed(gomock.Any()).Return(closedRoundsChan)
+
+	// Create a new service instance.
+	s, err := service.New(
+		ctx,
+		genesis,
+		tempdir,
+		registration,
+		&server.RoundConfig{EpochDuration: time.Hour},
+	)
+	req.NoError(err)
+
+	runCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	var eg errgroup.Group
+	eg.Go(func() error { return s.Run(runCtx) })
+
+	// Start round 0
+	membershipRoot := []byte{1, 2, 3, 4}
+	closedRoundsChan <- service.ClosedRound{Epoch: 0, MembershipRoot: membershipRoot}
+
+	cancel()
+	req.NoError(eg.Wait())
+
+	// Create a new service instance.
+	// Should not register for closed rounds as the recovered round will be canceled.
+	s, err = service.New(
+		ctx,
+		genesis,
+		tempdir,
+		registration,
+		&server.RoundConfig{EpochDuration: time.Hour},
+	)
+	req.NoError(err)
+
+	runCtx, cancel = context.WithCancel(ctx)
+	cancel()
+	req.NoError(s.Run(runCtx))
+}
