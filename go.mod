@@ -1,6 +1,6 @@
 module github.com/spacemeshos/poet
 
-go 1.21
+go 1.21.1
 
 require (
 	github.com/c0mm4nd/go-ripemd v0.0.0-20200326052756-bd1759ad7d10
