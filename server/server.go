@@ -72,7 +72,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	}
 
 	if _, err := os.Stat(cfg.DataDir); os.IsNotExist(err) {
-		if err := os.Mkdir(cfg.DataDir, 0o700); err != nil {
+		if err := os.MkdirAll(cfg.DataDir, 0o700); err != nil {
 			return nil, err
 		}
 	}
