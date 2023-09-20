@@ -86,6 +86,7 @@ func DefaultConfig() *Config {
 		LogDir:          filepath.Join(poetDir, defaultLogDirname),
 		MaxLogFiles:     defaultMaxLogFiles,
 		MaxLogFileSize:  defaultMaxLogFileSize,
+		MaxGrpcRespSize: defaultMaxGrpcMsgSize,
 		RawRPCListener:  fmt.Sprintf("localhost:%d", defaultRPCPort),
 		RawRESTListener: fmt.Sprintf("localhost:%d", defaultRESTPort),
 		Round:           DefaultRoundConfig(),
