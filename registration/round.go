@@ -129,6 +129,7 @@ func newRound(epoch uint, dbdir string, options ...newRoundOptionFunc) (*round, 
 		maxBatchSize:   opts.maxSubmitBatchSize,
 		flushInterval:  opts.submitFlushInterval,
 		pendingSubmits: make(map[string]pendingSubmit),
+		batch:          leveldb.MakeBatch(opts.maxSubmitBatchSize),
 	}
 
 	membersCounter.Add(float64(r.members))
@@ -159,15 +160,9 @@ func (r *round) submit(ctx context.Context, key, challenge []byte) (<-chan error
 		}
 	}
 
-	if r.batch == nil {
-		r.batch = leveldb.MakeBatch(r.maxBatchSize)
-		time.AfterFunc(r.flushInterval, r.flushPendingSubmits)
-	}
-
 	registered, err := r.db.Get(key, nil)
 	switch {
 	case errors.Is(err, leveldb.ErrNotFound):
-
 		// OK - challenge is not registered yet.
 	case err != nil:
 		return nil, fmt.Errorf("failed to check if challenge is registered: %w", err)
@@ -186,6 +181,9 @@ func (r *round) submit(ctx context.Context, key, challenge []byte) (<-chan error
 
 	if r.batch.Len() >= r.maxBatchSize {
 		r.flushPendingSubmitsLocked()
+	} else if r.batch.Len() == 1 {
+		logging.FromContext(ctx).Debug("scheduling flush of pending submits", zap.Uint("round", r.epoch), zap.Duration("interval", r.flushInterval))
+		time.AfterFunc(r.flushInterval, r.flushPendingSubmits)
 	}
 
 	return done, nil
@@ -198,7 +196,7 @@ func (r *round) flushPendingSubmits() {
 }
 
 func (r *round) flushPendingSubmitsLocked() {
-	if r.batch == nil || r.batch.Len() == 0 {
+	if r.batch.Len() == 0 {
 		return
 	}
 	logging.FromContext(context.Background()).
@@ -216,7 +214,7 @@ func (r *round) flushPendingSubmitsLocked() {
 	r.membersCounter.Add(float64(len(r.pendingSubmits)))
 
 	clear(r.pendingSubmits)
-	r.batch = nil
+	r.batch.Reset()
 }
 
 func countMembersInDB(db *leveldb.DB) (count int) {
