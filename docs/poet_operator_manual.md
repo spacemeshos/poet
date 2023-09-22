@@ -69,7 +69,7 @@ Layers are written to a disk with buffered file, you can configure the buffer si
 
 You can also use that logic to estimate needed disk performance and IOps. But HDD without a SSD cache should be more than sufficient in any case.
 
-You *must* make sure that the data is persisted. The existence of the tree is essential to generate proof for a given round. If the tree is not there then it's not possible to generate the tree. The proof is a Merkle Proof proving selected `T` leaves from the tree and basically contains selected nodes from the tree.
+You *must* make sure that the data is persisted. The existence of the tree is essential to generate proof for a given round. If the tree is not there then it's not possible to generate the proof. The proof is a Merkle Proof proving selected `T` leaves from the tree and basically contains selected nodes from the tree.
 
 > [!NOTE]  
 > PoET will *not* start generating tree when it will detect that the round should be already in progress but the state of the round is empty. This is to prevent the situation when PoET is doing work for nothing
