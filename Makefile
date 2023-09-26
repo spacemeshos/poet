@@ -13,8 +13,8 @@ STATICCHECK_VERSION := v0.4.5
 GOTESTSUM_VERSION := v1.10.1
 GOSCALE_VERSION := v1.1.11
 
-BUF_VERSION := 1.8.0
-PROTOC_VERSION = 21.8
+BUF_VERSION := 1.26.1
+PROTOC_VERSION = 24.3
 
 # The directories to store protoc builds
 # must be in sync with contents of buf.gen.yaml
@@ -84,10 +84,10 @@ endif
 
 # Download protoc plugins
 protoc-plugins:
-	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@v2.15.0
-	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@v2.15.0
-	@go install google.golang.org/protobuf/cmd/protoc-gen-go@b0a9446
-	@go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2.0
+	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@v2.18.0
+	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@v2.18.0
+	@go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.31.0
+	@go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
 .PHONY: protoc-plugins
 
 all: build
