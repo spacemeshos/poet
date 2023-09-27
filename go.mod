@@ -6,7 +6,7 @@ require (
 	github.com/c0mm4nd/go-ripemd v0.0.0-20200326052756-bd1759ad7d10
 	github.com/google/uuid v1.3.1
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
-	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.0.0-rc.0
+	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.0.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.18.0
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/natefinch/atomic v1.0.1
