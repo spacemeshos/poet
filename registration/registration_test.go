@@ -54,12 +54,12 @@ func TestSubmitIdempotence(t *testing.T) {
 	eg.Go(func() error { return r.Run(ctx) })
 
 	// Submit challenge
-	epoch, _, err := r.Submit(context.Background(), challenge, nodeID, nonce, registration.PowParams{})
+	epoch, _, err := r.Submit(context.Background(), challenge, nodeID, nonce, registration.PowParams{}, time.Time{})
 	req.NoError(err)
 	req.Equal(uint(0), epoch)
 
 	// Try again - it should return the same result
-	epoch, _, err = r.Submit(context.Background(), challenge, nodeID, nonce, registration.PowParams{})
+	epoch, _, err = r.Submit(context.Background(), challenge, nodeID, nonce, registration.PowParams{}, time.Time{})
 	req.NoError(err)
 	req.Equal(uint(0), epoch)
 
