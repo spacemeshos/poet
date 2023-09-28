@@ -82,10 +82,7 @@ func TestOpeningRounds(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, reg.Close()) })
 
 		// Service instance should create open round 0.
-		open, executing := reg.Info(context.Background())
-		require.NoError(t, err)
-		require.Equal(t, uint(0), open)
-		require.Nil(t, executing)
+		require.Equal(t, uint(0), reg.OpenRound())
 	})
 	t.Run("after genesis, but within phase shift", func(t *testing.T) {
 		t.Parallel()
@@ -100,10 +97,7 @@ func TestOpeningRounds(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, reg.Close()) })
 
 		// Service instance should create open round 0.
-		open, executing := reg.Info(context.Background())
-		require.NoError(t, err)
-		require.Equal(t, uint(0), open)
-		require.Nil(t, executing)
+		require.Equal(t, uint(0), reg.OpenRound())
 	})
 	t.Run("in first epoch", func(t *testing.T) {
 		t.Parallel()
@@ -121,11 +115,7 @@ func TestOpeningRounds(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, reg.Close()) })
 
 		// Service instance should create open round 1.
-		open, executing := reg.Info(context.Background())
-		require.NoError(t, err)
-		require.Equal(t, uint(1), open)
-		require.NotNil(t, executing)
-		require.Equal(t, uint(0), *executing)
+		require.Equal(t, uint(1), reg.OpenRound())
 	})
 	t.Run("in distant epoch", func(t *testing.T) {
 		t.Parallel()
@@ -142,12 +132,8 @@ func TestOpeningRounds(t *testing.T) {
 		require.NoError(t, err)
 		t.Cleanup(func() { require.NoError(t, reg.Close()) })
 
-		// Service instance should create open round 1.
-		open, executing := reg.Info(context.Background())
-		require.NoError(t, err)
-		require.Equal(t, uint(100), open)
-		require.NotNil(t, executing)
-		require.Equal(t, uint(99), *executing)
+		// Service instance should create open round 100.
+		require.Equal(t, uint(100), reg.OpenRound())
 	})
 }
 
