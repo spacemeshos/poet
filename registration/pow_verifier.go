@@ -1,4 +1,4 @@
-package service
+package registration
 
 import (
 	"bytes"
@@ -14,7 +14,7 @@ var (
 	ErrInvalidPowParams = errors.New("invalid proof of work parameters")
 )
 
-//go:generate mockgen -package mocks -destination mocks/pow_verifier.go . PowVerifier
+//go:generate mockgen -typed -package mocks -destination mocks/pow_verifier.go . PowVerifier
 
 type PowVerifier interface {
 	// Verify the proof of work.
@@ -87,8 +87,12 @@ func (v *powVerifiers) SetParams(p PowParams) {
 	v.mutex.Lock()
 	defer v.mutex.Unlock()
 
-	v.previous = v.current
-	v.current.SetParams(p)
+	v.previous = &powVerifier{
+		params: v.current.Params(),
+	}
+	v.current = &powVerifier{
+		params: p,
+	}
 }
 
 func (v *powVerifiers) Params() PowParams {

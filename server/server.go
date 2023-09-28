@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/ed25519"
 	"errors"
 	"fmt"
 	"net"
@@ -12,8 +13,9 @@ import (
 
 	"github.com/google/uuid"
 	grpcmw "github.com/grpc-ecosystem/go-grpc-middleware"
-	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
 	proxy "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -22,21 +24,33 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
 
-	"github.com/spacemeshos/poet/config"
 	"github.com/spacemeshos/poet/logging"
+	"github.com/spacemeshos/poet/registration"
 	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
 	"github.com/spacemeshos/poet/rpc"
 	"github.com/spacemeshos/poet/service"
+	"github.com/spacemeshos/poet/state"
+	"github.com/spacemeshos/poet/transport"
 )
+
+const stateFilename = "state.bin"
+
+// The server state is persisted to disk.
+type serverState struct {
+	PrivKey []byte
+}
 
 type Server struct {
 	svc          *service.Service
-	cfg          config.Config
+	reg          *registration.Registration
+	cfg          Config
 	rpcListener  net.Listener
 	restListener net.Listener
+
+	privateKey ed25519.PrivateKey
 }
 
-func New(ctx context.Context, cfg config.Config) (*Server, error) {
+func New(ctx context.Context, cfg Config) (*Server, error) {
 	// Resolve the RPC listener
 	addr, err := net.ResolveTCPAddr("tcp", cfg.RawRPCListener)
 	if err != nil {
@@ -52,34 +66,76 @@ func New(ctx context.Context, cfg config.Config) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	restListener, err := net.Listen(addr.Network(), addr.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen: %v", err)
 	}
 
 	if _, err := os.Stat(cfg.DataDir); os.IsNotExist(err) {
-		if err := os.Mkdir(cfg.DataDir, 0o700); err != nil {
+		if err := os.MkdirAll(cfg.DataDir, 0o700); err != nil {
 			return nil, err
 		}
 	}
 
-	svc, err := service.NewService(ctx, cfg.Service, cfg.DbDir, cfg.DataDir)
+	// Load state
+	s := &serverState{}
+	err = state.Load(filepath.Join(cfg.DataDir, stateFilename), s)
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		pubKey, privateKey, err := ed25519.GenerateKey(nil)
+		if err != nil {
+			return nil, fmt.Errorf("generating key: %w", err)
+		}
+		s = &serverState{
+			PrivKey: privateKey,
+		}
+		if err := state.Persist(filepath.Join(cfg.DataDir, stateFilename), s); err != nil {
+			return nil, fmt.Errorf("saving state: %w", err)
+		}
+		logging.FromContext(ctx).Info("generated new keys", zap.Binary("public key", pubKey))
+	case err != nil:
+		return nil, fmt.Errorf("loading state: %w", err)
+	}
+	privateKey := s.PrivKey
+
+	transport := transport.NewInMemory()
+	reg, err := registration.New(
+		ctx,
+		cfg.Genesis.Time(),
+		cfg.DbDir,
+		transport,
+		cfg.Round,
+		registration.WithConfig(cfg.Registration),
+		registration.WithPrivateKey(privateKey),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("creating registration service: %w", err)
+	}
+
+	svc, err := service.New(
+		ctx,
+		cfg.Genesis.Time(),
+		cfg.DataDir,
+		transport,
+		cfg.Round,
+		service.WithConfig(cfg.Service),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Service: %v", err)
 	}
 
 	return &Server{
 		svc:          svc,
+		reg:          reg,
 		cfg:          cfg,
 		rpcListener:  rpcListener,
 		restListener: restListener,
+		privateKey:   privateKey,
 	}, nil
 }
 
 func (s *Server) Close() error {
-	err := s.rpcListener.Close()
-	return errors.Join(err, s.restListener.Close())
+	return s.reg.Close()
 }
 
 // GrpcAddr returns the address that server is listening on for GRPC.
@@ -100,13 +156,25 @@ func (s *Server) Start(ctx context.Context) error {
 
 	logger := logging.FromContext(ctx)
 
-	// Initialize and register the implementation of gRPC interface
-	var grpcServer *grpc.Server
-	var proxyRegstr []func(context.Context, *proxy.ServeMux, string, []grpc.DialOption) error
-	options := []grpc.ServerOption{
+	metrics := grpc_prometheus.NewServerMetrics(
+		grpc_prometheus.WithServerHandlingTimeHistogram(
+			grpc_prometheus.WithHistogramBuckets(prometheus.ExponentialBuckets(0.001, 2, 16)),
+		),
+	)
+
+	serverGroup.Go(func() error {
+		return s.reg.Run(ctx)
+	})
+
+	serverGroup.Go(func() error {
+		return s.svc.Run(ctx)
+	})
+
+	rpcServer := rpc.NewServer(s.svc, s.reg, s.cfg.Round.PhaseShift, s.cfg.Round.CycleGap)
+	grpcServer := grpc.NewServer(
 		grpc.UnaryInterceptor(grpcmw.ChainUnaryServer(
 			loggerInterceptor(logger),
-			grpc_prometheus.UnaryServerInterceptor,
+			metrics.UnaryServerInterceptor(),
 		)),
 		// XXX: this is done to prevent routers from cleaning up our connections (e.g aws load balances..)
 		// TODO: these parameters work for now but we might need to revisit or add them as configuration
@@ -118,34 +186,12 @@ func (s *Server) Start(ctx context.Context) error {
 			Time:                  time.Minute,
 			Timeout:               time.Minute * 3,
 		}),
-	}
-
-	proofsDbPath := filepath.Join(s.cfg.DbDir, "proofs")
-	proofsDb, err := service.NewProofsDatabase(proofsDbPath, s.svc.ProofsChan())
-	if err != nil {
-		return fmt.Errorf("failed to create proofs DB: %w", err)
-	}
-	serverGroup.Go(func() error {
-		return proofsDb.Run(ctx)
-	})
-
-	serverGroup.Go(func() error {
-		return s.svc.Run(ctx)
-	})
-
-	if err := s.svc.Start(ctx); err != nil {
-		stop()
-		return fmt.Errorf("service stopped with error: %v (serverGroup: %v)", err, serverGroup.Wait())
-	}
-
-	rpcServer := rpc.NewServer(s.svc, proofsDb, s.cfg)
-	grpcServer = grpc.NewServer(options...)
+	)
 
 	api.RegisterPoetServiceServer(grpcServer, rpcServer)
-	proxyRegstr = append(proxyRegstr, api.RegisterPoetServiceHandlerFromEndpoint)
-
 	reflection.Register(grpcServer)
-	grpc_prometheus.Register(grpcServer)
+	metrics.InitializeMetrics(grpcServer)
+	prometheus.Register(metrics)
 
 	// Start the gRPC server listening for HTTP/2 connections.
 	serverGroup.Go(func() error {
@@ -155,16 +201,17 @@ func (s *Server) Start(ctx context.Context) error {
 
 	// Start the REST proxy for the gRPC server above.
 	mux := proxy.NewServeMux()
-	for _, r := range proxyRegstr {
-		err := r(
-			ctx,
-			mux,
-			s.rpcListener.Addr().String(),
-			[]grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())},
-		)
-		if err != nil {
-			return err
-		}
+	err := api.RegisterPoetServiceHandlerFromEndpoint(
+		ctx,
+		mux,
+		s.rpcListener.Addr().String(),
+		[]grpc.DialOption{
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(s.cfg.MaxGrpcRespSize)),
+		},
+	)
+	if err != nil {
+		return err
 	}
 
 	server := &http.Server{Handler: mux, ReadHeaderTimeout: time.Second * 5}
@@ -179,8 +226,10 @@ func (s *Server) Start(ctx context.Context) error {
 
 	// Wait for the server to shut down gracefully
 	<-ctx.Done()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+	err = server.Shutdown(shutdownCtx)
 	grpcServer.GracefulStop()
-	err = server.Shutdown(context.Background())
 	return errors.Join(err, serverGroup.Wait())
 }
 

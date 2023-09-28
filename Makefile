@@ -5,19 +5,16 @@ PROJECT := poet
 BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 VERSION ?= $(shell git describe --tags)
 
-GOLANGCI_LINT_VERSION := v1.52.0
-STATICCHECK_VERSION := v0.4.3
-GOTESTSUM_VERSION := v1.10.0
-GOSCALE_VERSION := v1.1.10
+# Flags appended to `go test` command in `make test`
+TEST_FLAGS ?=
 
-BUF_VERSION := 1.8.0
-PROTOC_VERSION = 21.8
+GOLANGCI_LINT_VERSION := v1.54.2
+STATICCHECK_VERSION := v0.4.5
+GOTESTSUM_VERSION := v1.10.1
+GOSCALE_VERSION := v1.1.11
 
-# The directories to store protoc builds
-# must be in sync with contents of buf.gen.yaml
-PROTOC_GO_BUILD_DIR := ./release/proto/go
-PROTOC_OPENAPI_BUILD_DIR := ./release/proto/openapiv2
-PROTOC_BUILD_DIRS := $(PROTOC_GO_BUILD_DIR) $(PROTOC_OPENAPI_BUILD_DIR)
+BUF_VERSION := 1.26.1
+PROTOC_VERSION = 24.3
 
 # Everything below this line is meant to be static, i.e. only adjust the above variables. ###
 
@@ -60,7 +57,7 @@ $(GOLINES):
 	@go install github.com/segmentio/golines@v0.11.0
 
 $(BIN_DIR)/mockgen:
-	go install github.com/golang/mock/mockgen@v1.6.0
+	go install go.uber.org/mock/mockgen@v0.3.0
 
 install-buf:
 	@mkdir -p $(BIN_DIR)
@@ -81,17 +78,17 @@ endif
 
 # Download protoc plugins
 protoc-plugins:
-	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@v2.15.0
-	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@v2.15.0
-	@go install google.golang.org/protobuf/cmd/protoc-gen-go@b0a9446
-	@go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2.0
+	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@v2.18.0
+	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@v2.18.0
+	@go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.31.0
+	@go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
 .PHONY: protoc-plugins
 
 all: build
 .PHONY: all
 
 test:
-	$(GOTESTSUM) -- -race -timeout 5m -p 1 ./...
+	$(GOTESTSUM) -- -race -timeout 5m -p 1 $(TEST_FLAGS) ./...
 .PHONY: test
 
 install: install-buf install-protoc $(GOVULNCHECK) $(GOLINES)

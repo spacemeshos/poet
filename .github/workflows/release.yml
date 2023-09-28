@@ -10,18 +10,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: set up go
         uses: actions/setup-go@v4
         with:
-          check-latest: true
-          go-version-file: "go.mod"
+          go-version: 'stable'
       - name: setup env
         run: make install
       - name: lint
         run: make lint-github-action
       - name: test
         run: make test
+        env:
+          TEST_FLAGS: -short
       - name: build
         run: make build
       - name: Release

@@ -142,7 +142,7 @@ The core data structure used by the verifier.
 
 ##### DAG Definitions (See section 4)
 
-- We define n as the depth of the DAG. We set N = 2^(n+1) where n is the time param. e.g. for n=4, N = 31
+- We define n as the depth of the DAG. We set N = 2^(n+1)-1 where n is the time param. e.g. for n=4, N = 31
 - We start with Bn - `the complete binary tree of depth n` where all edges go from leaves up the tree to the root. Bn has 2^n leaves and 2^n -1 internal nodes. We add edges to the n leaves in the following way:
 
     For each leaf i of the 2^n leaves, we add an edge to the leaf from all the direct siblings of the nodes on the path from the leaf to the root node.

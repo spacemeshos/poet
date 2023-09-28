@@ -1,10 +1,10 @@
 package service
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -12,43 +12,37 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/merkle-tree/cache"
-	"github.com/syndtr/goleveldb/leveldb"
-	"github.com/syndtr/goleveldb/leveldb/opt"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/prover"
 	"github.com/spacemeshos/poet/shared"
+	"github.com/spacemeshos/poet/state"
 )
 
-var (
-	ErrRoundIsNotOpen    = errors.New("round is not open")
-	ErrMaxMembersReached = errors.New("maximum number of round members reached")
+var leavesMetric = promauto.NewCounterVec(prometheus.CounterOpts{
+	Namespace: "poet",
+	Subsystem: "round",
+	Name:      "leaves_total",
+	Help:      "Number of generated leaves in a round",
+}, []string{"id"})
 
-	membersMetric = promauto.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "poet",
-		Subsystem: "round",
-		Name:      "members_total",
-		Help:      "Number of members in a round",
-	}, []string{"id"})
-
-	leavesMetric = promauto.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "poet",
-		Subsystem: "round",
-		Name:      "leaves_total",
-		Help:      "Number of generated leaves in a round",
-	}, []string{"id"})
-)
+// TODO(poszu): align with `executionState` when migrated to new state structure
+// (https://github.com/spacemeshos/poet/issues/384).
+type persistedRoundState struct {
+	SecurityParam uint8
+	Members       [][]byte // Deprecated
+	Statement     []byte
+	ParkedNodes   [][]byte // Deprecated
+	NumLeaves     uint64
+	NIP           *shared.MerkleProof
+}
 
 type executionState struct {
 	SecurityParam uint8
-	Members       [][]byte
 	Statement     []byte
-	ParkedNodes   [][]byte
 	NumLeaves     uint64
 	NIP           *shared.MerkleProof
 }
@@ -57,44 +51,34 @@ const roundStateFileBaseName = "state.bin"
 
 type roundState struct {
 	ExecutionStarted time.Time
-	Execution        *executionState
+	Execution        *persistedRoundState
 }
 
-func (r *round) isOpen() bool {
-	return r.executionStarted.IsZero()
-}
-
-func (r *round) isExecuted() bool {
+func (r *round) IsFinished() bool {
 	return r.execution.NIP != nil
 }
 
 type round struct {
-	epoch            uint32
+	epoch            uint
 	datadir          string
 	ID               string
-	challengesDb     *leveldb.DB
 	executionStarted time.Time
 	execution        *executionState
-	members          uint
-	maxMembers       uint
 
-	membersCounter prometheus.Counter
-	leavesCounter  prometheus.Counter
+	leavesCounter prometheus.Counter
 }
 
-func (r *round) Epoch() uint32 {
-	return r.epoch
+type newRoundOptionFunc func(*round)
+
+func WithMembershipRoot(root []byte) newRoundOptionFunc {
+	return func(r *round) {
+		r.execution.Statement = root
+	}
 }
 
-func newRound(dbdir, datadir string, epoch uint32, maxMembers uint) (*round, error) {
+func NewRound(datadir string, epoch uint, opts ...newRoundOptionFunc) (*round, error) {
 	id := strconv.FormatUint(uint64(epoch), 10)
 	datadir = filepath.Join(datadir, id)
-	dbdir = filepath.Join(dbdir, id)
-
-	db, err := leveldb.OpenFile(dbdir, nil)
-	if err != nil {
-		return nil, fmt.Errorf("opening challenges DB: %w", err)
-	}
 
 	if err := os.MkdirAll(datadir, 0o700); err != nil {
 		return nil, fmt.Errorf("creating round datadir: %w", err)
@@ -103,83 +87,47 @@ func newRound(dbdir, datadir string, epoch uint32, maxMembers uint) (*round, err
 	// Note: using the panicking version here because it panics
 	// only if the number of label values is not the same as the number of variable labels in Desc.
 	// There is only 1 label  (round ID), that  is passed, so it's safe to use.
-	membersCounter := membersMetric.WithLabelValues(id)
 	leavesCounter := leavesMetric.WithLabelValues(id)
 
 	r := &round{
-		epoch:        epoch,
-		datadir:      datadir,
-		ID:           id,
-		challengesDb: db,
+		epoch:   epoch,
+		datadir: datadir,
+		ID:      id,
 		execution: &executionState{
 			SecurityParam: shared.T,
 		},
-		members:        countMembersInDB(db),
-		maxMembers:     maxMembers,
-		membersCounter: membersCounter,
-		leavesCounter:  leavesCounter,
+		leavesCounter: leavesCounter,
 	}
 
-	membersCounter.Add(float64(r.members))
+	for _, opt := range opts {
+		opt(r)
+	}
+
+	err := r.loadState()
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		// No state file, this is a new round.
+		if err := r.saveState(); err != nil {
+			return nil, err
+		}
+	case err != nil:
+		return nil, err
+	}
 
 	return r, nil
 }
 
-func (r *round) submit(ctx context.Context, key, challenge []byte) error {
-	if !r.isOpen() {
-		return ErrRoundIsNotOpen
-	}
-
-	if r.members >= r.maxMembers {
-		return ErrMaxMembersReached
-	}
-
-	registered, err := r.challengesDb.Get(key, nil)
-	switch {
-	case errors.Is(err, leveldb.ErrNotFound):
-		// OK - challenge is not registered yet.
-	case err != nil:
-		return fmt.Errorf("failed to check if challenge is registered: %w", err)
-	case bytes.Equal(challenge, registered):
-		return fmt.Errorf("%w: key: %X", ErrChallengeAlreadySubmitted, key)
-	default:
-		return ErrConflictingRegistration
-	}
-
-	if err := r.challengesDb.Put(key, challenge, &opt.WriteOptions{Sync: true}); err != nil {
-		return fmt.Errorf("failed to register challenge: %w", err)
-	}
-
-	r.members += 1
-	r.membersCounter.Inc()
-
-	return nil
-}
-
-func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer, fileWriterBufSize uint) error {
-	logger := logging.FromContext(ctx).With(zap.String("round", r.ID))
-
+func (r *round) Execute(ctx context.Context, end time.Time, minMemoryLayer, fileWriterBufSize uint) error {
 	r.executionStarted = time.Now()
 	if err := r.saveState(); err != nil {
 		return err
 	}
 
-	if members, statement, err := r.calcMembersAndStatement(); err != nil {
-		return err
-	} else {
-		r.execution.Members, r.execution.Statement = members, statement
-	}
-
-	logger.Info(
+	logging.FromContext(ctx).Info(
 		"executing round",
 		zap.Time("end", end),
-		zap.Int("members", len(r.execution.Members)),
 		zap.Binary("statement", r.execution.Statement),
 	)
-
-	if err := r.saveState(); err != nil {
-		return err
-	}
 
 	numLeaves, nip, err := prover.GenerateProof(
 		ctx,
@@ -203,7 +151,7 @@ func (r *round) execute(ctx context.Context, end time.Time, minMemoryLayer, file
 		return err
 	}
 
-	logger.Info(
+	logging.FromContext(ctx).Info(
 		"execution ended",
 		zap.Binary("root", r.execution.NIP.Root),
 		zap.Uint64("num_leaves", r.execution.NumLeaves),
@@ -218,7 +166,7 @@ func (r *round) persistExecution(
 	numLeaves uint64,
 ) error {
 	logging.FromContext(ctx).
-		Info("persisting execution state", zap.Uint64("numLeaves", numLeaves), zap.String("round", r.ID))
+		Info("persisting execution state", zap.Uint64("numLeaves", numLeaves), zap.Uint("epoch", r.epoch))
 
 	// Call GetReader() so that the cache would flush and validate structure.
 	if _, err := treeCache.GetReader(); err != nil {
@@ -229,36 +177,15 @@ func (r *round) persistExecution(
 	return r.saveState()
 }
 
-func (r *round) recoverExecution(ctx context.Context, end time.Time, fileWriterBufSize uint) error {
-	logger := logging.FromContext(ctx).With(zap.String("round", r.ID))
-
-	started := time.Now()
-
-	if r.execution.Members == nil || r.execution.Statement == nil {
-		logger.Debug("calculating members and statement")
-		members, statement, err := r.calcMembersAndStatement()
-		if err != nil {
-			return fmt.Errorf("failed to calculate members and statement")
-		}
-		r.execution.Members, r.execution.Statement = members, statement
-		if err := r.saveState(); err != nil {
-			return err
-		}
-	}
-
+func (r *round) RecoverExecution(ctx context.Context, end time.Time, fileWriterBufSize uint) error {
+	logger := logging.FromContext(ctx).With(zap.Uint("epoch", r.epoch))
 	logger.With().Info(
 		"recovering execution",
 		zap.Time("end", end),
-		zap.Int("members", len(r.execution.Members)),
 		zap.Uint64("num_leaves", r.execution.NumLeaves),
-		zap.Array("parked_nodes", zapcore.ArrayMarshalerFunc(func(enc zapcore.ArrayEncoder) error {
-			for _, node := range r.execution.ParkedNodes {
-				enc.AppendString(fmt.Sprintf("%X", node))
-			}
-			return nil
-		})),
 	)
 
+	started := time.Now()
 	numLeaves, nip, err := prover.GenerateProofRecovery(
 		ctx,
 		r.leavesCounter,
@@ -294,24 +221,32 @@ func (r *round) recoverExecution(ctx context.Context, end time.Time, fileWriterB
 // loadState recovers persisted state from disk.
 func (r *round) loadState() error {
 	filename := filepath.Join(r.datadir, roundStateFileBaseName)
-	state := roundState{}
-	if err := load(filename, &state); err != nil {
+	s := roundState{}
+	if err := state.Load(filename, &s); err != nil {
 		return fmt.Errorf("loading state: %w", err)
 	}
-	if r.execution.SecurityParam != state.Execution.SecurityParam {
+	if r.execution.SecurityParam != s.Execution.SecurityParam {
 		return errors.New("SecurityParam config mismatch")
 	}
-	r.execution = state.Execution
-	r.executionStarted = state.ExecutionStarted
+	r.execution.NIP = s.Execution.NIP
+	r.execution.NumLeaves = s.Execution.NumLeaves
+	r.execution.Statement = s.Execution.Statement
+	r.execution.SecurityParam = s.Execution.SecurityParam
+	r.executionStarted = s.ExecutionStarted
 
 	return nil
 }
 
 func (r *round) saveState() error {
 	filename := filepath.Join(r.datadir, roundStateFileBaseName)
-	err := persist(filename, &roundState{
+	err := state.Persist(filename, &roundState{
 		ExecutionStarted: r.executionStarted,
-		Execution:        r.execution,
+		Execution: &persistedRoundState{
+			SecurityParam: r.execution.SecurityParam,
+			Statement:     r.execution.Statement,
+			NumLeaves:     r.execution.NumLeaves,
+			NIP:           r.execution.NIP,
+		},
 	})
 	if err != nil {
 		return fmt.Errorf("persisting state: %w", err)
@@ -319,59 +254,20 @@ func (r *round) saveState() error {
 	return nil
 }
 
-func (r *round) calcMembersAndStatement() ([][]byte, []byte, error) {
-	mtree, err := merkle.NewTreeBuilder().
-		WithHashFunc(shared.HashMembershipTreeNode).
-		Build()
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to initialize merkle tree: %v", err)
-	}
-
-	members := make([][]byte, 0)
-	iter := r.challengesDb.NewIterator(nil, nil)
-	defer iter.Release()
-	for iter.Next() {
-		challenge := iter.Value()
-		challengeCopy := make([]byte, len(challenge))
-		copy(challengeCopy, challenge)
-
-		members = append(members, challengeCopy)
-		if err := mtree.AddLeaf(challengeCopy); err != nil {
-			return nil, nil, err
-		}
-	}
-
-	return members, mtree.Root(), nil
-}
-
-func (r *round) teardown(ctx context.Context, cleanup bool) error {
+func (r *round) Teardown(ctx context.Context, cleanup bool) error {
 	logger := logging.FromContext(ctx)
-	logger.Info("tearing down round", zap.String("round", r.ID), zap.Bool("cleanup", cleanup))
+	logger.Info("tearing down round", zap.Uint("epoch", r.epoch), zap.Bool("cleanup", cleanup))
 	started := time.Now()
 	defer logger.Info(
 		"finished tearing down round",
-		zap.String("round", r.ID),
+		zap.Uint("epoch", r.epoch),
 		zap.Duration("duration", time.Since(started)),
 	)
 
-	membersMetric.DeleteLabelValues(r.ID)
 	leavesMetric.DeleteLabelValues(r.ID)
-
-	if err := r.challengesDb.Close(); err != nil {
-		return fmt.Errorf("closing DB: %w", err)
-	}
 
 	if cleanup {
 		return os.RemoveAll(r.datadir)
 	}
 	return r.saveState()
-}
-
-func countMembersInDB(db *leveldb.DB) (count uint) {
-	iter := db.NewIterator(nil, nil)
-	defer iter.Release()
-	for iter.Next() {
-		count++
-	}
-	return count
 }
