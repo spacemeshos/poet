@@ -16,12 +16,6 @@ GOSCALE_VERSION := v1.1.11
 BUF_VERSION := 1.26.1
 PROTOC_VERSION = 24.3
 
-# The directories to store protoc builds
-# must be in sync with contents of buf.gen.yaml
-PROTOC_GO_BUILD_DIR := ./release/proto/go
-PROTOC_OPENAPI_BUILD_DIR := ./release/proto/openapiv2
-PROTOC_BUILD_DIRS := $(PROTOC_GO_BUILD_DIR) $(PROTOC_OPENAPI_BUILD_DIR)
-
 # Everything below this line is meant to be static, i.e. only adjust the above variables. ###
 
 ifeq ($(OS),Windows_NT)
