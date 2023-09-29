@@ -196,8 +196,7 @@ func (r *Registration) Run(ctx context.Context) error {
 
 	// First re-execute the in-progress round if any
 	if r.openRound.epoch > 0 {
-		epoch := uint(int(r.openRound.epoch) - 1)
-		if err := r.recoverExecution(ctx, epoch); err != nil {
+		if err := r.recoverExecution(ctx, r.openRound.epoch-1); err != nil {
 			return fmt.Errorf("recovering execution: %w", err)
 		}
 	}
