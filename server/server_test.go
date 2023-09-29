@@ -82,8 +82,6 @@ func TestInfoEndpoint(t *testing.T) {
 
 	info, err := client.Info(context.Background(), &api.InfoRequest{})
 	req.NoError(err)
-	req.Equal("0", info.OpenRoundId)
-	req.Equal("", info.GetExecutingRoundId())
 	req.Equal(cfg.Round.PhaseShift, info.PhaseShift.AsDuration())
 	req.Equal(cfg.Round.CycleGap, info.CycleGap.AsDuration())
 	req.NotEmpty(info.ServicePubkey)

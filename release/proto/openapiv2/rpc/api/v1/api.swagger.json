@@ -158,12 +158,6 @@
     "v1InfoResponse": {
       "type": "object",
       "properties": {
-        "openRoundId": {
-          "type": "string"
-        },
-        "executingRoundId": {
-          "type": "string"
-        },
         "servicePubkey": {
           "type": "string",
           "format": "byte"

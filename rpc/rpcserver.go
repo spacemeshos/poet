@@ -98,17 +98,10 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 }
 
 func (r *rpcServer) Info(ctx context.Context, in *api.InfoRequest) (*api.InfoResponse, error) {
-	openId, executingId := r.registration.Info(ctx)
-
 	out := &api.InfoResponse{
-		OpenRoundId:   strconv.FormatUint(uint64(openId), 10),
 		ServicePubkey: r.registration.Pubkey(),
 		PhaseShift:    durationpb.New(r.phaseShift),
 		CycleGap:      durationpb.New(r.cycleGap),
-	}
-
-	if executingId != nil {
-		out.ExecutingRoundId = strconv.FormatUint(uint64(*executingId), 10)
 	}
 
 	return out, nil
