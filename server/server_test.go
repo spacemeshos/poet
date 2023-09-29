@@ -18,6 +18,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/logging"
@@ -374,6 +375,58 @@ func TestSubmittingChallengeTwice(t *testing.T) {
 	req.ErrorIs(
 		submitChallenge([]byte("challenge 2")),
 		status.Error(codes.AlreadyExists, registration.ErrConflictingRegistration.Error()),
+	)
+}
+
+func TestSubmittingWithNeedByTimestamp(t *testing.T) {
+	t.Parallel()
+	req := require.New(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
+
+	cfg := server.DefaultConfig()
+	cfg.PoetDir = t.TempDir()
+	cfg.RawRPCListener = randomHost
+	cfg.RawRESTListener = randomHost
+	cfg.Registration.PowDifficulty = 0
+	cfg.Round = &server.RoundConfig{
+		EpochDuration: time.Hour,
+		PhaseShift:    time.Minute * 10,
+	}
+
+	srv, client := spawnPoet(ctx, t, *cfg)
+	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
+
+	var eg errgroup.Group
+	eg.Go(func() error {
+		return srv.Start(ctx)
+	})
+	t.Cleanup(func() { assert.NoError(t, eg.Wait()) })
+
+	powParams, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
+	req.NoError(err)
+
+	submitChallenge := func(ch []byte, deadline time.Time) error {
+		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+		req.NoError(err)
+		_, err = client.Submit(context.Background(), &api.SubmitRequest{
+			Challenge: ch,
+			Pubkey:    pubKey,
+			PowParams: powParams.PowParams,
+			Signature: ed25519.Sign(privKey, ch),
+			Deadline:  timestamppb.New(deadline),
+		})
+		return err
+	}
+
+	round0End := cfg.Round.RoundEnd(cfg.Genesis.Time(), 0)
+
+	req.NoError(submitChallenge([]byte("at round end"), round0End))
+	req.NoError(submitChallenge([]byte("after round ends"), round0End.Add(time.Minute)))
+	req.ErrorIs(
+		submitChallenge([]byte("before round ends"), round0End.Add(-time.Minute)),
+		status.Error(codes.FailedPrecondition, registration.ErrTooLateToRegister.Error()),
 	)
 }
 

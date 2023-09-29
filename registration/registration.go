@@ -32,6 +32,8 @@ type roundConfig interface {
 	RoundEnd(genesis time.Time, epoch uint) time.Time
 }
 
+var ErrTooLateToRegister = errors.New("too late to register for the desired round")
+
 // Registration orchestrates rounds functionality
 // It is responsible for:
 //   - registering challenges,
@@ -287,6 +289,7 @@ func (r *Registration) Submit(
 	challenge, nodeID []byte,
 	nonce uint64,
 	powParams PowParams,
+	deadline time.Time,
 ) (epoch uint, roundEnd time.Time, err error) {
 	logger := logging.FromContext(ctx)
 
@@ -299,6 +302,17 @@ func (r *Registration) Submit(
 
 	r.openRoundMutex.RLock()
 	epoch = r.openRound.epoch
+	endTime := r.roundCfg.RoundEnd(r.genesis, epoch)
+	if !deadline.IsZero() && endTime.After(deadline) {
+		r.openRoundMutex.RUnlock()
+		logger.Debug(
+			"rejecting registration as too late",
+			zap.Uint("round", epoch),
+			zap.Time("deadline", deadline),
+			zap.Time("end_time", endTime),
+		)
+		return epoch, endTime, ErrTooLateToRegister
+	}
 	done, err := r.openRound.submit(ctx, nodeID, challenge)
 	r.openRoundMutex.RUnlock()
 
@@ -319,7 +333,7 @@ func (r *Registration) Submit(
 		return 0, time.Time{}, err
 	}
 
-	return epoch, r.roundCfg.RoundEnd(r.genesis, epoch), nil
+	return epoch, endTime, nil
 }
 
 func (r *Registration) OpenRound() uint {

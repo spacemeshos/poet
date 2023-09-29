@@ -69,7 +69,12 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 		Difficulty: uint(in.GetPowParams().GetDifficulty()),
 	}
 
-	epoch, end, err := r.registration.Submit(ctx, in.Challenge, in.Pubkey, in.Nonce, powParams)
+	var deadline time.Time
+	if in.Deadline != nil {
+		deadline = in.Deadline.AsTime()
+	}
+
+	epoch, end, err := r.registration.Submit(ctx, in.Challenge, in.Pubkey, in.Nonce, powParams, deadline)
 	switch {
 	case errors.Is(err, registration.ErrInvalidPow) || errors.Is(err, registration.ErrInvalidPowParams):
 		return nil, status.Error(codes.InvalidArgument, err.Error())
@@ -77,6 +82,8 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 		return nil, status.Error(codes.ResourceExhausted, err.Error())
 	case errors.Is(err, registration.ErrConflictingRegistration):
 		return nil, status.Error(codes.AlreadyExists, err.Error())
+	case errors.Is(err, registration.ErrTooLateToRegister):
+		return nil, status.Error(codes.FailedPrecondition, err.Error())
 	case errors.Is(err, context.Canceled):
 		return nil, status.Error(codes.Canceled, err.Error())
 	case err != nil:
