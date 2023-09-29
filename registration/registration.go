@@ -195,8 +195,10 @@ func (r *Registration) Run(ctx context.Context) error {
 	proofs := r.workerSvc.RegisterForProofs(ctx)
 
 	// First re-execute the in-progress round if any
-	if err := r.recoverExecution(ctx); err != nil {
-		return fmt.Errorf("recovering execution: %w", err)
+	if r.openRound.epoch > 0 {
+		if err := r.recoverExecution(ctx, r.openRound.epoch-1); err != nil {
+			return fmt.Errorf("recovering execution: %w", err)
+		}
 	}
 
 	timer := r.scheduleRound(ctx, r.openRound.epoch)
@@ -217,14 +219,9 @@ func (r *Registration) Run(ctx context.Context) error {
 	}
 }
 
-func (r *Registration) recoverExecution(ctx context.Context) error {
-	_, executing := r.Info(ctx)
-	if executing == nil {
-		return nil
-	}
-
+func (r *Registration) recoverExecution(ctx context.Context, epoch uint) error {
 	opts := append(r.newRoundOpts(), failIfNotExists())
-	round, err := newRound(*executing, r.dbdir, opts...)
+	round, err := newRound(epoch, r.dbdir, opts...)
 	switch {
 	case errors.Is(err, fs.ErrNotExist):
 		return nil
@@ -325,15 +322,10 @@ func (r *Registration) Submit(
 	return epoch, r.roundCfg.RoundEnd(r.genesis, epoch), nil
 }
 
-func (r *Registration) Info(ctx context.Context) (openRoundId uint, executingRoundId *uint) {
+func (r *Registration) OpenRound() uint {
 	r.openRoundMutex.RLock()
 	defer r.openRoundMutex.RUnlock()
-	openRoundId = r.openRound.epoch
-	if openRoundId > 0 {
-		executingRoundId = new(uint)
-		*executingRoundId = uint(int(openRoundId) - 1)
-	}
-	return openRoundId, executingRoundId
+	return r.openRound.epoch
 }
 
 func (r *Registration) PowParams() PowParams {
