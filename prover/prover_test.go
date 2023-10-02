@@ -148,3 +148,23 @@ func TestTreeRecovery(t *testing.T) {
 		test(t, 1000)
 	})
 }
+
+func TestNewTreeFailOnDirectoryNotEmpty(t *testing.T) {
+	t.Parallel()
+
+	r := require.New(t)
+	// Create a tree and add some nodes to it
+	treeCfg := TreeConfig{
+		MinMemoryLayer: 3,
+		Datadir:        t.TempDir(),
+	}
+	merklehashFuncFunc := hash.GenMerkleHashFunc([]byte{})
+	tree, treeCache, err := makeProofTree(treeCfg, merklehashFuncFunc)
+	r.NoError(err)
+	r.NoError(tree.AddLeaf(bytes.Repeat([]byte{7}, 32)))
+	treeCache.Close()
+
+	// try to create a new tree in the same directory
+	_, _, err = makeProofTree(treeCfg, merklehashFuncFunc)
+	r.Error(err)
+}
