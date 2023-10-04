@@ -19,6 +19,7 @@ import (
 	mshared "github.com/spacemeshos/merkle-tree/shared"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/exp/maps"
 
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/shared"
@@ -119,7 +120,17 @@ func GenerateProofWithoutPersistency(
 	)
 }
 
+// Create a new merkle tree for proof generation.
 func makeProofTree(treeCfg TreeConfig, merkleHashFunc merkle.HashFunc) (*merkle.Tree, *cache.Writer, error) {
+	// Make sure there are no existing layer files.
+	layersFiles, err := getLayersFiles(treeCfg.Datadir)
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(layersFiles) > 0 {
+		return nil, nil, fmt.Errorf("datadir is not empty. %v layer files exist", maps.Values(layersFiles))
+	}
+
 	minMemoryLayer := max(treeCfg.MinMemoryLayer, LowestMerkleMinMemoryLayer)
 	treeCache := cache.NewWriter(
 		cache.Combine(
@@ -136,6 +147,7 @@ func makeProofTree(treeCfg TreeConfig, merkleHashFunc merkle.HashFunc) (*merkle.
 	return tree, treeCache, nil
 }
 
+// Recover merkle tree from existing cache files.
 func makeRecoveryProofTree(
 	ctx context.Context,
 	treeCfg TreeConfig,
