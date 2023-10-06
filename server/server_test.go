@@ -66,6 +66,7 @@ func TestInfoEndpoint(t *testing.T) {
 	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
 	cfg := server.DefaultConfig()
+	cfg.DisableWorker = true
 	cfg.PoetDir = t.TempDir()
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
@@ -98,6 +99,7 @@ func TestSubmitSignatureVerification(t *testing.T) {
 	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
 	cfg := server.DefaultConfig()
+	cfg.DisableWorker = true
 	cfg.PoetDir = t.TempDir()
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
@@ -148,6 +150,7 @@ func TestSubmitPowVerification(t *testing.T) {
 	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
 	cfg := server.DefaultConfig()
+	cfg.DisableWorker = true
 	cfg.PoetDir = t.TempDir()
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost

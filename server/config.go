@@ -52,6 +52,8 @@ type Config struct {
 	Round        *RoundConfig        `group:"Round"`
 	Registration registration.Config `group:"Registration"`
 	Service      service.Config      `group:"Service"`
+
+	DisableWorker bool `long:"disable-worker" description:"Whether to disable worker service for PoSW"`
 }
 
 type Genesis time.Time
@@ -92,6 +94,7 @@ func DefaultConfig() *Config {
 		Round:           DefaultRoundConfig(),
 		Registration:    registration.DefaultConfig(),
 		Service:         service.DefaultConfig(),
+		DisableWorker:   false,
 	}
 }
 

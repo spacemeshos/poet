@@ -3,6 +3,7 @@ package transport
 import (
 	"context"
 
+	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/registration"
 	"github.com/spacemeshos/poet/service"
 	"github.com/spacemeshos/poet/shared"
@@ -38,6 +39,9 @@ func (m *inMemory) ExecuteRound(ctx context.Context, epoch uint, membershipRoot 
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
+	default:
+		logging.FromContext(ctx).Info("nobody listens to closed rounds - dropping")
+		return nil
 	}
 }
 

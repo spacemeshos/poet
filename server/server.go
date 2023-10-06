@@ -162,13 +162,19 @@ func (s *Server) Start(ctx context.Context) error {
 		),
 	)
 
+	logger.Info("starting registration service")
 	serverGroup.Go(func() error {
 		return s.reg.Run(ctx)
 	})
 
-	serverGroup.Go(func() error {
-		return s.svc.Run(ctx)
-	})
+	if !s.cfg.DisableWorker {
+		logger.Info("starting PoSW worker service")
+		serverGroup.Go(func() error {
+			return s.svc.Run(ctx)
+		})
+	} else {
+		logger.Info("PoSW worker service is disabled")
+	}
 
 	rpcServer := rpc.NewServer(s.svc, s.reg, s.cfg.Round.PhaseShift, s.cfg.Round.CycleGap)
 	grpcServer := grpc.NewServer(

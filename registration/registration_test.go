@@ -8,12 +8,15 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/registration"
 	"github.com/spacemeshos/poet/registration/mocks"
 	"github.com/spacemeshos/poet/server"
 	"github.com/spacemeshos/poet/shared"
+	"github.com/spacemeshos/poet/transport"
 )
 
 func TestSubmitIdempotence(t *testing.T) {
@@ -135,6 +138,34 @@ func TestOpeningRounds(t *testing.T) {
 		// Service instance should create open round 100.
 		require.Equal(t, uint(100), reg.OpenRound())
 	})
+}
+
+func TestWorkingWithoutWorkerService(t *testing.T) {
+	t.Parallel()
+
+	reg, err := registration.New(
+		context.Background(),
+		time.Now(),
+		t.TempDir(),
+		transport.NewInMemory(),
+		&server.RoundConfig{EpochDuration: time.Millisecond * 10},
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, reg.Close()) })
+
+	var eg errgroup.Group
+	ctx, cancel := context.WithCancel(logging.NewContext(context.Background(), zaptest.NewLogger(t)))
+	defer cancel()
+	eg.Go(func() error { return reg.Run(ctx) })
+
+	// Verify that registration keeps opening rounds even without the worker service.
+	// Only check if the round number is incremented to not rely on the exact timing.
+	for i := 0; i < 3; i++ {
+		round := reg.OpenRound()
+		require.Eventually(t, func() bool { return reg.OpenRound() > round }, time.Second, time.Millisecond*10)
+	}
+	cancel()
+	require.NoError(t, eg.Wait())
 }
 
 // Test if Proof of Work challenge is rotated every round.
