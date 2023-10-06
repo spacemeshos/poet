@@ -158,6 +158,8 @@ func TestWorkingWithoutWorkerService(t *testing.T) {
 	defer cancel()
 	eg.Go(func() error { return reg.Run(ctx) })
 
+	// Verify that registration keeps opening rounds even without the worker service.
+	// Only check if the round number is incremented to not rely on the exact timing.
 	for i := 0; i < 3; i++ {
 		round := reg.OpenRound()
 		require.Eventually(t, func() bool { return reg.OpenRound() > round }, time.Second, time.Millisecond*10)

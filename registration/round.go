@@ -256,7 +256,13 @@ func (r *round) getMembers() (members [][]byte) {
 	return members
 }
 
+// Close the round.
+// Flushes pending submits and closes the DB.
+// It's safe to call Close multiple times.
 func (r *round) Close() error {
 	r.flushPendingSubmits()
-	return r.db.Close()
+	if err := r.db.Close(); err != nil && !errors.Is(err, leveldb.ErrClosed) {
+		return err
+	}
+	return nil
 }
