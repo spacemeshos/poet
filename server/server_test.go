@@ -103,7 +103,6 @@ func TestSubmitSignatureVerification(t *testing.T) {
 	cfg.PoetDir = t.TempDir()
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
-	cfg.Registration.PowDifficulty = 0
 
 	srv, client := spawnPoet(ctx, t, *cfg)
 	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
@@ -220,7 +219,6 @@ func TestSubmitAndGetProof(t *testing.T) {
 	cfg.Round.CycleGap = 0
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
-	cfg.Registration.PowDifficulty = 0
 
 	srv, client := spawnPoet(ctx, t, *cfg)
 	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
@@ -294,7 +292,6 @@ func TestCannotSubmitMoreThanMaxRoundMembers(t *testing.T) {
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 	cfg.Registration.MaxRoundMembers = 2
-	cfg.Registration.PowDifficulty = 0
 
 	srv, client := spawnPoet(ctx, t, *cfg)
 	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
@@ -343,7 +340,6 @@ func TestSubmittingChallengeTwice(t *testing.T) {
 	cfg.PoetDir = t.TempDir()
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
-	cfg.Registration.PowDifficulty = 0
 
 	srv, client := spawnPoet(ctx, t, *cfg)
 	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
@@ -392,7 +388,7 @@ func TestSubmittingWithNeedByTimestamp(t *testing.T) {
 	cfg.PoetDir = t.TempDir()
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
-	cfg.Registration.PowDifficulty = 0
+
 	cfg.Round = &server.RoundConfig{
 		EpochDuration: time.Hour,
 		PhaseShift:    time.Minute * 10,
@@ -585,4 +581,76 @@ func TestLoadSubmits(t *testing.T) {
 	t.Logf("submitting %d challenges took %v", concurrentSubmits, time.Since(start))
 	cancel()
 	egSrv.Wait()
+}
+
+// Test submitting a challenge followed by proof generation and getting the proof via GRPC
+// in registration-only mode.
+// It should return an empty proof but with members populated.
+func TestRegistrationOnlyMode(t *testing.T) {
+	t.Parallel()
+	req := require.New(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
+
+	cfg := server.DefaultConfig()
+	cfg.DisableWorker = true
+	cfg.PoetDir = t.TempDir()
+	cfg.Genesis = server.Genesis(time.Now())
+	cfg.Round.EpochDuration = time.Millisecond * 10
+	cfg.Round.PhaseShift = 0
+	cfg.Round.CycleGap = 0
+	cfg.RawRPCListener = randomHost
+	cfg.RawRESTListener = randomHost
+
+	srv, client := spawnPoet(ctx, t, *cfg)
+	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
+
+	var eg errgroup.Group
+	eg.Go(func() error {
+		return srv.Start(ctx)
+	})
+
+	// Submit a challenge
+	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
+	req.NoError(err)
+	challenge := []byte("poet challenge")
+
+	powParams, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
+	req.NoError(err)
+
+	signature := ed25519.Sign(privKey, challenge)
+	resp, err := client.Submit(context.Background(), &api.SubmitRequest{
+		Challenge: challenge,
+		Pubkey:    pubKey,
+		PowParams: powParams.PowParams,
+		Signature: signature,
+	})
+	req.NoError(err)
+
+	// Query for the proof
+	var proof *api.ProofResponse
+	req.Eventually(func() bool {
+		proof, err = client.Proof(context.Background(), &api.ProofRequest{RoundId: resp.RoundId})
+		return err == nil
+	}, time.Second, time.Millisecond*10)
+
+	req.Zero(proof.Proof.Leaves)
+	req.Len(proof.Proof.Members, 1)
+	req.Contains(proof.Proof.Members, challenge)
+	cancel()
+
+	merkleProof := shared.MerkleProof{
+		Root:         proof.Proof.Proof.Root,
+		ProvenLeaves: proof.Proof.Proof.ProvenLeaves,
+		ProofNodes:   proof.Proof.Proof.ProofNodes,
+	}
+
+	// single-element tree: the leaf is the root
+	root := proof.Proof.Members[0]
+	labelHashFunc := hash.GenLabelHashFunc(root)
+	merkleHashFunc := hash.GenMerkleHashFunc(root)
+	req.Error(verifier.Validate(merkleProof, labelHashFunc, merkleHashFunc, proof.Proof.Leaves, shared.T))
+
+	req.NoError(eg.Wait())
 }
