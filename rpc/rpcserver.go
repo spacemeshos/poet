@@ -16,13 +16,11 @@ import (
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/registration"
 	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
-	"github.com/spacemeshos/poet/service"
 )
 
 // rpcServer is a gRPC, RPC front end to poet.
 type rpcServer struct {
 	registration *registration.Registration
-	s            *service.Service
 	phaseShift   time.Duration
 	cycleGap     time.Duration
 }
@@ -33,12 +31,10 @@ var _ api.PoetServiceServer = (*rpcServer)(nil)
 
 // NewServer creates and returns a new instance of the rpcServer.
 func NewServer(
-	svc *service.Service,
 	registration *registration.Registration,
 	phaseShift, cycleGap time.Duration,
 ) *rpcServer {
 	return &rpcServer{
-		s:            svc,
 		registration: registration,
 		phaseShift:   phaseShift,
 		cycleGap:     cycleGap,

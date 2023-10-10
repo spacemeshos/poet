@@ -15,7 +15,7 @@ import (
 
 func Test_Submit_DoesNotPanicOnMissingPubKey(t *testing.T) {
 	// Arrange
-	sv := rpc.NewServer(nil, nil, 0, 0)
+	sv := rpc.NewServer(nil, 0, 0)
 
 	// Act
 	in := &api.SubmitRequest{}
@@ -33,7 +33,7 @@ func Test_Submit_DoesNotPanicOnMissingPubKey(t *testing.T) {
 
 func Test_Submit_DoesNotPanicOnMissingSignature(t *testing.T) {
 	// Arrange
-	sv := rpc.NewServer(nil, nil, 0, 0)
+	sv := rpc.NewServer(nil, 0, 0)
 	pub, _, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
 

@@ -40,8 +40,12 @@ type serverState struct {
 	PrivKey []byte
 }
 
+type svc interface {
+	Run(ctx context.Context) error
+}
+
 type Server struct {
-	svc          *service.Service
+	worker       svc
 	reg          *registration.Registration
 	cfg          Config
 	rpcListener  net.Listener
@@ -98,12 +102,30 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	}
 	privateKey := s.PrivKey
 
-	transport := transport.NewInMemory()
+	tr := transport.NewInMemory()
+	var worker svc
+	if cfg.DisableWorker {
+		logging.FromContext(ctx).Info("PoSW worker service is disabled")
+		worker = service.NewDisabledService(tr)
+	} else {
+		worker, err = service.New(
+			ctx,
+			cfg.Genesis.Time(),
+			cfg.DataDir,
+			tr,
+			cfg.Round,
+			service.WithConfig(cfg.Service),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Service: %v", err)
+		}
+	}
+
 	reg, err := registration.New(
 		ctx,
 		cfg.Genesis.Time(),
 		cfg.DbDir,
-		transport,
+		tr,
 		cfg.Round,
 		registration.WithConfig(cfg.Registration),
 		registration.WithPrivateKey(privateKey),
@@ -112,20 +134,8 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		return nil, fmt.Errorf("creating registration service: %w", err)
 	}
 
-	svc, err := service.New(
-		ctx,
-		cfg.Genesis.Time(),
-		cfg.DataDir,
-		transport,
-		cfg.Round,
-		service.WithConfig(cfg.Service),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Service: %v", err)
-	}
-
 	return &Server{
-		svc:          svc,
+		worker:       worker,
 		reg:          reg,
 		cfg:          cfg,
 		rpcListener:  rpcListener,
@@ -167,16 +177,12 @@ func (s *Server) Start(ctx context.Context) error {
 		return s.reg.Run(ctx)
 	})
 
-	if !s.cfg.DisableWorker {
-		logger.Info("starting PoSW worker service")
-		serverGroup.Go(func() error {
-			return s.svc.Run(ctx)
-		})
-	} else {
-		logger.Info("PoSW worker service is disabled")
-	}
+	logger.Info("starting PoSW worker service")
+	serverGroup.Go(func() error {
+		return s.worker.Run(ctx)
+	})
 
-	rpcServer := rpc.NewServer(s.svc, s.reg, s.cfg.Round.PhaseShift, s.cfg.Round.CycleGap)
+	rpcServer := rpc.NewServer(s.reg, s.cfg.Round.PhaseShift, s.cfg.Round.CycleGap)
 	grpcServer := grpc.NewServer(
 		grpc.UnaryInterceptor(grpcmw.ChainUnaryServer(
 			loggerInterceptor(logger),
