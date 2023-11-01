@@ -15,6 +15,8 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/shared"
 )
@@ -35,6 +37,20 @@ type roundConfig interface {
 var (
 	ErrInvalidCertificate = errors.New("invalid certificate")
 	ErrTooLateToRegister  = errors.New("too late to register for the desired round")
+
+	registerWithCertMetric = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "poet",
+		Subsystem: "registration",
+		Name:      "with_cert_total",
+		Help:      "Number of registrations with a certificate",
+	}, []string{"result"})
+
+	registerWithPoWMetric = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "poet",
+		Subsystem: "registration",
+		Name:      "with_pow_total",
+		Help:      "Number of registrations with a PoW",
+	}, []string{"result"})
 )
 
 // Registration orchestrates rounds functionality
@@ -313,16 +329,20 @@ func (r *Registration) Submit(
 	// the certificate path is being stabilized.
 	if r.cfg.Certifier != nil && certificate != nil {
 		if !ed25519.Verify(r.cfg.Certifier.PubKey, nodeID, certificate) {
+			registerWithCertMetric.WithLabelValues("invalid").Inc()
 			return 0, time.Time{}, ErrInvalidCertificate
 		}
+		registerWithCertMetric.WithLabelValues("valid").Inc()
 	} else {
 		// FIXME: PoW is deprecated
 		// Remove once certificate path is stabilized and mandatory.
 		err := r.powVerifiers.VerifyWithParams(challenge, nodeID, nonce, powParams)
 		if err != nil {
+			registerWithPoWMetric.WithLabelValues("invalid").Inc()
 			logger.Debug("PoW verification failed", zap.Error(err))
 			return 0, time.Time{}, err
 		}
+		registerWithPoWMetric.WithLabelValues("valid").Inc()
 		logger.Debug("verified PoW", zap.String("node_id", hex.EncodeToString(nodeID)))
 	}
 
