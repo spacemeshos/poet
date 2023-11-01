@@ -328,7 +328,7 @@ func (r *Registration) Submit(
 	// Support both a certificate and a PoW while
 	// the certificate path is being stabilized.
 	if r.cfg.Certifier != nil && certificate != nil {
-		if !ed25519.Verify(r.cfg.Certifier.PubKey, nodeID, certificate) {
+		if !ed25519.Verify(r.cfg.Certifier.PubKey.Bytes(), nodeID, certificate) {
 			registerWithCertMetric.WithLabelValues("invalid").Inc()
 			return 0, time.Time{}, ErrInvalidCertificate
 		}

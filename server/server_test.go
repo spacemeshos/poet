@@ -193,7 +193,7 @@ func TestSubmitCertificateVerification(t *testing.T) {
 	cfg.Registration.PowDifficulty = 3
 	cfg.Registration.Certifier = &registration.CertifierConfig{
 		URL:    "http://localhost:8080",
-		PubKey: certifierPubKey,
+		PubKey: registration.Base64Enc(certifierPubKey),
 	}
 
 	srv, client := spawnPoet(ctx, t, *cfg)

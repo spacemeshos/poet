@@ -1,6 +1,7 @@
 package registration
 
 import (
+	"encoding/base64"
 	"time"
 
 	"go.uber.org/zap/zapcore"
@@ -25,14 +26,29 @@ type Config struct {
 	Certifier *CertifierConfig
 }
 
+type Base64Enc []byte
+
+func (k *Base64Enc) UnmarshalFlag(value string) error {
+	b, err := base64.StdEncoding.DecodeString(value)
+	if err != nil {
+		return err
+	}
+	*k = b
+	return nil
+}
+
+func (k *Base64Enc) Bytes() []byte {
+	return []byte(*k)
+}
+
 type CertifierConfig struct {
-	URL    string `long:"certifier-url"    description:"The URL of the certifier service"`
-	PubKey []byte `long:"certifier-pubkey" description:"The public key of the certifier service"`
+	URL    string    `long:"certifier-url"    description:"The URL of the certifier service"`
+	PubKey Base64Enc `long:"certifier-pubkey" description:"The public key of the certifier service (base64 encoded)"`
 }
 
 // implement zap.ObjectMarshaler interface.
 func (c CertifierConfig) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("url", c.URL)
-	enc.AddBinary("pubkey", c.PubKey)
+	enc.AddString("pubkey", base64.StdEncoding.EncodeToString(c.PubKey))
 	return nil
 }

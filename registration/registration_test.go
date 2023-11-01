@@ -282,7 +282,7 @@ func TestRecoveringRoundInProgress(t *testing.T) {
 
 func Test_GetCertifierInfo(t *testing.T) {
 	certifier := &registration.CertifierConfig{
-		PubKey: []byte("pubkey"),
+		PubKey: registration.Base64Enc("pubkey"),
 		URL:    "http://the-certifier.org",
 	}
 
@@ -353,7 +353,7 @@ func Test_CheckCertificate(t *testing.T) {
 			registration.WithConfig(registration.Config{
 				MaxRoundMembers: 10,
 				Certifier: &registration.CertifierConfig{
-					PubKey: pub,
+					PubKey: registration.Base64Enc(pub),
 				},
 			}),
 		)
