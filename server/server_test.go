@@ -118,7 +118,7 @@ func TestInfoEndpoint(t *testing.T) {
 		req.Equal(cfg.Round.PhaseShift, info.PhaseShift.AsDuration())
 		req.Equal(cfg.Round.CycleGap, info.CycleGap.AsDuration())
 		req.NotEmpty(info.ServicePubkey)
-		req.Equal(info.Certifier.Pubkey, cfg.Registration.Certifier.PubKey)
+		req.Equal(info.Certifier.Pubkey, cfg.Registration.Certifier.PubKey.Bytes())
 		req.Equal(info.Certifier.Url, cfg.Registration.Certifier.URL)
 
 		cancel()
