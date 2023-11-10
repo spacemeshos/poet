@@ -16,7 +16,7 @@ func DefaultConfig() Config {
 }
 
 type Config struct {
-	// FIXME: remove depreacated PoW
+	// FIXME: remove deprecated PoW
 	PowDifficulty uint `long:"pow-difficulty" description:"(DEPRECATED) PoW difficulty (in the number of leading zero bits)"`
 
 	MaxRoundMembers     int           `long:"max-round-members"     description:"the maximum number of members in a round"`
