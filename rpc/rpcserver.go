@@ -60,6 +60,7 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 		return nil, status.Error(codes.InvalidArgument, "invalid signature")
 	}
 
+	// FIXME: PoW is deprecated
 	powParams := registration.PowParams{
 		Challenge:  in.GetPowParams().GetChallenge(),
 		Difficulty: uint(in.GetPowParams().GetDifficulty()),
@@ -70,10 +71,21 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 		deadline = in.Deadline.AsTime()
 	}
 
-	epoch, end, err := r.registration.Submit(ctx, in.Challenge, in.Pubkey, in.Nonce, powParams, deadline)
+	epoch, end, err := r.registration.Submit(
+		ctx,
+		in.Challenge,
+		in.Pubkey,
+		in.Nonce,
+		powParams,
+		in.Certificate.GetSignature(),
+		deadline,
+	)
 	switch {
+	// FIXME: remove deprecated PoW
 	case errors.Is(err, registration.ErrInvalidPow) || errors.Is(err, registration.ErrInvalidPowParams):
 		return nil, status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, registration.ErrInvalidCertificate):
+		return nil, status.Error(codes.Unauthenticated, err.Error())
 	case errors.Is(err, registration.ErrMaxMembersReached):
 		return nil, status.Error(codes.ResourceExhausted, err.Error())
 	case errors.Is(err, registration.ErrConflictingRegistration):
@@ -94,10 +106,18 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 }
 
 func (r *rpcServer) Info(ctx context.Context, in *api.InfoRequest) (*api.InfoResponse, error) {
+	var certifierResp *api.InfoResponse_Cerifier
+	if certifier := r.registration.CertifierInfo(); certifier != nil {
+		certifierResp = &api.InfoResponse_Cerifier{
+			Url:    certifier.URL,
+			Pubkey: certifier.PubKey,
+		}
+	}
 	out := &api.InfoResponse{
 		ServicePubkey: r.registration.Pubkey(),
 		PhaseShift:    durationpb.New(r.phaseShift),
 		CycleGap:      durationpb.New(r.cycleGap),
+		Certifier:     certifierResp,
 	}
 
 	return out, nil

@@ -1,6 +1,11 @@
 package registration
 
-import "time"
+import (
+	"encoding/base64"
+	"time"
+
+	"go.uber.org/zap/zapcore"
+)
 
 func DefaultConfig() Config {
 	return Config{
@@ -11,9 +16,39 @@ func DefaultConfig() Config {
 }
 
 type Config struct {
-	PowDifficulty uint `long:"pow-difficulty" description:"PoW difficulty (in the number of leading zero bits)"`
+	// FIXME: remove deprecated PoW
+	PowDifficulty uint `long:"pow-difficulty" description:"(DEPRECATED) PoW difficulty (in the number of leading zero bits)"`
 
 	MaxRoundMembers     int           `long:"max-round-members"     description:"the maximum number of members in a round"`
 	MaxSubmitBatchSize  int           `long:"max-submit-batch-size" description:"The maximum number of challenges to submit in a single batch"`
 	SubmitFlushInterval time.Duration `long:"submit-flush-interval" description:"The interval between flushes of the submit queue"`
+
+	Certifier *CertifierConfig
+}
+
+type Base64Enc []byte
+
+func (k *Base64Enc) UnmarshalFlag(value string) error {
+	b, err := base64.StdEncoding.DecodeString(value)
+	if err != nil {
+		return err
+	}
+	*k = b
+	return nil
+}
+
+func (k *Base64Enc) Bytes() []byte {
+	return []byte(*k)
+}
+
+type CertifierConfig struct {
+	URL    string    `long:"certifier-url"    description:"The URL of the certifier service"`
+	PubKey Base64Enc `long:"certifier-pubkey" description:"The public key of the certifier service (base64 encoded)"`
+}
+
+// implement zap.ObjectMarshaler interface.
+func (c CertifierConfig) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	enc.AddString("url", c.URL)
+	enc.AddString("pubkey", base64.StdEncoding.EncodeToString(c.PubKey))
+	return nil
 }

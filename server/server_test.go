@@ -60,35 +60,70 @@ func spawnPoet(ctx context.Context, t *testing.T, cfg server.Config) (*server.Se
 
 func TestInfoEndpoint(t *testing.T) {
 	t.Parallel()
-	req := require.New(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
 	cfg := server.DefaultConfig()
 	cfg.DisableWorker = true
-	cfg.PoetDir = t.TempDir()
+
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 	cfg.Round.PhaseShift = 5 * time.Minute
 	cfg.Round.CycleGap = 7 * time.Minute
 
-	srv, client := spawnPoet(ctx, t, *cfg)
-	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
+	t.Run("no certifier", func(t *testing.T) {
+		req := require.New(t)
+		cfg := cfg
+		cfg.PoetDir = t.TempDir()
 
-	var eg errgroup.Group
-	eg.Go(func() error {
-		return srv.Start(ctx)
+		ctx, cancel := context.WithCancel(logging.NewContext(context.Background(), zaptest.NewLogger(t)))
+		defer cancel()
+		srv, client := spawnPoet(ctx, t, *cfg)
+		t.Cleanup(func() { assert.NoError(t, srv.Close()) })
+
+		var eg errgroup.Group
+		eg.Go(func() error {
+			return srv.Start(ctx)
+		})
+
+		info, err := client.Info(context.Background(), &api.InfoRequest{})
+		req.NoError(err)
+		req.Equal(cfg.Round.PhaseShift, info.PhaseShift.AsDuration())
+		req.Equal(cfg.Round.CycleGap, info.CycleGap.AsDuration())
+		req.NotEmpty(info.ServicePubkey)
+		req.Nil(info.Certifier)
+
+		cancel()
+		req.NoError(eg.Wait())
 	})
+	t.Run("with certifier", func(t *testing.T) {
+		req := require.New(t)
+		cfg := cfg
+		cfg.PoetDir = t.TempDir()
+		cfg.Registration.Certifier = &registration.CertifierConfig{
+			URL:    "http://localhost:8080",
+			PubKey: []byte("certifier pubkey"),
+		}
 
-	info, err := client.Info(context.Background(), &api.InfoRequest{})
-	req.NoError(err)
-	req.Equal(cfg.Round.PhaseShift, info.PhaseShift.AsDuration())
-	req.Equal(cfg.Round.CycleGap, info.CycleGap.AsDuration())
-	req.NotEmpty(info.ServicePubkey)
+		ctx, cancel := context.WithCancel(logging.NewContext(context.Background(), zaptest.NewLogger(t)))
+		defer cancel()
+		srv, client := spawnPoet(ctx, t, *cfg)
+		t.Cleanup(func() { assert.NoError(t, srv.Close()) })
 
-	cancel()
-	req.NoError(eg.Wait())
+		var eg errgroup.Group
+		eg.Go(func() error {
+			return srv.Start(ctx)
+		})
+
+		info, err := client.Info(context.Background(), &api.InfoRequest{})
+		req.NoError(err)
+		req.Equal(cfg.Round.PhaseShift, info.PhaseShift.AsDuration())
+		req.Equal(cfg.Round.CycleGap, info.CycleGap.AsDuration())
+		req.NotEmpty(info.ServicePubkey)
+		req.Equal(info.Certifier.Pubkey, cfg.Registration.Certifier.PubKey.Bytes())
+		req.Equal(info.Certifier.Url, cfg.Registration.Certifier.URL)
+
+		cancel()
+		req.NoError(eg.Wait())
+	})
 }
 
 func TestSubmitSignatureVerification(t *testing.T) {
@@ -141,12 +176,14 @@ func TestSubmitSignatureVerification(t *testing.T) {
 	req.NoError(eg.Wait())
 }
 
-func TestSubmitPowVerification(t *testing.T) {
+func TestSubmitCertificateVerification(t *testing.T) {
 	t.Parallel()
-	req := require.New(t)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
+
+	certifierPubKey, certifierPrivKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
 
 	cfg := server.DefaultConfig()
 	cfg.DisableWorker = true
@@ -154,6 +191,10 @@ func TestSubmitPowVerification(t *testing.T) {
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 	cfg.Registration.PowDifficulty = 3
+	cfg.Registration.Certifier = &registration.CertifierConfig{
+		URL:    "http://localhost:8080",
+		PubKey: registration.Base64Enc(certifierPubKey),
+	}
 
 	srv, client := spawnPoet(ctx, t, *cfg)
 	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
@@ -165,42 +206,66 @@ func TestSubmitPowVerification(t *testing.T) {
 
 	// User credentials
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
-	req.NoError(err)
+	require.NoError(t, err)
 
 	// Submit challenge with valid signature but invalid pow
 	challenge := []byte("poet challenge")
 
 	signature := ed25519.Sign(privKey, challenge)
-	_, err = client.Submit(context.Background(), &api.SubmitRequest{
-		Challenge: challenge,
-		Pubkey:    pubKey,
-		Signature: signature,
+
+	t.Run("invalid certificate", func(t *testing.T) {
+		_, err = client.Submit(context.Background(), &api.SubmitRequest{
+			Challenge: challenge,
+			Pubkey:    pubKey,
+			Signature: signature,
+			Certificate: &api.SubmitRequest_Certificate{
+				Signature: []byte("invalid signature"),
+			},
+		})
+		require.ErrorIs(t, err, status.Error(codes.Unauthenticated, registration.ErrInvalidCertificate.Error()))
 	})
-	req.ErrorIs(err, status.Error(codes.InvalidArgument, "invalid proof of work parameters"))
-
-	// Submit data with valid signature and pow
-	resp, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
-	req.NoError(err)
-	nonce, err := shared.FindSubmitPowNonce(
-		context.Background(),
-		resp.PowParams.Challenge,
-		challenge,
-		pubKey,
-		uint(resp.PowParams.Difficulty),
-	)
-	req.NoError(err)
-
-	_, err = client.Submit(context.Background(), &api.SubmitRequest{
-		Nonce:     nonce,
-		Challenge: challenge,
-		Pubkey:    pubKey,
-		Signature: signature,
-		PowParams: resp.PowParams,
+	t.Run("valid certificate", func(t *testing.T) {
+		_, err = client.Submit(context.Background(), &api.SubmitRequest{
+			Challenge: challenge,
+			Pubkey:    pubKey,
+			Signature: signature,
+			Certificate: &api.SubmitRequest_Certificate{
+				Signature: ed25519.Sign(certifierPrivKey, pubKey),
+			},
+		})
+		require.NoError(t, err)
 	})
-	req.NoError(err)
+	t.Run("no certificate - fallback to PoW (invalid)", func(t *testing.T) {
+		_, err = client.Submit(context.Background(), &api.SubmitRequest{
+			Challenge: challenge,
+			Pubkey:    pubKey,
+			Signature: signature,
+		})
+		require.ErrorIs(t, err, status.Error(codes.InvalidArgument, "invalid proof of work parameters"))
+	})
+	t.Run("no certificate - fallback to PoW (valid)", func(t *testing.T) {
+		resp, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
+		require.NoError(t, err)
+		nonce, err := shared.FindSubmitPowNonce(
+			context.Background(),
+			resp.PowParams.Challenge,
+			challenge,
+			pubKey,
+			uint(resp.PowParams.Difficulty),
+		)
+		require.NoError(t, err)
 
+		_, err = client.Submit(context.Background(), &api.SubmitRequest{
+			Nonce:     nonce,
+			Challenge: challenge,
+			Pubkey:    pubKey,
+			Signature: signature,
+			PowParams: resp.PowParams,
+		})
+		require.NoError(t, err)
+	})
 	cancel()
-	req.NoError(eg.Wait())
+	require.NoError(t, eg.Wait())
 }
 
 // Test submitting a challenge followed by proof generation and getting the proof via GRPC.

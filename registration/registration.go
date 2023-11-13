@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap"
 
 	"github.com/spacemeshos/poet/logging"
@@ -32,7 +34,24 @@ type roundConfig interface {
 	RoundEnd(genesis time.Time, epoch uint) time.Time
 }
 
-var ErrTooLateToRegister = errors.New("too late to register for the desired round")
+var (
+	ErrInvalidCertificate = errors.New("invalid certificate")
+	ErrTooLateToRegister  = errors.New("too late to register for the desired round")
+
+	registerWithCertMetric = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "poet",
+		Subsystem: "registration",
+		Name:      "with_cert_total",
+		Help:      "Number of registrations with a certificate",
+	}, []string{"result"})
+
+	registerWithPoWMetric = promauto.NewCounterVec(prometheus.CounterOpts{
+		Namespace: "poet",
+		Subsystem: "registration",
+		Name:      "with_pow_total",
+		Help:      "Number of registrations with a PoW",
+	}, []string{"result"})
+)
 
 // Registration orchestrates rounds functionality
 // It is responsible for:
@@ -127,6 +146,13 @@ func New(
 		r.powVerifiers = powVerifiers{current: options.powVerifier}
 	}
 
+	if r.cfg.Certifier != nil && r.cfg.Certifier.PubKey != nil {
+		logging.FromContext(ctx).Info("configured certifier", zap.Inline(r.cfg.Certifier))
+	} else {
+		logging.FromContext(ctx).Info("disabled certificate checking")
+		r.cfg.Certifier = nil
+	}
+
 	epoch := r.roundCfg.OpenRoundId(r.genesis, time.Now())
 	round, err := newRound(epoch, r.dbdir, r.newRoundOpts()...)
 	if err != nil {
@@ -136,6 +162,10 @@ func New(
 	r.openRound = round
 
 	return r, nil
+}
+
+func (r *Registration) CertifierInfo() *CertifierConfig {
+	return r.cfg.Certifier
 }
 
 func (r *Registration) Pubkey() ed25519.PublicKey {
@@ -287,18 +317,34 @@ func (r *Registration) newRoundOpts() []newRoundOptionFunc {
 func (r *Registration) Submit(
 	ctx context.Context,
 	challenge, nodeID []byte,
+	// TODO: remove deprecated PoW
 	nonce uint64,
 	powParams PowParams,
+	certificate []byte,
 	deadline time.Time,
 ) (epoch uint, roundEnd time.Time, err error) {
 	logger := logging.FromContext(ctx)
-
-	err = r.powVerifiers.VerifyWithParams(challenge, nodeID, nonce, powParams)
-	if err != nil {
-		logger.Debug("challenge verification failed", zap.Error(err))
-		return 0, time.Time{}, err
+	// Verify if the node is allowed to register.
+	// Support both a certificate and a PoW while
+	// the certificate path is being stabilized.
+	if r.cfg.Certifier != nil && certificate != nil {
+		if !ed25519.Verify(r.cfg.Certifier.PubKey.Bytes(), nodeID, certificate) {
+			registerWithCertMetric.WithLabelValues("invalid").Inc()
+			return 0, time.Time{}, ErrInvalidCertificate
+		}
+		registerWithCertMetric.WithLabelValues("valid").Inc()
+	} else {
+		// FIXME: PoW is deprecated
+		// Remove once certificate path is stabilized and mandatory.
+		err := r.powVerifiers.VerifyWithParams(challenge, nodeID, nonce, powParams)
+		if err != nil {
+			registerWithPoWMetric.WithLabelValues("invalid").Inc()
+			logger.Debug("PoW verification failed", zap.Error(err))
+			return 0, time.Time{}, err
+		}
+		registerWithPoWMetric.WithLabelValues("valid").Inc()
+		logger.Debug("verified PoW", zap.String("node_id", hex.EncodeToString(nodeID)))
 	}
-	logger.Debug("verified challenge", zap.String("node_id", hex.EncodeToString(nodeID)))
 
 	r.openRoundMutex.RLock()
 	epoch = r.openRound.epoch
