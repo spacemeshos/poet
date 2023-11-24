@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/ed25519"
 	"encoding/base64"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -51,5 +53,11 @@ func TestLoadState(t *testing.T) {
 		s2, err := loadState(context.Background(), dir, "")
 		require.NoError(t, err)
 		require.Equal(t, s.PrivKey, s2.PrivKey)
+	})
+	t.Run("corrupted state.bin", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, stateFilename), []byte("invalid"), 0o644))
+		_, err := loadState(context.Background(), dir, "")
+		require.Error(t, err)
 	})
 }
