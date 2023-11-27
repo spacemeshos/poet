@@ -56,7 +56,7 @@ func loadState(ctx context.Context, datadir, envKey string) (*serverState, error
 	case errors.Is(err, os.ErrNotExist) && key != nil:
 		s.PrivKey = key
 	case err == nil && key != nil && !bytes.Equal(key, s.PrivKey):
-		return nil, fmt.Errorf("private key mismatch. env: %s != %s: %s", key, stateFilename, s.PrivKey)
+		return nil, fmt.Errorf("private key mismatch. env != %s", stateFilename)
 	case err != nil:
 		return nil, fmt.Errorf("loading state: %w", err)
 	}
