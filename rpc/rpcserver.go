@@ -25,10 +25,6 @@ type rpcServer struct {
 	cycleGap     time.Duration
 }
 
-// A compile time check to ensure that rpcService fully implements
-// the PoetServer gRPC rpc.
-var _ api.PoetServiceServer = (*rpcServer)(nil)
-
 // NewServer creates and returns a new instance of the rpcServer.
 func NewServer(
 	registration *registration.Registration,
@@ -42,13 +38,7 @@ func NewServer(
 }
 
 func (r *rpcServer) PowParams(_ context.Context, _ *api.PowParamsRequest) (*api.PowParamsResponse, error) {
-	params := r.registration.PowParams()
-	return &api.PowParamsResponse{
-		PowParams: &api.PowParams{
-			Challenge:  params.Challenge,
-			Difficulty: uint32(params.Difficulty),
-		},
-	}, nil
+	return nil, status.Error(codes.Unimplemented, "registering with PoW is deprecated. Please use certificates.")
 }
 
 func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.SubmitResponse, error) {
@@ -60,12 +50,6 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 		return nil, status.Error(codes.InvalidArgument, "invalid signature")
 	}
 
-	// FIXME: PoW is deprecated
-	powParams := registration.PowParams{
-		Challenge:  in.GetPowParams().GetChallenge(),
-		Difficulty: uint(in.GetPowParams().GetDifficulty()),
-	}
-
 	var deadline time.Time
 	if in.Deadline != nil {
 		deadline = in.Deadline.AsTime()
@@ -75,15 +59,10 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 		ctx,
 		in.Challenge,
 		in.Pubkey,
-		in.Nonce,
-		powParams,
 		in.Certificate.GetSignature(),
 		deadline,
 	)
 	switch {
-	// FIXME: remove deprecated PoW
-	case errors.Is(err, registration.ErrInvalidPow) || errors.Is(err, registration.ErrInvalidPowParams):
-		return nil, status.Error(codes.InvalidArgument, err.Error())
 	case errors.Is(err, registration.ErrInvalidCertificate):
 		return nil, status.Error(codes.Unauthenticated, err.Error())
 	case errors.Is(err, registration.ErrMaxMembersReached):

@@ -160,14 +160,10 @@ func TestSubmitSignatureVerification(t *testing.T) {
 	})
 	req.ErrorIs(err, status.Error(codes.InvalidArgument, "invalid signature"))
 
-	powParams, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
-	req.NoError(err)
-
 	signature := ed25519.Sign(privKey, challenge)
 	_, err = client.Submit(context.Background(), &api.SubmitRequest{
 		Challenge: challenge,
 		Pubkey:    pubKey,
-		PowParams: powParams.PowParams,
 		Signature: signature,
 	})
 	req.NoError(err)
@@ -190,7 +186,6 @@ func TestSubmitCertificateVerification(t *testing.T) {
 	cfg.PoetDir = t.TempDir()
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
-	cfg.Registration.PowDifficulty = 3
 	cfg.Registration.Certifier = &registration.CertifierConfig{
 		URL:    "http://localhost:8080",
 		PubKey: registration.Base64Enc(certifierPubKey),
@@ -208,9 +203,7 @@ func TestSubmitCertificateVerification(t *testing.T) {
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	require.NoError(t, err)
 
-	// Submit challenge with valid signature but invalid pow
 	challenge := []byte("poet challenge")
-
 	signature := ed25519.Sign(privKey, challenge)
 
 	t.Run("invalid certificate", func(t *testing.T) {
@@ -235,34 +228,13 @@ func TestSubmitCertificateVerification(t *testing.T) {
 		})
 		require.NoError(t, err)
 	})
-	t.Run("no certificate - fallback to PoW (invalid)", func(t *testing.T) {
+	t.Run("no certificate - reject", func(t *testing.T) {
 		_, err = client.Submit(context.Background(), &api.SubmitRequest{
 			Challenge: challenge,
 			Pubkey:    pubKey,
 			Signature: signature,
 		})
-		require.ErrorIs(t, err, status.Error(codes.InvalidArgument, "invalid proof of work parameters"))
-	})
-	t.Run("no certificate - fallback to PoW (valid)", func(t *testing.T) {
-		resp, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
-		require.NoError(t, err)
-		nonce, err := shared.FindSubmitPowNonce(
-			context.Background(),
-			resp.PowParams.Challenge,
-			challenge,
-			pubKey,
-			uint(resp.PowParams.Difficulty),
-		)
-		require.NoError(t, err)
-
-		_, err = client.Submit(context.Background(), &api.SubmitRequest{
-			Nonce:     nonce,
-			Challenge: challenge,
-			Pubkey:    pubKey,
-			Signature: signature,
-			PowParams: resp.PowParams,
-		})
-		require.NoError(t, err)
+		require.ErrorIs(t, err, status.Error(codes.Unauthenticated, registration.ErrInvalidCertificate.Error()))
 	})
 	cancel()
 	require.NoError(t, eg.Wait())
@@ -298,14 +270,10 @@ func TestSubmitAndGetProof(t *testing.T) {
 	req.NoError(err)
 	challenge := []byte("poet challenge")
 
-	powParams, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
-	req.NoError(err)
-
 	signature := ed25519.Sign(privKey, challenge)
 	resp, err := client.Submit(context.Background(), &api.SubmitRequest{
 		Challenge: challenge,
 		Pubkey:    pubKey,
-		PowParams: powParams.PowParams,
 		Signature: signature,
 	})
 	req.NoError(err)
@@ -366,9 +334,6 @@ func TestCannotSubmitMoreThanMaxRoundMembers(t *testing.T) {
 		return srv.Start(ctx)
 	})
 
-	powParams, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
-	req.NoError(err)
-
 	submitChallenge := func(ch []byte) error {
 		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 		req.NoError(err)
@@ -376,7 +341,6 @@ func TestCannotSubmitMoreThanMaxRoundMembers(t *testing.T) {
 		_, err = client.Submit(context.Background(), &api.SubmitRequest{
 			Challenge: ch,
 			Pubkey:    pubKey,
-			PowParams: powParams.PowParams,
 			Signature: signature,
 		})
 		return err
@@ -418,14 +382,10 @@ func TestSubmittingChallengeTwice(t *testing.T) {
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	req.NoError(err)
 
-	powParams, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
-	req.NoError(err)
-
 	submitChallenge := func(ch []byte) error {
 		_, err = client.Submit(context.Background(), &api.SubmitRequest{
 			Challenge: ch,
 			Pubkey:    pubKey,
-			PowParams: powParams.PowParams,
 			Signature: ed25519.Sign(privKey, ch),
 		})
 		return err
@@ -468,16 +428,12 @@ func TestSubmittingWithNeedByTimestamp(t *testing.T) {
 	})
 	t.Cleanup(func() { assert.NoError(t, eg.Wait()) })
 
-	powParams, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
-	req.NoError(err)
-
 	submitChallenge := func(ch []byte, deadline time.Time) error {
 		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 		req.NoError(err)
 		_, err = client.Submit(context.Background(), &api.SubmitRequest{
 			Challenge: ch,
 			Pubkey:    pubKey,
-			PowParams: powParams.PowParams,
 			Signature: ed25519.Sign(privKey, ch),
 			Deadline:  timestamppb.New(deadline),
 		})
@@ -492,49 +448,6 @@ func TestSubmittingWithNeedByTimestamp(t *testing.T) {
 		submitChallenge([]byte("before round ends"), round0End.Add(-time.Minute)),
 		status.Error(codes.FailedPrecondition, registration.ErrTooLateToRegister.Error()),
 	)
-}
-
-func TestPersistingPowParams(t *testing.T) {
-	t.Parallel()
-	req := require.New(t)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
-
-	cfg := server.DefaultConfig()
-	cfg.PoetDir = t.TempDir()
-	cfg.Registration.PowDifficulty = uint(77)
-	cfg.RawRPCListener = randomHost
-	cfg.RawRESTListener = randomHost
-
-	srv, client := spawnPoet(ctx, t, *cfg)
-	var eg errgroup.Group
-	eg.Go(func() error {
-		return srv.Start(ctx)
-	})
-
-	resp, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
-	req.NoError(err)
-	req.EqualValues(cfg.Registration.PowDifficulty, resp.PowParams.Difficulty)
-
-	powChallenge := resp.PowParams.Challenge
-
-	cancel()
-	req.NoError(eg.Wait())
-	req.NoError(srv.Close())
-
-	// Restart the server
-	ctx, cancel = context.WithCancel(context.Background())
-	defer cancel()
-	srv, client = spawnPoet(ctx, t, *cfg)
-	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
-	eg.Go(func() error {
-		return srv.Start(ctx)
-	})
-	resp, err = client.PowParams(context.Background(), &api.PowParamsRequest{})
-	req.NoError(err)
-	req.EqualValues(cfg.Registration.PowDifficulty, resp.PowParams.Difficulty)
-	req.Equal(powChallenge, resp.PowParams.Challenge)
 }
 
 func TestPersistingKeys(t *testing.T) {
@@ -628,14 +541,10 @@ func TestLoadSubmits(t *testing.T) {
 			_, err = rand.Read(challenge)
 			req.NoError(err)
 
-			powParams, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
-			require.NoError(t, err)
-
 			signature := ed25519.Sign(privKey, challenge)
 			_, err = client.Submit(context.Background(), &api.SubmitRequest{
 				Challenge: challenge,
 				Pubkey:    pubKey,
-				PowParams: powParams.PowParams,
 				Signature: signature,
 			})
 			req.NoError(err)
@@ -681,14 +590,10 @@ func TestRegistrationOnlyMode(t *testing.T) {
 	req.NoError(err)
 	challenge := []byte("poet challenge")
 
-	powParams, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
-	req.NoError(err)
-
 	signature := ed25519.Sign(privKey, challenge)
 	resp, err := client.Submit(context.Background(), &api.SubmitRequest{
 		Challenge: challenge,
 		Pubkey:    pubKey,
-		PowParams: powParams.PowParams,
 		Signature: signature,
 	})
 	req.NoError(err)

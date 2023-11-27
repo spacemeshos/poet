@@ -12,6 +12,7 @@ service PoetService {
         option (google.api.http) = {
             get: "/v1/pow_params"
         };
+        option deprecated = true;
     }
 
     /**
@@ -60,10 +61,10 @@ message PowParamsResponse {
 message SubmitRequest {
     // Proof of Work nonce
     // deprecated - use certificate instead
-    uint64 nonce = 1;
+    uint64 nonce = 1 [deprecated = true];
     // Proof of Work parameters that were used to generate the nonce
     // deprecated - use certificate instead
-    PowParams pow_params = 2;
+    PowParams pow_params = 2 [deprecated = true];
     // Prefix to be added to challenge for signature verification
     bytes prefix = 3;
     // The PoET challenge to be registered for the open round

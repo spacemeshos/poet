@@ -29,6 +29,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type PoetServiceClient interface {
+	// Deprecated: Do not use.
 	PowParams(ctx context.Context, in *PowParamsRequest, opts ...grpc.CallOption) (*PowParamsResponse, error)
 	// *
 	// Submit registers data to the service's current open round,
@@ -51,6 +52,7 @@ func NewPoetServiceClient(cc grpc.ClientConnInterface) PoetServiceClient {
 	return &poetServiceClient{cc}
 }
 
+// Deprecated: Do not use.
 func (c *poetServiceClient) PowParams(ctx context.Context, in *PowParamsRequest, opts ...grpc.CallOption) (*PowParamsResponse, error) {
 	out := new(PowParamsResponse)
 	err := c.cc.Invoke(ctx, PoetService_PowParams_FullMethodName, in, out, opts...)
@@ -91,6 +93,7 @@ func (c *poetServiceClient) Proof(ctx context.Context, in *ProofRequest, opts ..
 // All implementations should embed UnimplementedPoetServiceServer
 // for forward compatibility
 type PoetServiceServer interface {
+	// Deprecated: Do not use.
 	PowParams(context.Context, *PowParamsRequest) (*PowParamsResponse, error)
 	// *
 	// Submit registers data to the service's current open round,

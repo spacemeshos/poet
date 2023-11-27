@@ -1,7 +1,6 @@
 package registration_test
 
 import (
-	"bytes"
 	"context"
 	"crypto/ed25519"
 	"testing"
@@ -32,9 +31,7 @@ func TestSubmitIdempotence(t *testing.T) {
 
 	challenge := []byte("challenge")
 	nodeID := []byte("nodeID")
-	nonce := uint64(7)
 
-	verifier := mocks.NewMockPowVerifier(gomock.NewController(t))
 	workerSvc := mocks.NewMockWorkerService(gomock.NewController(t))
 	workerSvc.EXPECT().RegisterForProofs(gomock.Any()).Return(make(<-chan shared.NIP, 1))
 
@@ -44,13 +41,9 @@ func TestSubmitIdempotence(t *testing.T) {
 		t.TempDir(),
 		workerSvc,
 		&roundCfg,
-		registration.WithPowVerifier(verifier),
 	)
 	req.NoError(err)
 	t.Cleanup(func() { require.NoError(t, r.Close()) })
-
-	verifier.EXPECT().Params().Times(2).Return(registration.PowParams{})
-	verifier.EXPECT().Verify(challenge, nodeID, nonce).Times(2).Return(nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -62,8 +55,6 @@ func TestSubmitIdempotence(t *testing.T) {
 		context.Background(),
 		challenge,
 		nodeID,
-		nonce,
-		registration.PowParams{},
 		nil,
 		time.Time{},
 	)
@@ -71,7 +62,7 @@ func TestSubmitIdempotence(t *testing.T) {
 	req.Equal(uint(0), epoch)
 
 	// Try again - it should return the same result
-	epoch, _, err = r.Submit(context.Background(), challenge, nodeID, nonce, registration.PowParams{}, nil, time.Time{})
+	epoch, _, err = r.Submit(context.Background(), challenge, nodeID, nil, time.Time{})
 	req.NoError(err)
 	req.Equal(uint(0), epoch)
 
@@ -177,58 +168,6 @@ func TestWorkingWithoutWorkerService(t *testing.T) {
 	require.NoError(t, eg.Wait())
 }
 
-// Test if Proof of Work challenge is rotated every round.
-// The challenge should be changed to the root of PoET proof Merkle tree
-// of the previous round.
-func TestPowChallengeRotation(t *testing.T) {
-	genesis := time.Now()
-
-	proofs := make(chan shared.NIP, 1)
-
-	workerSvc := mocks.NewMockWorkerService(gomock.NewController(t))
-	workerSvc.EXPECT().RegisterForProofs(gomock.Any()).Return(proofs)
-	workerSvc.EXPECT().
-		ExecuteRound(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, epoch uint, _ []byte) error {
-			select {
-			case proofs <- shared.NIP{
-				MerkleProof: shared.MerkleProof{
-					Root: []byte{1, 2, 3, 4},
-				},
-				Epoch: epoch,
-			}:
-			default:
-			}
-			return nil
-		}).
-		AnyTimes()
-
-	r, err := registration.New(
-		context.Background(),
-		genesis,
-		t.TempDir(),
-		workerSvc,
-		&server.RoundConfig{EpochDuration: 10 * time.Millisecond},
-	)
-	require.NoError(t, err)
-	t.Cleanup(func() { require.NoError(t, r.Close()) })
-
-	params0 := r.PowParams()
-	require.NotEqual(t, []byte{1, 2, 3, 4}, params0.Challenge)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	var eg errgroup.Group
-	eg.Go(func() error { return r.Run(ctx) })
-
-	require.Eventually(t, func() bool {
-		return !bytes.Equal([]byte{1, 2, 3, 4}, r.PowParams().Challenge)
-	}, time.Second, time.Millisecond)
-
-	cancel()
-	require.NoError(t, eg.Wait())
-}
-
 func TestRecoveringRoundInProgress(t *testing.T) {
 	req := require.New(t)
 	genesis := time.Now()
@@ -240,7 +179,6 @@ func TestRecoveringRoundInProgress(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	verifier := mocks.NewMockPowVerifier(gomock.NewController(t))
 	workerSvc := mocks.NewMockWorkerService(gomock.NewController(t))
 	workerSvc.EXPECT().RegisterForProofs(gomock.Any()).Return(make(<-chan shared.NIP, 1))
 	workerSvc.EXPECT().ExecuteRound(gomock.Any(), gomock.Eq(uint(0)), gomock.Any()).DoAndReturn(
@@ -256,7 +194,6 @@ func TestRecoveringRoundInProgress(t *testing.T) {
 		t.TempDir(),
 		workerSvc,
 		&roundCfg,
-		registration.WithPowVerifier(verifier),
 	)
 	req.NoError(err)
 	t.Cleanup(func() { require.NoError(t, r.Close()) })
@@ -307,32 +244,25 @@ func Test_CheckCertificate(t *testing.T) {
 	nodeID := []byte("nodeID00nodeID00nodeID00nodeID00")
 
 	t.Run("certification check disabled (default config)", func(t *testing.T) {
-		powVerifier := mocks.NewMockPowVerifier(gomock.NewController(t))
-		powVerifier.EXPECT().Params().Return(registration.PowParams{}).AnyTimes()
 		r, err := registration.New(
 			context.Background(),
 			time.Now(),
 			t.TempDir(),
 			nil,
 			server.DefaultRoundConfig(),
-			registration.WithPowVerifier(powVerifier),
 		)
 		require.NoError(t, err)
 		t.Cleanup(func() { require.NoError(t, r.Close()) })
 
-		// missing certificate - fallback to PoW
-		powVerifier.EXPECT().Verify(challenge, nodeID, uint64(5)).Return(nil)
-		_, _, err = r.Submit(context.Background(), challenge, nodeID, 5, registration.PowParams{}, nil, time.Time{})
+		// missing certificate - accept
+		_, _, err = r.Submit(context.Background(), challenge, nodeID, nil, time.Time{})
 		require.NoError(t, err)
 
-		// passed certificate - still fallback to PoW
-		powVerifier.EXPECT().Verify(challenge, nodeID, uint64(7)).Return(nil)
+		// passed certificate - accept
 		_, _, err = r.Submit(
 			context.Background(),
 			challenge,
 			nodeID,
-			7,
-			registration.PowParams{},
 			[]byte{1, 2, 3, 4},
 			time.Time{},
 		)
@@ -341,7 +271,6 @@ func Test_CheckCertificate(t *testing.T) {
 	t.Run("certification check enabled", func(t *testing.T) {
 		pub, private, err := ed25519.GenerateKey(nil)
 		require.NoError(t, err)
-		powVerifier := mocks.NewMockPowVerifier(gomock.NewController(t))
 
 		r, err := registration.New(
 			context.Background(),
@@ -349,7 +278,6 @@ func Test_CheckCertificate(t *testing.T) {
 			t.TempDir(),
 			nil,
 			server.DefaultRoundConfig(),
-			registration.WithPowVerifier(powVerifier),
 			registration.WithConfig(registration.Config{
 				MaxRoundMembers: 10,
 				Certifier: &registration.CertifierConfig{
@@ -360,19 +288,17 @@ func Test_CheckCertificate(t *testing.T) {
 		require.NoError(t, err)
 		t.Cleanup(func() { require.NoError(t, r.Close()) })
 
-		// missing certificate - fallback to PoW
-		powVerifier.EXPECT().Params().Return(registration.PowParams{}).AnyTimes()
-		powVerifier.EXPECT().Verify(challenge, nodeID, uint64(7)).Return(nil)
-		_, _, err = r.Submit(context.Background(), challenge, nodeID, 7, r.PowParams(), nil, time.Time{})
-		require.NoError(t, err)
+		// missing certificate - reject
+		_, _, err = r.Submit(context.Background(), challenge, nodeID, nil, time.Time{})
+		require.Error(t, err)
 
 		// valid certificate
 		signature := ed25519.Sign(private, nodeID)
-		_, _, err = r.Submit(context.Background(), challenge, nodeID, 0, r.PowParams(), signature, time.Time{})
+		_, _, err = r.Submit(context.Background(), challenge, nodeID, signature, time.Time{})
 		require.NoError(t, err)
 
 		// invalid certificate
-		_, _, err = r.Submit(context.Background(), challenge, nodeID, 0, r.PowParams(), []byte{1, 2, 3, 4}, time.Time{})
+		_, _, err = r.Submit(context.Background(), challenge, nodeID, []byte{1, 2, 3, 4}, time.Time{})
 		require.ErrorIs(t, err, registration.ErrInvalidCertificate)
 	})
 }

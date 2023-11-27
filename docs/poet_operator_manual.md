@@ -6,15 +6,11 @@ You can think about PoET like an HTTP web service with a twist.
 
 ## PoET important endpoints
 
-* `https://POET_URL/v1/pow_params`
-    nodes will query that URL to get the POW challenge parameters.
-    it will change every round, safe to cache in all other moments.
 * `https://POET_URL/v1/info`
     contains the current round id and the current round state. Nodes currently don't actively use that endpoint besides querying and checking if poet is alive. Safe to cache and invalidate when round state changes.
 * `https://POET_URL/v1/submit`
-    nodes will submit their PoET proofs to that endpoint. *Never cache*. The POW serves as a rate-limiting factor and is meant to protect PoET from DOS.
-    The higher the value of `pow-difficulty`, the bigger the protection but also more burden on the nodes.
-* `https://POET_UR/v1/proofs/{round_id}`
+    nodes will submit their PoET proofs to that endpoint. *Never cache*.
+* `https://POET_URL/v1/proofs/{round_id}`
     nodes will query that endpoint to get the PoET proofs for a given round. Once data is there then valid forever. Safe to cache.
 
 PoET exposes the above API as:
@@ -23,7 +19,7 @@ PoET exposes the above API as:
 
 The reference node implementation [go-spacemesh](https://github.com/spacemeshos/go-spacemesh) expects the REST API so it's recommended to expose it publicly. Exposing GRPC is not required.
 
-> [!NOTE]  
+> [!NOTE]
 > We're working to expose the cache time for all the endpoints to safely cache that on the cache servers https://github.com/spacemeshos/poet/issues/330
 
 ## PoET Overview
@@ -31,7 +27,7 @@ Poet round have two states `open` `in-progress`.
 * `open` others can submit to the given round
 * `in-progress` no more submissions are allowed AND PoET builds PoSW (a merkle tree)
 
-When the round is open poet is pretty much a web application with people using `info` `pow_params` `submit` endpoints. There is a metric `grpc_server_handled_total` that will give the exact numbers etc more info in (#metrics).
+When the round is open poet is pretty much a web application with people using `info`, `submit`, `proof` endpoints. There is a metric `grpc_server_handled_total` that will give the exact numbers etc more info in (#metrics).
 
 ### Config files
 
@@ -71,7 +67,7 @@ You can also use that logic to estimate needed disk performance and IOps. But HD
 
 You *must* make sure that the data is persisted. The existence of the tree is essential to generate proof for a given round. If the tree is not there then it's not possible to generate the proof. The proof is a Merkle Proof proving selected `T` leaves from the tree and basically contains selected nodes from the tree.
 
-> [!NOTE]  
+> [!NOTE]
 > PoET will *not* start generating tree when it will detect that the round should be already in progress but the state of the round is empty. This is to prevent the situation when PoET is doing work for nothing
 
 ## Performance fine tunning
