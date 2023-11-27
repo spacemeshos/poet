@@ -23,7 +23,7 @@ PoET exposes the above API as:
 
 The reference node implementation [go-spacemesh](https://github.com/spacemeshos/go-spacemesh) expects the REST API so it's recommended to expose it publicly. Exposing GRPC is not required.
 
-> [!NOTE]  
+> [!NOTE]
 > We're working to expose the cache time for all the endpoints to safely cache that on the cache servers https://github.com/spacemeshos/poet/issues/330
 
 ## PoET Overview
@@ -37,6 +37,33 @@ When the round is open poet is pretty much a web application with people using `
 
 Please see [poet.service](./poet.service) and [poet_config_sample.conf](./poet_config_sample.conf).
 
+
+### Challenge registration
+Users submit their "challenge tokens" for the open round to participate in the following round PoSW.
+There are two ways that submits can be verified
+
+#### 1. PoW
+The submitter can solve a proof of work and pass the found nonce in the call to /submit.
+The PoW difficulty is configurable via `pow-difficulty` config param. The reasonable values are within 20-26.
+The difficulty value means the number of leading zero bits in the hash that the solver must find.
+
+Note: PoW is deprecated in favor of certification (see below)
+
+#### 2. Certification
+The submitter can certify within a service that poets recognizes (and points to in /info) and pass the certificate in /submit call. The poet will then verify if the certificate is valid and allow the registration if it is.
+A certificate is the node's public key signed by the certifier service.
+
+To configure the certifier, pass its URL and public key (base64-encoded) in the config:
+```toml
+certifier-url="http://certifier.service"
+certifier-pubkey="Zm9vYmFy"
+```
+
+If the certifier is not configured, it will be disabled and poet will not accept registrations
+using certificates - it will fallback to PoW.
+
+##### Canonical certifier service setup
+The certifier service implemented by Spacemesh is available at https://github.com/spacemeshos/post-rs/tree/v0.6.0/certifier. Follow its README to deploy your own certifier service.
 
 ## PoET Round States and the tree
 
@@ -71,7 +98,7 @@ You can also use that logic to estimate needed disk performance and IOps. But HD
 
 You *must* make sure that the data is persisted. The existence of the tree is essential to generate proof for a given round. If the tree is not there then it's not possible to generate the proof. The proof is a Merkle Proof proving selected `T` leaves from the tree and basically contains selected nodes from the tree.
 
-> [!NOTE]  
+> [!NOTE]
 > PoET will *not* start generating tree when it will detect that the round should be already in progress but the state of the round is empty. This is to prevent the situation when PoET is doing work for nothing
 
 ## Performance fine tunning
