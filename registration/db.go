@@ -3,15 +3,12 @@ package registration
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 
 	xdr "github.com/nullstyle/go-xdr/xdr3"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/opt"
-	"go.uber.org/zap"
 
-	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/shared"
 )
 
@@ -85,54 +82,6 @@ func (db *database) GetProof(ctx context.Context, roundID string) (*proofData, e
 		return nil, fmt.Errorf("failed to deserialize: %v", err)
 	}
 	return proof, nil
-}
-
-func (db *database) SavePowChallenge(ctx context.Context, challenge []byte) error {
-	tx, err := db.db.OpenTransaction()
-	if err != nil {
-		return err
-	}
-
-	current, err := tx.Get([]byte("pow_challenge"), nil)
-	switch {
-	case errors.Is(err, leveldb.ErrNotFound):
-		// do nothing
-	case err != nil:
-		tx.Discard()
-		return fmt.Errorf("querying current pow challenge: %w", err)
-	default:
-		if err := tx.Put([]byte("pow_challenge_previous"), current, nil); err != nil {
-			logging.FromContext(ctx).Warn("failed to save previous pow challenge", zap.Error(err))
-		}
-	}
-	if err := tx.Put([]byte("pow_challenge"), challenge, nil); err != nil {
-		tx.Discard()
-		return fmt.Errorf("saving pow challenge: %w", err)
-	}
-	return tx.Commit()
-}
-
-func (db *database) GetPowChallenges(ctx context.Context) (current, previous []byte, err error) {
-	tx, err := db.db.OpenTransaction()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	current, err = tx.Get([]byte("pow_challenge"), nil)
-	if err != nil {
-		tx.Discard()
-		return nil, nil, fmt.Errorf("getting current pow challenge: %w", err)
-	}
-	previous, err = tx.Get([]byte("pow_challenge_previous"), nil)
-	switch {
-	case errors.Is(err, leveldb.ErrNotFound):
-		previous = nil
-	case err != nil:
-		tx.Discard()
-		return nil, nil, fmt.Errorf("getting previous pow challenge: %w", err)
-	}
-	tx.Commit()
-	return current, previous, nil
 }
 
 func serializeProof(proof proofData) ([]byte, error) {

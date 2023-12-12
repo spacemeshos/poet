@@ -3,8 +3,6 @@ package registration
 import (
 	"context"
 	"crypto/ed25519"
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -44,13 +42,6 @@ var (
 		Name:      "with_cert_total",
 		Help:      "Number of registrations with a certificate",
 	}, []string{"result"})
-
-	registerWithPoWMetric = promauto.NewCounterVec(prometheus.CounterOpts{
-		Namespace: "poet",
-		Subsystem: "registration",
-		Name:      "with_pow_total",
-		Help:      "Number of registrations with a PoW",
-	}, []string{"result"})
 )
 
 // Registration orchestrates rounds functionality
@@ -71,22 +62,14 @@ type Registration struct {
 
 	db *database
 
-	powVerifiers powVerifiers
-	workerSvc    WorkerService
+	workerSvc WorkerService
 }
 
 type newRegistrationOptionFunc func(*newRegistrationOptions)
 
 type newRegistrationOptions struct {
-	powVerifier PowVerifier
-	privKey     ed25519.PrivateKey
-	cfg         Config
-}
-
-func WithPowVerifier(verifier PowVerifier) newRegistrationOptionFunc {
-	return func(opts *newRegistrationOptions) {
-		opts.powVerifier = verifier
-	}
+	privKey ed25519.PrivateKey
+	cfg     Config
 }
 
 func WithPrivateKey(privKey ed25519.PrivateKey) newRegistrationOptionFunc {
@@ -138,12 +121,6 @@ func New(
 		privKey:   options.privKey,
 		db:        db,
 		workerSvc: workerSvc,
-	}
-
-	if options.powVerifier == nil {
-		r.setupPowProviders(ctx)
-	} else {
-		r.powVerifiers = powVerifiers{current: options.powVerifier}
 	}
 
 	if r.cfg.Certifier != nil && r.cfg.Certifier.PubKey != nil {
@@ -201,23 +178,6 @@ func (r *Registration) closeRound(ctx context.Context) error {
 
 	r.openRound = round
 	return nil
-}
-
-func (r *Registration) setupPowProviders(ctx context.Context) {
-	current, previous, err := r.db.GetPowChallenges(ctx)
-	if err != nil {
-		challenge := make([]byte, 32)
-		rand.Read(challenge)
-		r.powVerifiers = powVerifiers{current: NewPowVerifier(PowParams{challenge, r.cfg.PowDifficulty})}
-		if err := r.db.SavePowChallenge(ctx, challenge); err != nil {
-			logging.FromContext(ctx).Warn("failed to persist PoW challenge", zap.Error(err))
-		}
-	} else {
-		r.powVerifiers = powVerifiers{
-			current:  NewPowVerifier(PowParams{current, r.cfg.PowDifficulty}),
-			previous: NewPowVerifier(PowParams{previous, r.cfg.PowDifficulty}),
-		}
-	}
 }
 
 func (r *Registration) Run(ctx context.Context) error {
@@ -298,10 +258,6 @@ func (r *Registration) onNewProof(ctx context.Context, proof shared.NIP) error {
 		logger.Info("proof saved in DB", zap.Int("members", len(members)), zap.Uint64("leaves", proof.Leaves))
 	}
 
-	// Rotate Proof of Work challenge.
-	params := r.powVerifiers.Params()
-	params.Challenge = proof.Root
-	r.powVerifiers.SetParams(params)
 	membersMetric.DeleteLabelValues(epochToRoundId(proof.Epoch))
 	return nil
 }
@@ -317,33 +273,17 @@ func (r *Registration) newRoundOpts() []newRoundOptionFunc {
 func (r *Registration) Submit(
 	ctx context.Context,
 	challenge, nodeID []byte,
-	// TODO: remove deprecated PoW
-	nonce uint64,
-	powParams PowParams,
 	certificate []byte,
 	deadline time.Time,
 ) (epoch uint, roundEnd time.Time, err error) {
 	logger := logging.FromContext(ctx)
-	// Verify if the node is allowed to register.
-	// Support both a certificate and a PoW while
-	// the certificate path is being stabilized.
-	if r.cfg.Certifier != nil && certificate != nil {
+	if r.cfg.Certifier != nil {
+		// Verify if the node is allowed to register.
 		if !ed25519.Verify(r.cfg.Certifier.PubKey.Bytes(), nodeID, certificate) {
 			registerWithCertMetric.WithLabelValues("invalid").Inc()
 			return 0, time.Time{}, ErrInvalidCertificate
 		}
 		registerWithCertMetric.WithLabelValues("valid").Inc()
-	} else {
-		// FIXME: PoW is deprecated
-		// Remove once certificate path is stabilized and mandatory.
-		err := r.powVerifiers.VerifyWithParams(challenge, nodeID, nonce, powParams)
-		if err != nil {
-			registerWithPoWMetric.WithLabelValues("invalid").Inc()
-			logger.Debug("PoW verification failed", zap.Error(err))
-			return 0, time.Time{}, err
-		}
-		registerWithPoWMetric.WithLabelValues("valid").Inc()
-		logger.Debug("verified PoW", zap.String("node_id", hex.EncodeToString(nodeID)))
 	}
 
 	r.openRoundMutex.RLock()
@@ -386,10 +326,6 @@ func (r *Registration) OpenRound() uint {
 	r.openRoundMutex.RLock()
 	defer r.openRoundMutex.RUnlock()
 	return r.openRound.epoch
-}
-
-func (r *Registration) PowParams() PowParams {
-	return r.powVerifiers.Params()
 }
 
 func (r *Registration) Proof(ctx context.Context, roundId string) (*proofData, error) {

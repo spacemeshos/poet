@@ -16,9 +16,6 @@ func DefaultConfig() Config {
 }
 
 type Config struct {
-	// FIXME: remove deprecated PoW
-	PowDifficulty uint `long:"pow-difficulty" description:"(DEPRECATED) PoW difficulty (in the number of leading zero bits)"`
-
 	MaxRoundMembers     int           `long:"max-round-members"     description:"the maximum number of members in a round"`
 	MaxSubmitBatchSize  int           `long:"max-submit-batch-size" description:"The maximum number of challenges to submit in a single batch"`
 	SubmitFlushInterval time.Duration `long:"submit-flush-interval" description:"The interval between flushes of the submit queue"`
