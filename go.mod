@@ -4,7 +4,7 @@ go 1.21.5
 
 require (
 	github.com/c0mm4nd/go-ripemd v0.0.0-20200326052756-bd1759ad7d10
-	github.com/google/uuid v1.4.0
+	github.com/google/uuid v1.5.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.0.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.18.1
