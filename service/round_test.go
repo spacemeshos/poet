@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/spacemeshos/poet/hash"
 	"github.com/spacemeshos/poet/shared"
+	"github.com/spacemeshos/poet/state"
 	"github.com/spacemeshos/poet/verifier"
 )
 
@@ -181,4 +183,17 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 		validateProof(t, round.execution)
 		req.NoError(round.Teardown(context.Background(), true))
 	}
+}
+
+func Test_FixRoundState(t *testing.T) {
+	filename := "fill path to the round's state.bin. Usually '/home/<username>/.cache/poet/data/rounds/11/state.bin'. Create a backup first."
+	updatedFilename := filename + "-updated"
+
+	s := &roundState{}
+	require.NoError(t, state.Load(filename, s))
+
+	// Fill in desired value to shorten the tree
+	s.Execution.NumLeaves = 47971072
+	require.NoError(t, state.Persist(updatedFilename, s))
+	fmt.Printf("New state saved to %s\n", updatedFilename)
 }
