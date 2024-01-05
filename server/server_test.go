@@ -7,6 +7,8 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/base64"
+	"os"
 	"testing"
 	"time"
 
@@ -33,26 +35,23 @@ const randomHost = "localhost:0"
 
 func spawnPoetServer(ctx context.Context, t *testing.T, cfg server.Config) *server.Server {
 	t.Helper()
-	req := require.New(t)
 
 	server.SetupConfig(&cfg)
 	srv, err := server.New(ctx, cfg)
-	req.NoError(err)
+	require.NoError(t, err)
 
 	return srv
 }
 
 func spawnPoet(ctx context.Context, t *testing.T, cfg server.Config) (*server.Server, api.PoetServiceClient) {
 	t.Helper()
-	req := require.New(t)
 
 	srv := spawnPoetServer(ctx, t, cfg)
-
 	conn, err := grpc.DialContext(
 		ctx,
 		srv.GrpcAddr().String(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()))
-	req.NoError(err)
+	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, conn.Close()) })
 
 	return srv, api.NewPoetServiceClient(conn)
@@ -718,4 +717,21 @@ func TestRegistrationOnlyMode(t *testing.T) {
 	req.Error(verifier.Validate(merkleProof, labelHashFunc, merkleHashFunc, proof.Proof.Leaves, shared.T))
 
 	req.NoError(eg.Wait())
+}
+
+func TestConfiguringPrivateKey(t *testing.T) {
+	cfg := server.DefaultConfig()
+	cfg.DisableWorker = true
+	cfg.PoetDir = t.TempDir()
+	cfg.RawRPCListener = randomHost
+	cfg.RawRESTListener = randomHost
+
+	pubKey, privateKey, err := ed25519.GenerateKey(nil)
+	require.NoError(t, err)
+	err = os.Setenv(server.KeyEnvVar, base64.StdEncoding.EncodeToString(privateKey))
+	require.NoError(t, err)
+
+	srv := spawnPoetServer(context.Background(), t, *cfg)
+	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
+	require.Equal(t, pubKey, srv.PublicKey())
 }

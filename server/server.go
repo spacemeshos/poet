@@ -72,7 +72,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		}
 	}
 
-	s, err := loadState(ctx, cfg.DataDir, os.Getenv(keyEnvVar))
+	s, err := loadState(ctx, cfg.DataDir, os.Getenv(KeyEnvVar))
 	if err != nil {
 		return nil, fmt.Errorf("loading state: %w", err)
 	}
@@ -222,6 +222,10 @@ func (s *Server) Start(ctx context.Context) error {
 	err = server.Shutdown(shutdownCtx)
 	grpcServer.GracefulStop()
 	return errors.Join(err, serverGroup.Wait())
+}
+
+func (s *Server) PublicKey() ed25519.PublicKey {
+	return s.privateKey.Public().(ed25519.PublicKey)
 }
 
 // loggerInterceptor returns UnaryServerInterceptor handler to log all RPC server incoming requests.
