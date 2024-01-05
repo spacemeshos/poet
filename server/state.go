@@ -20,7 +20,7 @@ const stateFilename = "state.bin"
 
 // Environment variable name for the private key.
 // Should be set to a base64-encoded ed25519 private key.
-const keyEnvVar = "POET_PRIVATE_KEY"
+const KeyEnvVar = "POET_PRIVATE_KEY"
 
 // The server state is persisted to disk.
 type serverState struct {
