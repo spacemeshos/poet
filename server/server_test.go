@@ -277,7 +277,7 @@ func TestSubmitAndGetProof(t *testing.T) {
 
 	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
-	cfg.Genesis = server.Genesis(time.Now().Add(time.Second))
+	cfg.Genesis = server.Genesis(time.Now().Add(2 * time.Second))
 	cfg.Round.EpochDuration = time.Second * 2
 	cfg.Round.PhaseShift = 0
 	cfg.Round.CycleGap = 0
