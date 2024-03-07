@@ -8,13 +8,13 @@ VERSION ?= $(shell git describe --tags)
 # Flags appended to `go test` command in `make test`
 TEST_FLAGS ?=
 
-GOLANGCI_LINT_VERSION := v1.54.2
-STATICCHECK_VERSION := v0.4.5
-GOTESTSUM_VERSION := v1.10.1
-GOSCALE_VERSION := v1.1.11
+GOLANGCI_LINT_VERSION := v1.56.2
+STATICCHECK_VERSION := v0.4.7
+GOTESTSUM_VERSION := v1.11.0
+GOSCALE_VERSION := v1.1.13
 
-BUF_VERSION := 1.26.1
-PROTOC_VERSION = 24.3
+BUF_VERSION := 1.29.0
+PROTOC_VERSION = 25.3
 
 # Everything below this line is meant to be static, i.e. only adjust the above variables. ###
 
