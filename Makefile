@@ -8,13 +8,18 @@ VERSION ?= $(shell git describe --tags)
 # Flags appended to `go test` command in `make test`
 TEST_FLAGS ?=
 
-GOLANGCI_LINT_VERSION := v1.56.2
+GOLANGCI_LINT_VERSION := v1.57.0
 STATICCHECK_VERSION := v0.4.7
 GOTESTSUM_VERSION := v1.11.0
 GOSCALE_VERSION := v1.1.13
 
-BUF_VERSION := 1.29.0
-PROTOC_VERSION = 25.3
+BUF_VERSION := 1.30.0
+PROTOC_VERSION = 26.0
+
+GRPC_JSON_PROXY_VERSION := v2.19.1
+PROTOC_GO_VERSION := v1.33.0
+PROTOC_GEN_GO_VERSION := v1.3.0
+PROTOC_OPENAPI_VERSION := v2.19.1
 
 # Everything below this line is meant to be static, i.e. only adjust the above variables. ###
 
@@ -51,13 +56,13 @@ GOLINES := $(GOBIN)/golines
 FUZZTIME ?= "10s"
 
 $(GOVULNCHECK):
-	@go install golang.org/x/vuln/cmd/govulncheck@latest
+	@go install golang.org/x/vuln/cmd/govulncheck@v1.0.4
 
 $(GOLINES):
 	@go install github.com/segmentio/golines@v0.11.0
 
 $(BIN_DIR)/mockgen:
-	go install go.uber.org/mock/mockgen@v0.4.0
+	@go install go.uber.org/mock/mockgen@$(MOCKGEN_VERSION)
 
 install-buf:
 	@mkdir -p $(BIN_DIR)
@@ -78,10 +83,10 @@ endif
 
 # Download protoc plugins
 protoc-plugins:
-	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@v2.18.0
-	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@v2.18.0
-	@go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.31.0
-	@go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
+	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@$(GRPC_JSON_PROXY_VERSION)
+	@go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@$(PROTOC_OPENAPI_VERSION)
+	@go install google.golang.org/protobuf/cmd/protoc-gen-go@$(PROTOC_GO_VERSION)
+	@go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@$(PROTOC_GEN_GO_VERSION)
 .PHONY: protoc-plugins
 
 all: build

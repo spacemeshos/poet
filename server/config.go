@@ -30,6 +30,7 @@ const (
 	defaultCycleGap      = 10 * time.Second
 )
 
+//nolint:lll
 type Config struct {
 	Genesis         Genesis `long:"genesis-time"       description:"Genesis timestamp in RFC3339 format"`
 	PoetDir         string  `long:"poetdir"            description:"The base directory that contains poet's data, logs, configuration file, etc."`

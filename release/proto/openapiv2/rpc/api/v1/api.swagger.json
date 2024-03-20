@@ -149,6 +149,21 @@
         }
       }
     },
+    "apiv1PowParams": {
+      "type": "object",
+      "properties": {
+        "difficulty": {
+          "type": "integer",
+          "format": "int64",
+          "title": "Difficulty of the PoW challenge (in terms of leading zero bits in the hash)"
+        },
+        "challenge": {
+          "type": "string",
+          "format": "byte",
+          "title": "The challenge to be used for the PoW"
+        }
+      }
+    },
     "protobufAny": {
       "type": "object",
       "properties": {
@@ -237,26 +252,11 @@
         }
       }
     },
-    "v1PowParams": {
-      "type": "object",
-      "properties": {
-        "difficulty": {
-          "type": "integer",
-          "format": "int64",
-          "title": "Difficulty of the PoW challenge (in terms of leading zero bits in the hash)"
-        },
-        "challenge": {
-          "type": "string",
-          "format": "byte",
-          "title": "The challenge to be used for the PoW"
-        }
-      }
-    },
     "v1PowParamsResponse": {
       "type": "object",
       "properties": {
         "powParams": {
-          "$ref": "#/definitions/v1PowParams"
+          "$ref": "#/definitions/apiv1PowParams"
         }
       }
     },
@@ -281,7 +281,7 @@
           "title": "Proof of Work nonce\ndeprecated - use certificate instead"
         },
         "powParams": {
-          "$ref": "#/definitions/v1PowParams",
+          "$ref": "#/definitions/apiv1PowParams",
           "title": "Proof of Work parameters that were used to generate the nonce\ndeprecated - use certificate instead"
         },
         "prefix": {

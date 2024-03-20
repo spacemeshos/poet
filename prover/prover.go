@@ -164,7 +164,7 @@ func makeRecoveryProofTree(
 
 	// Validate that layer 0 exists.
 	if _, ok := layersFiles[0]; !ok {
-		return nil, nil, fmt.Errorf("layer 0 cache file is missing")
+		return nil, nil, errors.New("layer 0 cache file is missing")
 	}
 
 	var topLayer uint
@@ -245,8 +245,8 @@ func makeRecoveryProofTree(
 	}
 	parkedNodes = append(parkedNodes, memCachedParkedNodes...)
 
-	logging.FromContext(ctx).
-		Debug("recovered parked nodes", zap.Array("nodes", zapcore.ArrayMarshalerFunc(func(enc zapcore.ArrayEncoder) error {
+	logging.FromContext(ctx).Debug("recovered parked nodes",
+		zap.Array("nodes", zapcore.ArrayMarshalerFunc(func(enc zapcore.ArrayEncoder) error {
 			for _, node := range parkedNodes {
 				enc.AppendString(fmt.Sprintf("%X", node))
 			}

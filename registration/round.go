@@ -182,7 +182,11 @@ func (r *round) submit(ctx context.Context, key, challenge []byte) (<-chan error
 	if r.batch.Len() >= r.maxBatchSize {
 		r.flushPendingSubmitsLocked()
 	} else if r.batch.Len() == 1 {
-		logging.FromContext(ctx).Debug("scheduling flush of pending submits", zap.Uint("round", r.epoch), zap.Duration("interval", r.flushInterval))
+		logging.FromContext(ctx).Debug(
+			"scheduling flush of pending submits",
+			zap.Uint("round", r.epoch),
+			zap.Duration("interval", r.flushInterval),
+		)
 		time.AfterFunc(r.flushInterval, r.flushPendingSubmits)
 	}
 

@@ -15,6 +15,7 @@ func DefaultConfig() Config {
 	}
 }
 
+//nolint:lll
 type Config struct {
 	// FIXME: remove deprecated PoW
 	PowDifficulty uint `long:"pow-difficulty" description:"(DEPRECATED) PoW difficulty (in the number of leading zero bits)"`
