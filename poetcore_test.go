@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/spacemeshos/poet/hash"
@@ -67,7 +66,7 @@ func TestNip(t *testing.T) {
 		time.Now().Add(1*time.Second),
 		securityParam,
 	)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	fmt.Printf("Dag root label: %x\n", merkleProof.Root)
 
 	err = verifier.Validate(
@@ -77,7 +76,7 @@ func TestNip(t *testing.T) {
 		numLeaves,
 		securityParam,
 	)
-	assert.NoError(t, err, "failed to verify proof")
+	require.NoError(t, err, "failed to verify proof")
 }
 
 func BenchmarkProofEx(t *testing.B) {
@@ -85,7 +84,7 @@ func BenchmarkProofEx(t *testing.B) {
 		// generate random commitment
 		challenge := make([]byte, 32)
 		_, err := rand.Read(challenge)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		securityParam := shared.T
 
@@ -97,7 +96,7 @@ func BenchmarkProofEx(t *testing.B) {
 			time.Now().Add(time.Second),
 			securityParam,
 		)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		fmt.Printf("Dag root label: %x\n", merkleProof.Root)
 
 		err = verifier.Validate(
@@ -107,6 +106,6 @@ func BenchmarkProofEx(t *testing.B) {
 			numLeaves,
 			securityParam,
 		)
-		assert.NoError(t, err, "failed to verify proof")
+		require.NoError(t, err, "failed to verify proof")
 	}
 }

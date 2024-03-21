@@ -22,7 +22,7 @@ type PowVerifier interface {
 	// PoW hash is ripemd256(powChallenge || nodeID || poetChallenge || nonce)
 	Verify(poetChallenge, nodeID []byte, nonce uint64) error
 	Params() PowParams
-	SetParams(PowParams)
+	SetParams(params PowParams)
 }
 
 type PowParams struct {

@@ -183,8 +183,11 @@ func (r *Registration) closeRound(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("calculating membership root: %w", err)
 	}
-	logging.FromContext(ctx).
-		Info("closing round", zap.Uint("epoch", r.openRound.epoch), zap.Binary("root", root), zap.Int("members", r.openRound.members))
+	logging.FromContext(ctx).Info("closing round",
+		zap.Uint("epoch", r.openRound.epoch),
+		zap.Binary("root", root),
+		zap.Int("members", r.openRound.members),
+	)
 
 	if err := r.openRound.Close(); err != nil {
 		logging.FromContext(ctx).Error("failed to close the open round", zap.Error(err))
@@ -375,7 +378,7 @@ func (r *Registration) Submit(
 			}
 		}
 	case errors.Is(err, ErrChallengeAlreadySubmitted):
-	case err != nil:
+	default: // err != nil
 		return 0, time.Time{}, err
 	}
 

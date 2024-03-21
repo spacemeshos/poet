@@ -34,7 +34,7 @@ func TestFiatShamir(t *testing.T) {
 		deviationFromExpected := float64(int(occurrences[uint64(i)])-expectedIndicesPerBucket) /
 			float64(expectedIndicesPerBucket)
 		// fmt.Printf("%d %d %+0.3f%%\n", i, occurrences[uint64(i)], 100*deviationFromExpected)
-		assert.True(t, math.Abs(deviationFromExpected) < 0.005,
+		assert.Less(t, math.Abs(deviationFromExpected), 0.005,
 			"deviation from expected cannot exceed 0.5%% (for bucket %d it was %+0.3f%%)", i,
 			100*deviationFromExpected)
 	}

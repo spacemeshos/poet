@@ -1,11 +1,13 @@
 package service
 
 const (
-	defaultMemoryLayers             = 26 // Up to (1 << 26) * 2 - 1 Merkle tree cache nodes (32 bytes each) will be held in-memory
+	// Up to (1 << 26) * 2 - 1 Merkle tree cache nodes (32 bytes each) will be held in-memory.
+	defaultMemoryLayers             = 26
 	defaultTreeFileBufferSize       = 4096
 	defaultEstimatedLeavesPerSecond = 78000
 )
 
+//nolint:lll
 type Config struct {
 	// Merkle-Tree related configuration:
 	EstimatedLeavesPerSecond uint `long:"lps"              description:"Estimated number of leaves generated per second"`
