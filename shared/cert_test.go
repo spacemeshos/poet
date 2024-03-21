@@ -14,7 +14,11 @@ func TestDecodeCert(t *testing.T) {
 
 	cert, err := DecodeCert(encoded)
 	require.NoError(t, err)
-	require.Equal(t, []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16}, cert.Pubkey)
+	expId := []byte{
+		1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+		1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
+	}
+	require.Equal(t, expId, cert.Pubkey)
 
 	exp, err := time.Parse(time.RFC3339, "1996-12-19T16:39:57-08:00")
 	require.NoError(t, err)
