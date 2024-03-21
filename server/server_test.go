@@ -618,7 +618,6 @@ func TestLoadSubmits(t *testing.T) {
 	var eg errgroup.Group
 
 	for _, client := range clients {
-		client := client
 		eg.Go(func() error {
 			pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 			req.NoError(err)
