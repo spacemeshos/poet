@@ -1,6 +1,7 @@
 package registration
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -317,13 +318,35 @@ func (r *Registration) newRoundOpts() []newRoundOptionFunc {
 	}
 }
 
+func (r *Registration) verifyCertificate(certificate *shared.OpaqueCert, nodeID []byte) error {
+	if !ed25519.Verify(r.cfg.Certifier.PubKey.Bytes(), certificate.Data, certificate.Signature) {
+		registerWithCertMetric.WithLabelValues("invalid").Inc()
+		return errors.New("signature mismatch")
+	}
+	decoded, err := certificate.Decode()
+	if err != nil {
+		registerWithCertMetric.WithLabelValues("invalid").Inc()
+		return fmt.Errorf("decoding: %w", err)
+	}
+	if !bytes.Equal(decoded.Pubkey, nodeID) {
+		registerWithCertMetric.WithLabelValues("invalid").Inc()
+		return errors.New("pubkey mismatch")
+	}
+	if decoded.Expiration != nil && decoded.Expiration.Before(time.Now()) {
+		registerWithCertMetric.WithLabelValues("expired").Inc()
+		return errors.New("expired")
+	}
+	registerWithCertMetric.WithLabelValues("valid").Inc()
+	return nil
+}
+
 func (r *Registration) Submit(
 	ctx context.Context,
 	challenge, nodeID []byte,
 	// TODO: remove deprecated PoW
 	nonce uint64,
 	powParams PowParams,
-	certificate []byte,
+	certificate *shared.OpaqueCert,
 	deadline time.Time,
 ) (epoch uint, roundEnd time.Time, err error) {
 	logger := logging.FromContext(ctx)
@@ -331,11 +354,9 @@ func (r *Registration) Submit(
 	// Support both a certificate and a PoW while
 	// the certificate path is being stabilized.
 	if r.cfg.Certifier != nil && certificate != nil {
-		if !ed25519.Verify(r.cfg.Certifier.PubKey.Bytes(), nodeID, certificate) {
-			registerWithCertMetric.WithLabelValues("invalid").Inc()
-			return 0, time.Time{}, ErrInvalidCertificate
+		if err := r.verifyCertificate(certificate, nodeID); err != nil {
+			return 0, time.Time{}, fmt.Errorf("%w: %v", ErrInvalidCertificate, err)
 		}
-		registerWithCertMetric.WithLabelValues("valid").Inc()
 	} else {
 		// FIXME: PoW is deprecated
 		// Remove once certificate path is stabilized and mandatory.

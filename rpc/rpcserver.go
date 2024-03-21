@@ -16,6 +16,7 @@ import (
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/registration"
 	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
+	"github.com/spacemeshos/poet/shared"
 )
 
 // rpcServer is a gRPC, RPC front end to poet.
@@ -71,13 +72,20 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 		deadline = in.Deadline.AsTime()
 	}
 
+	var certificate *shared.OpaqueCert
+	if in.Certificate != nil {
+		certificate = &shared.OpaqueCert{
+			Data:      in.Certificate.GetData(),
+			Signature: in.Certificate.GetSignature(),
+		}
+	}
 	epoch, end, err := r.registration.Submit(
 		ctx,
 		in.Challenge,
 		in.Pubkey,
 		in.Nonce,
 		powParams,
-		in.Certificate.GetSignature(),
+		certificate,
 		deadline,
 	)
 	switch {

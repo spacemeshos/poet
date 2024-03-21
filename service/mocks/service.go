@@ -5,7 +5,6 @@
 //
 //	mockgen -package mocks -destination mocks/service.go . RegistrationService
 //
-
 // Package mocks is a generated GoMock package.
 package mocks
 
