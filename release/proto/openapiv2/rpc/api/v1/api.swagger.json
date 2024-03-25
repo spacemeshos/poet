@@ -142,10 +142,14 @@
     "SubmitRequestCertificate": {
       "type": "object",
       "properties": {
+        "data": {
+          "type": "string",
+          "format": "byte"
+        },
         "signature": {
           "type": "string",
           "format": "byte",
-          "description": "The certifier's signature of the pubkey\nconfirming that the pubkey is verified."
+          "description": "The certifier's signature over `data`\nconfirming that the pubkey is verified."
         }
       }
     },
