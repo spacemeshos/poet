@@ -2,12 +2,17 @@ package shared
 
 import (
 	"bytes"
+	"crypto/ed25519"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/spacemeshos/go-scale"
 )
 
 //go:generate scalegen -types CertOnWire,UnixTimestamp
+
+var ErrCertExpired = errors.New("certificate expired")
 
 type UnixTimestamp struct {
 	Inner uint64
@@ -72,4 +77,21 @@ func EncodeCert(c *Cert) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+func VerifyCertificate(certificate *OpaqueCert, certifierPubKey, nodeID []byte) (*Cert, error) {
+	if !ed25519.Verify(certifierPubKey, certificate.Data, certificate.Signature) {
+		return nil, errors.New("signature mismatch")
+	}
+	decoded, err := certificate.Decode()
+	if err != nil {
+		return nil, fmt.Errorf("decoding: %w", err)
+	}
+	if !bytes.Equal(decoded.Pubkey, nodeID) {
+		return nil, errors.New("pubkey mismatch")
+	}
+	if decoded.Expiration != nil && decoded.Expiration.Before(time.Now()) {
+		return nil, fmt.Errorf("%w at %v", ErrCertExpired, decoded.Expiration)
+	}
+	return decoded, nil
 }
