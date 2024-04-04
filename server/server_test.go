@@ -47,10 +47,10 @@ func spawnPoet(ctx context.Context, t *testing.T, cfg server.Config) (*server.Se
 	t.Helper()
 
 	srv := spawnPoetServer(ctx, t, cfg)
-	conn, err := grpc.DialContext(
-		ctx,
+	conn, err := grpc.NewClient(
 		srv.GrpcAddr().String(),
-		grpc.WithTransportCredentials(insecure.NewCredentials()))
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, conn.Close()) })
 
@@ -601,9 +601,10 @@ func TestLoadSubmits(t *testing.T) {
 	// spawn clients
 	clients := make([]api.PoetServiceClient, 0, concurrentSubmits)
 	for i := 0; i < concurrentSubmits; i++ {
-		conn, err := grpc.Dial(
+		conn, err := grpc.NewClient(
 			srv.GrpcAddr().String(),
-			grpc.WithTransportCredentials(insecure.NewCredentials()))
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+		)
 		req.NoError(err)
 		t.Cleanup(func() { assert.NoError(t, conn.Close()) })
 		clients = append(clients, api.NewPoetServiceClient(conn))
@@ -618,7 +619,6 @@ func TestLoadSubmits(t *testing.T) {
 	var eg errgroup.Group
 
 	for _, client := range clients {
-		client := client
 		eg.Go(func() error {
 			pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 			req.NoError(err)
