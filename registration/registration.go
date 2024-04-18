@@ -335,10 +335,10 @@ func (r *Registration) Submit(
 		switch {
 		case errors.Is(err, shared.ErrCertExpired):
 			registerWithCertMetric.WithLabelValues("expired").Inc()
-			return 0, time.Time{}, fmt.Errorf("%w: %v", ErrInvalidCertificate, err)
+			return 0, time.Time{}, errors.Join(ErrInvalidCertificate, err)
 		case err != nil:
 			registerWithCertMetric.WithLabelValues("invalid").Inc()
-			return 0, time.Time{}, fmt.Errorf("%w: %v", ErrInvalidCertificate, err)
+			return 0, time.Time{}, errors.Join(ErrInvalidCertificate, err)
 		}
 		registerWithCertMetric.WithLabelValues("valid").Inc()
 	} else {
