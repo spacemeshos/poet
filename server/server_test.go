@@ -221,7 +221,7 @@ func TestSubmitCertificateVerification(t *testing.T) {
 				Signature: []byte("invalid signature"),
 			},
 		})
-		require.ErrorIs(t, err, status.Error(codes.Unauthenticated, "invalid certificate: signature mismatch"))
+		require.ErrorIs(t, err, status.Error(codes.Unauthenticated, "invalid certificate\nsignature mismatch"))
 	})
 	t.Run("valid certificate", func(t *testing.T) {
 		cert := &shared.Cert{
