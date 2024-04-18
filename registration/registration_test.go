@@ -326,6 +326,14 @@ func Test_CheckCertificate(t *testing.T) {
 		require.NoError(t, err)
 
 		// passed certificate - still fallback to PoW
+		_, private, err := ed25519.GenerateKey(nil)
+		require.NoError(t, err)
+		data, err := shared.EncodeCert(&shared.Cert{Pubkey: nodeID})
+		require.NoError(t, err)
+		certificate := &shared.OpaqueCert{
+			Data:      data,
+			Signature: ed25519.Sign(private, data),
+		}
 		powVerifier.EXPECT().Verify(challenge, nodeID, uint64(7)).Return(nil)
 		_, _, err = r.Submit(
 			context.Background(),
@@ -333,7 +341,7 @@ func Test_CheckCertificate(t *testing.T) {
 			nodeID,
 			7,
 			registration.PowParams{},
-			[]byte{1, 2, 3, 4},
+			certificate,
 			time.Time{},
 		)
 		require.NoError(t, err)
@@ -360,19 +368,55 @@ func Test_CheckCertificate(t *testing.T) {
 		require.NoError(t, err)
 		t.Cleanup(func() { require.NoError(t, r.Close()) })
 
-		// missing certificate - fallback to PoW
-		powVerifier.EXPECT().Params().Return(registration.PowParams{}).AnyTimes()
-		powVerifier.EXPECT().Verify(challenge, nodeID, uint64(7)).Return(nil)
-		_, _, err = r.Submit(context.Background(), challenge, nodeID, 7, r.PowParams(), nil, time.Time{})
-		require.NoError(t, err)
-
-		// valid certificate
-		signature := ed25519.Sign(private, nodeID)
-		_, _, err = r.Submit(context.Background(), challenge, nodeID, 0, r.PowParams(), signature, time.Time{})
-		require.NoError(t, err)
-
-		// invalid certificate
-		_, _, err = r.Submit(context.Background(), challenge, nodeID, 0, r.PowParams(), []byte{1, 2, 3, 4}, time.Time{})
-		require.ErrorIs(t, err, registration.ErrInvalidCertificate)
+		t.Run("missing certificate - fallback to PoW", func(t *testing.T) {
+			powVerifier.EXPECT().Params().Return(registration.PowParams{}).AnyTimes()
+			powVerifier.EXPECT().Verify(challenge, nodeID, uint64(7)).Return(nil)
+			_, _, err = r.Submit(context.Background(), challenge, nodeID, 7, r.PowParams(), nil, time.Time{})
+			require.NoError(t, err)
+		})
+		t.Run("valid certificate (unexpired)", func(t *testing.T) {
+			expiration := time.Now().Add(time.Hour)
+			data, err := shared.EncodeCert(&shared.Cert{Pubkey: nodeID, Expiration: &expiration})
+			require.NoError(t, err)
+			certificate := &shared.OpaqueCert{
+				Data:      data,
+				Signature: ed25519.Sign(private, data),
+			}
+			_, _, err = r.Submit(context.Background(), challenge, nodeID, 0, r.PowParams(), certificate, time.Time{})
+			require.NoError(t, err)
+		})
+		t.Run("valid certificate (expired)", func(t *testing.T) {
+			expiration := time.Now().Add(-time.Hour)
+			data, err := shared.EncodeCert(&shared.Cert{Pubkey: nodeID, Expiration: &expiration})
+			require.NoError(t, err)
+			certificate := &shared.OpaqueCert{
+				Data:      data,
+				Signature: ed25519.Sign(private, data),
+			}
+			_, _, err = r.Submit(context.Background(), challenge, nodeID, 0, r.PowParams(), certificate, time.Time{})
+			require.ErrorIs(t, err, registration.ErrInvalidCertificate)
+		})
+		t.Run("invalid certificate (wrong node ID)", func(t *testing.T) {
+			data, err := shared.EncodeCert(&shared.Cert{Pubkey: []byte("wrong node ID")})
+			require.NoError(t, err)
+			certificate := &shared.OpaqueCert{
+				Data:      data,
+				Signature: ed25519.Sign(private, data),
+			}
+			_, _, err = r.Submit(context.Background(), challenge, nodeID, 0, r.PowParams(), certificate, time.Time{})
+			require.ErrorIs(t, err, registration.ErrInvalidCertificate)
+		})
+		t.Run("invalid certificate (signature)", func(t *testing.T) {
+			data, err := shared.EncodeCert(&shared.Cert{Pubkey: nodeID})
+			require.NoError(t, err)
+			_, wrongPrivate, err := ed25519.GenerateKey(nil)
+			require.NoError(t, err)
+			certificate := &shared.OpaqueCert{
+				Data:      data,
+				Signature: ed25519.Sign(wrongPrivate, data),
+			}
+			_, _, err = r.Submit(context.Background(), challenge, nodeID, 0, r.PowParams(), certificate, time.Time{})
+			require.ErrorIs(t, err, registration.ErrInvalidCertificate)
+		})
 	})
 }

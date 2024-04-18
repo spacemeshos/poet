@@ -78,9 +78,10 @@ message SubmitRequest {
     google.protobuf.Timestamp deadline = 7;
 
     message Certificate {
-        // The certifier's signature of the pubkey
+        bytes data = 1;
+        // The certifier's signature over `data`
         // confirming that the pubkey is verified.
-        bytes signature = 1;
+        bytes signature = 2;
     }
     Certificate certificate = 8;
 }

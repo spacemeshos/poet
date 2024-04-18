@@ -323,7 +323,7 @@ func (r *Registration) Submit(
 	// TODO: remove deprecated PoW
 	nonce uint64,
 	powParams PowParams,
-	certificate []byte,
+	certificate *shared.OpaqueCert,
 	deadline time.Time,
 ) (epoch uint, roundEnd time.Time, err error) {
 	logger := logging.FromContext(ctx)
@@ -331,9 +331,14 @@ func (r *Registration) Submit(
 	// Support both a certificate and a PoW while
 	// the certificate path is being stabilized.
 	if r.cfg.Certifier != nil && certificate != nil {
-		if !ed25519.Verify(r.cfg.Certifier.PubKey.Bytes(), nodeID, certificate) {
+		_, err := shared.VerifyCertificate(certificate, r.cfg.Certifier.PubKey.Bytes(), nodeID)
+		switch {
+		case errors.Is(err, shared.ErrCertExpired):
+			registerWithCertMetric.WithLabelValues("expired").Inc()
+			return 0, time.Time{}, errors.Join(ErrInvalidCertificate, err)
+		case err != nil:
 			registerWithCertMetric.WithLabelValues("invalid").Inc()
-			return 0, time.Time{}, ErrInvalidCertificate
+			return 0, time.Time{}, errors.Join(ErrInvalidCertificate, err)
 		}
 		registerWithCertMetric.WithLabelValues("valid").Inc()
 	} else {

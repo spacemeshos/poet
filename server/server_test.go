@@ -221,15 +221,22 @@ func TestSubmitCertificateVerification(t *testing.T) {
 				Signature: []byte("invalid signature"),
 			},
 		})
-		require.ErrorIs(t, err, status.Error(codes.Unauthenticated, registration.ErrInvalidCertificate.Error()))
+		require.ErrorIs(t, err, status.Error(codes.Unauthenticated, "invalid certificate\nsignature mismatch"))
 	})
 	t.Run("valid certificate", func(t *testing.T) {
+		cert := &shared.Cert{
+			Pubkey: pubKey,
+		}
+		certBytes, err := shared.EncodeCert(cert)
+		require.NoError(t, err)
+
 		_, err = client.Submit(context.Background(), &api.SubmitRequest{
 			Challenge: challenge,
 			Pubkey:    pubKey,
 			Signature: signature,
 			Certificate: &api.SubmitRequest_Certificate{
-				Signature: ed25519.Sign(certifierPrivKey, pubKey),
+				Data:      certBytes,
+				Signature: ed25519.Sign(certifierPrivKey, certBytes),
 			},
 		})
 		require.NoError(t, err)
