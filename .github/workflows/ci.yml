@@ -60,7 +60,7 @@ jobs:
         os:
           - ubuntu-latest
           - [self-hosted, linux, arm64]
-          - macos-latest
+          - macos-13
           - [self-hosted, macos, arm64]
           - windows-latest
     steps:
