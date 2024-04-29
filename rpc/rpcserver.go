@@ -16,13 +16,12 @@ import (
 	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/registration"
 	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
-	"github.com/spacemeshos/poet/service"
+	"github.com/spacemeshos/poet/shared"
 )
 
 // rpcServer is a gRPC, RPC front end to poet.
 type rpcServer struct {
 	registration *registration.Registration
-	s            *service.Service
 	phaseShift   time.Duration
 	cycleGap     time.Duration
 }
@@ -33,12 +32,10 @@ var _ api.PoetServiceServer = (*rpcServer)(nil)
 
 // NewServer creates and returns a new instance of the rpcServer.
 func NewServer(
-	svc *service.Service,
 	registration *registration.Registration,
 	phaseShift, cycleGap time.Duration,
 ) *rpcServer {
 	return &rpcServer{
-		s:            svc,
 		registration: registration,
 		phaseShift:   phaseShift,
 		cycleGap:     cycleGap,
@@ -64,6 +61,7 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 		return nil, status.Error(codes.InvalidArgument, "invalid signature")
 	}
 
+	// FIXME: PoW is deprecated
 	powParams := registration.PowParams{
 		Challenge:  in.GetPowParams().GetChallenge(),
 		Difficulty: uint(in.GetPowParams().GetDifficulty()),
@@ -74,10 +72,28 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 		deadline = in.Deadline.AsTime()
 	}
 
-	epoch, end, err := r.registration.Submit(ctx, in.Challenge, in.Pubkey, in.Nonce, powParams, deadline)
+	var certificate *shared.OpaqueCert
+	if in.Certificate != nil {
+		certificate = &shared.OpaqueCert{
+			Data:      in.Certificate.GetData(),
+			Signature: in.Certificate.GetSignature(),
+		}
+	}
+	epoch, end, err := r.registration.Submit(
+		ctx,
+		in.Challenge,
+		in.Pubkey,
+		in.Nonce,
+		powParams,
+		certificate,
+		deadline,
+	)
 	switch {
+	// FIXME: remove deprecated PoW
 	case errors.Is(err, registration.ErrInvalidPow) || errors.Is(err, registration.ErrInvalidPowParams):
 		return nil, status.Error(codes.InvalidArgument, err.Error())
+	case errors.Is(err, registration.ErrInvalidCertificate):
+		return nil, status.Error(codes.Unauthenticated, err.Error())
 	case errors.Is(err, registration.ErrMaxMembersReached):
 		return nil, status.Error(codes.ResourceExhausted, err.Error())
 	case errors.Is(err, registration.ErrConflictingRegistration):
@@ -98,17 +114,18 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 }
 
 func (r *rpcServer) Info(ctx context.Context, in *api.InfoRequest) (*api.InfoResponse, error) {
-	openId, executingId := r.registration.Info(ctx)
-
+	var certifierResp *api.InfoResponse_Cerifier
+	if certifier := r.registration.CertifierInfo(); certifier != nil {
+		certifierResp = &api.InfoResponse_Cerifier{
+			Url:    certifier.URL,
+			Pubkey: certifier.PubKey,
+		}
+	}
 	out := &api.InfoResponse{
-		OpenRoundId:   strconv.FormatUint(uint64(openId), 10),
 		ServicePubkey: r.registration.Pubkey(),
 		PhaseShift:    durationpb.New(r.phaseShift),
 		CycleGap:      durationpb.New(r.cycleGap),
-	}
-
-	if executingId != nil {
-		out.ExecutingRoundId = strconv.FormatUint(uint64(*executingId), 10)
+		Certifier:     certifierResp,
 	}
 
 	return out, nil

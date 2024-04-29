@@ -15,7 +15,7 @@ import (
 
 func Test_Submit_DoesNotPanicOnMissingPubKey(t *testing.T) {
 	// Arrange
-	sv := rpc.NewServer(nil, nil, 0, 0)
+	sv := rpc.NewServer(nil, 0, 0)
 
 	// Act
 	in := &api.SubmitRequest{}
@@ -27,13 +27,13 @@ func Test_Submit_DoesNotPanicOnMissingPubKey(t *testing.T) {
 	// Assert
 	require.Nil(t, out)
 	require.Error(t, err)
-	require.Equal(t, status.Code(err), codes.InvalidArgument)
+	require.Equal(t, codes.InvalidArgument, status.Code(err))
 	require.ErrorContains(t, err, "invalid public key")
 }
 
 func Test_Submit_DoesNotPanicOnMissingSignature(t *testing.T) {
 	// Arrange
-	sv := rpc.NewServer(nil, nil, 0, 0)
+	sv := rpc.NewServer(nil, 0, 0)
 	pub, _, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
 
@@ -48,6 +48,6 @@ func Test_Submit_DoesNotPanicOnMissingSignature(t *testing.T) {
 	// Assert
 	require.Nil(t, out)
 	require.Error(t, err)
-	require.Equal(t, status.Code(err), codes.InvalidArgument)
+	require.Equal(t, codes.InvalidArgument, status.Code(err))
 	require.ErrorContains(t, err, "invalid signature")
 }

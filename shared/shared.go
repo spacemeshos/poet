@@ -1,11 +1,9 @@
 package shared
 
 import (
-	"context"
 	"encoding/binary"
 	"fmt"
 
-	"github.com/c0mm4nd/go-ripemd"
 	"github.com/spacemeshos/go-scale"
 	"github.com/spacemeshos/merkle-tree"
 	"github.com/spacemeshos/sha256-simd"
@@ -78,7 +76,7 @@ func MakeLabelFunc() func(hash LabelHash, labelID uint64, leftSiblings [][]byte)
 // Scale encoding is implemented by hand to be able to limit [][]byte slices to a maximum size (inner and outer slices).
 type MerkleProof struct {
 	Root         []byte   `scale:"max=32"`
-	ProvenLeaves [][]byte `scale:"max=150"`  // the max. size of this slice is T (security param), and each element is exactly 32 bytes
+	ProvenLeaves [][]byte `scale:"max=150"`  // max. size is T (security param), and each element is exactly 32 bytes
 	ProofNodes   [][]byte `scale:"max=5400"` // 36 nodes per leaf and each node is exactly 32 bytes
 }
 
@@ -169,58 +167,6 @@ func DecodeSliceOfByteSliceWithLimit(d *scale.Decoder, outerLimit, innerLimit ui
 	}
 
 	return result, total, nil
-}
-
-// FindSubmitPowNonce finds the nonce that solves the PoW challenge.
-func FindSubmitPowNonce(
-	ctx context.Context,
-	powChallenge, poetChallenge, nodeID []byte,
-	difficulty uint,
-) (uint64, error) {
-	var hash []byte
-	for nonce := uint64(0); ; nonce++ {
-		select {
-		case <-ctx.Done():
-			return 0, ctx.Err()
-		default:
-		}
-
-		hash := CalcSubmitPowHash(powChallenge, poetChallenge, nodeID, hash, nonce)
-		if CheckLeadingZeroBits(hash, difficulty) {
-			return nonce, nil
-		}
-	}
-}
-
-// CalcSubmitPowHash calculates the hash for the Submit PoW.
-// The hash is ripemd256(powChallenge || nodeID || poetChallenge || nonce).
-func CalcSubmitPowHash(powChallenge, poetChallenge, nodeID, output []byte, nonce uint64) []byte {
-	md := ripemd.New256()
-	md.Write(powChallenge)
-	md.Write(nodeID)
-	md.Write(poetChallenge)
-	if err := binary.Write(md, binary.LittleEndian, nonce); err != nil {
-		panic(err)
-	}
-	return md.Sum(output)
-}
-
-// CheckLeadingZeroBits checks if the first 'expected' bits of the byte array are all zero.
-func CheckLeadingZeroBits(data []byte, expected uint) bool {
-	if len(data)*8 < int(expected) {
-		return false
-	}
-	for i := 0; i < int(expected/8); i++ {
-		if data[i] != 0 {
-			return false
-		}
-	}
-	if expected%8 != 0 {
-		if data[expected/8]>>(8-expected%8) != 0 {
-			return false
-		}
-	}
-	return true
 }
 
 // HashMembershipTreeNode calculates internal node of

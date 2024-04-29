@@ -15,10 +15,11 @@ func TestVerify(t *testing.T) {
 	nodeID := make([]byte, 32)
 	poetChallenge := []byte("some data to submit to poet")
 	challenge := []byte("challenge this")
-	difficulty := uint(4)
+	difficulty := uint(6)
 
 	nonce, err := shared.FindSubmitPowNonce(context.Background(), challenge, poetChallenge, nodeID, difficulty)
 	require.NoError(t, err)
+	require.EqualValues(t, 143, nonce)
 
 	verifier := NewPowVerifier(NewPowParams(challenge, difficulty))
 	require.NoError(t, verifier.Verify(poetChallenge, nodeID, nonce))

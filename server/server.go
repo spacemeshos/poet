@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/google/uuid"
@@ -29,19 +28,15 @@ import (
 	api "github.com/spacemeshos/poet/release/proto/go/rpc/api/v1"
 	"github.com/spacemeshos/poet/rpc"
 	"github.com/spacemeshos/poet/service"
-	"github.com/spacemeshos/poet/state"
 	"github.com/spacemeshos/poet/transport"
 )
 
-const stateFilename = "state.bin"
-
-// The server state is persisted to disk.
-type serverState struct {
-	PrivKey []byte
+type svc interface {
+	Run(ctx context.Context) error
 }
 
 type Server struct {
-	svc          *service.Service
+	worker       svc
 	reg          *registration.Registration
 	cfg          Config
 	rpcListener  net.Listener
@@ -77,33 +72,39 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		}
 	}
 
-	// Load state
-	s := &serverState{}
-	err = state.Load(filepath.Join(cfg.DataDir, stateFilename), s)
-	switch {
-	case errors.Is(err, os.ErrNotExist):
-		pubKey, privateKey, err := ed25519.GenerateKey(nil)
-		if err != nil {
-			return nil, fmt.Errorf("generating key: %w", err)
-		}
-		s = &serverState{
-			PrivKey: privateKey,
-		}
-		if err := state.Persist(filepath.Join(cfg.DataDir, stateFilename), s); err != nil {
-			return nil, fmt.Errorf("saving state: %w", err)
-		}
-		logging.FromContext(ctx).Info("generated new keys", zap.Binary("public key", pubKey))
-	case err != nil:
+	s, err := loadState(ctx, cfg.DataDir, os.Getenv(KeyEnvVar))
+	if err != nil {
 		return nil, fmt.Errorf("loading state: %w", err)
+	}
+	if err := saveState(cfg.DataDir, s); err != nil {
+		return nil, fmt.Errorf("saving state: %w", err)
 	}
 	privateKey := s.PrivKey
 
-	transport := transport.NewInMemory()
+	tr := transport.NewInMemory()
+	var worker svc
+	if cfg.DisableWorker {
+		logging.FromContext(ctx).Info("PoSW worker service is disabled")
+		worker = service.NewDisabledService(tr)
+	} else {
+		worker, err = service.New(
+			ctx,
+			cfg.Genesis.Time(),
+			cfg.DataDir,
+			tr,
+			cfg.Round,
+			service.WithConfig(cfg.Service),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create Service: %v", err)
+		}
+	}
+
 	reg, err := registration.New(
 		ctx,
 		cfg.Genesis.Time(),
 		cfg.DbDir,
-		transport,
+		tr,
 		cfg.Round,
 		registration.WithConfig(cfg.Registration),
 		registration.WithPrivateKey(privateKey),
@@ -112,20 +113,8 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		return nil, fmt.Errorf("creating registration service: %w", err)
 	}
 
-	svc, err := service.New(
-		ctx,
-		cfg.Genesis.Time(),
-		cfg.DataDir,
-		transport,
-		cfg.Round,
-		service.WithConfig(cfg.Service),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Service: %v", err)
-	}
-
 	return &Server{
-		svc:          svc,
+		worker:       worker,
 		reg:          reg,
 		cfg:          cfg,
 		rpcListener:  rpcListener,
@@ -162,15 +151,17 @@ func (s *Server) Start(ctx context.Context) error {
 		),
 	)
 
+	logger.Info("starting registration service")
 	serverGroup.Go(func() error {
 		return s.reg.Run(ctx)
 	})
 
+	logger.Info("starting PoSW worker service")
 	serverGroup.Go(func() error {
-		return s.svc.Run(ctx)
+		return s.worker.Run(ctx)
 	})
 
-	rpcServer := rpc.NewServer(s.svc, s.reg, s.cfg.Round.PhaseShift, s.cfg.Round.CycleGap)
+	rpcServer := rpc.NewServer(s.reg, s.cfg.Round.PhaseShift, s.cfg.Round.CycleGap)
 	grpcServer := grpc.NewServer(
 		grpc.UnaryInterceptor(grpcmw.ChainUnaryServer(
 			loggerInterceptor(logger),
@@ -231,6 +222,10 @@ func (s *Server) Start(ctx context.Context) error {
 	err = server.Shutdown(shutdownCtx)
 	grpcServer.GracefulStop()
 	return errors.Join(err, serverGroup.Wait())
+}
+
+func (s *Server) PublicKey() ed25519.PublicKey {
+	return s.privateKey.Public().(ed25519.PublicKey)
 }
 
 // loggerInterceptor returns UnaryServerInterceptor handler to log all RPC server incoming requests.

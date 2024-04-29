@@ -22,7 +22,7 @@ type PowVerifier interface {
 	// PoW hash is ripemd256(powChallenge || nodeID || poetChallenge || nonce)
 	Verify(poetChallenge, nodeID []byte, nonce uint64) error
 	Params() PowParams
-	SetParams(PowParams)
+	SetParams(params PowParams)
 }
 
 type PowParams struct {
@@ -68,7 +68,7 @@ func (v *powVerifier) Verify(poetChallenge, nodeID []byte, nonce uint64) error {
 		return fmt.Errorf("%w: invalid nodeID length: %d", ErrInvalidPow, len(nodeID))
 	}
 
-	hash := shared.CalcSubmitPowHash(v.params.Challenge, poetChallenge, nodeID, nil, nonce)
+	hash := shared.NewPowHasher(v.params.Challenge, nodeID, poetChallenge).Hash(nonce, nil)
 
 	if !shared.CheckLeadingZeroBits(hash, v.params.Difficulty) {
 		return fmt.Errorf("%w: invalid leading zero bits", ErrInvalidPow)

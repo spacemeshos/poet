@@ -30,6 +30,7 @@ const (
 	defaultCycleGap      = 10 * time.Second
 )
 
+//nolint:lll
 type Config struct {
 	Genesis         Genesis `long:"genesis-time"       description:"Genesis timestamp in RFC3339 format"`
 	PoetDir         string  `long:"poetdir"            description:"The base directory that contains poet's data, logs, configuration file, etc."`
@@ -52,6 +53,8 @@ type Config struct {
 	Round        *RoundConfig        `group:"Round"`
 	Registration registration.Config `group:"Registration"`
 	Service      service.Config      `group:"Service"`
+
+	DisableWorker bool `long:"disable-worker" description:"Whether to disable worker service for PoSW"`
 }
 
 type Genesis time.Time
@@ -92,6 +95,7 @@ func DefaultConfig() *Config {
 		Round:           DefaultRoundConfig(),
 		Registration:    registration.DefaultConfig(),
 		Service:         service.DefaultConfig(),
+		DisableWorker:   false,
 	}
 }
 

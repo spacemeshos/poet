@@ -1,8 +1,5 @@
 name: CI
 
-env:
-  go-version: "1.21"
-
 on:
   merge_group:
   pull_request:
@@ -18,10 +15,10 @@ jobs:
       - name: checkout
         uses: actions/checkout@v4
       - name: set up go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           check-latest: true
-          go-version: ${{ env.go-version }}
+          go-version-file: go.mod
       - name: fmt, tidy, generate
         run: |
           make install
@@ -40,10 +37,10 @@ jobs:
       - name: checkout
         uses: actions/checkout@v4
       - name: set up go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           check-latest: true
-          go-version: ${{ env.go-version }}
+          go-version-file: go.mod
       - name: setup env
         run: make install
       - name: lint
@@ -63,17 +60,17 @@ jobs:
         os:
           - ubuntu-latest
           - [self-hosted, linux, arm64]
-          - macos-latest
+          - macos-13
           - [self-hosted, macos, arm64]
           - windows-latest
     steps:
       - name: checkout
         uses: actions/checkout@v4
       - name: set up go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           check-latest: true
-          go-version: ${{ env.go-version }}
+          go-version-file: go.mod
       - name: setup env
         run: make install
       - name: Clear test cache
@@ -97,16 +94,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: set up go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           check-latest: true
-          go-version: ${{ env.go-version }}
+          go-version-file: go.mod
       - name: setup env
         run: make install
       - name: test coverage
         run: make cover
       - name: Upload to codecov.io
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
-          fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

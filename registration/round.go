@@ -182,7 +182,11 @@ func (r *round) submit(ctx context.Context, key, challenge []byte) (<-chan error
 	if r.batch.Len() >= r.maxBatchSize {
 		r.flushPendingSubmitsLocked()
 	} else if r.batch.Len() == 1 {
-		logging.FromContext(ctx).Debug("scheduling flush of pending submits", zap.Uint("round", r.epoch), zap.Duration("interval", r.flushInterval))
+		logging.FromContext(ctx).Debug(
+			"scheduling flush of pending submits",
+			zap.Uint("round", r.epoch),
+			zap.Duration("interval", r.flushInterval),
+		)
 		time.AfterFunc(r.flushInterval, r.flushPendingSubmits)
 	}
 
@@ -256,7 +260,13 @@ func (r *round) getMembers() (members [][]byte) {
 	return members
 }
 
+// Close the round.
+// Flushes pending submits and closes the DB.
+// It's safe to call Close multiple times.
 func (r *round) Close() error {
 	r.flushPendingSubmits()
-	return r.db.Close()
+	if err := r.db.Close(); err != nil && !errors.Is(err, leveldb.ErrClosed) {
+		return err
+	}
+	return nil
 }

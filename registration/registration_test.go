@@ -3,17 +3,21 @@ package registration_test
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/spacemeshos/poet/logging"
 	"github.com/spacemeshos/poet/registration"
 	"github.com/spacemeshos/poet/registration/mocks"
 	"github.com/spacemeshos/poet/server"
 	"github.com/spacemeshos/poet/shared"
+	"github.com/spacemeshos/poet/transport"
 )
 
 func TestSubmitIdempotence(t *testing.T) {
@@ -54,12 +58,20 @@ func TestSubmitIdempotence(t *testing.T) {
 	eg.Go(func() error { return r.Run(ctx) })
 
 	// Submit challenge
-	epoch, _, err := r.Submit(context.Background(), challenge, nodeID, nonce, registration.PowParams{}, time.Time{})
+	epoch, _, err := r.Submit(
+		context.Background(),
+		challenge,
+		nodeID,
+		nonce,
+		registration.PowParams{},
+		nil,
+		time.Time{},
+	)
 	req.NoError(err)
 	req.Equal(uint(0), epoch)
 
 	// Try again - it should return the same result
-	epoch, _, err = r.Submit(context.Background(), challenge, nodeID, nonce, registration.PowParams{}, time.Time{})
+	epoch, _, err = r.Submit(context.Background(), challenge, nodeID, nonce, registration.PowParams{}, nil, time.Time{})
 	req.NoError(err)
 	req.Equal(uint(0), epoch)
 
@@ -82,10 +94,7 @@ func TestOpeningRounds(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, reg.Close()) })
 
 		// Service instance should create open round 0.
-		open, executing := reg.Info(context.Background())
-		require.NoError(t, err)
-		require.Equal(t, uint(0), open)
-		require.Nil(t, executing)
+		require.Equal(t, uint(0), reg.OpenRound())
 	})
 	t.Run("after genesis, but within phase shift", func(t *testing.T) {
 		t.Parallel()
@@ -100,10 +109,7 @@ func TestOpeningRounds(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, reg.Close()) })
 
 		// Service instance should create open round 0.
-		open, executing := reg.Info(context.Background())
-		require.NoError(t, err)
-		require.Equal(t, uint(0), open)
-		require.Nil(t, executing)
+		require.Equal(t, uint(0), reg.OpenRound())
 	})
 	t.Run("in first epoch", func(t *testing.T) {
 		t.Parallel()
@@ -121,11 +127,7 @@ func TestOpeningRounds(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, reg.Close()) })
 
 		// Service instance should create open round 1.
-		open, executing := reg.Info(context.Background())
-		require.NoError(t, err)
-		require.Equal(t, uint(1), open)
-		require.NotNil(t, executing)
-		require.Equal(t, uint(0), *executing)
+		require.Equal(t, uint(1), reg.OpenRound())
 	})
 	t.Run("in distant epoch", func(t *testing.T) {
 		t.Parallel()
@@ -142,13 +144,37 @@ func TestOpeningRounds(t *testing.T) {
 		require.NoError(t, err)
 		t.Cleanup(func() { require.NoError(t, reg.Close()) })
 
-		// Service instance should create open round 1.
-		open, executing := reg.Info(context.Background())
-		require.NoError(t, err)
-		require.Equal(t, uint(100), open)
-		require.NotNil(t, executing)
-		require.Equal(t, uint(99), *executing)
+		// Service instance should create open round 100.
+		require.Equal(t, uint(100), reg.OpenRound())
 	})
+}
+
+func TestWorkingWithoutWorkerService(t *testing.T) {
+	t.Parallel()
+
+	reg, err := registration.New(
+		context.Background(),
+		time.Now(),
+		t.TempDir(),
+		transport.NewInMemory(),
+		&server.RoundConfig{EpochDuration: time.Millisecond * 10},
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, reg.Close()) })
+
+	var eg errgroup.Group
+	ctx, cancel := context.WithCancel(logging.NewContext(context.Background(), zaptest.NewLogger(t)))
+	defer cancel()
+	eg.Go(func() error { return reg.Run(ctx) })
+
+	// Verify that registration keeps opening rounds even without the worker service.
+	// Only check if the round number is incremented to not rely on the exact timing.
+	for i := 0; i < 3; i++ {
+		round := reg.OpenRound()
+		require.Eventually(t, func() bool { return reg.OpenRound() > round }, time.Second, time.Millisecond*10)
+	}
+	cancel()
+	require.NoError(t, eg.Wait())
 }
 
 // Test if Proof of Work challenge is rotated every round.
@@ -252,4 +278,145 @@ func TestRecoveringRoundInProgress(t *testing.T) {
 		},
 	)
 	req.NoError(r.Run(ctx))
+}
+
+func Test_GetCertifierInfo(t *testing.T) {
+	certifier := &registration.CertifierConfig{
+		PubKey: registration.Base64Enc("pubkey"),
+		URL:    "http://the-certifier.org",
+	}
+
+	r, err := registration.New(
+		context.Background(),
+		time.Now(),
+		t.TempDir(),
+		nil,
+		server.DefaultRoundConfig(),
+		registration.WithConfig(registration.Config{
+			MaxRoundMembers: 10,
+			Certifier:       certifier,
+		}),
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, r.Close()) })
+	require.Equal(t, r.CertifierInfo(), certifier)
+}
+
+func Test_CheckCertificate(t *testing.T) {
+	challenge := []byte("challenge")
+	nodeID := []byte("nodeID00nodeID00nodeID00nodeID00")
+
+	t.Run("certification check disabled (default config)", func(t *testing.T) {
+		powVerifier := mocks.NewMockPowVerifier(gomock.NewController(t))
+		powVerifier.EXPECT().Params().Return(registration.PowParams{}).AnyTimes()
+		r, err := registration.New(
+			context.Background(),
+			time.Now(),
+			t.TempDir(),
+			nil,
+			server.DefaultRoundConfig(),
+			registration.WithPowVerifier(powVerifier),
+		)
+		require.NoError(t, err)
+		t.Cleanup(func() { require.NoError(t, r.Close()) })
+
+		// missing certificate - fallback to PoW
+		powVerifier.EXPECT().Verify(challenge, nodeID, uint64(5)).Return(nil)
+		_, _, err = r.Submit(context.Background(), challenge, nodeID, 5, registration.PowParams{}, nil, time.Time{})
+		require.NoError(t, err)
+
+		// passed certificate - still fallback to PoW
+		_, private, err := ed25519.GenerateKey(nil)
+		require.NoError(t, err)
+		data, err := shared.EncodeCert(&shared.Cert{Pubkey: nodeID})
+		require.NoError(t, err)
+		certificate := &shared.OpaqueCert{
+			Data:      data,
+			Signature: ed25519.Sign(private, data),
+		}
+		powVerifier.EXPECT().Verify(challenge, nodeID, uint64(7)).Return(nil)
+		_, _, err = r.Submit(
+			context.Background(),
+			challenge,
+			nodeID,
+			7,
+			registration.PowParams{},
+			certificate,
+			time.Time{},
+		)
+		require.NoError(t, err)
+	})
+	t.Run("certification check enabled", func(t *testing.T) {
+		pub, private, err := ed25519.GenerateKey(nil)
+		require.NoError(t, err)
+		powVerifier := mocks.NewMockPowVerifier(gomock.NewController(t))
+
+		r, err := registration.New(
+			context.Background(),
+			time.Now(),
+			t.TempDir(),
+			nil,
+			server.DefaultRoundConfig(),
+			registration.WithPowVerifier(powVerifier),
+			registration.WithConfig(registration.Config{
+				MaxRoundMembers: 10,
+				Certifier: &registration.CertifierConfig{
+					PubKey: registration.Base64Enc(pub),
+				},
+			}),
+		)
+		require.NoError(t, err)
+		t.Cleanup(func() { require.NoError(t, r.Close()) })
+
+		t.Run("missing certificate - fallback to PoW", func(t *testing.T) {
+			powVerifier.EXPECT().Params().Return(registration.PowParams{}).AnyTimes()
+			powVerifier.EXPECT().Verify(challenge, nodeID, uint64(7)).Return(nil)
+			_, _, err = r.Submit(context.Background(), challenge, nodeID, 7, r.PowParams(), nil, time.Time{})
+			require.NoError(t, err)
+		})
+		t.Run("valid certificate (unexpired)", func(t *testing.T) {
+			expiration := time.Now().Add(time.Hour)
+			data, err := shared.EncodeCert(&shared.Cert{Pubkey: nodeID, Expiration: &expiration})
+			require.NoError(t, err)
+			certificate := &shared.OpaqueCert{
+				Data:      data,
+				Signature: ed25519.Sign(private, data),
+			}
+			_, _, err = r.Submit(context.Background(), challenge, nodeID, 0, r.PowParams(), certificate, time.Time{})
+			require.NoError(t, err)
+		})
+		t.Run("valid certificate (expired)", func(t *testing.T) {
+			expiration := time.Now().Add(-time.Hour)
+			data, err := shared.EncodeCert(&shared.Cert{Pubkey: nodeID, Expiration: &expiration})
+			require.NoError(t, err)
+			certificate := &shared.OpaqueCert{
+				Data:      data,
+				Signature: ed25519.Sign(private, data),
+			}
+			_, _, err = r.Submit(context.Background(), challenge, nodeID, 0, r.PowParams(), certificate, time.Time{})
+			require.ErrorIs(t, err, registration.ErrInvalidCertificate)
+		})
+		t.Run("invalid certificate (wrong node ID)", func(t *testing.T) {
+			data, err := shared.EncodeCert(&shared.Cert{Pubkey: []byte("wrong node ID")})
+			require.NoError(t, err)
+			certificate := &shared.OpaqueCert{
+				Data:      data,
+				Signature: ed25519.Sign(private, data),
+			}
+			_, _, err = r.Submit(context.Background(), challenge, nodeID, 0, r.PowParams(), certificate, time.Time{})
+			require.ErrorIs(t, err, registration.ErrInvalidCertificate)
+		})
+		t.Run("invalid certificate (signature)", func(t *testing.T) {
+			data, err := shared.EncodeCert(&shared.Cert{Pubkey: nodeID})
+			require.NoError(t, err)
+			_, wrongPrivate, err := ed25519.GenerateKey(nil)
+			require.NoError(t, err)
+			certificate := &shared.OpaqueCert{
+				Data:      data,
+				Signature: ed25519.Sign(wrongPrivate, data),
+			}
+			_, _, err = r.Submit(context.Background(), challenge, nodeID, 0, r.PowParams(), certificate, time.Time{})
+			require.ErrorIs(t, err, registration.ErrInvalidCertificate)
+		})
+	})
 }
