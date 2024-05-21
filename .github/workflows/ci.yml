@@ -9,7 +9,7 @@ on:
 
 jobs:
   quicktests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 5
     steps:
       - name: checkout
@@ -31,7 +31,7 @@ jobs:
         run: make vulncheck
 
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 10
     steps:
       - name: checkout
@@ -58,11 +58,11 @@ jobs:
       fail-fast: false
       matrix:
         os:
-          - ubuntu-latest
+          - ubuntu-22.04
           - [self-hosted, linux, arm64]
           - macos-13
           - [self-hosted, macos, arm64]
-          - windows-latest
+          - windows-2022
     steps:
       - name: checkout
         uses: actions/checkout@v4
@@ -90,7 +90,7 @@ jobs:
           annotate_only: true
 
   coverage:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - name: set up go
