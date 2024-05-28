@@ -77,7 +77,7 @@ jobs:
         run: make clear-test-cache
       - name: unit tests
         env:
-          GOTESTSUM_FORMAT: standard-verbose
+          GOTESTSUM_FORMAT: standard-quiet
           GOTESTSUM_JUNITFILE: unit-tests.xml
           TEST_FLAGS: -short
         run: make test
