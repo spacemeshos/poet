@@ -100,12 +100,7 @@ test:
 install: install-buf install-protoc $(GOVULNCHECK) $(GOLINES)
 	@go mod download
 
-ifneq ($(OS),Windows_NT)
-	# On GH windows runners this fails at the moment: https://github.com/actions/runner-images/issues/10009
-	# since we don't run the linter on windows in the CI, we can skip this step for now
 	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s $(GOLANGCI_LINT_VERSION)
-endif
-
 	@go install honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
 	@go install gotest.tools/gotestsum@$(GOTESTSUM_VERSION)
 	@go install github.com/spacemeshos/go-scale/scalegen@$(GOSCALE_VERSION)
