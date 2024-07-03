@@ -310,11 +310,13 @@ func sequentialWork(
 	var parkedNodes [][]byte
 	makeLabel := shared.MakeLabelFunc()
 
-	finished := time.NewTimer(time.Until(end))
-	defer finished.Stop()
-
 	stop := make(chan struct{})
-
+	finished := time.AfterFunc(time.Until(end), func() {
+		// instead of using a timer that only fires once we want a flag that indicates the timer stopped
+		// we use a dedicated channel for this purpose that is closed when the timer would fire
+		close(stop)
+	})
+	defer finished.Stop()
 	leavesCounter.Add(float64(nextLeafID))
 
 	for {
@@ -333,17 +335,6 @@ func sequentialWork(
 				return 0, fmt.Errorf("persisting execution state: %w", err)
 			}
 			return nextLeafID, ctx.Err()
-		case <-finished.C:
-			close(stop)
-			if nextLeafID < uint64(securityParam) {
-				// we reached deadline, but we didn't generate enough leaves to generate a valid proof, so continue
-				// generating leaves until we have enough.
-				continue
-			}
-			if err := persist(ctx, treeCache, nextLeafID); err != nil {
-				return 0, fmt.Errorf("persisting execution state: %w", err)
-			}
-			return nextLeafID, nil
 		case <-stop:
 			if nextLeafID < uint64(securityParam) {
 				// we reached deadline, but we didn't generate enough leaves to generate a valid proof, so continue
