@@ -62,7 +62,17 @@ func GenerateProof(
 	}
 	defer treeCache.Close()
 
-	return generateProof(ctx, leavesCounter, labelHashFunc, tree, treeCache, deadline, 0, securityParam, persist)
+	return generateProof(
+		ctx,
+		leavesCounter,
+		labelHashFunc,
+		tree,
+		treeCache,
+		deadline,
+		0,
+		securityParam,
+		persist,
+	)
 }
 
 // GenerateProofRecovery recovers proof generation, from a given 'nextLeafID'.
@@ -241,7 +251,7 @@ func makeRecoveryProofTree(
 	defer layerReader.Close()
 	memCachedParkedNodes, readCache, err := recoverMemCachedParkedNodes(layerReader, merkleHashFunc)
 	if err != nil {
-		return nil, nil, fmt.Errorf("recoveing parked nodes from top layer of disk-cache: %w", err)
+		return nil, nil, fmt.Errorf("recovering parked nodes from top layer of disk-cache: %w", err)
 	}
 	parkedNodes = append(parkedNodes, memCachedParkedNodes...)
 
@@ -294,14 +304,19 @@ func sequentialWork(
 	treeCache *cache.Writer,
 	end time.Time,
 	nextLeafID uint64,
+	securityParam uint8,
 	persist persistFunc,
 ) (uint64, error) {
 	var parkedNodes [][]byte
 	makeLabel := shared.MakeLabelFunc()
 
-	finished := time.NewTimer(time.Until(end))
+	stop := make(chan struct{})
+	finished := time.AfterFunc(time.Until(end), func() {
+		// instead of using a timer that only fires once we want a flag that indicates the timer stopped
+		// we use a dedicated channel for this purpose that is closed when the timer would fire
+		close(stop)
+	})
 	defer finished.Stop()
-
 	leavesCounter.Add(float64(nextLeafID))
 
 	for {
@@ -320,7 +335,12 @@ func sequentialWork(
 				return 0, fmt.Errorf("persisting execution state: %w", err)
 			}
 			return nextLeafID, ctx.Err()
-		case <-finished.C:
+		case <-stop:
+			if nextLeafID < uint64(securityParam) {
+				// we reached deadline, but we didn't generate enough leaves to generate a valid proof, so continue
+				// generating leaves until we have enough.
+				continue
+			}
 			if err := persist(ctx, treeCache, nextLeafID); err != nil {
 				return 0, fmt.Errorf("persisting execution state: %w", err)
 			}
@@ -350,7 +370,17 @@ func generateProof(
 	logger := logging.FromContext(ctx)
 	logger.Info("generating proof", zap.Time("end", end), zap.Uint64("nextLeafID", nextLeafID))
 
-	leaves, err := sequentialWork(ctx, leavesCounter, labelHashFunc, tree, treeCache, end, nextLeafID, persist)
+	leaves, err := sequentialWork(
+		ctx,
+		leavesCounter,
+		labelHashFunc,
+		tree,
+		treeCache,
+		end,
+		nextLeafID,
+		securityParam,
+		persist,
+	)
 	if err != nil {
 		return leaves, nil, err
 	}
