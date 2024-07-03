@@ -31,7 +31,7 @@ func BenchmarkProverAndVerifierBig(b *testing.B) {
 		prover.TreeConfig{Datadir: b.TempDir()},
 		hash.GenLabelHashFunc(challenge),
 		hash.GenMerkleHashFunc(challenge),
-		time.Now().Add(time.Second),
+		time.Now(),
 		securityParam,
 	)
 	r.NoError(err, "Failed to generate proof")
@@ -63,7 +63,7 @@ func TestNip(t *testing.T) {
 		prover.TreeConfig{Datadir: t.TempDir()},
 		hash.GenLabelHashFunc(challenge),
 		hash.GenMerkleHashFunc(challenge),
-		time.Now().Add(1*time.Second),
+		time.Now(),
 		securityParam,
 	)
 	require.NoError(t, err)
@@ -93,7 +93,7 @@ func BenchmarkProofEx(t *testing.B) {
 			prover.TreeConfig{Datadir: t.TempDir()},
 			hash.GenLabelHashFunc(challenge),
 			hash.GenMerkleHashFunc(challenge),
-			time.Now().Add(time.Second),
+			time.Now(),
 			securityParam,
 		)
 		require.NoError(t, err)
