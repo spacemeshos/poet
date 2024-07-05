@@ -61,6 +61,7 @@ type round struct {
 	batchMutex     sync.Mutex
 	batch          *leveldb.Batch
 	pendingSubmits map[string]pendingSubmit
+	pendingFlush   *time.Timer
 	flushInterval  time.Duration
 	maxBatchSize   int
 }
@@ -187,7 +188,7 @@ func (r *round) submit(ctx context.Context, key, challenge []byte) (<-chan error
 			zap.Uint("round", r.epoch),
 			zap.Duration("interval", r.flushInterval),
 		)
-		time.AfterFunc(r.flushInterval, r.flushPendingSubmits)
+		r.pendingFlush = time.AfterFunc(r.flushInterval, r.timedFlushPendingSubmits)
 	}
 
 	return done, nil
@@ -199,7 +200,19 @@ func (r *round) flushPendingSubmits() {
 	r.flushPendingSubmitsLocked()
 }
 
+func (r *round) timedFlushPendingSubmits() {
+	r.batchMutex.Lock()
+	defer r.batchMutex.Unlock()
+	if r.pendingFlush != nil {
+		r.flushPendingSubmitsLocked()
+	}
+}
+
 func (r *round) flushPendingSubmitsLocked() {
+	if r.pendingFlush != nil {
+		r.pendingFlush.Stop()
+		r.pendingFlush = nil
+	}
 	if r.batch.Len() == 0 {
 		return
 	}

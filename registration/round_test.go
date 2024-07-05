@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/syndtr/goleveldb/leveldb"
 )
 
 func genChallenge() ([]byte, error) {
@@ -133,6 +134,7 @@ func TestRound_Submit(t *testing.T) {
 }
 
 func TestRound_Reopen(t *testing.T) {
+	t.Parallel()
 	dbdir := t.TempDir()
 	// Arrange
 	challenge, err := genChallenge()
@@ -153,4 +155,33 @@ func TestRound_Reopen(t *testing.T) {
 	// Verify
 	require.Equal(t, [][]byte{challenge}, recovered.getMembers())
 	require.Equal(t, 1, recovered.members)
+}
+
+func TestRound_FlushingPending(t *testing.T) {
+	t.Parallel()
+	t.Run("timed flush detects it was canceled", func(t *testing.T) {
+		t.Parallel()
+		round := newTestRound(t, 0, withSubmitFlushInterval(time.Hour))
+		// submit schedules a flush in 1 hour
+		round.submit(context.Background(), []byte("key"), []byte("challenge"))
+		// cancel the flush
+		round.pendingFlush.Stop()
+		round.pendingFlush = nil
+
+		// simulate a flush called by the timer
+		round.timedFlushPendingSubmits()
+		// flush should not have happened
+		_, err := round.db.Get([]byte("key"), nil)
+		require.ErrorIs(t, err, leveldb.ErrNotFound)
+	})
+	t.Run("canceling timed flush", func(t *testing.T) {
+		t.Parallel()
+		round := newTestRound(t, 0, withSubmitFlushInterval(time.Hour))
+		// submit schedules a flush in 1 hour
+		round.submit(context.Background(), []byte("key"), []byte("challenge"))
+		// manual flush cancels the timer
+		round.flushPendingSubmits()
+		// timer should be canceled
+		require.Nil(t, round.pendingFlush)
+	})
 }
