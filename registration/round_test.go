@@ -169,7 +169,7 @@ func TestRound_FlushingPending(t *testing.T) {
 		round.pendingFlush = nil
 
 		// simulate a flush called by the timer
-		round.flushPendingSubmitsLocked(true)
+		round.timedFlushPendingSubmits()
 		// flush should not have happened
 		_, err := round.db.Get([]byte("key"), nil)
 		require.ErrorIs(t, err, leveldb.ErrNotFound)

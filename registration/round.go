@@ -181,18 +181,14 @@ func (r *round) submit(ctx context.Context, key, challenge []byte) (<-chan error
 	}
 
 	if r.batch.Len() >= r.maxBatchSize {
-		r.flushPendingSubmitsLocked(false)
+		r.flushPendingSubmitsLocked()
 	} else if r.batch.Len() == 1 {
 		logging.FromContext(ctx).Debug(
 			"scheduling flush of pending submits",
 			zap.Uint("round", r.epoch),
 			zap.Duration("interval", r.flushInterval),
 		)
-		r.pendingFlush = time.AfterFunc(r.flushInterval, func() {
-			r.batchMutex.Lock()
-			defer r.batchMutex.Unlock()
-			r.flushPendingSubmitsLocked(true)
-		})
+		r.pendingFlush = time.AfterFunc(r.flushInterval, r.timedFlushPendingSubmits)
 	}
 
 	return done, nil
@@ -201,14 +197,18 @@ func (r *round) submit(ctx context.Context, key, challenge []byte) (<-chan error
 func (r *round) flushPendingSubmits() {
 	r.batchMutex.Lock()
 	defer r.batchMutex.Unlock()
-	r.flushPendingSubmitsLocked(false)
+	r.flushPendingSubmitsLocked()
 }
 
-func (r *round) flushPendingSubmitsLocked(onTimer bool) {
-	if onTimer && r.pendingFlush == nil {
-		// canceled already
-		return
+func (r *round) timedFlushPendingSubmits() {
+	r.batchMutex.Lock()
+	defer r.batchMutex.Unlock()
+	if r.pendingFlush != nil {
+		r.flushPendingSubmitsLocked()
 	}
+}
+
+func (r *round) flushPendingSubmitsLocked() {
 	if r.pendingFlush != nil {
 		r.pendingFlush.Stop()
 		r.pendingFlush = nil
