@@ -62,10 +62,8 @@ func TestRecoverParkedNodes(t *testing.T) {
 	challenge := []byte("challenge this")
 	leavesCounter := prometheus.NewCounter(prometheus.CounterOpts{})
 
-	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(time.Second*2))
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now())
 	defer cancel()
-
-	limit := time.Now().Add(time.Second * 5)
 
 	persist := func(ctx context.Context, treeCache *cache.Writer, _ uint64) error {
 		// Call GetReader() so that the cache would flush and validate structure.
@@ -81,7 +79,7 @@ func TestRecoverParkedNodes(t *testing.T) {
 		treeCfg,
 		hash.GenLabelHashFunc(challenge),
 		hash.GenMerkleHashFunc(challenge),
-		limit,
+		time.Now().Add(5*time.Second),
 		150,
 		persist,
 	)
@@ -94,7 +92,7 @@ func TestRecoverParkedNodes(t *testing.T) {
 		treeCfg,
 		hash.GenLabelHashFunc(challenge),
 		hash.GenMerkleHashFunc(challenge),
-		limit,
+		time.Now(),
 		150,
 		leaves,
 		persist,

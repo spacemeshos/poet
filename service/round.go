@@ -258,11 +258,14 @@ func (r *round) Teardown(ctx context.Context, cleanup bool) error {
 	logger := logging.FromContext(ctx)
 	logger.Info("tearing down round", zap.Uint("epoch", r.epoch), zap.Bool("cleanup", cleanup))
 	started := time.Now()
-	defer logger.Info(
-		"finished tearing down round",
-		zap.Uint("epoch", r.epoch),
-		zap.Duration("duration", time.Since(started)),
-	)
+	defer func() {
+		since := time.Since(started)
+		logger.Info(
+			"finished tearing down round",
+			zap.Uint("epoch", r.epoch),
+			zap.Duration("duration", since),
+		)
+	}()
 
 	leavesMetric.DeleteLabelValues(r.ID)
 

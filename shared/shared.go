@@ -76,7 +76,7 @@ func MakeLabelFunc() func(hash LabelHash, labelID uint64, leftSiblings [][]byte)
 // Scale encoding is implemented by hand to be able to limit [][]byte slices to a maximum size (inner and outer slices).
 type MerkleProof struct {
 	Root         []byte   `scale:"max=32"`
-	ProvenLeaves [][]byte `scale:"max=150"`  // the max. size of this slice is T (security param), and each element is exactly 32 bytes
+	ProvenLeaves [][]byte `scale:"max=150"`  // max. size is T (security param), and each element is exactly 32 bytes
 	ProofNodes   [][]byte `scale:"max=5400"` // 36 nodes per leaf and each node is exactly 32 bytes
 }
 

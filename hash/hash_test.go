@@ -9,36 +9,36 @@ import (
 
 func TestGenLabelHashFunc(t *testing.T) {
 	t.Parallel()
-	r := require.New(t)
 
 	aChallenge, bChallenge := []byte("a"), []byte("b")
 	data, other := []byte("data"), []byte("other")
 
 	// same challenge and data -> same hash
-	r.Equal(GenLabelHashFunc(aChallenge)(data), GenLabelHashFunc(aChallenge)(data))
+	aHash := GenLabelHashFunc(aChallenge)(data)
+	require.Equal(t, aHash, GenLabelHashFunc(aChallenge)(data))
 
 	// different challenge -> different hash
-	r.NotEqual(GenLabelHashFunc(aChallenge)(data), GenLabelHashFunc(bChallenge)(data))
+	require.NotEqual(t, aHash, GenLabelHashFunc(bChallenge)(data))
 
 	// different data -> different hash
-	r.NotEqual(GenLabelHashFunc(aChallenge)(data), GenLabelHashFunc(aChallenge)(other))
+	require.NotEqual(t, aHash, GenLabelHashFunc(aChallenge)(other))
 }
 
 func TestGenMerkleHashFunc(t *testing.T) {
 	t.Parallel()
-	r := require.New(t)
 
 	aChallenge, bChallenge := []byte("a"), []byte("b")
 	lChild, rChild := []byte("l"), []byte("r")
 
 	// same challenge and children -> same hash
-	r.Equal(GenMerkleHashFunc(aChallenge)(nil, lChild, rChild), GenMerkleHashFunc(aChallenge)(nil, lChild, rChild))
+	aHash := GenMerkleHashFunc(aChallenge)(nil, lChild, rChild)
+	require.Equal(t, aHash, GenMerkleHashFunc(aChallenge)(nil, lChild, rChild))
 
 	// different challenge -> different hash
-	r.NotEqual(GenMerkleHashFunc(aChallenge)(nil, lChild, rChild), GenMerkleHashFunc(bChallenge)(nil, lChild, rChild))
+	require.NotEqual(t, aHash, GenMerkleHashFunc(bChallenge)(nil, lChild, rChild))
 
 	// different children (e.g. different order) -> different hash
-	r.NotEqual(GenMerkleHashFunc(aChallenge)(nil, lChild, rChild), GenMerkleHashFunc(aChallenge)(nil, rChild, lChild))
+	require.NotEqual(t, aHash, GenMerkleHashFunc(aChallenge)(nil, rChild, lChild))
 }
 
 func TestGenLabelHashFuncHash(t *testing.T) {

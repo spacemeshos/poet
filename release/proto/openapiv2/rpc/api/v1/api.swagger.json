@@ -142,10 +142,29 @@
     "SubmitRequestCertificate": {
       "type": "object",
       "properties": {
+        "data": {
+          "type": "string",
+          "format": "byte"
+        },
         "signature": {
           "type": "string",
           "format": "byte",
-          "description": "The certifier's signature of the pubkey\nconfirming that the pubkey is verified."
+          "description": "The certifier's signature over `data`\nconfirming that the pubkey is verified."
+        }
+      }
+    },
+    "apiv1PowParams": {
+      "type": "object",
+      "properties": {
+        "difficulty": {
+          "type": "integer",
+          "format": "int64",
+          "title": "Difficulty of the PoW challenge (in terms of leading zero bits in the hash)"
+        },
+        "challenge": {
+          "type": "string",
+          "format": "byte",
+          "title": "The challenge to be used for the PoW"
         }
       }
     },
@@ -237,26 +256,11 @@
         }
       }
     },
-    "v1PowParams": {
-      "type": "object",
-      "properties": {
-        "difficulty": {
-          "type": "integer",
-          "format": "int64",
-          "title": "Difficulty of the PoW challenge (in terms of leading zero bits in the hash)"
-        },
-        "challenge": {
-          "type": "string",
-          "format": "byte",
-          "title": "The challenge to be used for the PoW"
-        }
-      }
-    },
     "v1PowParamsResponse": {
       "type": "object",
       "properties": {
         "powParams": {
-          "$ref": "#/definitions/v1PowParams"
+          "$ref": "#/definitions/apiv1PowParams"
         }
       }
     },
@@ -281,7 +285,7 @@
           "title": "Proof of Work nonce\ndeprecated - use certificate instead"
         },
         "powParams": {
-          "$ref": "#/definitions/v1PowParams",
+          "$ref": "#/definitions/apiv1PowParams",
           "title": "Proof of Work parameters that were used to generate the nonce\ndeprecated - use certificate instead"
         },
         "prefix": {

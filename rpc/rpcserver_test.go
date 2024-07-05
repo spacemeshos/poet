@@ -27,7 +27,7 @@ func Test_Submit_DoesNotPanicOnMissingPubKey(t *testing.T) {
 	// Assert
 	require.Nil(t, out)
 	require.Error(t, err)
-	require.Equal(t, status.Code(err), codes.InvalidArgument)
+	require.Equal(t, codes.InvalidArgument, status.Code(err))
 	require.ErrorContains(t, err, "invalid public key")
 }
 
@@ -48,6 +48,6 @@ func Test_Submit_DoesNotPanicOnMissingSignature(t *testing.T) {
 	// Assert
 	require.Nil(t, out)
 	require.Error(t, err)
-	require.Equal(t, status.Code(err), codes.InvalidArgument)
+	require.Equal(t, codes.InvalidArgument, status.Code(err))
 	require.ErrorContains(t, err, "invalid signature")
 }
