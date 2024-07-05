@@ -94,7 +94,7 @@ all: build
 .PHONY: all
 
 test:
-	$(GOTESTSUM) -- -race -timeout 5m -p 1 $(TEST_FLAGS) ./...
+	$(GOTESTSUM) -- -race -timeout 5m $(TEST_FLAGS) ./...
 .PHONY: test
 
 install: install-buf install-protoc $(GOVULNCHECK) $(GOLINES)
