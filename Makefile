@@ -8,9 +8,8 @@ VERSION ?= $(shell git describe --tags)
 # Flags appended to `go test` command in `make test`
 TEST_FLAGS ?=
 
-GOLANGCI_LINT_VERSION := v1.57.0
-STATICCHECK_VERSION := v0.4.7
-GOTESTSUM_VERSION := v1.11.0
+GOLANGCI_LINT_VERSION := v1.59.0
+GOTESTSUM_VERSION := v1.12.0
 GOSCALE_VERSION := v1.2.0
 MOCKGEN_VERSION := v0.4.0
 
@@ -101,7 +100,6 @@ install: install-buf install-protoc $(GOVULNCHECK) $(GOLINES)
 	@go mod download
 
 	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s $(GOLANGCI_LINT_VERSION)
-	@go install honnef.co/go/tools/cmd/staticcheck@$(STATICCHECK_VERSION)
 	@go install gotest.tools/gotestsum@$(GOTESTSUM_VERSION)
 	@go install github.com/spacemeshos/go-scale/scalegen@$(GOSCALE_VERSION)
 .PHONY: install
@@ -159,10 +157,6 @@ lint-protos:
 cover:
 	go test -coverprofile=cover.out -timeout 0 -p 1 -coverpkg=./... ./...
 .PHONY: cover
-
-staticcheck:
-	staticcheck ./...
-.PHONY: staticcheck
 
 build:
 	go build -ldflags "-X main.version=${VERSION}" -o $(BINARY)
