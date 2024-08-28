@@ -12,7 +12,13 @@ import (
 
 //go:generate scalegen -types CertOnWire,UnixTimestamp
 
-var ErrCertExpired = errors.New("certificate expired")
+var (
+	ErrCertExpired              = errors.New("certificate expired")
+	ErrCertSignatureMismatch    = errors.New("signature mismatch")
+	ErrCertDataMismatch         = errors.New("pubkey mismatch")
+	ErrNoCertHint               = errors.New("no cert public key hint given")
+	ErrNoMatchingCertPublicKeys = errors.New("no matching cert public keys")
+)
 
 type UnixTimestamp struct {
 	Inner uint64
@@ -79,19 +85,44 @@ func EncodeCert(c *Cert) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func VerifyCertificate(certificate *OpaqueCert, certifierPubKey, nodeID []byte) (*Cert, error) {
-	if !ed25519.Verify(certifierPubKey, certificate.Data, certificate.Signature) {
-		return nil, errors.New("signature mismatch")
+func VerifyCertificate(
+	certificate *OpaqueCert,
+	certifierPubKeys [][]byte,
+	nodeID, pubKeyHint []byte) (*Cert, error) {
+
+	var matchingKeys [][]byte
+	if len(pubKeyHint) == 0 {
+		return nil, ErrNoCertHint
 	}
-	decoded, err := certificate.Decode()
-	if err != nil {
-		return nil, fmt.Errorf("decoding: %w", err)
+
+	for _, certKey := range certifierPubKeys {
+		if len(certKey) >= len(pubKeyHint) && bytes.Equal(certKey[:len(pubKeyHint)], pubKeyHint) {
+			matchingKeys = append(matchingKeys, certKey)
+		}
 	}
-	if !bytes.Equal(decoded.Pubkey, nodeID) {
-		return nil, errors.New("pubkey mismatch")
+
+	if len(matchingKeys) == 0 {
+		return nil, ErrNoMatchingCertPublicKeys
 	}
-	if decoded.Expiration != nil && decoded.Expiration.Before(time.Now()) {
-		return nil, fmt.Errorf("%w at %v", ErrCertExpired, decoded.Expiration)
+
+	var certErr error
+	for _, key := range matchingKeys {
+		if !ed25519.Verify(key, certificate.Data, certificate.Signature) {
+			certErr = ErrCertSignatureMismatch
+		}
+
+		decoded, err := certificate.Decode()
+		if err != nil {
+			certErr = fmt.Errorf("decoding: %w", err)
+		}
+
+		if !bytes.Equal(decoded.Pubkey, nodeID) {
+			certErr = ErrCertDataMismatch
+		}
+		if decoded.Expiration != nil && decoded.Expiration.Before(time.Now()) {
+			certErr = fmt.Errorf("%w at %v", ErrCertExpired, decoded.Expiration)
+		}
+		return decoded, nil
 	}
-	return decoded, nil
+	return nil, certErr
 }

@@ -82,8 +82,11 @@ message SubmitRequest {
         // The certifier's signature over `data`
         // confirming that the pubkey is verified.
         bytes signature = 2;
+
+        bytes hint = 3;
     }
     Certificate certificate = 8;
+    bytes certificate_pubkey_hint = 9;
 }
 
 message SubmitResponse {

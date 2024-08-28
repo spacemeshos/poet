@@ -125,7 +125,7 @@ func ReadConfigFile(cfg *Config) (*Config, error) {
 // SetupConfig adjusts the paths in the config to be relative to the poetdir.
 func SetupConfig(cfg *Config) {
 	// If the provided poet directory is not the default, we'll modify the
-	// path to all of the files and directories that will live within it.
+	// path to all files and directories that will live within it.
 	defaultCfg := DefaultConfig()
 	if cfg.PoetDir != defaultCfg.DataDir {
 		if cfg.DataDir == defaultCfg.DataDir {

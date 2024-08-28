@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+import "google/api/annotations.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+package rpc.api.v1;
+
+service ConfigurationService {
+    rpc ReloadTrustedKeys(ReloadTrustedKeysRequest) returns (ReloadTrustedKeysResponse) {
+      option (google.api.http) = {
+        post: "/v1/reload_trusted_keys"
+      };
+    }
+}
+
+message ReloadTrustedKeysRequest {}
+
+message ReloadTrustedKeysResponse {}

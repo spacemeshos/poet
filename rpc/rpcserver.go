@@ -82,6 +82,7 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 	epoch, end, err := r.registration.Submit(
 		ctx,
 		in.Challenge,
+		in.CertificatePubkeyHint,
 		in.Pubkey,
 		in.Nonce,
 		powParams,
@@ -113,7 +114,7 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 	return out, nil
 }
 
-func (r *rpcServer) Info(ctx context.Context, in *api.InfoRequest) (*api.InfoResponse, error) {
+func (r *rpcServer) Info(_ context.Context, _ *api.InfoRequest) (*api.InfoResponse, error) {
 	var certifierResp *api.InfoResponse_Cerifier
 	if certifier := r.registration.CertifierInfo(); certifier != nil {
 		certifierResp = &api.InfoResponse_Cerifier{
@@ -155,4 +156,12 @@ func (r *rpcServer) Proof(ctx context.Context, in *api.ProofRequest) (*api.Proof
 	default:
 		return nil, status.Error(codes.Internal, err.Error())
 	}
+}
+
+func (r *rpcServer) ReloadTrustedKeys(_ context.Context, _ *api.ReloadTrustedKeysRequest) (*api.ReloadTrustedKeysResponse, error) {
+	err := r.registration.LoadTrustedPublicKeys()
+	if err != nil {
+		return nil, err
+	}
+	return &api.ReloadTrustedKeysResponse{}, nil
 }

@@ -98,8 +98,8 @@ func TestInfoEndpoint(t *testing.T) {
 		cfg := cfg
 		cfg.PoetDir = t.TempDir()
 		cfg.Registration.Certifier = &registration.CertifierConfig{
-			URL:    "http://localhost:8080",
-			PubKey: []byte("certifier pubkey"),
+			URL:     "http://localhost:8080",
+			PubKeys: []byte("certifier pubkey"),
 		}
 
 		ctx, cancel := context.WithCancel(logging.NewContext(context.Background(), zaptest.NewLogger(t)))
@@ -117,7 +117,7 @@ func TestInfoEndpoint(t *testing.T) {
 		req.Equal(cfg.Round.PhaseShift, info.PhaseShift.AsDuration())
 		req.Equal(cfg.Round.CycleGap, info.CycleGap.AsDuration())
 		req.NotEmpty(info.ServicePubkey)
-		req.Equal(info.Certifier.Pubkey, cfg.Registration.Certifier.PubKey.Bytes())
+		req.Equal(info.Certifier.Pubkey, cfg.Registration.Certifier.PubKeys.Bytes())
 		req.Equal(info.Certifier.Url, cfg.Registration.Certifier.URL)
 
 		cancel()
@@ -191,8 +191,8 @@ func TestSubmitCertificateVerification(t *testing.T) {
 	cfg.RawRESTListener = randomHost
 	cfg.Registration.PowDifficulty = 3
 	cfg.Registration.Certifier = &registration.CertifierConfig{
-		URL:    "http://localhost:8080",
-		PubKey: registration.Base64Enc(certifierPubKey),
+		URL:     "http://localhost:8080",
+		PubKeys: registration.Base64Enc(certifierPubKey),
 	}
 
 	srv, client := spawnPoet(ctx, t, *cfg)

@@ -4,10 +4,12 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strconv"
 	"sync"
@@ -35,8 +37,10 @@ type roundConfig interface {
 }
 
 var (
-	ErrInvalidCertificate = errors.New("invalid certificate")
-	ErrTooLateToRegister  = errors.New("too late to register for the desired round")
+	ErrInvalidCertificate         = errors.New("invalid certificate")
+	ErrTooLateToRegister          = errors.New("too late to register for the desired round")
+	ErrTrustedKeyFilePathIsNotSet = errors.New("trusted keys directory path is not set in the configuration")
+	ErrInvalidPublicKey           = errors.New("invalid public key")
 
 	registerWithCertMetric = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "poet",
@@ -65,6 +69,9 @@ type Registration struct {
 	roundCfg roundConfig
 	dbdir    string
 	privKey  ed25519.PrivateKey
+
+	trustedKeysMtx    sync.RWMutex
+	trustedPublicKeys [][]byte
 
 	openRoundMutex sync.RWMutex
 	openRound      *round
@@ -166,6 +173,45 @@ func New(
 
 func (r *Registration) CertifierInfo() *CertifierConfig {
 	return r.cfg.Certifier
+}
+
+func (r *Registration) LoadTrustedPublicKeys() error {
+	r.trustedKeysMtx.Lock()
+	defer r.trustedKeysMtx.Unlock()
+
+	r.trustedPublicKeys = [][]byte{}
+
+	dirPath := r.cfg.Certifier.TrustedKeysDirPath
+	if dirPath == "" {
+		return ErrTrustedKeyFilePathIsNotSet
+	}
+
+	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() || filepath.Ext(path) != ".key" {
+			return nil
+		}
+
+		keyData, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+
+		decodedKey, err := base64.StdEncoding.DecodeString(string(keyData))
+		if err != nil {
+			return err
+		}
+
+		if len(decodedKey) != ed25519.PublicKeySize {
+			return ErrInvalidPublicKey
+		}
+
+		r.trustedPublicKeys = append(r.trustedPublicKeys, decodedKey)
+		return nil
+	})
+	return err
 }
 
 func (r *Registration) Pubkey() ed25519.PublicKey {
@@ -317,9 +363,20 @@ func (r *Registration) newRoundOpts() []newRoundOptionFunc {
 	}
 }
 
+func (r *Registration) verifyCert(
+	certificate *shared.OpaqueCert,
+	certPubKeyHint, nodeID []byte,
+) error {
+	r.trustedKeysMtx.RLock()
+	defer r.trustedKeysMtx.RUnlock()
+
+	_, err := shared.VerifyCertificate(certificate, append(r.trustedPublicKeys, r.cfg.Certifier.PubKey.Bytes()), nodeID, certPubKeyHint)
+	return err
+}
+
 func (r *Registration) Submit(
 	ctx context.Context,
-	challenge, nodeID []byte,
+	challenge, certPubKeyHint, nodeID []byte,
 	// TODO: remove deprecated PoW
 	nonce uint64,
 	powParams PowParams,
@@ -331,7 +388,7 @@ func (r *Registration) Submit(
 	// Support both a certificate and a PoW while
 	// the certificate path is being stabilized.
 	if r.cfg.Certifier != nil && certificate != nil {
-		_, err := shared.VerifyCertificate(certificate, r.cfg.Certifier.PubKey.Bytes(), nodeID)
+		err = r.verifyCert(certificate, certPubKeyHint, nodeID)
 		switch {
 		case errors.Is(err, shared.ErrCertExpired):
 			registerWithCertMetric.WithLabelValues("expired").Inc()
@@ -339,8 +396,9 @@ func (r *Registration) Submit(
 		case err != nil:
 			registerWithCertMetric.WithLabelValues("invalid").Inc()
 			return 0, time.Time{}, errors.Join(ErrInvalidCertificate, err)
+		default:
+			registerWithCertMetric.WithLabelValues("valid").Inc()
 		}
-		registerWithCertMetric.WithLabelValues("valid").Inc()
 	} else {
 		// FIXME: PoW is deprecated
 		// Remove once certificate path is stabilized and mandatory.
