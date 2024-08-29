@@ -107,6 +107,8 @@ func VerifyCertificate(
 
 	var certErr error
 	for _, key := range matchingKeys {
+		certErr = nil
+
 		if !ed25519.Verify(key, certificate.Data, certificate.Signature) {
 			certErr = ErrCertSignatureMismatch
 		}
@@ -119,10 +121,14 @@ func VerifyCertificate(
 		if !bytes.Equal(decoded.Pubkey, nodeID) {
 			certErr = ErrCertDataMismatch
 		}
+
 		if decoded.Expiration != nil && decoded.Expiration.Before(time.Now()) {
 			certErr = fmt.Errorf("%w at %v", ErrCertExpired, decoded.Expiration)
 		}
-		return decoded, nil
+
+		if certErr == nil {
+			return decoded, nil
+		}
 	}
 	return nil, certErr
 }

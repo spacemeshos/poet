@@ -37,10 +37,11 @@ type roundConfig interface {
 }
 
 var (
-	ErrInvalidCertificate         = errors.New("invalid certificate")
-	ErrTooLateToRegister          = errors.New("too late to register for the desired round")
-	ErrTrustedKeyFilePathIsNotSet = errors.New("trusted keys directory path is not set in the configuration")
-	ErrInvalidPublicKey           = errors.New("invalid public key")
+	ErrInvalidCertificate          = errors.New("invalid certificate")
+	ErrTooLateToRegister           = errors.New("too late to register for the desired round")
+	ErrCertificationIsNotSupported = errors.New("certificate is not supported")
+	ErrTrustedKeyFilePathIsNotSet  = errors.New("trusted keys directory path is not set in the configuration")
+	ErrInvalidPublicKey            = errors.New("invalid public key")
 
 	registerWithCertMetric = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "poet",
@@ -176,6 +177,10 @@ func (r *Registration) CertifierInfo() *CertifierConfig {
 }
 
 func (r *Registration) LoadTrustedPublicKeys() error {
+	if r.cfg.Certifier == nil {
+		return ErrCertificationIsNotSupported
+	}
+
 	r.trustedKeysMtx.Lock()
 	defer r.trustedKeysMtx.Unlock()
 
