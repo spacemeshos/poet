@@ -40,7 +40,7 @@ var (
 	ErrInvalidCertificate          = errors.New("invalid certificate")
 	ErrTooLateToRegister           = errors.New("too late to register for the desired round")
 	ErrCertificationIsNotSupported = errors.New("certificate is not supported")
-	ErrTrustedKeyFilePathIsNotSet  = errors.New("trusted keys directory path is not set in the configuration")
+	ErrTrustedKeyDirPathIsNotSet   = errors.New("trusted keys directory path is not set in the configuration")
 	ErrInvalidPublicKey            = errors.New("invalid public key")
 
 	registerWithCertMetric = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -188,7 +188,7 @@ func (r *Registration) LoadTrustedPublicKeys() error {
 
 	dirPath := r.cfg.Certifier.TrustedKeysDirPath
 	if dirPath == "" {
-		return ErrTrustedKeyFilePathIsNotSet
+		return ErrTrustedKeyDirPathIsNotSet
 	}
 
 	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
