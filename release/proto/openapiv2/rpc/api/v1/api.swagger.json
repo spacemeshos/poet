@@ -150,10 +150,6 @@
           "type": "string",
           "format": "byte",
           "description": "The certifier's signature over `data`\nconfirming that the pubkey is verified."
-        },
-        "hint": {
-          "type": "string",
-          "format": "byte"
         }
       }
     },
