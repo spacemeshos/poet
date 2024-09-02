@@ -325,9 +325,6 @@ func Test_CheckCertificate(t *testing.T) {
 		require.NoError(t, err)
 		t.Cleanup(func() { require.NoError(t, r.Close()) })
 
-		t.Run("faillback to POW", func(t *testing.T) {
-
-		})
 		// missing certificate - fallback to PoW
 		powVerifier.EXPECT().Verify(challenge, nodeID, uint64(5)).Return(nil)
 		_, _, err = r.Submit(context.Background(), challenge, nil, nodeID, 5, registration.PowParams{}, nil, time.Time{})
@@ -418,11 +415,11 @@ func Test_CheckCertificate(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, r.Close()) })
 
 		t.Run("missing certificate - fallback to PoW", func(t *testing.T) {
+			powVerifier.EXPECT().Params().Return(registration.PowParams{}).AnyTimes()
 			powVerifier.EXPECT().Verify(challenge, nodeID, uint64(7)).Return(nil)
 			_, _, err = r.Submit(context.Background(), challenge, nil, nodeID, 7, r.PowParams(), nil, time.Time{})
 			require.NoError(t, err)
 		})
-
 		t.Run("valid certificate (unexpired)", func(t *testing.T) {
 			expiration := time.Now().Add(time.Hour)
 			data, err := shared.EncodeCert(&shared.Cert{Pubkey: nodeID, Expiration: &expiration})
