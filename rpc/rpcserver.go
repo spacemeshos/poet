@@ -158,7 +158,10 @@ func (r *rpcServer) Proof(ctx context.Context, in *api.ProofRequest) (*api.Proof
 	}
 }
 
-func (r *rpcServer) ReloadTrustedKeys(_ context.Context, _ *api.ReloadTrustedKeysRequest) (*api.ReloadTrustedKeysResponse, error) {
+func (r *rpcServer) ReloadTrustedKeys(
+	_ context.Context,
+	_ *api.ReloadTrustedKeysRequest,
+) (*api.ReloadTrustedKeysResponse, error) {
 	err := r.registration.LoadTrustedPublicKeys()
 	if err != nil {
 		return nil, err

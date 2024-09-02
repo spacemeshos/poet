@@ -76,7 +76,9 @@ func TestSubmitIdempotence(t *testing.T) {
 	req.Equal(uint(0), epoch)
 
 	// Try again - it should return the same result
-	epoch, _, err = r.Submit(context.Background(), challenge, nil, nodeID, nonce, registration.PowParams{}, nil, time.Time{})
+	epoch, _, err = r.Submit(
+		context.Background(), challenge,
+		nil, nodeID, nonce, registration.PowParams{}, nil, time.Time{})
 	req.NoError(err)
 	req.Equal(uint(0), epoch)
 
@@ -327,7 +329,8 @@ func Test_CheckCertificate(t *testing.T) {
 
 		// missing certificate - fallback to PoW
 		powVerifier.EXPECT().Verify(challenge, nodeID, uint64(5)).Return(nil)
-		_, _, err = r.Submit(context.Background(), challenge, nil, nodeID, 5, registration.PowParams{}, nil, time.Time{})
+		_, _, err = r.Submit(context.Background(), challenge,
+			nil, nodeID, 5, registration.PowParams{}, nil, time.Time{})
 		require.NoError(t, err)
 
 		// passed certificate - still fallback to PoW
