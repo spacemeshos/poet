@@ -42,7 +42,7 @@ func Test_VerifyCertificate(t *testing.T) {
 	nodeID := []byte("nodeID00nodeID00nodeID00nodeID00")
 	t.Run("valid certificate w/o expiration", func(t *testing.T) {
 		cert := createOpaqueCert(t, Cert{Pubkey: nodeID}, private)
-		c, err := VerifyCertificate(cert, pub, nodeID)
+		c, err := VerifyCertificate(cert, [][]byte{pub}, nodeID)
 		require.NoError(t, err)
 		require.Nil(t, c.Expiration)
 		require.Equal(t, nodeID, c.Pubkey)
@@ -51,7 +51,7 @@ func Test_VerifyCertificate(t *testing.T) {
 	t.Run("valid certificate (unexpired)", func(t *testing.T) {
 		expiration := time.Now().Add(time.Hour)
 		cert := createOpaqueCert(t, Cert{Pubkey: nodeID, Expiration: &expiration}, private)
-		c, err := VerifyCertificate(cert, pub, nodeID)
+		c, err := VerifyCertificate(cert, [][]byte{pub}, nodeID)
 		require.NoError(t, err)
 		require.Equal(t, expiration.Unix(), c.Expiration.Unix())
 		require.Equal(t, nodeID, c.Pubkey)
@@ -59,18 +59,18 @@ func Test_VerifyCertificate(t *testing.T) {
 	t.Run("valid certificate (expired)", func(t *testing.T) {
 		expiration := time.Now().Add(-time.Hour)
 		cert := createOpaqueCert(t, Cert{Pubkey: nodeID, Expiration: &expiration}, private)
-		_, err := VerifyCertificate(cert, pub, nodeID)
+		_, err := VerifyCertificate(cert, [][]byte{pub}, nodeID)
 		require.ErrorIs(t, err, ErrCertExpired)
 	})
 	t.Run("valid certificate (expired - time is zero)", func(t *testing.T) {
 		cert := createOpaqueCert(t, Cert{Pubkey: nodeID, Expiration: &time.Time{}}, private)
-		_, err := VerifyCertificate(cert, pub, nodeID)
+		_, err := VerifyCertificate(cert, [][]byte{pub}, nodeID)
 		require.Error(t, err)
 	})
 
 	t.Run("certificate for different node ID", func(t *testing.T) {
 		cert := createOpaqueCert(t, Cert{Pubkey: []byte("wrong node ID")}, private)
-		_, err := VerifyCertificate(cert, pub, nodeID)
+		_, err := VerifyCertificate(cert, [][]byte{pub}, nodeID)
 		require.Error(t, err)
 	})
 
@@ -80,14 +80,14 @@ func Test_VerifyCertificate(t *testing.T) {
 			Data:      data,
 			Signature: ed25519.Sign(private, data),
 		}
-		_, err := VerifyCertificate(cert, pub, nodeID)
+		_, err := VerifyCertificate(cert, [][]byte{pub}, nodeID)
 		require.Error(t, err)
 	})
 	t.Run("invalid certificate (wrong signature)", func(t *testing.T) {
 		_, wrongPrivate, err := ed25519.GenerateKey(nil)
 		require.NoError(t, err)
 		cert := createOpaqueCert(t, Cert{Pubkey: nodeID}, wrongPrivate)
-		_, err = VerifyCertificate(cert, pub, nodeID)
+		_, err = VerifyCertificate(cert, [][]byte{pub}, nodeID)
 		require.Error(t, err)
 	})
 }

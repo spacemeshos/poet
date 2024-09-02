@@ -88,8 +88,8 @@ func EncodeCert(c *Cert) ([]byte, error) {
 func VerifyCertificate(
 	certificate *OpaqueCert,
 	matchingKeys [][]byte,
-	nodeID []byte) (*Cert, error) {
-
+	nodeID []byte,
+) (*Cert, error) {
 	var certErr error
 	for _, key := range matchingKeys {
 		certErr = nil

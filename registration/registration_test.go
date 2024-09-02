@@ -426,11 +426,18 @@ func Test_CheckCertificate(t *testing.T) {
 		t.Run("missing certificate - fallback to PoW", func(t *testing.T) {
 			powVerifier.EXPECT().Params().Return(registration.PowParams{}).AnyTimes()
 			powVerifier.EXPECT().Verify(challenge, nodeID, uint64(7)).Return(nil)
-			_, _, err = r.Submit(context.Background(), challenge, nil, nodeID, 7, r.PowParams(), nil, time.Time{})
+			_, _, err = r.Submit(
+				context.Background(),
+				challenge,
+				nil, nodeID, 7, r.PowParams(), nil, time.Time{})
 			require.NoError(t, err)
 		})
 		t.Run("valid certificate (unexpired)", func(t *testing.T) {
-			_, _, err = r.Submit(context.Background(), challenge, pubKeyHint, nodeID, 0, r.PowParams(), defaultValidCert, time.Time{})
+			_, _, err = r.Submit(
+				context.Background(),
+				challenge,
+				pubKeyHint,
+				nodeID, 0, r.PowParams(), defaultValidCert, time.Time{})
 			require.NoError(t, err)
 		})
 		t.Run("valid certificate (expired)", func(t *testing.T) {
@@ -441,24 +448,34 @@ func Test_CheckCertificate(t *testing.T) {
 				Data:      data,
 				Signature: ed25519.Sign(private, data),
 			}
-			_, _, err = r.Submit(context.Background(), challenge, pubKeyHint, nodeID, 0, r.PowParams(), certificate, time.Time{})
+			_, _, err = r.Submit(
+				context.Background(),
+				challenge,
+				pubKeyHint, nodeID, 0, r.PowParams(), certificate, time.Time{})
 			require.ErrorIs(t, err, registration.ErrInvalidCertificate)
 		})
 
 		t.Run("valid certificate (no public key hint, use main pubkey as default)", func(t *testing.T) {
-			_, _, err = r.Submit(context.Background(), challenge, nil, nodeID, 0, r.PowParams(), defaultValidCert, time.Time{})
+			_, _, err = r.Submit(
+				context.Background(),
+				challenge,
+				nil, nodeID, 0, r.PowParams(), defaultValidCert, time.Time{})
 			require.NoError(t, err)
 		})
 
 		t.Run("valid certificate (invalid public key hint)", func(t *testing.T) {
 			invalidHint := []byte{1, 2, 3, 4, 5}
 
-			_, _, err = r.Submit(context.Background(), challenge, invalidHint, nodeID, 0, r.PowParams(), defaultValidCert, time.Time{})
+			_, _, err = r.Submit(
+				context.Background(), challenge,
+				invalidHint, nodeID, 0, r.PowParams(), defaultValidCert, time.Time{})
 			require.ErrorIs(t, err, registration.ErrInvalidCertificate)
 		})
 
 		t.Run("valid certificate (with loaded trusted keys)", func(t *testing.T) {
-			_, _, err = r.Submit(context.Background(), challenge, pubKeyHint, nodeID, 0, r.PowParams(), defaultValidCert, time.Time{})
+			_, _, err = r.Submit(
+				context.Background(), challenge,
+				pubKeyHint, nodeID, 0, r.PowParams(), defaultValidCert, time.Time{})
 			require.NoError(t, err)
 
 			key := registration.Base64Enc{}
@@ -466,16 +483,22 @@ func Test_CheckCertificate(t *testing.T) {
 			require.NoError(t, err)
 
 			trustedKeyHint := key.Bytes()[:shared.CertPubkeyHintSize]
-			_, _, err = r.Submit(context.Background(), challenge, trustedKeyHint, nodeID, 0, r.PowParams(), trustedKeyCert, time.Time{})
+			_, _, err = r.Submit(
+				context.Background(), challenge,
+				trustedKeyHint, nodeID, 0, r.PowParams(), trustedKeyCert, time.Time{})
 			require.ErrorIs(t, err, registration.ErrInvalidCertificate) // trusted keys are not loaded
 
 			err = r.LoadTrustedPublicKeys()
 			require.NoError(t, err)
 
-			_, _, err = r.Submit(context.Background(), challenge, pubKeyHint, nodeID, 0, r.PowParams(), defaultValidCert, time.Time{})
+			_, _, err = r.Submit(
+				context.Background(), challenge,
+				pubKeyHint, nodeID, 0, r.PowParams(), defaultValidCert, time.Time{})
 			require.NoError(t, err) // main public key of certifier still valid
 
-			_, _, err = r.Submit(context.Background(), challenge, trustedKeyHint, nodeID, 0, r.PowParams(), trustedKeyCert, time.Time{})
+			_, _, err = r.Submit(
+				context.Background(), challenge,
+				trustedKeyHint, nodeID, 0, r.PowParams(), trustedKeyCert, time.Time{})
 			require.NoError(t, err) // trusted keys are loaded
 		})
 
@@ -486,7 +509,9 @@ func Test_CheckCertificate(t *testing.T) {
 				Data:      data,
 				Signature: ed25519.Sign(private, data),
 			}
-			_, _, err = r.Submit(context.Background(), challenge, pubKeyHint, nodeID, 0, r.PowParams(), certificate, time.Time{})
+			_, _, err = r.Submit(
+				context.Background(), challenge,
+				pubKeyHint, nodeID, 0, r.PowParams(), certificate, time.Time{})
 			require.ErrorIs(t, err, registration.ErrInvalidCertificate)
 		})
 		t.Run("invalid certificate (signature)", func(t *testing.T) {
@@ -498,7 +523,9 @@ func Test_CheckCertificate(t *testing.T) {
 				Data:      data,
 				Signature: ed25519.Sign(wrongPrivate, data),
 			}
-			_, _, err = r.Submit(context.Background(), challenge, pubKeyHint, nodeID, 0, r.PowParams(), certificate, time.Time{})
+			_, _, err = r.Submit(
+				context.Background(), challenge,
+				pubKeyHint, nodeID, 0, r.PowParams(), certificate, time.Time{})
 			require.ErrorIs(t, err, registration.ErrInvalidCertificate)
 		})
 	})
@@ -514,7 +541,7 @@ func generateTestKeyPair() ([]byte, []byte, error) {
 
 func createTestKeyFile(t *testing.T, dir, name string, data []byte) string {
 	path := filepath.Join(dir, name)
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := os.WriteFile(path, data, 0o644); err != nil {
 		t.Fatalf("failed to write key file: %v", err)
 	}
 	return path

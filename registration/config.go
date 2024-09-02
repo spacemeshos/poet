@@ -45,7 +45,7 @@ func (k *Base64Enc) Bytes() []byte {
 type CertifierConfig struct {
 	URL                string    `long:"certifier-url"    description:"The URL of the certifier service"`
 	PubKey             Base64Enc `long:"certifier-pubkey" description:"The public key of the certifier service (base64 encoded)"`
-	TrustedKeysDirPath string    `long:"trusted-public-keys-dir-path" description:"The path to directory with trusted public keys"`
+	TrustedKeysDirPath string    `long:"trusted-pub-keys-dir-path" description:"The path to directory with trusted public keys"`
 }
 
 // implement zap.ObjectMarshaler interface.
