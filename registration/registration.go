@@ -1,10 +1,10 @@
 package registration
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -41,6 +41,7 @@ var (
 	ErrTooLateToRegister           = errors.New("too late to register for the desired round")
 	ErrCertificationIsNotSupported = errors.New("certificate is not supported")
 	ErrTrustedKeyDirPathIsNotSet   = errors.New("trusted keys directory path is not set in the configuration")
+	ErrNoMatchingCertPublicKeys    = errors.New("no matching cert public keys")
 	ErrInvalidPublicKey            = errors.New("invalid public key")
 
 	registerWithCertMetric = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -204,16 +205,16 @@ func (r *Registration) LoadTrustedPublicKeys() error {
 			return err
 		}
 
-		decodedKey, err := base64.StdEncoding.DecodeString(string(keyData))
-		if err != nil {
+		key := Base64Enc{}
+		if err = key.UnmarshalFlag(string(keyData)); err != nil {
 			return err
 		}
 
-		if len(decodedKey) != ed25519.PublicKeySize {
+		if len(key.Bytes()) != ed25519.PublicKeySize {
 			return ErrInvalidPublicKey
 		}
 
-		r.trustedPublicKeys = append(r.trustedPublicKeys, decodedKey)
+		r.trustedPublicKeys = append(r.trustedPublicKeys, key.Bytes())
 		return nil
 	})
 	return err
@@ -372,10 +373,28 @@ func (r *Registration) verifyCert(
 	certificate *shared.OpaqueCert,
 	certPubKeyHint, nodeID []byte,
 ) error {
-	r.trustedKeysMtx.RLock()
-	defer r.trustedKeysMtx.RUnlock()
+	var matchingKeys [][]byte
 
-	_, err := shared.VerifyCertificate(certificate, append(r.trustedPublicKeys, r.cfg.Certifier.PubKey.Bytes()), nodeID, certPubKeyHint)
+	if len(certPubKeyHint) == 0 {
+		matchingKeys = append(matchingKeys, r.cfg.Certifier.PubKey.Bytes())
+	} else {
+		r.trustedKeysMtx.RLock()
+
+		certKeys := append(r.trustedPublicKeys, r.cfg.Certifier.PubKey.Bytes())
+		for _, certKey := range certKeys {
+			if len(certKey) >= len(certPubKeyHint) && bytes.Equal(certKey[:len(certPubKeyHint)], certPubKeyHint) {
+				matchingKeys = append(matchingKeys, certKey)
+			}
+		}
+
+		r.trustedKeysMtx.RUnlock()
+
+		if len(matchingKeys) == 0 {
+			return ErrNoMatchingCertPublicKeys
+		}
+	}
+
+	_, err := shared.VerifyCertificate(certificate, matchingKeys, nodeID)
 	return err
 }
 

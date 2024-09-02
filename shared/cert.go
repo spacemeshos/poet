@@ -13,11 +13,9 @@ import (
 //go:generate scalegen -types CertOnWire,UnixTimestamp
 
 var (
-	ErrCertExpired              = errors.New("certificate expired")
-	ErrCertSignatureMismatch    = errors.New("signature mismatch")
-	ErrCertDataMismatch         = errors.New("pubkey mismatch")
-	ErrNoCertHint               = errors.New("no cert public key hint given")
-	ErrNoMatchingCertPublicKeys = errors.New("no matching cert public keys")
+	ErrCertExpired           = errors.New("certificate expired")
+	ErrCertSignatureMismatch = errors.New("signature mismatch")
+	ErrCertDataMismatch      = errors.New("pubkey mismatch")
 )
 
 type UnixTimestamp struct {
@@ -49,6 +47,8 @@ type OpaqueCert struct {
 func (c *OpaqueCert) Decode() (*Cert, error) {
 	return DecodeCert(c.Data)
 }
+
+const CertPubkeyHintSize = 4
 
 type Cert struct {
 	// The ID that this certificate allows registration for.
@@ -87,23 +87,8 @@ func EncodeCert(c *Cert) ([]byte, error) {
 
 func VerifyCertificate(
 	certificate *OpaqueCert,
-	certifierPubKeys [][]byte,
-	nodeID, pubKeyHint []byte) (*Cert, error) {
-
-	var matchingKeys [][]byte
-	if len(pubKeyHint) == 0 {
-		return nil, ErrNoCertHint
-	}
-
-	for _, certKey := range certifierPubKeys {
-		if len(certKey) >= len(pubKeyHint) && bytes.Equal(certKey[:len(pubKeyHint)], pubKeyHint) {
-			matchingKeys = append(matchingKeys, certKey)
-		}
-	}
-
-	if len(matchingKeys) == 0 {
-		return nil, ErrNoMatchingCertPublicKeys
-	}
+	matchingKeys [][]byte,
+	nodeID []byte) (*Cert, error) {
 
 	var certErr error
 	for _, key := range matchingKeys {
