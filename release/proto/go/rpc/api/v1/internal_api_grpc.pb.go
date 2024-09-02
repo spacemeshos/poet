@@ -26,6 +26,9 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ConfigurationServiceClient interface {
+	// *
+	// Reloads trusted public keys from directory, which is set up in config.
+	// Each public key is expected in separate file base64 encoded
 	ReloadTrustedKeys(ctx context.Context, in *ReloadTrustedKeysRequest, opts ...grpc.CallOption) (*ReloadTrustedKeysResponse, error)
 }
 
@@ -50,6 +53,9 @@ func (c *configurationServiceClient) ReloadTrustedKeys(ctx context.Context, in *
 // All implementations should embed UnimplementedConfigurationServiceServer
 // for forward compatibility
 type ConfigurationServiceServer interface {
+	// *
+	// Reloads trusted public keys from directory, which is set up in config.
+	// Each public key is expected in separate file base64 encoded
 	ReloadTrustedKeys(context.Context, *ReloadTrustedKeysRequest) (*ReloadTrustedKeysResponse, error)
 }
 

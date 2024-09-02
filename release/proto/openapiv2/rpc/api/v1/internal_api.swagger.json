@@ -18,6 +18,7 @@
   "paths": {
     "/v1/reload_trusted_keys": {
       "post": {
+        "summary": "*\nReloads trusted public keys from directory, which is set up in config.\nEach public key is expected in separate file base64 encoded",
         "operationId": "ConfigurationService_ReloadTrustedKeys",
         "responses": {
           "200": {
