@@ -96,19 +96,23 @@ func VerifyCertificate(
 
 		if !ed25519.Verify(key, certificate.Data, certificate.Signature) {
 			certErr = ErrCertSignatureMismatch
+			continue
 		}
 
 		decoded, err := certificate.Decode()
 		if err != nil {
 			certErr = fmt.Errorf("decoding: %w", err)
+			continue
 		}
 
 		if !bytes.Equal(decoded.Pubkey, nodeID) {
 			certErr = ErrCertDataMismatch
+			continue
 		}
 
 		if decoded.Expiration != nil && decoded.Expiration.Before(time.Now()) {
 			certErr = fmt.Errorf("%w at %v", ErrCertExpired, decoded.Expiration)
+			continue
 		}
 
 		if certErr == nil {

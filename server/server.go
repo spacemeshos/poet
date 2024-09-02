@@ -180,6 +180,8 @@ func (s *Server) Start(ctx context.Context) error {
 	)
 
 	api.RegisterPoetServiceServer(grpcServer, rpcServer)
+	api.RegisterConfigurationServiceServer(grpcServer, rpcServer)
+
 	reflection.Register(grpcServer)
 	metrics.InitializeMetrics(grpcServer)
 	prometheus.Register(metrics)

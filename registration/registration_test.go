@@ -371,14 +371,9 @@ func Test_CheckCertificate(t *testing.T) {
 
 		powVerifier := mocks.NewMockPowVerifier(gomock.NewController(t))
 
-		const (
-			dirNamePattern = "trusted_keys_test"
-			keysNum        = 2
-		)
+		const keysNum = 3
 
-		dir, err := os.MkdirTemp("", dirNamePattern)
-		require.NoError(t, err)
-
+		dir := t.TempDir()
 		t.Cleanup(func() {
 			os.RemoveAll(dir)
 		})
@@ -560,17 +555,10 @@ func TestLoadTrustedKeys(t *testing.T) {
 
 	workerSvc := mocks.NewMockWorkerService(gomock.NewController(t))
 
-	const (
-		dirNamePattern = "trusted_keys_test"
-		keysNum        = 3
-	)
+	const keysNum = 3
 
-	dir, err := os.MkdirTemp("", dirNamePattern)
-	require.NoError(t, err)
-
-	t.Cleanup(func() {
-		os.RemoveAll(dir)
-	})
+	dir := t.TempDir()
+	t.Cleanup(func() { os.RemoveAll(dir) })
 
 	for i := 0; i < keysNum; i++ {
 		validKey, _, err := generateTestKeyPair()

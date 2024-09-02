@@ -8,7 +8,9 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -272,6 +274,121 @@ func TestSubmitCertificateVerification(t *testing.T) {
 	})
 	cancel()
 	require.NoError(t, eg.Wait())
+}
+
+func createTestKeyFile(t *testing.T, dir, name string, data []byte) string {
+	path := filepath.Join(dir, name)
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatalf("failed to write key file: %v", err)
+	}
+	return path
+}
+
+// Test submitting a challenge followed by proof generation and getting the proof via GRPC.
+func TestLoadTrustedKeysAndSubmit(t *testing.T) {
+	const keysNum = 2
+
+	// create test files
+	dir := t.TempDir()
+	t.Cleanup(func() { os.RemoveAll(dir) })
+
+	var (
+		trustedKeyCert *shared.OpaqueCert
+		trustedKey     []byte
+	)
+
+	challenge := []byte("challenge")
+
+	// User credentials
+	userPubKey, userPrivKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	signature := ed25519.Sign(userPrivKey, challenge)
+
+	for i := 0; i < keysNum; i++ {
+		pubKey, private, err := ed25519.GenerateKey(nil)
+		require.NoError(t, err)
+
+		createTestKeyFile(t, dir, fmt.Sprintf("valid_key_%d.key", i), []byte(base64.StdEncoding.EncodeToString(pubKey)))
+
+		if i == keysNum-1 {
+			expiration := time.Now().Add(time.Hour)
+			data, err := shared.EncodeCert(&shared.Cert{Pubkey: userPubKey, Expiration: &expiration})
+			require.NoError(t, err)
+
+			trustedKeyCert = &shared.OpaqueCert{
+				Data:      data,
+				Signature: ed25519.Sign(private, data),
+			}
+			trustedKey = pubKey
+		}
+	}
+
+	t.Parallel()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
+
+	certifierPubKey, _, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	cfg := server.DefaultConfig()
+	cfg.DisableWorker = true
+	cfg.PoetDir = t.TempDir()
+	cfg.RawRPCListener = randomHost
+	cfg.RawRESTListener = randomHost
+	cfg.Registration.PowDifficulty = 3
+	cfg.Registration.Certifier = &registration.CertifierConfig{
+		URL:                "http://localhost:8080",
+		PubKey:             registration.Base64Enc(certifierPubKey),
+		TrustedKeysDirPath: dir,
+	}
+
+	srv, client := spawnPoet(ctx, t, *cfg)
+	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
+
+	conn, err := grpc.NewClient(
+		srv.GrpcAddr().String(),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, conn.Close()) })
+
+	configClient := api.NewConfigurationServiceClient(conn)
+
+	var eg errgroup.Group
+	eg.Go(func() error {
+		return srv.Start(ctx)
+	})
+
+	// trusted keys are not loaded
+	_, err = client.Submit(context.Background(), &api.SubmitRequest{
+		Challenge: challenge,
+		Pubkey:    userPubKey,
+		Signature: signature,
+		Certificate: &api.SubmitRequest_Certificate{
+			Data:      trustedKeyCert.Data,
+			Signature: trustedKeyCert.Signature,
+		},
+		CertificatePubkeyHint: trustedKey[:shared.CertPubkeyHintSize],
+	})
+	require.ErrorContains(t, err, registration.ErrInvalidCertificate.Error())
+
+	// load trusted keys
+	_, err = configClient.ReloadTrustedKeys(context.Background(), &api.ReloadTrustedKeysRequest{})
+	require.NoError(t, err)
+
+	_, err = client.Submit(context.Background(), &api.SubmitRequest{
+		Challenge: challenge,
+		Pubkey:    userPubKey,
+		Signature: signature,
+		Certificate: &api.SubmitRequest_Certificate{
+			Data:      trustedKeyCert.Data,
+			Signature: trustedKeyCert.Signature,
+		},
+		CertificatePubkeyHint: trustedKey[:shared.CertPubkeyHintSize],
+	})
+	require.NoError(t, err)
 }
 
 // Test submitting a challenge followed by proof generation and getting the proof via GRPC.
