@@ -85,39 +85,19 @@ func EncodeCert(c *Cert) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func VerifyCertificate(
-	certificate *OpaqueCert,
-	matchingKeys [][]byte,
-	nodeID []byte,
-) (*Cert, error) {
-	var certErr error
-	for _, key := range matchingKeys {
-		certErr = nil
-
-		if !ed25519.Verify(key, certificate.Data, certificate.Signature) {
-			certErr = ErrCertSignatureMismatch
-			continue
-		}
-
-		decoded, err := certificate.Decode()
-		if err != nil {
-			certErr = fmt.Errorf("decoding: %w", err)
-			continue
-		}
-
-		if !bytes.Equal(decoded.Pubkey, nodeID) {
-			certErr = ErrCertDataMismatch
-			continue
-		}
-
-		if decoded.Expiration != nil && decoded.Expiration.Before(time.Now()) {
-			certErr = fmt.Errorf("%w at %v", ErrCertExpired, decoded.Expiration)
-			continue
-		}
-
-		if certErr == nil {
-			return decoded, nil
-		}
+func VerifyCertificate(certificate *OpaqueCert, certifierPubKey, nodeID []byte) (*Cert, error) {
+	if !ed25519.Verify(certifierPubKey, certificate.Data, certificate.Signature) {
+		return nil, ErrCertSignatureMismatch
 	}
-	return nil, certErr
+	decoded, err := certificate.Decode()
+	if err != nil {
+		return nil, fmt.Errorf("decoding: %w", err)
+	}
+	if !bytes.Equal(decoded.Pubkey, nodeID) {
+		return nil, ErrCertDataMismatch
+	}
+	if decoded.Expiration != nil && decoded.Expiration.Before(time.Now()) {
+		return nil, fmt.Errorf("%w at %v", ErrCertExpired, decoded.Expiration)
+	}
+	return decoded, nil
 }

@@ -182,10 +182,7 @@ func (r *Registration) LoadTrustedPublicKeys() error {
 		return ErrCertificationIsNotSupported
 	}
 
-	r.trustedKeysMtx.Lock()
-	defer r.trustedKeysMtx.Unlock()
-
-	r.trustedPublicKeys = [][]byte{}
+	loadedKeys := make([][]byte, 0)
 
 	dirPath := r.cfg.Certifier.TrustedKeysDirPath
 	if dirPath == "" {
@@ -214,9 +211,14 @@ func (r *Registration) LoadTrustedPublicKeys() error {
 			return ErrInvalidPublicKey
 		}
 
-		r.trustedPublicKeys = append(r.trustedPublicKeys, key.Bytes())
+		loadedKeys = append(loadedKeys, key.Bytes())
 		return nil
 	})
+
+	r.trustedKeysMtx.Lock()
+	defer r.trustedKeysMtx.Unlock()
+
+	r.trustedPublicKeys = loadedKeys
 	return err
 }
 
@@ -394,8 +396,16 @@ func (r *Registration) verifyCert(
 		}
 	}
 
-	_, err := shared.VerifyCertificate(certificate, matchingKeys, nodeID)
-	return err
+	var certErr error
+	for _, key := range matchingKeys {
+		_, err := shared.VerifyCertificate(certificate, key, nodeID)
+		if err == nil {
+			// cert verified successfully
+			break
+		}
+		certErr = err
+	}
+	return certErr
 }
 
 func (r *Registration) Submit(
