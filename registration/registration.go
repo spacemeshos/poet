@@ -190,6 +190,9 @@ func (r *Registration) LoadTrustedPublicKeys(ctx context.Context) error {
 		return ErrTrustedKeyDirPathIsNotSet
 	}
 
+	r.trustedKeysMtx.Lock()
+	defer r.trustedKeysMtx.Unlock()
+
 	loadedKeys := make(map[shared.CertKeyHint][]ed25519.PublicKey)
 	if key := r.cfg.Certifier.PubKey.Bytes(); key != nil {
 		loadedKeys[shared.CertKeyHint(key)] = []ed25519.PublicKey{key}
@@ -229,12 +232,9 @@ func (r *Registration) LoadTrustedPublicKeys(ctx context.Context) error {
 		return fmt.Errorf("reading trusted keys from dir: %s: %w", r.cfg.Certifier.TrustedKeysDirPath, err)
 	}
 
-	r.trustedKeysMtx.Lock()
-	defer r.trustedKeysMtx.Unlock()
-
 	r.trustedCertifierKeys = loadedKeys
-
 	logging.FromContext(ctx).Info("loaded trusted public keys", zap.Any("keys", loadedKeys))
+
 	return nil
 }
 
