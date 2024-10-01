@@ -276,12 +276,6 @@ func TestSubmitCertificateVerification(t *testing.T) {
 	require.NoError(t, eg.Wait())
 }
 
-func createTestKeyFile(t *testing.T, dir, name string, data []byte) string {
-	path := filepath.Join(dir, name)
-	require.NoError(t, os.WriteFile(path, data, 0o644))
-	return path
-}
-
 // Test submitting a challenge followed by proof generation and getting the proof via GRPC.
 func TestLoadTrustedKeysAndSubmit(t *testing.T) {
 	const keysNum = 2

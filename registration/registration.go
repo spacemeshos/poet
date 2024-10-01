@@ -5,9 +5,11 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -197,7 +199,11 @@ func (r *Registration) LoadTrustedPublicKeys() error {
 			return nil
 		}
 
-		key := make([]byte, ed25519.PublicKeySize)
+		f, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
 		dec := base64.NewDecoder(base64.StdEncoding, f)
 		key, err := io.ReadAll(dec)
 		if err != nil {
