@@ -207,7 +207,7 @@ func (r *Registration) LoadTrustedPublicKeys() error {
 		dec := base64.NewDecoder(base64.StdEncoding, f)
 		key, err := io.ReadAll(dec)
 		if err != nil {
-			return err
+			return fmt.Errorf("%w: %w", ErrInvalidPublicKey, err)
 		}
 		if len(key) != ed25519.PublicKeySize {
 			return ErrInvalidPublicKey
@@ -377,25 +377,24 @@ func (r *Registration) verifyCert(
 	certificate *shared.OpaqueCert,
 	certPubKeyHint, nodeID []byte,
 ) error {
-	var matchingKeys [][]byte
-
 	if len(certPubKeyHint) == 0 {
-		matchingKeys = append(matchingKeys, r.cfg.Certifier.PubKey.Bytes())
-	} else {
-		r.trustedKeysMtx.RLock()
+		_, err := shared.VerifyCertificate(certificate, r.cfg.Certifier.PubKey.Bytes(), nodeID)
+		return err
+	}
+	r.trustedKeysMtx.RLock()
 
-		certKeys := append(r.trustedPublicKeys, r.cfg.Certifier.PubKey.Bytes())
-		for _, certKey := range certKeys {
-			if len(certKey) >= len(certPubKeyHint) && bytes.Equal(certKey[:len(certPubKeyHint)], certPubKeyHint) {
-				matchingKeys = append(matchingKeys, certKey)
-			}
+	var matchingKeys [][]byte
+	certKeys := append(r.trustedPublicKeys, r.cfg.Certifier.PubKey.Bytes())
+	for _, certKey := range certKeys {
+		if len(certKey) >= len(certPubKeyHint) && bytes.Equal(certKey[:len(certPubKeyHint)], certPubKeyHint) {
+			matchingKeys = append(matchingKeys, certKey)
 		}
+	}
 
-		r.trustedKeysMtx.RUnlock()
+	r.trustedKeysMtx.RUnlock()
 
-		if len(matchingKeys) == 0 {
-			return ErrNoMatchingCertPublicKeys
-		}
+	if len(matchingKeys) == 0 {
+		return ErrNoMatchingCertPublicKeys
 	}
 
 	for _, key := range matchingKeys {

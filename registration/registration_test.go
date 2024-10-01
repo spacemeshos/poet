@@ -476,11 +476,7 @@ func Test_CheckCertificate(t *testing.T) {
 				pubKeyHint, nodeID, 0, r.PowParams(), defaultValidCert, time.Time{})
 			require.NoError(t, err)
 
-			key := registration.Base64Enc{}
-			err = key.UnmarshalFlag(string(trustedKey))
-			require.NoError(t, err)
-
-			trustedKeyHint := key.Bytes()[:shared.CertPubkeyHintSize]
+			trustedKeyHint := trustedKey[:shared.CertPubkeyHintSize]
 			_, _, err = r.Submit(
 				context.Background(), challenge,
 				trustedKeyHint, nodeID, 0, r.PowParams(), trustedKeyCert, time.Time{})
@@ -529,22 +525,6 @@ func Test_CheckCertificate(t *testing.T) {
 	})
 }
 
-func generateTestKeyPair() ([]byte, []byte, error) {
-	pubKey, priv, err := ed25519.GenerateKey(nil)
-	if err != nil {
-		return nil, nil, err
-	}
-	return []byte(base64.StdEncoding.EncodeToString(pubKey)), priv, nil
-}
-
-func createTestKeyFile(t *testing.T, dir, name string, data []byte) string {
-	path := filepath.Join(dir, name)
-	if err := os.WriteFile(path, data, 0o644); err != nil {
-		t.Fatalf("failed to write key file: %v", err)
-	}
-	return path
-}
-
 func TestLoadTrustedKeys(t *testing.T) {
 	genesis := time.Now()
 
@@ -559,14 +539,14 @@ func TestLoadTrustedKeys(t *testing.T) {
 
 	dir := t.TempDir()
 
-	for i := 0; i < keysNum; i++ {
-		validKey, _, err := generateTestKeyPair()
+	for i := range keysNum {
+		pubKey, _, err := ed25519.GenerateKey(nil)
 		require.NoError(t, err)
-
-		createTestKeyFile(t, dir, fmt.Sprintf("valid_key_%d.key", i), validKey)
+		path := filepath.Join(dir, fmt.Sprintf("valid_key_%d.key", i))
+		require.NoError(t, os.WriteFile(path, []byte(base64.StdEncoding.EncodeToString(pubKey)), 0o644))
 	}
 
-	certPubKey, _, err := generateTestKeyPair()
+	pubKey, _, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
 
 	t.Run("certification check enabled", func(t *testing.T) {
@@ -580,7 +560,7 @@ func TestLoadTrustedKeys(t *testing.T) {
 				registration.Config{
 					Certifier: &registration.CertifierConfig{
 						TrustedKeysDirPath: dir,
-						PubKey:             certPubKey,
+						PubKey:             registration.Base64Enc(base64.StdEncoding.EncodeToString(pubKey)),
 					},
 				}),
 		)
