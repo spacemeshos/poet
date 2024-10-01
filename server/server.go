@@ -253,10 +253,15 @@ func (s *Server) Start(ctx context.Context) error {
 	<-ctx.Done()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
-	err = server.Shutdown(shutdownCtx)
 	grpcServer.GracefulStop()
 	configGrpcServer.GracefulStop()
-	return errors.Join(err, serverGroup.Wait())
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		logger.Sugar().Errorf("failed to shutdown server: %s", err)
+	}
+	if err := serverGroup.Wait(); err != nil {
+		logger.Sugar().Errorf("error when waiting to shutdown servers: %s", err)
+	}
+	return nil
 }
 
 func (s *Server) PublicKey() ed25519.PublicKey {
