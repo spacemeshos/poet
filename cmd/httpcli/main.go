@@ -86,11 +86,10 @@ func proof(address, round string) error {
 	fmt.Printf("got proof with %.2f M leaves and %d members\n", float64(proof.Leaves)/1_000_000, len(proof.Members))
 
 	if err := verify_proof(proof); err != nil {
-		fmt.Println("===================================")
-		fmt.Printf(" failed: %v\n", err)
-		fmt.Println("===================================")
+		fmt.Printf("❌ failed: %v\n", err)
+	} else {
+		fmt.Println("✅ proof is valid")
 	}
-	fmt.Println("proof is valid")
 	fmt.Println("===================================")
 	return nil
 }

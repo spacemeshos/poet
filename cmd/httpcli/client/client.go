@@ -100,7 +100,12 @@ func (c *HTTPPoetClient) PowParams(ctx context.Context) (*PoetPowParams, error) 
 }
 
 // Submit registers a challenge in the proving service current open round.
-func (c *HTTPPoetClient) Submit(ctx context.Context, prefix, challenge, signature, nodeID []byte, pow PoetPoW, cert []byte) error {
+func (c *HTTPPoetClient) Submit(
+	ctx context.Context,
+	prefix, challenge, signature, nodeID []byte,
+	pow PoetPoW,
+	cert []byte,
+) error {
 	request := rpcapi.SubmitRequest{
 		Prefix:    prefix,
 		Challenge: challenge,
@@ -146,7 +151,12 @@ func (c *HTTPPoetClient) req(ctx context.Context, method, path string, reqBody, 
 		return fmt.Errorf("marshaling request body: %w", err)
 	}
 
-	req, err := retryablehttp.NewRequestWithContext(ctx, method, c.baseURL.JoinPath(path).String(), bytes.NewReader(jsonReqBody))
+	req, err := retryablehttp.NewRequestWithContext(
+		ctx,
+		method,
+		c.baseURL.JoinPath(path).String(),
+		bytes.NewReader(jsonReqBody),
+	)
 	if err != nil {
 		return fmt.Errorf("creating HTTP request: %w", err)
 	}
