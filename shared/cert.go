@@ -48,7 +48,9 @@ func (c *OpaqueCert) Decode() (*Cert, error) {
 	return DecodeCert(c.Data)
 }
 
-const CertPubkeyHintSize = 4
+const CertKeyHintSize = 4
+
+type CertKeyHint [CertKeyHintSize]byte
 
 type Cert struct {
 	// The ID that this certificate allows registration for.

@@ -320,7 +320,6 @@ func TestLoadTrustedKeysAndSubmit(t *testing.T) {
 		Signature: ed25519.Sign(private, data),
 	}
 
-	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
@@ -367,7 +366,7 @@ func TestLoadTrustedKeysAndSubmit(t *testing.T) {
 			Data:      trustedKeyCert.Data,
 			Signature: trustedKeyCert.Signature,
 		},
-		CertificatePubkeyHint: trustedKey[:shared.CertPubkeyHintSize],
+		CertificatePubkeyHint: trustedKey[:shared.CertKeyHintSize],
 	})
 	require.ErrorContains(t, err, registration.ErrInvalidCertificate.Error())
 
@@ -383,7 +382,7 @@ func TestLoadTrustedKeysAndSubmit(t *testing.T) {
 			Data:      trustedKeyCert.Data,
 			Signature: trustedKeyCert.Signature,
 		},
-		CertificatePubkeyHint: trustedKey[:shared.CertPubkeyHintSize],
+		CertificatePubkeyHint: trustedKey[:shared.CertKeyHintSize],
 	})
 	require.NoError(t, err)
 }
