@@ -197,21 +197,17 @@ func (r *Registration) LoadTrustedPublicKeys() error {
 			return nil
 		}
 
-		keyData, err := os.ReadFile(path)
+		key := make([]byte, ed25519.PublicKeySize)
+		dec := base64.NewDecoder(base64.StdEncoding, f)
+		key, err := io.ReadAll(dec)
 		if err != nil {
 			return err
 		}
-
-		key := Base64Enc{}
-		if err = key.UnmarshalFlag(string(keyData)); err != nil {
-			return err
-		}
-
-		if len(key.Bytes()) != ed25519.PublicKeySize {
+		if len(key) != ed25519.PublicKeySize {
 			return ErrInvalidPublicKey
 		}
 
-		loadedKeys = append(loadedKeys, key.Bytes())
+		loadedKeys = append(loadedKeys, key)
 		return nil
 	})
 
@@ -396,16 +392,13 @@ func (r *Registration) verifyCert(
 		}
 	}
 
-	var certErr error
 	for _, key := range matchingKeys {
 		_, err := shared.VerifyCertificate(certificate, key, nodeID)
 		if err == nil {
-			// cert verified successfully
-			break
+			return nil
 		}
-		certErr = err
 	}
-	return certErr
+	return errors.New("failed to verify certificate")
 }
 
 func (r *Registration) Submit(
