@@ -374,33 +374,33 @@ func Test_CheckCertificate(t *testing.T) {
 		const keysNum = 3
 
 		dir := t.TempDir()
-		t.Cleanup(func() {
-			os.RemoveAll(dir)
-		})
 
 		var (
 			trustedKeyCert *shared.OpaqueCert
 			trustedKey     []byte
 		)
 
-		for i := 0; i < keysNum; i++ {
-			encodedPubkey, private, err := generateTestKeyPair()
+		// generate keys
+		for i := range keysNum - 1 {
+			pubKey, _, err := ed25519.GenerateKey(nil)
 			require.NoError(t, err)
 
-			createTestKeyFile(t, dir, fmt.Sprintf("valid_key_%d.key", i), encodedPubkey)
+			path := filepath.Join(dir, fmt.Sprintf("valid_key_%d.key", i))
+			require.NoError(t, os.WriteFile(path, []byte(base64.StdEncoding.EncodeToString(pubKey)), 0o644))
+		}
+		// generate key and certificate
+		trustedKey, private, err = ed25519.GenerateKey(nil)
+		require.NoError(t, err)
 
-			if i == keysNum-1 {
-				expiration := time.Now().Add(time.Hour)
-				data, err := shared.EncodeCert(&shared.Cert{Pubkey: nodeID, Expiration: &expiration})
-				require.NoError(t, err)
+		path := filepath.Join(dir, "valid_key.key")
+		require.NoError(t, os.WriteFile(path, []byte(base64.StdEncoding.EncodeToString(trustedKey)), 0o644))
+		expiration = time.Now().Add(time.Hour)
+		data, err = shared.EncodeCert(&shared.Cert{Pubkey: nodeID, Expiration: &expiration})
+		require.NoError(t, err)
 
-				trustedKeyCert = &shared.OpaqueCert{
-					Data:      data,
-					Signature: ed25519.Sign(private, data),
-				}
-
-				trustedKey = encodedPubkey
-			}
+		trustedKeyCert = &shared.OpaqueCert{
+			Data:      data,
+			Signature: ed25519.Sign(private, data),
 		}
 
 		r, err := registration.New(
@@ -558,7 +558,6 @@ func TestLoadTrustedKeys(t *testing.T) {
 	const keysNum = 3
 
 	dir := t.TempDir()
-	t.Cleanup(func() { os.RemoveAll(dir) })
 
 	for i := 0; i < keysNum; i++ {
 		validKey, _, err := generateTestKeyPair()
@@ -594,10 +593,8 @@ func TestLoadTrustedKeys(t *testing.T) {
 		})
 
 		t.Run("load invalid public keys", func(t *testing.T) {
-			_, priv, err := ed25519.GenerateKey(nil)
-			require.NoError(t, err)
-
-			createTestKeyFile(t, dir, "invalid_key.key", []byte(base64.StdEncoding.EncodeToString(priv)))
+			path := filepath.Join(dir, "invalid_key.key")
+			require.NoError(t, os.WriteFile(path, []byte("invalid"), 0o644))
 
 			err = r.LoadTrustedPublicKeys()
 			require.ErrorIs(t, err, registration.ErrInvalidPublicKey)

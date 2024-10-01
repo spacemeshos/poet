@@ -278,9 +278,7 @@ func TestSubmitCertificateVerification(t *testing.T) {
 
 func createTestKeyFile(t *testing.T, dir, name string, data []byte) string {
 	path := filepath.Join(dir, name)
-	if err := os.WriteFile(path, data, 0o644); err != nil {
-		t.Fatalf("failed to write key file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(path, data, 0o644))
 	return path
 }
 
@@ -300,28 +298,32 @@ func TestLoadTrustedKeysAndSubmit(t *testing.T) {
 	challenge := []byte("challenge")
 
 	// User credentials
-	userPubKey, userPrivKey, err := ed25519.GenerateKey(rand.Reader)
+	userPubKey, userPrivKey, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
 
 	signature := ed25519.Sign(userPrivKey, challenge)
 
-	for i := 0; i < keysNum; i++ {
-		pubKey, private, err := ed25519.GenerateKey(nil)
+	// generate keys
+	for i := range keysNum - 1 {
+		pubKey, _, err := ed25519.GenerateKey(nil)
 		require.NoError(t, err)
 
-		createTestKeyFile(t, dir, fmt.Sprintf("valid_key_%d.key", i), []byte(base64.StdEncoding.EncodeToString(pubKey)))
+		path := filepath.Join(dir, fmt.Sprintf("valid_key_%d.key", i))
+		require.NoError(t, os.WriteFile(path, []byte(base64.StdEncoding.EncodeToString(pubKey)), 0o644))
+	}
+	// generate key and certificate
+	trustedKey, private, err := ed25519.GenerateKey(nil)
+	require.NoError(t, err)
 
-		if i == keysNum-1 {
-			expiration := time.Now().Add(time.Hour)
-			data, err := shared.EncodeCert(&shared.Cert{Pubkey: userPubKey, Expiration: &expiration})
-			require.NoError(t, err)
+	path := filepath.Join(dir, "valid_key.key")
+	require.NoError(t, os.WriteFile(path, []byte(base64.StdEncoding.EncodeToString(trustedKey)), 0o644))
+	expiration := time.Now().Add(time.Hour)
+	data, err := shared.EncodeCert(&shared.Cert{Pubkey: userPubKey, Expiration: &expiration})
+	require.NoError(t, err)
 
-			trustedKeyCert = &shared.OpaqueCert{
-				Data:      data,
-				Signature: ed25519.Sign(private, data),
-			}
-			trustedKey = pubKey
-		}
+	trustedKeyCert = &shared.OpaqueCert{
+		Data:      data,
+		Signature: ed25519.Sign(private, data),
 	}
 
 	t.Parallel()
@@ -329,7 +331,7 @@ func TestLoadTrustedKeysAndSubmit(t *testing.T) {
 	defer cancel()
 	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
-	certifierPubKey, _, err := ed25519.GenerateKey(rand.Reader)
+	certifierPubKey, _, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
 
 	cfg := server.DefaultConfig()
@@ -360,6 +362,7 @@ func TestLoadTrustedKeysAndSubmit(t *testing.T) {
 	eg.Go(func() error {
 		return srv.Start(ctx)
 	})
+	t.Cleanup(func() { assert.NoError(t, eg.Wait()) })
 
 	// trusted keys are not loaded
 	_, err = client.Submit(context.Background(), &api.SubmitRequest{
