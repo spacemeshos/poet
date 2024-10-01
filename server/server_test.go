@@ -65,6 +65,7 @@ func TestInfoEndpoint(t *testing.T) {
 	cfg := server.DefaultConfig()
 	cfg.DisableWorker = true
 
+	cfg.ConfigRPCListener = randomHost
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 	cfg.Round.PhaseShift = 5 * time.Minute
@@ -137,6 +138,7 @@ func TestSubmitSignatureVerification(t *testing.T) {
 	cfg := server.DefaultConfig()
 	cfg.DisableWorker = true
 	cfg.PoetDir = t.TempDir()
+	cfg.ConfigRPCListener = randomHost
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 
@@ -189,6 +191,7 @@ func TestSubmitCertificateVerification(t *testing.T) {
 	cfg := server.DefaultConfig()
 	cfg.DisableWorker = true
 	cfg.PoetDir = t.TempDir()
+	cfg.ConfigRPCListener = randomHost
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 	cfg.Registration.PowDifficulty = 3
@@ -289,6 +292,7 @@ func TestLoadTrustedKeysAndSubmit(t *testing.T) {
 	cfg := server.DefaultConfig()
 	cfg.DisableWorker = true
 	cfg.PoetDir = t.TempDir()
+	cfg.ConfigRPCListener = randomHost
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 	cfg.Registration.PowDifficulty = 3
@@ -301,7 +305,7 @@ func TestLoadTrustedKeysAndSubmit(t *testing.T) {
 	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
 
 	conn, err := grpc.NewClient(
-		srv.GrpcAddr().String(),
+		srv.ConfigGrpcAddr().String(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	require.NoError(t, err)
@@ -377,6 +381,7 @@ func TestSubmitAndGetProof(t *testing.T) {
 	cfg.Round.EpochDuration = time.Second * 2
 	cfg.Round.PhaseShift = 0
 	cfg.Round.CycleGap = 0
+	cfg.ConfigRPCListener = randomHost
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 
@@ -449,6 +454,7 @@ func TestCannotSubmitMoreThanMaxRoundMembers(t *testing.T) {
 
 	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
+	cfg.ConfigRPCListener = randomHost
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 	cfg.Registration.MaxRoundMembers = 2
@@ -498,6 +504,7 @@ func TestSubmittingChallengeTwice(t *testing.T) {
 
 	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
+	cfg.ConfigRPCListener = randomHost
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 
@@ -546,6 +553,7 @@ func TestSubmittingWithNeedByTimestamp(t *testing.T) {
 
 	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
+	cfg.ConfigRPCListener = randomHost
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 
@@ -599,6 +607,7 @@ func TestPersistingPowParams(t *testing.T) {
 	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
 	cfg.Registration.PowDifficulty = uint(77)
+	cfg.ConfigRPCListener = randomHost
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 
@@ -641,6 +650,7 @@ func TestPersistingKeys(t *testing.T) {
 
 	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
+	cfg.ConfigRPCListener = randomHost
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 
@@ -685,6 +695,7 @@ func TestLoadSubmits(t *testing.T) {
 	cfg.PoetDir = t.TempDir()
 	cfg.Round.EpochDuration = time.Minute * 2
 	cfg.Round.PhaseShift = time.Minute
+	cfg.ConfigRPCListener = randomHost
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 	server.SetupConfig(cfg)
@@ -760,6 +771,7 @@ func TestRegistrationOnlyMode(t *testing.T) {
 	cfg.Round.EpochDuration = time.Millisecond * 10
 	cfg.Round.PhaseShift = 0
 	cfg.Round.CycleGap = 0
+	cfg.ConfigRPCListener = randomHost
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 
@@ -819,6 +831,7 @@ func TestConfiguringPrivateKey(t *testing.T) {
 	cfg := server.DefaultConfig()
 	cfg.DisableWorker = true
 	cfg.PoetDir = t.TempDir()
+	cfg.ConfigRPCListener = randomHost
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 

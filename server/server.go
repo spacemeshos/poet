@@ -36,11 +36,13 @@ type svc interface {
 }
 
 type Server struct {
-	worker       svc
-	reg          *registration.Registration
-	cfg          Config
-	rpcListener  net.Listener
-	restListener net.Listener
+	worker svc
+	reg    *registration.Registration
+	cfg    Config
+
+	configRpcListener net.Listener
+	rpcListener       net.Listener
+	restListener      net.Listener
 
 	privateKey ed25519.PrivateKey
 }
@@ -52,6 +54,16 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		return nil, err
 	}
 	rpcListener, err := net.Listen(addr.Network(), addr.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to listen: %v", err)
+	}
+
+	// Resolve the config RPC listener
+	addr, err = net.ResolveTCPAddr("tcp", cfg.ConfigRPCListener)
+	if err != nil {
+		return nil, err
+	}
+	configRpcListener, err := net.Listen(addr.Network(), addr.String())
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen: %v", err)
 	}
@@ -114,12 +126,14 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	}
 
 	return &Server{
-		worker:       worker,
-		reg:          reg,
-		cfg:          cfg,
-		rpcListener:  rpcListener,
-		restListener: restListener,
-		privateKey:   privateKey,
+		worker:     worker,
+		reg:        reg,
+		cfg:        cfg,
+		privateKey: privateKey,
+
+		configRpcListener: configRpcListener,
+		rpcListener:       rpcListener,
+		restListener:      restListener,
 	}, nil
 }
 
@@ -130,6 +144,11 @@ func (s *Server) Close() error {
 // GrpcAddr returns the address that server is listening on for GRPC.
 func (s *Server) GrpcAddr() net.Addr {
 	return s.rpcListener.Addr()
+}
+
+// GrpcAddr returns the address that the configuration server is listening on for GRPC.
+func (s *Server) ConfigGrpcAddr() net.Addr {
+	return s.configRpcListener.Addr()
 }
 
 // GrpcRestProxyAddr returns the address that REST-GRPC proxy is listening on.
@@ -180,16 +199,29 @@ func (s *Server) Start(ctx context.Context) error {
 	)
 
 	api.RegisterPoetServiceServer(grpcServer, rpcServer)
-	api.RegisterConfigurationServiceServer(grpcServer, rpcServer)
 
 	reflection.Register(grpcServer)
 	metrics.InitializeMetrics(grpcServer)
-	prometheus.Register(metrics)
 
 	// Start the gRPC server listening for HTTP/2 connections.
 	serverGroup.Go(func() error {
 		logger.Sugar().Infof("GRPC server listening on %s", s.rpcListener.Addr())
 		return grpcServer.Serve(s.rpcListener)
+	})
+
+	configGrpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(grpcmw.ChainUnaryServer(loggerInterceptor(logger), metrics.UnaryServerInterceptor())),
+	)
+	api.RegisterConfigurationServiceServer(configGrpcServer, rpcServer)
+
+	reflection.Register(configGrpcServer)
+	metrics.InitializeMetrics(configGrpcServer)
+	prometheus.Register(metrics)
+
+	// Start the gRPC server listening for HTTP/2 connections.
+	serverGroup.Go(func() error {
+		logger.Sugar().Infof("Config GRPC server listening on %s", s.configRpcListener.Addr())
+		return configGrpcServer.Serve(s.configRpcListener)
 	})
 
 	// Start the REST proxy for the gRPC server above.
@@ -223,6 +255,7 @@ func (s *Server) Start(ctx context.Context) error {
 	defer cancel()
 	err = server.Shutdown(shutdownCtx)
 	grpcServer.GracefulStop()
+	configGrpcServer.GracefulStop()
 	return errors.Join(err, serverGroup.Wait())
 }
 
