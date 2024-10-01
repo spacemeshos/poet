@@ -414,15 +414,13 @@ func (r *Registration) verifyCert(
 		return ErrNoMatchingCertPublicKeys
 	}
 
-	var certErrors error
 	for _, key := range matchingKeys {
 		_, err := shared.VerifyCertificate(certificate, key, nodeID)
 		if err == nil {
 			return nil
 		}
-		certErrors = errors.Join(err)
 	}
-	return fmt.Errorf("%w: errors: %w", ErrInvalidCertificate, certErrors)
+	return ErrInvalidCertificate
 }
 
 func (r *Registration) Submit(
