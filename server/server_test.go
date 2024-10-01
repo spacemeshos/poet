@@ -282,25 +282,6 @@ func TestLoadTrustedKeysAndSubmit(t *testing.T) {
 	userPubKey, userPrivKey, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
 
-	// generate keys
-	var (
-		trustedKeysDir = t.TempDir()
-		trustedKeys    []ed25519.PrivateKey
-	)
-	for i := range 3 {
-		pubKey, privKey, err := ed25519.GenerateKey(nil)
-		require.NoError(t, err)
-		trustedKeys = append(trustedKeys, privKey)
-
-		path := filepath.Join(trustedKeysDir, fmt.Sprintf("valid_key_%d.key", i))
-		require.NoError(t, os.WriteFile(path, []byte(base64.StdEncoding.EncodeToString(pubKey)), 0o644))
-	}
-	trustedKey, private := trustedKeys[0].Public().(ed25519.PublicKey), trustedKeys[0]
-
-	expiration := time.Now().Add(time.Hour)
-	trustedKeyCert, err := shared.EncodeCert(&shared.Cert{Pubkey: userPubKey, Expiration: &expiration})
-	require.NoError(t, err)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
@@ -313,7 +294,7 @@ func TestLoadTrustedKeysAndSubmit(t *testing.T) {
 	cfg.Registration.PowDifficulty = 3
 	cfg.Registration.Certifier = &registration.CertifierConfig{
 		PubKey:             registration.Base64Enc("abcd"),
-		TrustedKeysDirPath: trustedKeysDir,
+		TrustedKeysDirPath: t.TempDir(),
 	}
 
 	srv, client := spawnPoet(ctx, t, *cfg)
@@ -333,6 +314,24 @@ func TestLoadTrustedKeysAndSubmit(t *testing.T) {
 		return srv.Start(ctx)
 	})
 	t.Cleanup(func() { assert.NoError(t, eg.Wait()) })
+
+	// generate keys
+	var (
+		trustedKeys []ed25519.PrivateKey
+	)
+	for i := range 3 {
+		pubKey, privKey, err := ed25519.GenerateKey(nil)
+		require.NoError(t, err)
+		trustedKeys = append(trustedKeys, privKey)
+
+		path := filepath.Join(cfg.Registration.Certifier.TrustedKeysDirPath, fmt.Sprintf("valid_key_%d.key", i))
+		require.NoError(t, os.WriteFile(path, []byte(base64.StdEncoding.EncodeToString(pubKey)), 0o644))
+	}
+	trustedKey, private := trustedKeys[0].Public().(ed25519.PublicKey), trustedKeys[0]
+
+	expiration := time.Now().Add(time.Hour)
+	trustedKeyCert, err := shared.EncodeCert(&shared.Cert{Pubkey: userPubKey, Expiration: &expiration})
+	require.NoError(t, err)
 
 	// trusted keys are not loaded
 	_, err = client.Submit(context.Background(), &api.SubmitRequest{

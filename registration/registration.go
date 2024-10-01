@@ -158,12 +158,13 @@ func New(
 
 	if r.cfg.Certifier != nil && r.cfg.Certifier.PubKey != nil {
 		logging.FromContext(ctx).Info("configured certifier", zap.Inline(r.cfg.Certifier))
-		r.trustedCertifierKeys = map[shared.CertKeyHint][]ed25519.PublicKey{
-			shared.CertKeyHint(options.cfg.Certifier.PubKey.Bytes()): {options.cfg.Certifier.PubKey.Bytes()},
-		}
 	} else {
-		logging.FromContext(ctx).Info("disabled certificate checking")
-		r.cfg.Certifier = nil
+		logging.FromContext(ctx).Info("certifier is not configured")
+	}
+	if r.cfg.Certifier != nil && r.cfg.Certifier.TrustedKeysDirPath != "" {
+		if err := r.LoadTrustedPublicKeys(ctx); err != nil {
+			return nil, fmt.Errorf("loading trusted public keys: %w", err)
+		}
 	}
 
 	epoch := r.roundCfg.OpenRoundId(r.genesis, time.Now())
@@ -189,8 +190,9 @@ func (r *Registration) LoadTrustedPublicKeys(ctx context.Context) error {
 		return ErrTrustedKeyDirPathIsNotSet
 	}
 
-	loadedKeys := map[shared.CertKeyHint][]ed25519.PublicKey{
-		shared.CertKeyHint(r.cfg.Certifier.PubKey.Bytes()): {r.cfg.Certifier.PubKey.Bytes()},
+	loadedKeys := make(map[shared.CertKeyHint][]ed25519.PublicKey)
+	if key := r.cfg.Certifier.PubKey.Bytes(); key != nil {
+		loadedKeys[shared.CertKeyHint(key)] = []ed25519.PublicKey{key}
 	}
 
 	err := filepath.Walk(r.cfg.Certifier.TrustedKeysDirPath, func(path string, info os.FileInfo, err error) error {
@@ -385,14 +387,24 @@ func (r *Registration) newRoundOpts() []newRoundOptionFunc {
 	}
 }
 
+// verifyCert verifies the certificate is signed by a recognized certifier.
+//
+// The hint is optional, however, without it, we only check the default certifier public key,
+// if it is configured. If the default certifier is not configured, we return an error.
+//
+// If the hint is provided we check certificate signature against all matching keys.
 func (r *Registration) verifyCert(
 	certificate *shared.OpaqueCert,
 	certPubKeyHint *shared.CertKeyHint,
 	nodeID []byte,
 ) error {
+	// fallback to the default certifier if no hint is provided and the default certifier is configured
 	if certPubKeyHint == nil {
-		_, err := shared.VerifyCertificate(certificate, r.cfg.Certifier.PubKey.Bytes(), nodeID)
-		return err
+		if key := r.cfg.Certifier.PubKey.Bytes(); len(key) != 0 {
+			_, err := shared.VerifyCertificate(certificate, key, nodeID)
+			return err
+		}
+		return ErrNoMatchingCertPublicKeys
 	}
 	r.trustedKeysMtx.RLock()
 	matchingKeys, ok := r.trustedCertifierKeys[*certPubKeyHint]
