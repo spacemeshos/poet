@@ -315,6 +315,10 @@
         },
         "certificate": {
           "$ref": "#/definitions/SubmitRequestCertificate"
+        },
+        "certificatePubkeyHint": {
+          "type": "string",
+          "format": "byte"
         }
       }
     },

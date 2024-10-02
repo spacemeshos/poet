@@ -8,7 +8,9 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -63,6 +65,7 @@ func TestInfoEndpoint(t *testing.T) {
 	cfg := server.DefaultConfig()
 	cfg.DisableWorker = true
 
+	cfg.ConfigRPCListener = randomHost
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 	cfg.Round.PhaseShift = 5 * time.Minute
@@ -135,6 +138,7 @@ func TestSubmitSignatureVerification(t *testing.T) {
 	cfg := server.DefaultConfig()
 	cfg.DisableWorker = true
 	cfg.PoetDir = t.TempDir()
+	cfg.ConfigRPCListener = randomHost
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 
@@ -187,6 +191,7 @@ func TestSubmitCertificateVerification(t *testing.T) {
 	cfg := server.DefaultConfig()
 	cfg.DisableWorker = true
 	cfg.PoetDir = t.TempDir()
+	cfg.ConfigRPCListener = randomHost
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 	cfg.Registration.PowDifficulty = 3
@@ -275,6 +280,94 @@ func TestSubmitCertificateVerification(t *testing.T) {
 }
 
 // Test submitting a challenge followed by proof generation and getting the proof via GRPC.
+func TestLoadTrustedKeysAndSubmit(t *testing.T) {
+	// User credentials
+	userPubKey, userPrivKey, err := ed25519.GenerateKey(nil)
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
+
+	cfg := server.DefaultConfig()
+	cfg.DisableWorker = true
+	cfg.PoetDir = t.TempDir()
+	cfg.ConfigRPCListener = randomHost
+	cfg.RawRPCListener = randomHost
+	cfg.RawRESTListener = randomHost
+	cfg.Registration.PowDifficulty = 3
+	cfg.Registration.Certifier = &registration.CertifierConfig{
+		PubKey:             registration.Base64Enc("abcd"),
+		TrustedKeysDirPath: t.TempDir(),
+	}
+
+	srv, client := spawnPoet(ctx, t, *cfg)
+	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
+
+	conn, err := grpc.NewClient(
+		srv.ConfigGrpcAddr().String(),
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, conn.Close()) })
+
+	configClient := api.NewConfigurationServiceClient(conn)
+
+	var eg errgroup.Group
+	eg.Go(func() error {
+		return srv.Start(ctx)
+	})
+	t.Cleanup(func() { assert.NoError(t, eg.Wait()) })
+
+	// generate keys
+	var (
+		trustedKeys []ed25519.PrivateKey
+	)
+	for i := range 3 {
+		pubKey, privKey, err := ed25519.GenerateKey(nil)
+		require.NoError(t, err)
+		trustedKeys = append(trustedKeys, privKey)
+
+		path := filepath.Join(cfg.Registration.Certifier.TrustedKeysDirPath, fmt.Sprintf("valid_key_%d.key", i))
+		require.NoError(t, os.WriteFile(path, []byte(base64.StdEncoding.EncodeToString(pubKey)), 0o644))
+	}
+	trustedKey, private := trustedKeys[0].Public().(ed25519.PublicKey), trustedKeys[0]
+
+	expiration := time.Now().Add(time.Hour)
+	trustedKeyCert, err := shared.EncodeCert(&shared.Cert{Pubkey: userPubKey, Expiration: &expiration})
+	require.NoError(t, err)
+
+	// trusted keys are not loaded
+	_, err = client.Submit(context.Background(), &api.SubmitRequest{
+		Challenge: []byte("challenge"),
+		Pubkey:    userPubKey,
+		Signature: ed25519.Sign(userPrivKey, []byte("challenge")),
+		Certificate: &api.SubmitRequest_Certificate{
+			Data:      trustedKeyCert,
+			Signature: ed25519.Sign(private, trustedKeyCert),
+		},
+		CertificatePubkeyHint: trustedKey[:shared.CertKeyHintSize],
+	})
+	require.ErrorContains(t, err, registration.ErrInvalidCertificate.Error())
+
+	// load trusted keys
+	_, err = configClient.ReloadTrustedKeys(context.Background(), &api.ReloadTrustedKeysRequest{})
+	require.NoError(t, err)
+
+	_, err = client.Submit(context.Background(), &api.SubmitRequest{
+		Challenge: []byte("challenge"),
+		Pubkey:    userPubKey,
+		Signature: ed25519.Sign(userPrivKey, []byte("challenge")),
+		Certificate: &api.SubmitRequest_Certificate{
+			Data:      trustedKeyCert,
+			Signature: ed25519.Sign(private, trustedKeyCert),
+		},
+		CertificatePubkeyHint: trustedKey[:shared.CertKeyHintSize],
+	})
+	require.NoError(t, err)
+}
+
+// Test submitting a challenge followed by proof generation and getting the proof via GRPC.
 func TestSubmitAndGetProof(t *testing.T) {
 	t.Parallel()
 	req := require.New(t)
@@ -288,6 +381,7 @@ func TestSubmitAndGetProof(t *testing.T) {
 	cfg.Round.EpochDuration = time.Second * 2
 	cfg.Round.PhaseShift = 0
 	cfg.Round.CycleGap = 0
+	cfg.ConfigRPCListener = randomHost
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 
@@ -360,6 +454,7 @@ func TestCannotSubmitMoreThanMaxRoundMembers(t *testing.T) {
 
 	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
+	cfg.ConfigRPCListener = randomHost
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 	cfg.Registration.MaxRoundMembers = 2
@@ -409,6 +504,7 @@ func TestSubmittingChallengeTwice(t *testing.T) {
 
 	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
+	cfg.ConfigRPCListener = randomHost
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 
@@ -457,6 +553,7 @@ func TestSubmittingWithNeedByTimestamp(t *testing.T) {
 
 	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
+	cfg.ConfigRPCListener = randomHost
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 
@@ -510,6 +607,7 @@ func TestPersistingPowParams(t *testing.T) {
 	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
 	cfg.Registration.PowDifficulty = uint(77)
+	cfg.ConfigRPCListener = randomHost
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 
@@ -552,6 +650,7 @@ func TestPersistingKeys(t *testing.T) {
 
 	cfg := server.DefaultConfig()
 	cfg.PoetDir = t.TempDir()
+	cfg.ConfigRPCListener = randomHost
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 
@@ -596,6 +695,7 @@ func TestLoadSubmits(t *testing.T) {
 	cfg.PoetDir = t.TempDir()
 	cfg.Round.EpochDuration = time.Minute * 2
 	cfg.Round.PhaseShift = time.Minute
+	cfg.ConfigRPCListener = randomHost
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 	server.SetupConfig(cfg)
@@ -671,6 +771,7 @@ func TestRegistrationOnlyMode(t *testing.T) {
 	cfg.Round.EpochDuration = time.Millisecond * 10
 	cfg.Round.PhaseShift = 0
 	cfg.Round.CycleGap = 0
+	cfg.ConfigRPCListener = randomHost
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 
@@ -730,6 +831,7 @@ func TestConfiguringPrivateKey(t *testing.T) {
 	cfg := server.DefaultConfig()
 	cfg.DisableWorker = true
 	cfg.PoetDir = t.TempDir()
+	cfg.ConfigRPCListener = randomHost
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 

@@ -39,16 +39,34 @@ func (k *Base64Enc) UnmarshalFlag(value string) error {
 }
 
 func (k *Base64Enc) Bytes() []byte {
-	return []byte(*k)
+	return *k
 }
 
+// Configuration of registration certificates.
+//
+// Support for registering with certificates is enabled by setting at least one of:
+//   - `PubKey`
+//   - `TrustedKeysDirPath`
+//
+// The `PubKey` is the public key of the certifier exposed via the URL field.
+// It is legacy and doesn't require the client to pass a key hint. A Submit() without
+// a hint will use this key.
+//
+// The `TrustedKeysDirPath` allows for configuring more than one key, but without
+// a URL to the related certifier(s). To use certificates signed with the private part of
+// these keys, the client must pass a key hint to Submit().
+// The keys are loaded on boot and on demand and together with the `PubKey` form a set
+// of trusted keys.
+//
+//nolint:lll
 type CertifierConfig struct {
-	URL    string    `long:"certifier-url"    description:"The URL of the certifier service"`
-	PubKey Base64Enc `long:"certifier-pubkey" description:"The public key of the certifier service (base64 encoded)"`
+	URL                string    `long:"certifier-url"             description:"The URL of the certifier service"`
+	PubKey             Base64Enc `long:"certifier-pubkey"          description:"The public key of the certifier service (base64 encoded)"`
+	TrustedKeysDirPath string    `long:"trusted-pub-keys-dir-path" description:"The path to directory with trusted public keys"`
 }
 
 // implement zap.ObjectMarshaler interface.
-func (c CertifierConfig) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+func (c *CertifierConfig) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("url", c.URL)
 	enc.AddString("pubkey", base64.StdEncoding.EncodeToString(c.PubKey))
 	return nil

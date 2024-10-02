@@ -4,10 +4,13 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strconv"
 	"sync"
@@ -35,8 +38,12 @@ type roundConfig interface {
 }
 
 var (
-	ErrInvalidCertificate = errors.New("invalid certificate")
-	ErrTooLateToRegister  = errors.New("too late to register for the desired round")
+	ErrInvalidCertificate          = errors.New("invalid certificate")
+	ErrTooLateToRegister           = errors.New("too late to register for the desired round")
+	ErrCertificationIsNotSupported = errors.New("certificate is not supported")
+	ErrTrustedKeyDirPathIsNotSet   = errors.New("trusted keys directory path is not set in the configuration")
+	ErrNoMatchingCertPublicKeys    = errors.New("no matching cert public keys")
+	ErrInvalidPublicKey            = errors.New("invalid public key")
 
 	registerWithCertMetric = promauto.NewCounterVec(prometheus.CounterOpts{
 		Namespace: "poet",
@@ -65,6 +72,9 @@ type Registration struct {
 	roundCfg roundConfig
 	dbdir    string
 	privKey  ed25519.PrivateKey
+
+	trustedKeysMtx       sync.RWMutex
+	trustedCertifierKeys map[shared.CertKeyHint][]ed25519.PublicKey
 
 	openRoundMutex sync.RWMutex
 	openRound      *round
@@ -149,8 +159,12 @@ func New(
 	if r.cfg.Certifier != nil && r.cfg.Certifier.PubKey != nil {
 		logging.FromContext(ctx).Info("configured certifier", zap.Inline(r.cfg.Certifier))
 	} else {
-		logging.FromContext(ctx).Info("disabled certificate checking")
-		r.cfg.Certifier = nil
+		logging.FromContext(ctx).Info("certifier is not configured")
+	}
+	if r.cfg.Certifier != nil && r.cfg.Certifier.TrustedKeysDirPath != "" {
+		if err := r.LoadTrustedPublicKeys(ctx); err != nil {
+			return nil, fmt.Errorf("loading trusted public keys: %w", err)
+		}
 	}
 
 	epoch := r.roundCfg.OpenRoundId(r.genesis, time.Now())
@@ -166,6 +180,62 @@ func New(
 
 func (r *Registration) CertifierInfo() *CertifierConfig {
 	return r.cfg.Certifier
+}
+
+func (r *Registration) LoadTrustedPublicKeys(ctx context.Context) error {
+	if r.cfg.Certifier == nil {
+		return ErrCertificationIsNotSupported
+	}
+	if r.cfg.Certifier.TrustedKeysDirPath == "" {
+		return ErrTrustedKeyDirPathIsNotSet
+	}
+
+	r.trustedKeysMtx.Lock()
+	defer r.trustedKeysMtx.Unlock()
+
+	loadedKeys := make(map[shared.CertKeyHint][]ed25519.PublicKey)
+	if key := r.cfg.Certifier.PubKey.Bytes(); key != nil {
+		loadedKeys[shared.CertKeyHint(key)] = []ed25519.PublicKey{key}
+	}
+
+	err := filepath.Walk(r.cfg.Certifier.TrustedKeysDirPath, func(path string, info os.FileInfo, err error) error {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		if err != nil {
+			return err
+		}
+		if info.IsDir() || filepath.Ext(path) != ".key" {
+			return nil
+		}
+
+		f, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		dec := base64.NewDecoder(base64.StdEncoding, f)
+		key, err := io.ReadAll(dec)
+		if err != nil {
+			return fmt.Errorf("%w: %w", ErrInvalidPublicKey, err)
+		}
+		if len(key) != ed25519.PublicKeySize {
+			return ErrInvalidPublicKey
+		}
+		hint := shared.CertKeyHint(key)
+		loadedKeys[hint] = append(loadedKeys[hint], key)
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("reading trusted keys from dir: %s: %w", r.cfg.Certifier.TrustedKeysDirPath, err)
+	}
+
+	r.trustedCertifierKeys = loadedKeys
+	logging.FromContext(ctx).Info("loaded trusted public keys", zap.Any("keys", loadedKeys))
+
+	return nil
 }
 
 func (r *Registration) Pubkey() ed25519.PublicKey {
@@ -317,12 +387,49 @@ func (r *Registration) newRoundOpts() []newRoundOptionFunc {
 	}
 }
 
+// verifyCert verifies the certificate is signed by a recognized certifier.
+//
+// The hint is optional, however, without it, we only check the default certifier public key,
+// if it is configured. If the default certifier is not configured, we return an error.
+//
+// If the hint is provided we check certificate signature against all matching keys.
+func (r *Registration) verifyCert(
+	certificate *shared.OpaqueCert,
+	certPubKeyHint *shared.CertKeyHint,
+	nodeID []byte,
+) error {
+	// fallback to the default certifier if no hint is provided and the default certifier is configured
+	if certPubKeyHint == nil {
+		if key := r.cfg.Certifier.PubKey.Bytes(); len(key) != 0 {
+			_, err := shared.VerifyCertificate(certificate, key, nodeID)
+			return err
+		}
+		return ErrNoMatchingCertPublicKeys
+	}
+	r.trustedKeysMtx.RLock()
+	matchingKeys, ok := r.trustedCertifierKeys[*certPubKeyHint]
+	r.trustedKeysMtx.RUnlock()
+
+	if !ok {
+		return ErrNoMatchingCertPublicKeys
+	}
+
+	for _, key := range matchingKeys {
+		_, err := shared.VerifyCertificate(certificate, key, nodeID)
+		if err == nil {
+			return nil
+		}
+	}
+	return ErrInvalidCertificate
+}
+
 func (r *Registration) Submit(
 	ctx context.Context,
 	challenge, nodeID []byte,
 	// TODO: remove deprecated PoW
 	nonce uint64,
 	powParams PowParams,
+	certPubkeyHint *shared.CertKeyHint,
 	certificate *shared.OpaqueCert,
 	deadline time.Time,
 ) (epoch uint, roundEnd time.Time, err error) {
@@ -331,7 +438,7 @@ func (r *Registration) Submit(
 	// Support both a certificate and a PoW while
 	// the certificate path is being stabilized.
 	if r.cfg.Certifier != nil && certificate != nil {
-		_, err := shared.VerifyCertificate(certificate, r.cfg.Certifier.PubKey.Bytes(), nodeID)
+		err = r.verifyCert(certificate, certPubkeyHint, nodeID)
 		switch {
 		case errors.Is(err, shared.ErrCertExpired):
 			registerWithCertMetric.WithLabelValues("expired").Inc()
@@ -339,8 +446,9 @@ func (r *Registration) Submit(
 		case err != nil:
 			registerWithCertMetric.WithLabelValues("invalid").Inc()
 			return 0, time.Time{}, errors.Join(ErrInvalidCertificate, err)
+		default:
+			registerWithCertMetric.WithLabelValues("valid").Inc()
 		}
-		registerWithCertMetric.WithLabelValues("valid").Inc()
 	} else {
 		// FIXME: PoW is deprecated
 		// Remove once certificate path is stabilized and mandatory.

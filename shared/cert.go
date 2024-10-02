@@ -12,7 +12,11 @@ import (
 
 //go:generate scalegen -types CertOnWire,UnixTimestamp
 
-var ErrCertExpired = errors.New("certificate expired")
+var (
+	ErrCertExpired           = errors.New("certificate expired")
+	ErrCertSignatureMismatch = errors.New("signature mismatch")
+	ErrCertDataMismatch      = errors.New("pubkey mismatch")
+)
 
 type UnixTimestamp struct {
 	Inner uint64
@@ -43,6 +47,10 @@ type OpaqueCert struct {
 func (c *OpaqueCert) Decode() (*Cert, error) {
 	return DecodeCert(c.Data)
 }
+
+const CertKeyHintSize = 4
+
+type CertKeyHint [CertKeyHintSize]byte
 
 type Cert struct {
 	// The ID that this certificate allows registration for.
@@ -81,14 +89,14 @@ func EncodeCert(c *Cert) ([]byte, error) {
 
 func VerifyCertificate(certificate *OpaqueCert, certifierPubKey, nodeID []byte) (*Cert, error) {
 	if !ed25519.Verify(certifierPubKey, certificate.Data, certificate.Signature) {
-		return nil, errors.New("signature mismatch")
+		return nil, ErrCertSignatureMismatch
 	}
 	decoded, err := certificate.Decode()
 	if err != nil {
 		return nil, fmt.Errorf("decoding: %w", err)
 	}
 	if !bytes.Equal(decoded.Pubkey, nodeID) {
-		return nil, errors.New("pubkey mismatch")
+		return nil, ErrCertDataMismatch
 	}
 	if decoded.Expiration != nil && decoded.Expiration.Before(time.Now()) {
 		return nil, fmt.Errorf("%w at %v", ErrCertExpired, decoded.Expiration)

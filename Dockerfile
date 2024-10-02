@@ -1,4 +1,4 @@
-FROM golang:1.22-alpine as build
+FROM golang:1.22-alpine AS build
 RUN apk add libc6-compat gcc musl-dev make
 WORKDIR /build/
 

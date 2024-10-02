@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+import "google/api/annotations.proto";
+
+package rpc.api.v1;
+
+service ConfigurationService {
+  /**
+  Reloads trusted public keys from directory, which is set up in config.
+  Each public key is expected in separate file base64 encoded
+  */
+  rpc ReloadTrustedKeys(ReloadTrustedKeysRequest) returns (ReloadTrustedKeysResponse) {
+      option (google.api.http) = {
+        post: "/v1/reload_trusted_keys"
+      };
+    }
+}
+
+message ReloadTrustedKeysRequest {}
+
+message ReloadTrustedKeysResponse {}

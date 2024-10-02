@@ -79,12 +79,21 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 			Signature: in.Certificate.GetSignature(),
 		}
 	}
+	var certPubkeyHint *shared.CertKeyHint
+	if in.CertificatePubkeyHint != nil {
+		if len(in.CertificatePubkeyHint) != shared.CertKeyHintSize {
+			return nil, status.Error(codes.InvalidArgument, "invalid certificate public key hint")
+		}
+		hint := shared.CertKeyHint(in.CertificatePubkeyHint)
+		certPubkeyHint = &hint
+	}
 	epoch, end, err := r.registration.Submit(
 		ctx,
 		in.Challenge,
 		in.Pubkey,
 		in.Nonce,
 		powParams,
+		certPubkeyHint,
 		certificate,
 		deadline,
 	)
@@ -113,7 +122,7 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 	return out, nil
 }
 
-func (r *rpcServer) Info(ctx context.Context, in *api.InfoRequest) (*api.InfoResponse, error) {
+func (r *rpcServer) Info(_ context.Context, _ *api.InfoRequest) (*api.InfoResponse, error) {
 	var certifierResp *api.InfoResponse_Cerifier
 	if certifier := r.registration.CertifierInfo(); certifier != nil {
 		certifierResp = &api.InfoResponse_Cerifier{
@@ -155,4 +164,15 @@ func (r *rpcServer) Proof(ctx context.Context, in *api.ProofRequest) (*api.Proof
 	default:
 		return nil, status.Error(codes.Internal, err.Error())
 	}
+}
+
+func (r *rpcServer) ReloadTrustedKeys(
+	ctx context.Context,
+	_ *api.ReloadTrustedKeysRequest,
+) (*api.ReloadTrustedKeysResponse, error) {
+	err := r.registration.LoadTrustedPublicKeys(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &api.ReloadTrustedKeysResponse{}, nil
 }

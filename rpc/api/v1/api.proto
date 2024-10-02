@@ -84,6 +84,7 @@ message SubmitRequest {
         bytes signature = 2;
     }
     Certificate certificate = 8;
+    bytes certificate_pubkey_hint = 9;
 }
 
 message SubmitResponse {
