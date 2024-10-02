@@ -42,7 +42,7 @@ jobs:
       - name: setup env
         run: make install
       - name: lint
-        run: make lint-github-action
+        run: make lint
       - name: Lint protos
         run: make lint-protos
 

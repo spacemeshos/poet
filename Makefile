@@ -8,7 +8,7 @@ VERSION ?= $(shell git describe --tags)
 # Flags appended to `go test` command in `make test`
 TEST_FLAGS ?=
 
-GOLANGCI_LINT_VERSION := v1.59.0
+GOLANGCI_LINT_VERSION := v1.61.0
 GOTESTSUM_VERSION := v1.12.0
 GOSCALE_VERSION := v1.2.0
 MOCKGEN_VERSION := v0.4.0
@@ -56,7 +56,7 @@ GOLINES := $(GOBIN)/golines
 FUZZTIME ?= "10s"
 
 $(GOVULNCHECK):
-	@go install golang.org/x/vuln/cmd/govulncheck@v1.0.4
+	@go install golang.org/x/vuln/cmd/govulncheck@v1.1.3
 
 $(GOLINES):
 	@go install github.com/segmentio/golines@v0.11.0
@@ -144,10 +144,6 @@ vulncheck: $(GOVULNCHECK)
 lint-fix:
 	golangci-lint run --config .golangci.yml --fix
 .PHONY: lint-fix
-
-lint-github-action:
-	golangci-lint run --config .golangci.yml --out-format=github-actions
-.PHONY: lint-github-action
 
 # Lint .proto files
 lint-protos:
