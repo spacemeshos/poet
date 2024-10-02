@@ -197,6 +197,7 @@ func (r *Registration) LoadTrustedPublicKeys(ctx context.Context) error {
 	if key := r.cfg.Certifier.PubKey.Bytes(); key != nil {
 		loadedKeys[shared.CertKeyHint(key)] = []ed25519.PublicKey{key}
 	}
+	r.trustedCertifierKeys = loadedKeys // if loading keys from disk fails, we still have the default key
 
 	err := filepath.Walk(r.cfg.Certifier.TrustedKeysDirPath, func(path string, info os.FileInfo, err error) error {
 		select {
@@ -234,7 +235,6 @@ func (r *Registration) LoadTrustedPublicKeys(ctx context.Context) error {
 
 	r.trustedCertifierKeys = loadedKeys
 	logging.FromContext(ctx).Info("loaded trusted public keys", zap.Any("keys", loadedKeys))
-
 	return nil
 }
 
