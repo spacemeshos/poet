@@ -117,8 +117,8 @@ github.com/rogpeppe/go-internal v1.10.0/go.mod h1:UQnix2H7Ngw/k4C5ijL5+65zddjncj
 github.com/sirupsen/logrus v1.4.2/go.mod h1:tLMulIdttU9McNUspp0xgXVQah82FyeX6MwdIuYE2rE=
 github.com/spacemeshos/go-scale v1.2.0 h1:ZlA2L1ILym2gmyJUwUdLTiyP1ZIG0U4xE9nFVFLi83M=
 github.com/spacemeshos/go-scale v1.2.0/go.mod h1:HV6e3/X5h9u2aFpYKJxt7PY/fBuLBegEKWgeZJ+/5jE=
-github.com/spacemeshos/merkle-tree v0.2.3 h1:zGEgOR9nxAzJr0EWjD39QFngwFEOxfxMloEJZtAysas=
-github.com/spacemeshos/merkle-tree v0.2.3/go.mod h1:VomOcQ5pCBXz7goiWMP5hReyqOfDXGSKbrH2GB9Htww=
+github.com/spacemeshos/merkle-tree v0.2.4 h1:kA7uRGadeyULOFlBxsWRwN0v1U2B4PD4OluR1l3d4nE=
+github.com/spacemeshos/merkle-tree v0.2.4/go.mod h1:yTJd262m3pjnw8mH0j5vt3w0J+2mpM6g0xyc5Pr2zIw=
 github.com/spacemeshos/sha256-simd v0.1.0 h1:G7Mfu5RYdQiuE+wu4ZyJ7I0TI74uqLhFnKblEnSpjYI=
 github.com/spacemeshos/sha256-simd v0.1.0/go.mod h1:O8CClVIilId7RtuCMV2+YzMj6qjVn75JsxOxaE8vcfM=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
