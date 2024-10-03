@@ -13,7 +13,7 @@ require (
 	github.com/nullstyle/go-xdr v0.0.0-20180726165426-f4c839f75077
 	github.com/prometheus/client_golang v1.20.4
 	github.com/spacemeshos/go-scale v1.2.0
-	github.com/spacemeshos/merkle-tree v0.2.3
+	github.com/spacemeshos/merkle-tree v0.2.4
 	github.com/spacemeshos/sha256-simd v0.1.0
 	github.com/stretchr/testify v1.9.0
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
