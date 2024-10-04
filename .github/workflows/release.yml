@@ -14,11 +14,11 @@ jobs:
       - name: set up go
         uses: actions/setup-go@v5
         with:
-          go-version: 'stable'
+          go-version: "stable"
       - name: setup env
         run: make install
       - name: lint
-        run: make lint-github-action
+        run: make lint
       - name: test
         run: make test
         env:
