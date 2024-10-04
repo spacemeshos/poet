@@ -57,6 +57,8 @@ type Config struct {
 	Service      service.Config      `group:"Service"`
 
 	DisableWorker bool `long:"disable-worker" description:"Whether to disable worker service for PoSW"`
+
+	Version func() `long:"version" description:"Print version and exit"`
 }
 
 type Genesis time.Time

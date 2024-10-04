@@ -33,6 +33,10 @@ var version = "unknown"
 func poetMain() (err error) {
 	// Start with a default Config with sane settings
 	cfg := server.DefaultConfig()
+	cfg.Version = func() {
+		fmt.Println(version)
+		os.Exit(0)
+	}
 	// Pre-parse the command line to check for an alternative Config file
 	cfg, err = server.ParseFlags(cfg)
 	if err != nil {
