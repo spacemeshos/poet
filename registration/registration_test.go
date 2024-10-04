@@ -287,6 +287,15 @@ func TestRecoveringRoundInProgress(t *testing.T) {
 	req.NoError(r.Run(ctx))
 }
 
+func makeCert(tb testing.TB, signingKey ed25519.PrivateKey, nodeID []byte, expiration *time.Time) *shared.OpaqueCert {
+	data, err := shared.EncodeCert(&shared.Cert{Pubkey: nodeID, Expiration: expiration})
+	require.NoError(tb, err)
+	return &shared.OpaqueCert{
+		Data:      data,
+		Signature: ed25519.Sign(signingKey, data),
+	}
+}
+
 func Test_GetCertifierInfo(t *testing.T) {
 	certifier := &registration.CertifierConfig{
 		PubKey: registration.Base64Enc("pubkey"),
@@ -313,6 +322,20 @@ func Test_CheckCertificate(t *testing.T) {
 	challenge := []byte("challenge")
 	nodeID := []byte("nodeID00nodeID00nodeID00nodeID00")
 
+	submit := func(r *registration.Registration, cert *shared.OpaqueCert, hint *shared.CertKeyHint) error {
+		_, _, err := r.Submit(
+			context.Background(),
+			challenge,
+			nodeID,
+			5,
+			r.PowParams(),
+			hint,
+			cert,
+			time.Time{},
+		)
+		return err
+	}
+
 	t.Run("certification check disabled (default config)", func(t *testing.T) {
 		powVerifier := mocks.NewMockPowVerifier(gomock.NewController(t))
 		powVerifier.EXPECT().Params().Return(registration.PowParams{}).AnyTimes()
@@ -329,68 +352,30 @@ func Test_CheckCertificate(t *testing.T) {
 
 		// missing certificate - fallback to PoW
 		powVerifier.EXPECT().Verify(challenge, nodeID, uint64(5)).Return(nil)
-		_, _, err = r.Submit(
-			context.Background(),
-			challenge,
-			nodeID,
-			5,
-			registration.PowParams{},
-			nil,
-			nil,
-			time.Time{},
-		)
-		require.NoError(t, err)
+		require.NoError(t, submit(r, nil, nil))
 
 		// passed certificate - still fallback to PoW
 		_, private, err := ed25519.GenerateKey(nil)
 		require.NoError(t, err)
-		data, err := shared.EncodeCert(&shared.Cert{Pubkey: nodeID})
-		require.NoError(t, err)
-		certificate := &shared.OpaqueCert{
-			Data:      data,
-			Signature: ed25519.Sign(private, data),
-		}
-		powVerifier.EXPECT().Verify(challenge, nodeID, uint64(7)).Return(nil)
-		_, _, err = r.Submit(
-			context.Background(),
-			challenge,
-			nodeID,
-			7,
-			registration.PowParams{},
-			nil,
-			certificate,
-			time.Time{},
-		)
-		require.NoError(t, err)
+		cert := makeCert(t, private, nodeID, nil)
+
+		powVerifier.EXPECT().Verify(challenge, nodeID, uint64(5)).Return(nil)
+		require.NoError(t, submit(r, cert, nil))
 	})
 	t.Run("certification check enabled", func(t *testing.T) {
 		certKeyPub, certKey, err := ed25519.GenerateKey(nil)
 		require.NoError(t, err)
 		pubKeyHint := shared.CertKeyHint(certKeyPub)
 
-		data, err := shared.EncodeCert(&shared.Cert{Pubkey: nodeID})
-		require.NoError(t, err)
-
-		defaultValidCert := &shared.OpaqueCert{
-			Data:      data,
-			Signature: ed25519.Sign(certKey, data),
-		}
-
-		powVerifier := mocks.NewMockPowVerifier(gomock.NewController(t))
-
 		trustedKeysDir := t.TempDir()
 		trustedKeys := generateTrustedKeys(t, 3, trustedKeysDir)
 
 		trustedKeyPub, trustedKey := trustedKeys[0].Public().(ed25519.PublicKey), trustedKeys[0]
 		trustedKeyHint := shared.CertKeyHint(trustedKeyPub)
-		data, err = shared.EncodeCert(&shared.Cert{Pubkey: nodeID})
-		require.NoError(t, err)
+		trustedKeyCert := makeCert(t, trustedKey, nodeID, nil)
+		defaultValidCert := makeCert(t, certKey, nodeID, nil)
 
-		trustedKeyCert := &shared.OpaqueCert{
-			Data:      data,
-			Signature: ed25519.Sign(trustedKey, data),
-		}
-
+		powVerifier := mocks.NewMockPowVerifier(gomock.NewController(t))
 		r, err := registration.New(
 			context.Background(),
 			time.Now(),
@@ -411,84 +396,29 @@ func Test_CheckCertificate(t *testing.T) {
 
 		t.Run("missing certificate - fallback to PoW", func(t *testing.T) {
 			powVerifier.EXPECT().Params().Return(registration.PowParams{}).AnyTimes()
-			powVerifier.EXPECT().Verify(challenge, nodeID, uint64(7)).Return(nil)
-			_, _, err = r.Submit(context.Background(), challenge, nodeID, 7, r.PowParams(), nil, nil, time.Time{})
-			require.NoError(t, err)
+			powVerifier.EXPECT().Verify(challenge, nodeID, uint64(5)).Return(nil)
+			require.NoError(t, submit(r, nil, nil))
 		})
 		t.Run("valid certificate (unexpired)", func(t *testing.T) {
-			_, _, err = r.Submit(
-				context.Background(),
-				challenge,
-				nodeID,
-				0,
-				r.PowParams(),
-				&pubKeyHint,
-				defaultValidCert,
-				time.Time{},
-			)
-			require.NoError(t, err)
+			require.NoError(t, submit(r, defaultValidCert, &pubKeyHint))
 		})
 		t.Run("valid certificate (expired)", func(t *testing.T) {
 			expiration := time.Now().Add(-time.Hour)
-			data, err := shared.EncodeCert(&shared.Cert{Pubkey: nodeID, Expiration: &expiration})
-			require.NoError(t, err)
-			certificate := &shared.OpaqueCert{
-				Data:      data,
-				Signature: ed25519.Sign(certKey, data),
-			}
-			_, _, err = r.Submit(
-				context.Background(),
-				challenge,
-				nodeID,
-				0,
-				r.PowParams(),
-				&pubKeyHint,
-				certificate,
-				time.Time{},
-			)
-			require.ErrorIs(t, err, registration.ErrInvalidCertificate)
+			certificate := makeCert(t, certKey, nodeID, &expiration)
+			require.ErrorIs(t, submit(r, certificate, &pubKeyHint), registration.ErrInvalidCertificate)
 		})
 
 		t.Run("valid certificate (no public key hint, use main pubkey as default)", func(t *testing.T) {
-			_, _, err = r.Submit(
-				context.Background(),
-				challenge,
-				nodeID,
-				0,
-				r.PowParams(),
-				nil,
-				defaultValidCert,
-				time.Time{},
-			)
-			require.NoError(t, err)
+			require.NoError(t, submit(r, defaultValidCert, nil))
 		})
 
 		t.Run("valid certificate (invalid public key hint)", func(t *testing.T) {
-			_, _, err = r.Submit(
-				context.Background(),
-				challenge,
-				nodeID,
-				0,
-				r.PowParams(),
-				&shared.CertKeyHint{1, 2, 3, 4},
-				defaultValidCert,
-				time.Time{},
-			)
-			require.ErrorIs(t, err, registration.ErrInvalidCertificate)
+			hint := &shared.CertKeyHint{1, 2, 3, 4}
+			require.ErrorIs(t, submit(r, defaultValidCert, hint), registration.ErrInvalidCertificate)
 		})
 
 		t.Run("valid certificate signed by a trusted key", func(t *testing.T) {
-			_, _, err = r.Submit(
-				context.Background(),
-				challenge,
-				nodeID,
-				0,
-				r.PowParams(),
-				&trustedKeyHint,
-				trustedKeyCert,
-				time.Time{},
-			)
-			require.NoError(t, err)
+			require.NoError(t, submit(r, trustedKeyCert, &trustedKeyHint))
 		})
 
 		t.Run("invalid certificate (wrong node ID)", func(t *testing.T) {
@@ -507,21 +437,43 @@ func Test_CheckCertificate(t *testing.T) {
 		t.Run("invalid certificate (signature)", func(t *testing.T) {
 			_, wrongPrivate, err := ed25519.GenerateKey(nil)
 			require.NoError(t, err)
-			certificate := &shared.OpaqueCert{
-				Data:      defaultValidCert.Data,
-				Signature: ed25519.Sign(wrongPrivate, defaultValidCert.Data),
-			}
-			_, _, err = r.Submit(
-				context.Background(),
-				challenge,
-				nodeID,
-				0,
-				r.PowParams(),
-				&pubKeyHint,
-				certificate,
-				time.Time{},
-			)
-			require.ErrorIs(t, err, registration.ErrInvalidCertificate)
+			certificate := makeCert(t, wrongPrivate, nodeID, nil)
+			require.ErrorIs(t, submit(r, certificate, &pubKeyHint), registration.ErrInvalidCertificate)
+		})
+	})
+	t.Run("using only the main key", func(t *testing.T) {
+		certKeyPub, certKeypriv, err := ed25519.GenerateKey(nil)
+		require.NoError(t, err)
+
+		encodedCert, err := shared.EncodeCert(&shared.Cert{Pubkey: nodeID})
+		require.NoError(t, err)
+		cert := &shared.OpaqueCert{
+			Data:      encodedCert,
+			Signature: ed25519.Sign(certKeypriv, encodedCert),
+		}
+
+		r, err := registration.New(
+			context.Background(),
+			time.Now(),
+			t.TempDir(),
+			nil,
+			server.DefaultRoundConfig(),
+			registration.WithConfig(registration.Config{
+				MaxRoundMembers: 10,
+				Certifier: &registration.CertifierConfig{
+					PubKey: registration.Base64Enc(certKeyPub),
+				},
+			}),
+		)
+		require.NoError(t, err)
+		t.Cleanup(func() { require.NoError(t, r.Close()) })
+
+		t.Run("submit with a hint", func(t *testing.T) {
+			hint := shared.CertKeyHint(certKeyPub)
+			require.NoError(t, submit(r, cert, &hint))
+		})
+		t.Run("submit without a hint", func(t *testing.T) {
+			require.NoError(t, submit(r, cert, nil))
 		})
 	})
 	t.Run("using only trusted keys", func(t *testing.T) {
@@ -530,12 +482,7 @@ func Test_CheckCertificate(t *testing.T) {
 		trustedKeyPub, trustedKey := trustedKeys[0].Public().(ed25519.PublicKey), trustedKeys[0]
 		trustedKeyHint := shared.CertKeyHint(trustedKeyPub)
 
-		encodedCert, err := shared.EncodeCert(&shared.Cert{Pubkey: nodeID})
-		require.NoError(t, err)
-		validcert := &shared.OpaqueCert{
-			Data:      encodedCert,
-			Signature: ed25519.Sign(trustedKey, encodedCert),
-		}
+		validcert := makeCert(t, trustedKey, nodeID, nil)
 
 		r, err := registration.New(
 			context.Background(),
@@ -555,43 +502,13 @@ func Test_CheckCertificate(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, r.Close()) })
 
 		t.Run("can't submit without a hint", func(t *testing.T) {
-			_, _, err = r.Submit(
-				context.Background(),
-				challenge,
-				nodeID,
-				0,
-				r.PowParams(),
-				nil,
-				validcert,
-				time.Time{},
-			)
-			require.ErrorIs(t, err, registration.ErrInvalidCertificate)
+			require.ErrorIs(t, submit(r, validcert, nil), registration.ErrInvalidCertificate)
 		})
 		t.Run("submit with a hint finds a trusted key", func(t *testing.T) {
-			_, _, err = r.Submit(
-				context.Background(),
-				challenge,
-				nodeID,
-				0,
-				r.PowParams(),
-				&trustedKeyHint,
-				validcert,
-				time.Time{},
-			)
-			require.NoError(t, err)
+			require.NoError(t, submit(r, validcert, &trustedKeyHint))
 		})
 		t.Run("submit with invalid hint fails", func(t *testing.T) {
-			_, _, err = r.Submit(
-				context.Background(),
-				challenge,
-				nodeID,
-				0,
-				r.PowParams(),
-				&shared.CertKeyHint{},
-				validcert,
-				time.Time{},
-			)
-			require.ErrorIs(t, err, registration.ErrNoMatchingCertPublicKeys)
+			require.ErrorIs(t, submit(r, validcert, &shared.CertKeyHint{}), registration.ErrNoMatchingCertPublicKeys)
 		})
 	})
 }
