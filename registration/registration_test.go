@@ -524,6 +524,54 @@ func Test_CheckCertificate(t *testing.T) {
 			require.ErrorIs(t, err, registration.ErrInvalidCertificate)
 		})
 	})
+	t.Run("using only the main key", func(t *testing.T) {
+		certKeyPub, certKeypriv, err := ed25519.GenerateKey(nil)
+		require.NoError(t, err)
+
+		encodedCert, err := shared.EncodeCert(&shared.Cert{Pubkey: nodeID})
+		require.NoError(t, err)
+		cert := &shared.OpaqueCert{
+			Data:      encodedCert,
+			Signature: ed25519.Sign(certKeypriv, encodedCert),
+		}
+
+		r, err := registration.New(
+			context.Background(),
+			time.Now(),
+			t.TempDir(),
+			nil,
+			server.DefaultRoundConfig(),
+			registration.WithConfig(registration.Config{
+				MaxRoundMembers: 10,
+				Certifier: &registration.CertifierConfig{
+					PubKey: registration.Base64Enc(certKeyPub),
+				},
+			}),
+		)
+		require.NoError(t, err)
+		t.Cleanup(func() { require.NoError(t, r.Close()) })
+
+		submit := func(hint *shared.CertKeyHint) error {
+			_, _, err = r.Submit(
+				context.Background(),
+				challenge,
+				nodeID,
+				0,
+				r.PowParams(),
+				hint,
+				cert,
+				time.Time{},
+			)
+			return err
+		}
+		t.Run("submit with a hint", func(t *testing.T) {
+			hint := shared.CertKeyHint(certKeyPub)
+			require.NoError(t, submit(&hint))
+		})
+		t.Run("submit without a hint", func(t *testing.T) {
+			require.NoError(t, submit(nil))
+		})
+	})
 	t.Run("using only trusted keys", func(t *testing.T) {
 		trustedKeysDir := t.TempDir()
 		trustedKeys := generateTrustedKeys(t, 3, trustedKeysDir)

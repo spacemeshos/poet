@@ -141,13 +141,14 @@ func New(
 	}
 
 	r := &Registration{
-		genesis:   genesis,
-		cfg:       options.cfg,
-		roundCfg:  roundCfg,
-		dbdir:     dbdir,
-		privKey:   options.privKey,
-		db:        db,
-		workerSvc: workerSvc,
+		genesis:              genesis,
+		cfg:                  options.cfg,
+		roundCfg:             roundCfg,
+		dbdir:                dbdir,
+		privKey:              options.privKey,
+		db:                   db,
+		workerSvc:            workerSvc,
+		trustedCertifierKeys: make(map[shared.CertKeyHint][]ed25519.PublicKey),
 	}
 
 	if options.powVerifier == nil {
@@ -158,6 +159,8 @@ func New(
 
 	if r.cfg.Certifier != nil && r.cfg.Certifier.PubKey != nil {
 		logging.FromContext(ctx).Info("configured certifier", zap.Inline(r.cfg.Certifier))
+		key := r.cfg.Certifier.PubKey.Bytes()
+		r.trustedCertifierKeys[shared.CertKeyHint(key)] = []ed25519.PublicKey{key}
 	} else {
 		logging.FromContext(ctx).Info("certifier is not configured")
 	}
