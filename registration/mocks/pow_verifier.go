@@ -20,6 +20,7 @@ import (
 type MockPowVerifier struct {
 	ctrl     *gomock.Controller
 	recorder *MockPowVerifierMockRecorder
+	isgomock struct{}
 }
 
 // MockPowVerifierMockRecorder is the mock recorder for MockPowVerifier.
@@ -78,15 +79,15 @@ func (c *MockPowVerifierParamsCall) DoAndReturn(f func() registration.PowParams)
 }
 
 // SetParams mocks base method.
-func (m *MockPowVerifier) SetParams(arg0 registration.PowParams) {
+func (m *MockPowVerifier) SetParams(params registration.PowParams) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "SetParams", arg0)
+	m.ctrl.Call(m, "SetParams", params)
 }
 
 // SetParams indicates an expected call of SetParams.
-func (mr *MockPowVerifierMockRecorder) SetParams(arg0 any) *MockPowVerifierSetParamsCall {
+func (mr *MockPowVerifierMockRecorder) SetParams(params any) *MockPowVerifierSetParamsCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetParams", reflect.TypeOf((*MockPowVerifier)(nil).SetParams), arg0)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetParams", reflect.TypeOf((*MockPowVerifier)(nil).SetParams), params)
 	return &MockPowVerifierSetParamsCall{Call: call}
 }
 
@@ -114,17 +115,17 @@ func (c *MockPowVerifierSetParamsCall) DoAndReturn(f func(registration.PowParams
 }
 
 // Verify mocks base method.
-func (m *MockPowVerifier) Verify(arg0, arg1 []byte, arg2 uint64) error {
+func (m *MockPowVerifier) Verify(poetChallenge, nodeID []byte, nonce uint64) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Verify", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "Verify", poetChallenge, nodeID, nonce)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Verify indicates an expected call of Verify.
-func (mr *MockPowVerifierMockRecorder) Verify(arg0, arg1, arg2 any) *MockPowVerifierVerifyCall {
+func (mr *MockPowVerifierMockRecorder) Verify(poetChallenge, nodeID, nonce any) *MockPowVerifierVerifyCall {
 	mr.mock.ctrl.T.Helper()
-	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Verify", reflect.TypeOf((*MockPowVerifier)(nil).Verify), arg0, arg1, arg2)
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Verify", reflect.TypeOf((*MockPowVerifier)(nil).Verify), poetChallenge, nodeID, nonce)
 	return &MockPowVerifierVerifyCall{Call: call}
 }
 
