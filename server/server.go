@@ -269,9 +269,7 @@ func (s *Server) PublicKey() ed25519.PublicKey {
 }
 
 // loggerInterceptor returns UnaryServerInterceptor handler to log all RPC server incoming requests.
-func loggerInterceptor(
-	logger *zap.Logger,
-) func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+func loggerInterceptor(logger *zap.Logger) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 		peer, _ := peer.FromContext(ctx)
 
