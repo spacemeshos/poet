@@ -22,6 +22,7 @@ import (
 type MockRegistrationService struct {
 	ctrl     *gomock.Controller
 	recorder *MockRegistrationServiceMockRecorder
+	isgomock struct{}
 }
 
 // MockRegistrationServiceMockRecorder is the mock recorder for MockRegistrationService.
@@ -42,29 +43,29 @@ func (m *MockRegistrationService) EXPECT() *MockRegistrationServiceMockRecorder 
 }
 
 // NewProof mocks base method.
-func (m *MockRegistrationService) NewProof(arg0 context.Context, arg1 shared.NIP) error {
+func (m *MockRegistrationService) NewProof(ctx context.Context, proof shared.NIP) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewProof", arg0, arg1)
+	ret := m.ctrl.Call(m, "NewProof", ctx, proof)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // NewProof indicates an expected call of NewProof.
-func (mr *MockRegistrationServiceMockRecorder) NewProof(arg0, arg1 any) *gomock.Call {
+func (mr *MockRegistrationServiceMockRecorder) NewProof(ctx, proof any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewProof", reflect.TypeOf((*MockRegistrationService)(nil).NewProof), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewProof", reflect.TypeOf((*MockRegistrationService)(nil).NewProof), ctx, proof)
 }
 
 // RegisterForRoundClosed mocks base method.
-func (m *MockRegistrationService) RegisterForRoundClosed(arg0 context.Context) <-chan service.ClosedRound {
+func (m *MockRegistrationService) RegisterForRoundClosed(ctx context.Context) <-chan service.ClosedRound {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RegisterForRoundClosed", arg0)
+	ret := m.ctrl.Call(m, "RegisterForRoundClosed", ctx)
 	ret0, _ := ret[0].(<-chan service.ClosedRound)
 	return ret0
 }
 
 // RegisterForRoundClosed indicates an expected call of RegisterForRoundClosed.
-func (mr *MockRegistrationServiceMockRecorder) RegisterForRoundClosed(arg0 any) *gomock.Call {
+func (mr *MockRegistrationServiceMockRecorder) RegisterForRoundClosed(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterForRoundClosed", reflect.TypeOf((*MockRegistrationService)(nil).RegisterForRoundClosed), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterForRoundClosed", reflect.TypeOf((*MockRegistrationService)(nil).RegisterForRoundClosed), ctx)
 }

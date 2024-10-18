@@ -21,6 +21,7 @@ import (
 type MockWorkerService struct {
 	ctrl     *gomock.Controller
 	recorder *MockWorkerServiceMockRecorder
+	isgomock struct{}
 }
 
 // MockWorkerServiceMockRecorder is the mock recorder for MockWorkerService.
@@ -41,29 +42,29 @@ func (m *MockWorkerService) EXPECT() *MockWorkerServiceMockRecorder {
 }
 
 // ExecuteRound mocks base method.
-func (m *MockWorkerService) ExecuteRound(arg0 context.Context, arg1 uint, arg2 []byte) error {
+func (m *MockWorkerService) ExecuteRound(ctx context.Context, epoch uint, membershipRoot []byte) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ExecuteRound", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ExecuteRound", ctx, epoch, membershipRoot)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ExecuteRound indicates an expected call of ExecuteRound.
-func (mr *MockWorkerServiceMockRecorder) ExecuteRound(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockWorkerServiceMockRecorder) ExecuteRound(ctx, epoch, membershipRoot any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteRound", reflect.TypeOf((*MockWorkerService)(nil).ExecuteRound), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExecuteRound", reflect.TypeOf((*MockWorkerService)(nil).ExecuteRound), ctx, epoch, membershipRoot)
 }
 
 // RegisterForProofs mocks base method.
-func (m *MockWorkerService) RegisterForProofs(arg0 context.Context) <-chan shared.NIP {
+func (m *MockWorkerService) RegisterForProofs(ctx context.Context) <-chan shared.NIP {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RegisterForProofs", arg0)
+	ret := m.ctrl.Call(m, "RegisterForProofs", ctx)
 	ret0, _ := ret[0].(<-chan shared.NIP)
 	return ret0
 }
 
 // RegisterForProofs indicates an expected call of RegisterForProofs.
-func (mr *MockWorkerServiceMockRecorder) RegisterForProofs(arg0 any) *gomock.Call {
+func (mr *MockWorkerServiceMockRecorder) RegisterForProofs(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterForProofs", reflect.TypeOf((*MockWorkerService)(nil).RegisterForProofs), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisterForProofs", reflect.TypeOf((*MockWorkerService)(nil).RegisterForProofs), ctx)
 }
