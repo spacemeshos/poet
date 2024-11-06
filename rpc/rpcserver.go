@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	mtree "github.com/spacemeshos/merkle-tree"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -53,6 +54,10 @@ func (r *rpcServer) PowParams(_ context.Context, _ *api.PowParamsRequest) (*api.
 }
 
 func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.SubmitResponse, error) {
+	if len(in.Challenge) != mtree.NodeSize {
+		return nil, status.Error(codes.InvalidArgument, "invalid challenge")
+	}
+
 	if len(in.Pubkey) != ed25519.PublicKeySize {
 		return nil, status.Error(codes.InvalidArgument, "invalid public key")
 	}

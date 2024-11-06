@@ -13,14 +13,14 @@ require (
 	github.com/nullstyle/go-xdr v0.0.0-20180726165426-f4c839f75077
 	github.com/prometheus/client_golang v1.20.5
 	github.com/spacemeshos/go-scale v1.2.1
-	github.com/spacemeshos/merkle-tree v0.2.4
+	github.com/spacemeshos/merkle-tree v0.2.5-0.20241105184339-5bdb8480a91d
 	github.com/spacemeshos/sha256-simd v0.1.0
 	github.com/stretchr/testify v1.9.0
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	github.com/zeebo/blake3 v0.2.4
 	go.uber.org/mock v0.5.0
 	go.uber.org/zap v1.27.0
-	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
+	golang.org/x/exp v0.0.0-20241009180824-f66d83c29e7c
 	golang.org/x/sync v0.8.0
 	golang.org/x/sys v0.26.0
 	google.golang.org/genproto/googleapis/api v0.0.0-20241021214115-324edc3d5d38
@@ -39,7 +39,7 @@ require (
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.1.0 // indirect
 	github.com/klauspost/compress v1.17.9 // indirect
-	github.com/klauspost/cpuid/v2 v2.2.4 // indirect
+	github.com/klauspost/cpuid/v2 v2.2.8 // indirect
 	github.com/minio/sha256-simd v1.0.1 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/onsi/ginkgo v1.16.5 // indirect
