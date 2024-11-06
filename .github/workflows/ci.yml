@@ -59,7 +59,7 @@ jobs:
       matrix:
         os:
           - ubuntu-latest
-          - [self-hosted, linux, arm64]
+          - ubuntu-latest-arm-8-cores
           - macos-latest
           - [self-hosted, macos, arm64]
           - windows-latest
