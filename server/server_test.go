@@ -343,11 +343,16 @@ func TestLoadTrustedKeysAndSubmit(t *testing.T) {
 	trustedKeyCert, err := shared.EncodeCert(&shared.Cert{Pubkey: userPubKey, Expiration: &expiration})
 	require.NoError(t, err)
 
+	challenge := make([]byte, 32)
+	n, err := rand.Read(challenge)
+	require.NoError(t, err)
+	require.Equal(t, 32, n)
+
 	// trusted keys are not loaded
 	_, err = client.Submit(context.Background(), &api.SubmitRequest{
-		Challenge: []byte("challenge"),
+		Challenge: challenge,
 		Pubkey:    userPubKey,
-		Signature: ed25519.Sign(userPrivKey, []byte("challenge")),
+		Signature: ed25519.Sign(userPrivKey, challenge),
 		Certificate: &api.SubmitRequest_Certificate{
 			Data:      trustedKeyCert,
 			Signature: ed25519.Sign(private, trustedKeyCert),
@@ -361,9 +366,9 @@ func TestLoadTrustedKeysAndSubmit(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = client.Submit(context.Background(), &api.SubmitRequest{
-		Challenge: []byte("challenge"),
+		Challenge: challenge,
 		Pubkey:    userPubKey,
-		Signature: ed25519.Sign(userPrivKey, []byte("challenge")),
+		Signature: ed25519.Sign(userPrivKey, challenge),
 		Certificate: &api.SubmitRequest_Certificate{
 			Data:      trustedKeyCert,
 			Signature: ed25519.Sign(private, trustedKeyCert),
