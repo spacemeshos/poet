@@ -117,7 +117,10 @@ func TestSubmitSignatureVerification(t *testing.T) {
 	req.NoError(err)
 
 	// Submit challenge with invalid signature
-	challenge := []byte("poet challenge")
+	challenge := make([]byte, 32)
+	n, err := rand.Read(challenge)
+	req.NoError(err)
+	req.Equal(32, n)
 	_, err = client.Submit(context.Background(), &api.SubmitRequest{
 		Challenge: challenge,
 		Pubkey:    pubKey,
@@ -168,7 +171,10 @@ func TestSubmitPowVerification(t *testing.T) {
 	req.NoError(err)
 
 	// Submit challenge with valid signature but invalid pow
-	challenge := []byte("poet challenge")
+	challenge := make([]byte, 32)
+	n, err := rand.Read(challenge)
+	require.NoError(t, err)
+	require.Equal(t, 32, n)
 
 	signature := ed25519.Sign(privKey, challenge)
 	_, err = client.Submit(context.Background(), &api.SubmitRequest{
@@ -231,7 +237,10 @@ func TestSubmitAndGetProof(t *testing.T) {
 	// Submit a challenge
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	req.NoError(err)
-	challenge := []byte("poet challenge")
+	challenge := make([]byte, 32)
+	n, err := rand.Read(challenge)
+	req.NoError(err)
+	req.Equal(32, n)
 
 	powParams, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
 	req.NoError(err)
@@ -317,11 +326,19 @@ func TestCannotSubmitMoreThanMaxRoundMembers(t *testing.T) {
 		return err
 	}
 
+	challenge := make([]byte, 32)
+	n, err := rand.Read(challenge)
+	req.NoError(err)
+	req.Equal(32, n)
+
 	// Act
-	req.NoError(submitChallenge([]byte("challenge 1")))
-	req.NoError(submitChallenge([]byte("challenge 2")))
+	challenge[0] = 1
+	req.NoError(submitChallenge(challenge))
+	challenge[0] = 2
+	req.NoError(submitChallenge(challenge))
+	challenge[0] = 3
 	req.ErrorIs(
-		submitChallenge([]byte("challenge 3")),
+		submitChallenge(challenge),
 		status.Error(codes.ResourceExhausted, registration.ErrMaxMembersReached.Error()),
 	)
 	cancel()
@@ -366,13 +383,19 @@ func TestSubmittingChallengeTwice(t *testing.T) {
 		return err
 	}
 
+	challenge := make([]byte, 32)
+	n, err := rand.Read(challenge)
+	req.NoError(err)
+	req.Equal(32, n)
+
 	// Act
-	req.NoError(submitChallenge([]byte("challenge 1")))
+	req.NoError(submitChallenge(challenge))
 	// Submitting the same challenge is OK
-	req.NoError(submitChallenge([]byte("challenge 1")))
-	// Submitting a different challenge with the same nodeID is not OK
+	req.NoError(submitChallenge(challenge))
+	// Submitting a different challenge with the same nodeID is not OK (all bits of the first byte are flipped)
+	challenge[0] = ^challenge[0]
 	req.ErrorIs(
-		submitChallenge([]byte("challenge 2")),
+		submitChallenge(challenge),
 		status.Error(codes.AlreadyExists, registration.ErrConflictingRegistration.Error()),
 	)
 }
@@ -421,10 +444,23 @@ func TestSubmittingWithNeedByTimestamp(t *testing.T) {
 
 	round0End := cfg.Round.RoundEnd(cfg.Genesis.Time(), 0)
 
-	req.NoError(submitChallenge([]byte("at round end"), round0End))
-	req.NoError(submitChallenge([]byte("after round ends"), round0End.Add(time.Minute)))
+	challenge := make([]byte, 32)
+	n, err := rand.Read(challenge)
+	req.NoError(err)
+	req.Equal(32, n)
+
+	// at round end
+	challenge[0] = 1
+	req.NoError(submitChallenge(challenge, round0End))
+
+	// after round ends
+	challenge[0] = 2
+	req.NoError(submitChallenge(challenge, round0End.Add(time.Minute)))
+
+	// before round ends
+	challenge[0] = 3
 	req.ErrorIs(
-		submitChallenge([]byte("before round ends"), round0End.Add(-time.Minute)),
+		submitChallenge(challenge, round0End.Add(-time.Minute)),
 		status.Error(codes.FailedPrecondition, registration.ErrTooLateToRegister.Error()),
 	)
 }
@@ -614,7 +650,10 @@ func TestRegistrationOnlyMode(t *testing.T) {
 	// Submit a challenge
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	req.NoError(err)
-	challenge := []byte("poet challenge")
+	challenge := make([]byte, 32)
+	n, err := rand.Read(challenge)
+	req.NoError(err)
+	req.Equal(32, n)
 
 	powParams, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
 	req.NoError(err)
