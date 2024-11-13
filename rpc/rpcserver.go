@@ -129,7 +129,8 @@ func (r *rpcServer) Submit(ctx context.Context, in *api.SubmitRequest) (*api.Sub
 
 func (r *rpcServer) Info(_ context.Context, _ *api.InfoRequest) (*api.InfoResponse, error) {
 	var certifierResp *api.InfoResponse_Cerifier
-	if certifier := r.registration.CertifierInfo(); certifier != nil {
+	certifier := r.registration.CertifierInfo()
+	if certifier != nil && len(certifier.URL) > 0 {
 		certifierResp = &api.InfoResponse_Cerifier{
 			Url:    certifier.URL,
 			Pubkey: certifier.PubKey,

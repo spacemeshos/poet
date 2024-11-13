@@ -24,7 +24,7 @@ type Config struct {
 	MaxSubmitBatchSize  int           `long:"max-submit-batch-size" description:"The maximum number of challenges to submit in a single batch"`
 	SubmitFlushInterval time.Duration `long:"submit-flush-interval" description:"The interval between flushes of the submit queue"`
 
-	Certifier *CertifierConfig
+	Certifier *CertifierConfig `no-flag:"disabled parsing by go-flags because it initializes the pointer"`
 }
 
 type Base64Enc []byte
