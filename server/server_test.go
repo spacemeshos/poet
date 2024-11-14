@@ -149,7 +149,6 @@ func TestInfoEndpoint(t *testing.T) {
 		cancel()
 		req.NoError(eg.Wait())
 	})
-
 }
 
 func TestSubmitSignatureVerification(t *testing.T) {

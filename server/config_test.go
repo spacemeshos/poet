@@ -91,8 +91,11 @@ func Test_CLIArgs(t *testing.T) {
 	t.Run("certifier pubkey", func(t *testing.T) {
 		cfg := &Config{}
 
-		args := []string{"--certifier-pubkey", base64.StdEncoding.EncodeToString([]byte("thekey"))}
+		key := []byte("thekey")
+		args := []string{"--certifier-pubkey", base64.StdEncoding.EncodeToString(key)}
 		cfg, err := ParseFlags(cfg, args)
 		require.NoError(t, err)
+
+		require.Equal(t, key, cfg.Registration.Certifier.PubKey.Bytes())
 	})
 }
