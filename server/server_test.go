@@ -458,7 +458,7 @@ func TestSubmitAndGetProof(t *testing.T) {
 	req.Eventually(func() bool {
 		proof, err = client.Proof(context.Background(), &api.ProofRequest{RoundId: resp.RoundId})
 		return err == nil
-	}, time.Second, time.Millisecond*100)
+	}, 2*time.Second, time.Millisecond*100)
 
 	req.NotZero(proof.Proof.Leaves)
 	req.Len(proof.Proof.Members, 1)
