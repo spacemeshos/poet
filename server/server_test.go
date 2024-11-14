@@ -126,6 +126,29 @@ func TestInfoEndpoint(t *testing.T) {
 		cancel()
 		req.NoError(eg.Wait())
 	})
+	t.Run("with empty certifier config", func(t *testing.T) {
+		req := require.New(t)
+		cfg := cfg
+		cfg.PoetDir = t.TempDir()
+		cfg.Registration.Certifier = &registration.CertifierConfig{}
+
+		ctx, cancel := context.WithCancel(logging.NewContext(context.Background(), zaptest.NewLogger(t)))
+		defer cancel()
+		srv, client := spawnPoet(ctx, t, *cfg)
+		t.Cleanup(func() { assert.NoError(t, srv.Close()) })
+
+		var eg errgroup.Group
+		eg.Go(func() error {
+			return srv.Start(ctx)
+		})
+
+		info, err := client.Info(context.Background(), &api.InfoRequest{})
+		req.NoError(err)
+		req.Nil(info.Certifier)
+
+		cancel()
+		req.NoError(eg.Wait())
+	})
 }
 
 func TestSubmitSignatureVerification(t *testing.T) {
