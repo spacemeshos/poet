@@ -105,8 +105,8 @@ func DefaultConfig() *Config {
 }
 
 // ParseFlags reads values from command line arguments.
-func ParseFlags(preCfg *Config) (*Config, error) {
-	if _, err := flags.Parse(preCfg); err != nil {
+func ParseFlags(preCfg *Config, args []string) (*Config, error) {
+	if _, err := flags.ParseArgs(preCfg, args); err != nil {
 		return nil, err
 	}
 	return preCfg, nil

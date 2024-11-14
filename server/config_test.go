@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/base64"
 	"os"
 	"path/filepath"
 	"testing"
@@ -74,5 +75,24 @@ func TestCalculatingOpenRoundId(t *testing.T) {
 		}
 		openRoundId := cfg.OpenRoundId(now.Add(-time.Hour*100), now)
 		require.Equal(t, uint(100), openRoundId)
+	})
+}
+
+func Test_CLIArgs(t *testing.T) {
+	// TODO: add tests for other flags
+	t.Run("certifier url", func(t *testing.T) {
+		cfg := &Config{}
+		args := []string{"--certifier-url", "https://certifier.example.com"}
+
+		cfg, err := ParseFlags(cfg, args)
+		require.NoError(t, err)
+		require.Equal(t, "https://certifier.example.com", cfg.Registration.Certifier.URL)
+	})
+	t.Run("certifier pubkey", func(t *testing.T) {
+		cfg := &Config{}
+
+		args := []string{"--certifier-pubkey", base64.StdEncoding.EncodeToString([]byte("thekey"))}
+		cfg, err := ParseFlags(cfg, args)
+		require.NoError(t, err)
 	})
 }

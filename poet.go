@@ -38,7 +38,7 @@ func poetMain() (err error) {
 		os.Exit(0)
 	}
 	// Pre-parse the command line to check for an alternative Config file
-	cfg, err = server.ParseFlags(cfg)
+	cfg, err = server.ParseFlags(cfg, os.Args[1:])
 	if err != nil {
 		return err
 	}
@@ -52,7 +52,7 @@ func poetMain() (err error) {
 
 	// Finally, parse the remaining command line options again to ensure
 	// they take precedence.
-	cfg, err = server.ParseFlags(cfg)
+	cfg, err = server.ParseFlags(cfg, os.Args[1:])
 	if err != nil {
 		return err
 	}
