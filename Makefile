@@ -50,13 +50,9 @@ endif
 # messing up with global environment.
 export GOBIN := $(BIN_DIR)
 GOTESTSUM := $(GOBIN)/gotestsum
-GOVULNCHECK := $(GOBIN)/govulncheck
 GOLINES := $(GOBIN)/golines
 
 FUZZTIME ?= "10s"
-
-$(GOVULNCHECK):
-	@go install golang.org/x/vuln/cmd/govulncheck@v1.1.3
 
 $(GOLINES):
 	@go install github.com/segmentio/golines@v0.11.0
@@ -96,7 +92,7 @@ test:
 	$(GOTESTSUM) -- -race -timeout 5m $(TEST_FLAGS) ./...
 .PHONY: test
 
-install: install-buf install-protoc $(GOVULNCHECK) $(GOLINES)
+install: install-buf install-protoc $(GOLINES)
 	@go mod download
 
 	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s $(GOLANGCI_LINT_VERSION)
@@ -135,10 +131,6 @@ clear-test-cache:
 lint:
 	golangci-lint run --config .golangci.yml
 .PHONY: lint
-
-vulncheck: $(GOVULNCHECK)
-	$(GOVULNCHECK) ./...
-.PHONY: vulncheck
 
 # Auto-fixes golangci-lint issues where possible.
 lint-fix:
