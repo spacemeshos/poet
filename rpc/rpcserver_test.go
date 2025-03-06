@@ -1,7 +1,6 @@
 package rpc_test
 
 import (
-	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"testing"
@@ -23,7 +22,7 @@ func Test_Submit_DoesNotPanicOnMissingChallenge(t *testing.T) {
 	out := &api.SubmitResponse{}
 
 	var err error
-	require.NotPanics(t, func() { out, err = sv.Submit(context.Background(), in) })
+	require.NotPanics(t, func() { out, err = sv.Submit(t.Context(), in) })
 
 	// Assert
 	require.Nil(t, out)
@@ -47,7 +46,7 @@ func Test_Submit_DoesNotPanicOnMissingPubKey(t *testing.T) {
 	}
 	out := &api.SubmitResponse{}
 
-	require.NotPanics(t, func() { out, err = sv.Submit(context.Background(), in) })
+	require.NotPanics(t, func() { out, err = sv.Submit(t.Context(), in) })
 
 	// Assert
 	require.Nil(t, out)
@@ -74,7 +73,7 @@ func Test_Submit_DoesNotPanicOnMissingSignature(t *testing.T) {
 	}
 	out := &api.SubmitResponse{}
 
-	require.NotPanics(t, func() { out, err = sv.Submit(context.Background(), in) })
+	require.NotPanics(t, func() { out, err = sv.Submit(t.Context(), in) })
 
 	// Assert
 	require.Nil(t, out)

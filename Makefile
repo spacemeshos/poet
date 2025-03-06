@@ -8,7 +8,7 @@ VERSION ?= $(shell git describe --tags)
 # Flags appended to `go test` command in `make test`
 TEST_FLAGS ?=
 
-GOLANGCI_LINT_VERSION := v1.61.0
+GOLANGCI_LINT_VERSION := v1.64.6
 GOTESTSUM_VERSION := v1.12.0
 GOSCALE_VERSION := v1.2.0
 MOCKGEN_VERSION := v0.5.0

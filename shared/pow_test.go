@@ -1,7 +1,6 @@
 package shared_test
 
 import (
-	"context"
 	"encoding/binary"
 	"fmt"
 	"testing"
@@ -50,7 +49,7 @@ func BenchmarkFindSubmitPowNonce(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				binary.LittleEndian.PutUint64(nodeID, uint64(i))
 				_, err := shared.FindSubmitPowNonce(
-					context.Background(),
+					b.Context(),
 					powChallenge,
 					poetChallenge,
 					nodeID,

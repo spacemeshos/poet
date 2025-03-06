@@ -1,7 +1,6 @@
 package registration
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -17,7 +16,7 @@ func TestVerify(t *testing.T) {
 	challenge := []byte("challenge this")
 	difficulty := uint(6)
 
-	nonce, err := shared.FindSubmitPowNonce(context.Background(), challenge, poetChallenge, nodeID, difficulty)
+	nonce, err := shared.FindSubmitPowNonce(t.Context(), challenge, poetChallenge, nodeID, difficulty)
 	require.NoError(t, err)
 	require.EqualValues(t, 143, nonce)
 
@@ -40,7 +39,7 @@ func TestVerifyWithParams(t *testing.T) {
 		current:  NewPowVerifier(NewPowParams([]byte("0"), 10)),
 	}
 
-	nonce, err := shared.FindSubmitPowNonce(context.Background(), []byte("1"), poetChallenge, nodeID, 7)
+	nonce, err := shared.FindSubmitPowNonce(t.Context(), []byte("1"), poetChallenge, nodeID, 7)
 	require.NoError(t, err)
 
 	err = verifiers.VerifyWithParams(poetChallenge, nodeID, nonce, NewPowParams([]byte("0"), 7))

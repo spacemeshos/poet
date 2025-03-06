@@ -43,7 +43,7 @@ func TestSubmitIdempotence(t *testing.T) {
 	workerSvc.EXPECT().RegisterForProofs(gomock.Any()).Return(make(<-chan shared.NIP, 1))
 
 	r, err := registration.New(
-		context.Background(),
+		t.Context(),
 		genesis,
 		t.TempDir(),
 		workerSvc,
@@ -56,14 +56,14 @@ func TestSubmitIdempotence(t *testing.T) {
 	verifier.EXPECT().Params().Times(2).Return(registration.PowParams{})
 	verifier.EXPECT().Verify(challenge, nodeID, nonce).Times(2).Return(nil)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	var eg errgroup.Group
 	eg.Go(func() error { return r.Run(ctx) })
 
 	// Submit challenge
 	epoch, _, err := r.Submit(
-		context.Background(),
+		t.Context(),
 		challenge,
 		nodeID,
 		nonce,
@@ -77,7 +77,7 @@ func TestSubmitIdempotence(t *testing.T) {
 
 	// Try again - it should return the same result
 	epoch, _, err = r.Submit(
-		context.Background(), challenge,
+		t.Context(), challenge,
 		nodeID, nonce, registration.PowParams{}, nil, nil, time.Time{})
 	req.NoError(err)
 	req.Equal(uint(0), epoch)
@@ -91,7 +91,7 @@ func TestOpeningRounds(t *testing.T) {
 	t.Run("before genesis", func(t *testing.T) {
 		t.Parallel()
 		reg, err := registration.New(
-			context.Background(),
+			t.Context(),
 			time.Now().Add(time.Hour),
 			t.TempDir(),
 			nil,
@@ -106,7 +106,7 @@ func TestOpeningRounds(t *testing.T) {
 	t.Run("after genesis, but within phase shift", func(t *testing.T) {
 		t.Parallel()
 		reg, err := registration.New(
-			context.Background(),
+			t.Context(),
 			time.Now().Add(time.Hour),
 			t.TempDir(),
 			nil,
@@ -121,7 +121,7 @@ func TestOpeningRounds(t *testing.T) {
 	t.Run("in first epoch", func(t *testing.T) {
 		t.Parallel()
 		reg, err := registration.New(
-			context.Background(),
+			t.Context(),
 			time.Now().Add(-time.Hour),
 			t.TempDir(),
 			nil,
@@ -139,7 +139,7 @@ func TestOpeningRounds(t *testing.T) {
 	t.Run("in distant epoch", func(t *testing.T) {
 		t.Parallel()
 		reg, err := registration.New(
-			context.Background(),
+			t.Context(),
 			time.Now().Add(-100*time.Hour),
 			t.TempDir(),
 			nil,
@@ -160,7 +160,7 @@ func TestWorkingWithoutWorkerService(t *testing.T) {
 	t.Parallel()
 
 	reg, err := registration.New(
-		context.Background(),
+		t.Context(),
 		time.Now(),
 		t.TempDir(),
 		transport.NewInMemory(),
@@ -170,7 +170,7 @@ func TestWorkingWithoutWorkerService(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, reg.Close()) })
 
 	var eg errgroup.Group
-	ctx, cancel := context.WithCancel(logging.NewContext(context.Background(), zaptest.NewLogger(t)))
+	ctx, cancel := context.WithCancel(logging.NewContext(t.Context(), zaptest.NewLogger(t)))
 	defer cancel()
 	eg.Go(func() error { return reg.Run(ctx) })
 
@@ -211,7 +211,7 @@ func TestPowChallengeRotation(t *testing.T) {
 		AnyTimes()
 
 	r, err := registration.New(
-		context.Background(),
+		t.Context(),
 		genesis,
 		t.TempDir(),
 		workerSvc,
@@ -223,7 +223,7 @@ func TestPowChallengeRotation(t *testing.T) {
 	params0 := r.PowParams()
 	require.NotEqual(t, []byte{1, 2, 3, 4}, params0.Challenge)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	var eg errgroup.Group
 	eg.Go(func() error { return r.Run(ctx) })
@@ -245,7 +245,7 @@ func TestRecoveringRoundInProgress(t *testing.T) {
 		PhaseShift:    time.Second,
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 
 	verifier := mocks.NewMockPowVerifier(gomock.NewController(t))
 	workerSvc := mocks.NewMockWorkerService(gomock.NewController(t))
@@ -258,7 +258,7 @@ func TestRecoveringRoundInProgress(t *testing.T) {
 	)
 
 	r, err := registration.New(
-		context.Background(),
+		t.Context(),
 		genesis,
 		t.TempDir(),
 		workerSvc,
@@ -276,7 +276,7 @@ func TestRecoveringRoundInProgress(t *testing.T) {
 
 	// Restart the registration service.
 	// The round in progress should be recovered and executed again.
-	ctx, cancel = context.WithCancel(context.Background())
+	ctx, cancel = context.WithCancel(t.Context())
 	workerSvc.EXPECT().RegisterForProofs(gomock.Any()).Return(make(<-chan shared.NIP, 1))
 	workerSvc.EXPECT().ExecuteRound(gomock.Any(), gomock.Eq(uint(0)), gomock.Any()).DoAndReturn(
 		func(_ context.Context, _ uint, _ []byte) error {
@@ -303,7 +303,7 @@ func Test_GetCertifierInfo(t *testing.T) {
 	}
 
 	r, err := registration.New(
-		context.Background(),
+		t.Context(),
 		time.Now(),
 		t.TempDir(),
 		nil,
@@ -324,7 +324,7 @@ func Test_CheckCertificate(t *testing.T) {
 
 	submit := func(r *registration.Registration, cert *shared.OpaqueCert, hint *shared.CertKeyHint) error {
 		_, _, err := r.Submit(
-			context.Background(),
+			t.Context(),
 			challenge,
 			nodeID,
 			5,
@@ -340,7 +340,7 @@ func Test_CheckCertificate(t *testing.T) {
 		powVerifier := mocks.NewMockPowVerifier(gomock.NewController(t))
 		powVerifier.EXPECT().Params().Return(registration.PowParams{}).AnyTimes()
 		r, err := registration.New(
-			context.Background(),
+			t.Context(),
 			time.Now(),
 			t.TempDir(),
 			nil,
@@ -377,7 +377,7 @@ func Test_CheckCertificate(t *testing.T) {
 
 		powVerifier := mocks.NewMockPowVerifier(gomock.NewController(t))
 		r, err := registration.New(
-			context.Background(),
+			t.Context(),
 			time.Now(),
 			t.TempDir(),
 			nil,
@@ -423,7 +423,7 @@ func Test_CheckCertificate(t *testing.T) {
 
 		t.Run("invalid certificate (wrong node ID)", func(t *testing.T) {
 			_, _, err = r.Submit(
-				context.Background(),
+				t.Context(),
 				challenge,
 				[]byte("wrong node ID"),
 				0,
@@ -453,7 +453,7 @@ func Test_CheckCertificate(t *testing.T) {
 		}
 
 		r, err := registration.New(
-			context.Background(),
+			t.Context(),
 			time.Now(),
 			t.TempDir(),
 			nil,
@@ -485,7 +485,7 @@ func Test_CheckCertificate(t *testing.T) {
 		validcert := makeCert(t, trustedKey, nodeID, nil)
 
 		r, err := registration.New(
-			context.Background(),
+			t.Context(),
 			time.Now(),
 			t.TempDir(),
 			nil,
@@ -532,7 +532,7 @@ func TestLoadTrustedKeys(t *testing.T) {
 	t.Run("certification check enabled", func(t *testing.T) {
 		dir := t.TempDir()
 		r, err := registration.New(
-			context.Background(),
+			t.Context(),
 			genesis,
 			t.TempDir(),
 			workerSvc,
@@ -549,7 +549,7 @@ func TestLoadTrustedKeys(t *testing.T) {
 
 		t.Run("load valid public keys", func(t *testing.T) {
 			generateTrustedKeys(t, 3, dir)
-			err = r.LoadTrustedPublicKeys(context.Background())
+			err = r.LoadTrustedPublicKeys(t.Context())
 			require.NoError(t, err)
 		})
 
@@ -557,14 +557,14 @@ func TestLoadTrustedKeys(t *testing.T) {
 			path := filepath.Join(dir, "invalid_key.key")
 			require.NoError(t, os.WriteFile(path, []byte("invalid"), 0o644))
 
-			err = r.LoadTrustedPublicKeys(context.Background())
+			err = r.LoadTrustedPublicKeys(t.Context())
 			require.ErrorIs(t, err, registration.ErrInvalidPublicKey)
 		})
 	})
 
 	t.Run("certification check disabled", func(t *testing.T) {
 		r, err := registration.New(
-			context.Background(),
+			t.Context(),
 			time.Now(),
 			t.TempDir(),
 			nil,
@@ -573,13 +573,13 @@ func TestLoadTrustedKeys(t *testing.T) {
 		require.NoError(t, err)
 		t.Cleanup(func() { require.NoError(t, r.Close()) })
 
-		err = r.LoadTrustedPublicKeys(context.Background())
+		err = r.LoadTrustedPublicKeys(t.Context())
 		require.ErrorIs(t, err, registration.ErrCertificationIsNotSupported)
 	})
 
 	t.Run("keys dir isn't configured", func(t *testing.T) {
 		r, err := registration.New(
-			context.Background(),
+			t.Context(),
 			genesis,
 			t.TempDir(),
 			workerSvc,
@@ -592,7 +592,7 @@ func TestLoadTrustedKeys(t *testing.T) {
 		require.NoError(t, err)
 		t.Cleanup(func() { require.NoError(t, r.Close()) })
 
-		err = r.LoadTrustedPublicKeys(context.Background())
+		err = r.LoadTrustedPublicKeys(t.Context())
 		require.ErrorIs(t, registration.ErrTrustedKeyDirPathIsNotSet, err)
 	})
 
@@ -600,7 +600,7 @@ func TestLoadTrustedKeys(t *testing.T) {
 		dir := t.TempDir()
 		keys := generateTrustedKeys(t, 1, dir)
 		r, err := registration.New(
-			context.Background(),
+			t.Context(),
 			genesis,
 			t.TempDir(),
 			workerSvc,
@@ -629,7 +629,7 @@ func TestLoadTrustedKeys(t *testing.T) {
 
 		// submit with a valid key
 		_, _, err = r.Submit(
-			context.Background(),
+			t.Context(),
 			[]byte("challenge"),
 			nodeID,
 			0,
@@ -642,12 +642,12 @@ func TestLoadTrustedKeys(t *testing.T) {
 
 		// create and load new keys
 		generateTrustedKeys(t, 1, dir)
-		err = r.LoadTrustedPublicKeys(context.Background())
+		err = r.LoadTrustedPublicKeys(t.Context())
 		require.NoError(t, err)
 
 		// submit the same cert again - it should fail because the certifier key isn't recognized anymore.
 		_, _, err = r.Submit(
-			context.Background(),
+			t.Context(),
 			[]byte("challenge"),
 			nodeID,
 			0,

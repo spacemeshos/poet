@@ -1,7 +1,6 @@
 package db_test
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -31,7 +30,7 @@ func TestMigrateDb(t *testing.T) {
 
 	// migrate the database
 	newDbPath := t.TempDir()
-	require.NoError(t, db.Migrate(context.Background(), newDbPath, oldDbPath))
+	require.NoError(t, db.Migrate(t.Context(), newDbPath, oldDbPath))
 
 	// open the new database and check that the data was copied
 	newDb, err := leveldb.OpenFile(newDbPath, nil)
@@ -61,7 +60,7 @@ func TestSkipMigrateInPlace(t *testing.T) {
 	database.Close()
 
 	// migrate the database
-	require.NoError(t, db.Migrate(context.Background(), dbPath, dbPath))
+	require.NoError(t, db.Migrate(t.Context(), dbPath, dbPath))
 
 	// open the new database and check that the data was copied
 	database, err = leveldb.OpenFile(dbPath, nil)
@@ -76,7 +75,7 @@ func TestSkipMigrateInPlace(t *testing.T) {
 }
 
 func TestSkipMigrateSrcDoesntExist(t *testing.T) {
-	require.NoError(t, db.Migrate(context.Background(), t.TempDir(), filepath.Join(t.TempDir(), "i-dont-exist")))
+	require.NoError(t, db.Migrate(t.Context(), t.TempDir(), filepath.Join(t.TempDir(), "i-dont-exist")))
 }
 
 func TestDontMigrateIfTargetExists(t *testing.T) {
@@ -92,7 +91,7 @@ func TestDontMigrateIfTargetExists(t *testing.T) {
 	targetDb.Close()
 
 	// migrate the database
-	err = db.Migrate(context.Background(), targetPath, sourcePath)
+	err = db.Migrate(t.Context(), targetPath, sourcePath)
 	require.Error(t, err)
 	require.ErrorContains(t, err, "already exists")
 }

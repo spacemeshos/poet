@@ -1,7 +1,6 @@
 package migrations_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,5 +14,5 @@ func TestMigrate(t *testing.T) {
 	cfg.PoetDir = t.TempDir()
 	cfg.DataDir = t.TempDir()
 	cfg.DbDir = t.TempDir()
-	require.NoError(t, migrations.Migrate(context.Background(), cfg))
+	require.NoError(t, migrations.Migrate(t.Context(), cfg))
 }

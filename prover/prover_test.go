@@ -20,7 +20,7 @@ func TestGetProof(t *testing.T) {
 
 	challenge := []byte("challenge this")
 	leafs, merkleProof, err := GenerateProofWithoutPersistency(
-		context.Background(),
+		t.Context(),
 		TreeConfig{Datadir: t.TempDir()},
 		hash.GenLabelHashFunc(challenge),
 		hash.GenMerkleHashFunc(challenge),
@@ -41,7 +41,7 @@ func BenchmarkGetProof(b *testing.B) {
 	securityParam := shared.T
 	duration := time.Second * 30
 	leafs, _, err := GenerateProofWithoutPersistency(
-		context.Background(),
+		b.Context(),
 		TreeConfig{Datadir: b.TempDir()},
 		hash.GenLabelHashFunc(challenge),
 		hash.GenMerkleHashFunc(challenge),
@@ -62,7 +62,7 @@ func TestRecoverParkedNodes(t *testing.T) {
 	challenge := []byte("challenge this")
 	leavesCounter := prometheus.NewCounter(prometheus.CounterOpts{})
 
-	ctx, cancel := context.WithDeadline(context.Background(), time.Now())
+	ctx, cancel := context.WithDeadline(t.Context(), time.Now())
 	defer cancel()
 
 	persist := func(ctx context.Context, treeCache *cache.Writer, _ uint64) error {
@@ -87,7 +87,7 @@ func TestRecoverParkedNodes(t *testing.T) {
 
 	// recover without parked nodes
 	leafs, merkleProof, err := GenerateProofRecovery(
-		context.Background(),
+		t.Context(),
 		leavesCounter,
 		treeCfg,
 		hash.GenLabelHashFunc(challenge),
@@ -131,7 +131,7 @@ func TestTreeRecovery(t *testing.T) {
 		treeCache.Close()
 
 		// recover the tree
-		treeCache, recoveredTree, err := makeRecoveryProofTree(context.Background(), treeCfg, merklehashFuncFunc, leafs)
+		treeCache, recoveredTree, err := makeRecoveryProofTree(t.Context(), treeCfg, merklehashFuncFunc, leafs)
 		r.NoError(err)
 		defer treeCache.Close()
 		// compare the trees by examining their roots and parked nodes

@@ -1,7 +1,6 @@
 package registration
 
 import (
-	"context"
 	"crypto/rand"
 	"testing"
 	"time"
@@ -50,7 +49,7 @@ func TestRound_Submit(t *testing.T) {
 		// Act
 		var done <-chan error
 		for _, ch := range challenges {
-			done, err = round.submit(context.Background(), ch, ch)
+			done, err = round.submit(t.Context(), ch, ch)
 			require.NoError(t, err)
 		}
 		require.NoError(t, <-done)
@@ -66,14 +65,14 @@ func TestRound_Submit(t *testing.T) {
 		require.NoError(t, err)
 
 		// Act
-		_, err = round.submit(context.Background(), []byte("key"), challenges[0])
+		_, err = round.submit(t.Context(), []byte("key"), challenges[0])
 		require.NoError(t, err)
 		round.flushPendingSubmits()
 
-		_, err = round.submit(context.Background(), []byte("key"), challenges[0])
+		_, err = round.submit(t.Context(), []byte("key"), challenges[0])
 		require.ErrorIs(t, err, ErrChallengeAlreadySubmitted)
 
-		_, err = round.submit(context.Background(), []byte("key"), challenges[1])
+		_, err = round.submit(t.Context(), []byte("key"), challenges[1])
 		require.ErrorIs(t, err, ErrConflictingRegistration)
 
 		// Verify
@@ -90,13 +89,13 @@ func TestRound_Submit(t *testing.T) {
 		require.NoError(t, err)
 
 		// Act
-		_, err = round.submit(context.Background(), []byte("key"), challenges[0])
+		_, err = round.submit(t.Context(), []byte("key"), challenges[0])
 		require.NoError(t, err)
 
-		_, err = round.submit(context.Background(), []byte("key"), challenges[0])
+		_, err = round.submit(t.Context(), []byte("key"), challenges[0])
 		require.ErrorIs(t, err, ErrChallengeAlreadySubmitted)
 
-		_, err = round.submit(context.Background(), []byte("key"), challenges[1])
+		_, err = round.submit(t.Context(), []byte("key"), challenges[1])
 		require.ErrorIs(t, err, ErrConflictingRegistration)
 
 		// Verify
@@ -114,11 +113,11 @@ func TestRound_Submit(t *testing.T) {
 		require.NoError(t, err)
 
 		// Act
-		_, err = round.submit(context.Background(), challenges[0], challenges[0])
+		_, err = round.submit(t.Context(), challenges[0], challenges[0])
 		require.NoError(t, err)
-		_, err = round.submit(context.Background(), challenges[1], challenges[1])
+		_, err = round.submit(t.Context(), challenges[1], challenges[1])
 		require.NoError(t, err)
-		_, err = round.submit(context.Background(), challenges[2], challenges[2])
+		_, err = round.submit(t.Context(), challenges[2], challenges[2])
 		require.ErrorIs(t, err, ErrMaxMembersReached)
 
 		round.flushPendingSubmits()
@@ -142,7 +141,7 @@ func TestRound_Reopen(t *testing.T) {
 	{
 		round, err := newRound(0, dbdir)
 		require.NoError(t, err)
-		_, err = round.submit(context.Background(), []byte("key"), challenge)
+		_, err = round.submit(t.Context(), []byte("key"), challenge)
 		require.NoError(t, err)
 		require.NoError(t, round.Close())
 	}
@@ -163,7 +162,7 @@ func TestRound_FlushingPending(t *testing.T) {
 		t.Parallel()
 		round := newTestRound(t, 0, withSubmitFlushInterval(time.Hour))
 		// submit schedules a flush in 1 hour
-		round.submit(context.Background(), []byte("key"), []byte("challenge"))
+		round.submit(t.Context(), []byte("key"), []byte("challenge"))
 		// cancel the flush
 		round.pendingFlush.Stop()
 		round.pendingFlush = nil
@@ -178,7 +177,7 @@ func TestRound_FlushingPending(t *testing.T) {
 		t.Parallel()
 		round := newTestRound(t, 0, withSubmitFlushInterval(time.Hour))
 		// submit schedules a flush in 1 hour
-		round.submit(context.Background(), []byte("key"), []byte("challenge"))
+		round.submit(t.Context(), []byte("key"), []byte("challenge"))
 		// manual flush cancels the timer
 		round.flushPendingSubmits()
 		// timer should be canceled

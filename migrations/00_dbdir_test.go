@@ -1,7 +1,6 @@
 package migrations
 
 import (
-	"context"
 	"path/filepath"
 	"strconv"
 	"testing"
@@ -28,7 +27,7 @@ func TestMigrateRoundsDb(t *testing.T) {
 		oldDb.Close()
 	}
 	// Act
-	require.NoError(t, migrateRoundsDbs(context.Background(), &cfg))
+	require.NoError(t, migrateRoundsDbs(t.Context(), &cfg))
 
 	// Verify
 	for i := 0; i < 5; i++ {
@@ -54,5 +53,5 @@ func TestMigrateRoundsDb_NothingToMigrate(t *testing.T) {
 		DataDir: t.TempDir(),
 		DbDir:   t.TempDir(),
 	}
-	require.NoError(t, migrateRoundsDbs(context.Background(), &cfg))
+	require.NoError(t, migrateRoundsDbs(t.Context(), &cfg))
 }

@@ -37,7 +37,7 @@ func TestService_Recovery(t *testing.T) {
 	// Create a new service instance.
 	registration.EXPECT().RegisterForRoundClosed(gomock.Any()).Return(closedRoundsChan)
 	s, err := service.New(
-		context.Background(),
+		t.Context(),
 		genesis,
 		tempdir,
 		registration,
@@ -45,7 +45,7 @@ func TestService_Recovery(t *testing.T) {
 	)
 	req.NoError(err)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	var eg errgroup.Group
 	eg.Go(func() error { return s.Run(ctx) })
@@ -66,7 +66,7 @@ func TestService_Recovery(t *testing.T) {
 			return nil
 		})
 	s, err = service.New(
-		context.Background(),
+		t.Context(),
 		genesis,
 		tempdir,
 		registration,
@@ -74,7 +74,7 @@ func TestService_Recovery(t *testing.T) {
 	)
 	req.NoError(err)
 
-	ctx, cancel = context.WithCancel(context.Background())
+	ctx, cancel = context.WithCancel(t.Context())
 	defer cancel()
 	eg = errgroup.Group{}
 	eg.Go(func() error { return s.Run(ctx) })
@@ -105,7 +105,7 @@ func TestNewService(t *testing.T) {
 	// Create a new service instance.
 	registration.EXPECT().RegisterForRoundClosed(gomock.Any()).Return(closedRoundsChan)
 	s, err := service.New(
-		context.Background(),
+		t.Context(),
 		genesis,
 		t.TempDir(),
 		registration,
@@ -113,7 +113,7 @@ func TestNewService(t *testing.T) {
 	)
 	req.NoError(err)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	var eg errgroup.Group
 	eg.Go(func() error { return s.Run(ctx) })
@@ -152,7 +152,7 @@ func TestSkipPastRounds(t *testing.T) {
 
 	transport := transport.NewInMemory()
 	s, err := service.New(
-		context.Background(),
+		t.Context(),
 		time.Now().Add(-time.Second),
 		t.TempDir(),
 		transport,
@@ -160,12 +160,12 @@ func TestSkipPastRounds(t *testing.T) {
 	)
 	req.NoError(err)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	var eg errgroup.Group
 	eg.Go(func() error { return s.Run(ctx) })
 
-	proofs := transport.RegisterForProofs(context.Background())
+	proofs := transport.RegisterForProofs(t.Context())
 	// Try executing round in the past, should be ignored
 	transport.ExecuteRound(ctx, 0, nil)
 
@@ -190,13 +190,13 @@ func TestRecoverFinishedRound(t *testing.T) {
 		service.WithMembershipRoot([]byte{1, 2, 3, 4}),
 	)
 	req.NoError(err)
-	err = round.Execute(context.Background(), time.Now().Add(time.Millisecond*10), 0, 0)
+	err = round.Execute(t.Context(), time.Now().Add(time.Millisecond*10), 0, 0)
 	req.NoError(err)
 	req.True(round.IsFinished())
 
 	transport := transport.NewInMemory()
 	s, err := service.New(
-		context.Background(),
+		t.Context(),
 		time.Now(),
 		datadir,
 		transport,
@@ -204,12 +204,12 @@ func TestRecoverFinishedRound(t *testing.T) {
 	)
 	req.NoError(err)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	var eg errgroup.Group
 	eg.Go(func() error { return s.Run(ctx) })
 
-	proofs := transport.RegisterForProofs(context.Background())
+	proofs := transport.RegisterForProofs(t.Context())
 	var proof shared.NIP
 	req.Eventually(func() bool {
 		select {
@@ -233,7 +233,7 @@ func TestRecoverFinishedRound(t *testing.T) {
 
 func TestRemoveRecoveredOpenRound(t *testing.T) {
 	req := require.New(t)
-	ctx := logging.NewContext(context.Background(), zaptest.NewLogger(t))
+	ctx := logging.NewContext(t.Context(), zaptest.NewLogger(t))
 	datadir := t.TempDir()
 
 	// manually create a round and execute it
@@ -288,7 +288,7 @@ func TestServiceCancelRecoveredRound(t *testing.T) {
 	req := require.New(t)
 	tempdir := t.TempDir()
 	genesis := time.Now()
-	ctx := logging.NewContext(context.Background(), zaptest.NewLogger(t))
+	ctx := logging.NewContext(t.Context(), zaptest.NewLogger(t))
 
 	closedRoundsChan := make(chan service.ClosedRound)
 	registration := mocks.NewMockRegistrationService(gomock.NewController(t))
