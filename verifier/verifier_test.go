@@ -1,7 +1,6 @@
 package verifier
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -17,7 +16,7 @@ func testValidate(t *testing.T, minMemoryLayer uint) {
 	challenge := []byte("challenge")
 	securityParam := uint8(1)
 	leaves, merkleProof, err := prover.GenerateProofWithoutPersistency(
-		context.Background(),
+		t.Context(),
 		prover.TreeConfig{
 			MinMemoryLayer: minMemoryLayer,
 			Datadir:        t.TempDir(),
@@ -92,7 +91,7 @@ func TestValidateWrongRoot(t *testing.T) {
 	duration := 100 * time.Millisecond
 	securityParam := uint8(4)
 	leafs, merkleProof, err := prover.GenerateProofWithoutPersistency(
-		context.Background(),
+		t.Context(),
 		prover.TreeConfig{Datadir: t.TempDir()},
 		hash.GenLabelHashFunc(challenge),
 		hash.GenMerkleHashFunc(challenge),
@@ -124,7 +123,7 @@ func TestValidateFailLabelValidation(t *testing.T) {
 	duration := 100 * time.Millisecond
 	securityParam := uint8(4)
 	leafs, merkleProof, err := prover.GenerateProofWithoutPersistency(
-		context.Background(),
+		t.Context(),
 		prover.TreeConfig{Datadir: t.TempDir()},
 		hash.GenLabelHashFunc(challenge),
 		hash.GenMerkleHashFunc(challenge),

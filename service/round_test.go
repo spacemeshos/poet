@@ -39,7 +39,7 @@ func TestRound_TearDown(t *testing.T) {
 		require.NoError(t, err)
 
 		// Act
-		require.NoError(t, round.Teardown(context.Background(), false))
+		require.NoError(t, round.Teardown(t.Context(), false))
 
 		// Verify
 		_, err = os.Stat(round.datadir)
@@ -53,7 +53,7 @@ func TestRound_TearDown(t *testing.T) {
 		require.NoError(t, err)
 
 		// Act
-		require.NoError(t, round.Teardown(context.Background(), true))
+		require.NoError(t, round.Teardown(t.Context(), true))
 
 		// Verify
 		_, err = os.Stat(round.datadir)
@@ -69,7 +69,7 @@ func TestRound_New(t *testing.T) {
 	// Act
 	round, err := NewRound(t.TempDir(), 7)
 	req.NoError(err)
-	t.Cleanup(func() { assert.NoError(t, round.Teardown(context.Background(), true)) })
+	t.Cleanup(func() { assert.NoError(t, round.Teardown(t.Context(), true)) })
 
 	// Verify
 	req.EqualValues(7, round.epoch)
@@ -84,10 +84,10 @@ func TestRound_Execute(t *testing.T) {
 	// Arrange
 	round, err := NewRound(t.TempDir(), 77, WithMembershipRoot([]byte("root")))
 	require.NoError(t, err)
-	t.Cleanup(func() { assert.NoError(t, round.Teardown(context.Background(), true)) })
+	t.Cleanup(func() { assert.NoError(t, round.Teardown(t.Context(), true)) })
 
 	// Act
-	req.NoError(round.Execute(context.Background(), time.Now().Add(400*time.Millisecond), 1, 0))
+	req.NoError(round.Execute(t.Context(), time.Now().Add(400*time.Millisecond), 1, 0))
 
 	// Verify
 	req.Equal(uint(77), round.epoch)
@@ -106,12 +106,12 @@ func TestRound_StateRecovery(t *testing.T) {
 		// Arrange
 		round, err := NewRound(tmpdir, 0)
 		require.NoError(t, err)
-		require.NoError(t, round.Teardown(context.Background(), false))
+		require.NoError(t, round.Teardown(t.Context(), false))
 
 		// Act
 		recovered, err := NewRound(tmpdir, 0)
 		require.NoError(t, err)
-		t.Cleanup(func() { assert.NoError(t, recovered.Teardown(context.Background(), false)) })
+		t.Cleanup(func() { assert.NoError(t, recovered.Teardown(t.Context(), false)) })
 
 		// Verify
 		require.False(t, recovered.IsFinished())
@@ -122,15 +122,15 @@ func TestRound_StateRecovery(t *testing.T) {
 		// Arrange
 		round, err := NewRound(tmpdir, 0)
 		require.NoError(t, err)
-		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*10)
+		ctx, cancel := context.WithTimeout(t.Context(), time.Millisecond*10)
 		defer cancel()
 		require.ErrorIs(t, round.Execute(ctx, time.Now().Add(time.Hour), 1, 0), context.DeadlineExceeded)
-		require.NoError(t, round.Teardown(context.Background(), false))
+		require.NoError(t, round.Teardown(t.Context(), false))
 
 		// Act
 		recovered, err := NewRound(tmpdir, 0)
 		require.NoError(t, err)
-		t.Cleanup(func() { assert.NoError(t, recovered.Teardown(context.Background(), false)) })
+		t.Cleanup(func() { assert.NoError(t, recovered.Teardown(t.Context(), false)) })
 
 		// Verify
 		require.False(t, recovered.IsFinished())
@@ -152,13 +152,13 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 		round, err := NewRound(tmpdir, 1)
 		req.NoError(err)
 
-		ctx, stop := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		ctx, stop := context.WithTimeout(t.Context(), 100*time.Millisecond)
 		defer stop()
 		req.ErrorIs(
 			round.Execute(ctx, time.Now().Add(time.Hour), 2, 0),
 			context.DeadlineExceeded,
 		)
-		req.NoError(round.Teardown(context.Background(), false))
+		req.NoError(round.Teardown(t.Context(), false))
 	}
 
 	// Recover round execution and request shutdown before completion.
@@ -166,10 +166,10 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 		round, err := NewRound(tmpdir, 1)
 		req.NoError(err)
 
-		ctx, stop := context.WithTimeout(context.Background(), 100*time.Millisecond)
+		ctx, stop := context.WithTimeout(t.Context(), 100*time.Millisecond)
 		defer stop()
 		req.ErrorIs(round.RecoverExecution(ctx, time.Now().Add(time.Hour), 0), context.DeadlineExceeded)
-		req.NoError(round.Teardown(context.Background(), false))
+		req.NoError(round.Teardown(t.Context(), false))
 	}
 
 	// Recover r2 execution again, and let it complete.
@@ -177,8 +177,8 @@ func TestRound_ExecutionRecovery(t *testing.T) {
 		round, err := NewRound(tmpdir, 1)
 		req.NoError(err)
 
-		req.NoError(round.RecoverExecution(context.Background(), time.Now().Add(400*time.Millisecond), 0))
+		req.NoError(round.RecoverExecution(t.Context(), time.Now().Add(400*time.Millisecond), 0))
 		validateProof(t, round.execution)
-		req.NoError(round.Teardown(context.Background(), true))
+		req.NoError(round.Teardown(t.Context(), true))
 	}
 }

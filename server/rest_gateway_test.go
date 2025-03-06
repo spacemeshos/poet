@@ -23,7 +23,7 @@ func TestConfiguringMaxGrpcRespSize(t *testing.T) {
 	cfg.RawRPCListener = randomHost
 	cfg.RawRESTListener = randomHost
 
-	ctx := logging.NewContext(context.Background(), zaptest.NewLogger(t))
+	ctx := logging.NewContext(t.Context(), zaptest.NewLogger(t))
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 

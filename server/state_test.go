@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"crypto/ed25519"
 	"encoding/base64"
 	"os"
@@ -17,47 +16,47 @@ func TestLoadState(t *testing.T) {
 	keyb64 := base64.StdEncoding.EncodeToString(key)
 
 	t.Run("generate new key", func(t *testing.T) {
-		s, err := loadState(context.Background(), t.TempDir(), "")
+		s, err := loadState(t.Context(), t.TempDir(), "")
 		require.NoError(t, err)
 		require.NotNil(t, s.PrivKey)
 	})
 	t.Run("use key from ENV", func(t *testing.T) {
-		s, err := loadState(context.Background(), t.TempDir(), keyb64)
+		s, err := loadState(t.Context(), t.TempDir(), keyb64)
 		require.NoError(t, err)
 		require.Equal(t, []byte(key), s.PrivKey)
 	})
 	t.Run("key must be 64B", func(t *testing.T) {
-		_, err := loadState(context.Background(), t.TempDir(), "VGVzdA==")
+		_, err := loadState(t.Context(), t.TempDir(), "VGVzdA==")
 		require.Error(t, err)
 	})
 	t.Run("key must be base64", func(t *testing.T) {
-		_, err := loadState(context.Background(), t.TempDir(), "not b64")
+		_, err := loadState(t.Context(), t.TempDir(), "not b64")
 		require.Error(t, err)
 	})
 	t.Run("detect mismatch between persisted key and env", func(t *testing.T) {
 		dir := t.TempDir()
-		s, err := loadState(context.Background(), dir, "")
+		s, err := loadState(t.Context(), dir, "")
 		require.NoError(t, err)
 		require.NoError(t, saveState(dir, s))
 
 		// Set env to different key
-		_, err = loadState(context.Background(), dir, keyb64)
+		_, err = loadState(t.Context(), dir, keyb64)
 		require.Error(t, err)
 	})
 	t.Run("persisting key", func(t *testing.T) {
 		dir := t.TempDir()
-		s, err := loadState(context.Background(), dir, "")
+		s, err := loadState(t.Context(), dir, "")
 		require.NoError(t, err)
 		require.NoError(t, saveState(dir, s))
 
-		s2, err := loadState(context.Background(), dir, "")
+		s2, err := loadState(t.Context(), dir, "")
 		require.NoError(t, err)
 		require.Equal(t, s.PrivKey, s2.PrivKey)
 	})
 	t.Run("corrupted state.bin", func(t *testing.T) {
 		dir := t.TempDir()
 		require.NoError(t, os.WriteFile(filepath.Join(dir, stateFilename), []byte("invalid"), 0o644))
-		_, err := loadState(context.Background(), dir, "")
+		_, err := loadState(t.Context(), dir, "")
 		require.Error(t, err)
 	})
 }

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"crypto/rand"
 	"fmt"
 	"testing"
@@ -27,7 +26,7 @@ func BenchmarkProverAndVerifierBig(b *testing.B) {
 	b.Log("Computing dag...")
 	t1 := time.Now()
 	numLeaves, merkleProof, err := prover.GenerateProofWithoutPersistency(
-		context.Background(),
+		b.Context(),
 		prover.TreeConfig{Datadir: b.TempDir()},
 		hash.GenLabelHashFunc(challenge),
 		hash.GenMerkleHashFunc(challenge),
@@ -59,7 +58,7 @@ func TestNip(t *testing.T) {
 	securityParam := shared.T
 
 	numLeaves, merkleProof, err := prover.GenerateProofWithoutPersistency(
-		context.Background(),
+		t.Context(),
 		prover.TreeConfig{Datadir: t.TempDir()},
 		hash.GenLabelHashFunc(challenge),
 		hash.GenMerkleHashFunc(challenge),
@@ -89,7 +88,7 @@ func BenchmarkProofEx(t *testing.B) {
 		securityParam := shared.T
 
 		numLeaves, merkleProof, err := prover.GenerateProofWithoutPersistency(
-			context.Background(),
+			t.Context(),
 			prover.TreeConfig{Datadir: t.TempDir()},
 			hash.GenLabelHashFunc(challenge),
 			hash.GenMerkleHashFunc(challenge),

@@ -76,7 +76,7 @@ func TestInfoEndpoint(t *testing.T) {
 		cfg := cfg
 		cfg.PoetDir = t.TempDir()
 
-		ctx, cancel := context.WithCancel(logging.NewContext(context.Background(), zaptest.NewLogger(t)))
+		ctx, cancel := context.WithCancel(logging.NewContext(t.Context(), zaptest.NewLogger(t)))
 		defer cancel()
 		srv, client := spawnPoet(ctx, t, *cfg)
 		t.Cleanup(func() { assert.NoError(t, srv.Close()) })
@@ -86,7 +86,7 @@ func TestInfoEndpoint(t *testing.T) {
 			return srv.Start(ctx)
 		})
 
-		info, err := client.Info(context.Background(), &api.InfoRequest{})
+		info, err := client.Info(t.Context(), &api.InfoRequest{})
 		req.NoError(err)
 		req.Equal(cfg.Round.PhaseShift, info.PhaseShift.AsDuration())
 		req.Equal(cfg.Round.CycleGap, info.CycleGap.AsDuration())
@@ -105,7 +105,7 @@ func TestInfoEndpoint(t *testing.T) {
 			PubKey: []byte("certifier pubkey"),
 		}
 
-		ctx, cancel := context.WithCancel(logging.NewContext(context.Background(), zaptest.NewLogger(t)))
+		ctx, cancel := context.WithCancel(logging.NewContext(t.Context(), zaptest.NewLogger(t)))
 		defer cancel()
 		srv, client := spawnPoet(ctx, t, *cfg)
 		t.Cleanup(func() { assert.NoError(t, srv.Close()) })
@@ -115,7 +115,7 @@ func TestInfoEndpoint(t *testing.T) {
 			return srv.Start(ctx)
 		})
 
-		info, err := client.Info(context.Background(), &api.InfoRequest{})
+		info, err := client.Info(t.Context(), &api.InfoRequest{})
 		req.NoError(err)
 		req.Equal(cfg.Round.PhaseShift, info.PhaseShift.AsDuration())
 		req.Equal(cfg.Round.CycleGap, info.CycleGap.AsDuration())
@@ -132,7 +132,7 @@ func TestInfoEndpoint(t *testing.T) {
 		cfg.PoetDir = t.TempDir()
 		cfg.Registration.Certifier = &registration.CertifierConfig{}
 
-		ctx, cancel := context.WithCancel(logging.NewContext(context.Background(), zaptest.NewLogger(t)))
+		ctx, cancel := context.WithCancel(logging.NewContext(t.Context(), zaptest.NewLogger(t)))
 		defer cancel()
 		srv, client := spawnPoet(ctx, t, *cfg)
 		t.Cleanup(func() { assert.NoError(t, srv.Close()) })
@@ -142,7 +142,7 @@ func TestInfoEndpoint(t *testing.T) {
 			return srv.Start(ctx)
 		})
 
-		info, err := client.Info(context.Background(), &api.InfoRequest{})
+		info, err := client.Info(t.Context(), &api.InfoRequest{})
 		req.NoError(err)
 		req.Nil(info.Certifier)
 
@@ -154,7 +154,7 @@ func TestInfoEndpoint(t *testing.T) {
 func TestSubmitSignatureVerification(t *testing.T) {
 	t.Parallel()
 	req := require.New(t)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
@@ -182,18 +182,18 @@ func TestSubmitSignatureVerification(t *testing.T) {
 	n, err := rand.Read(challenge)
 	req.NoError(err)
 	req.Equal(32, n)
-	_, err = client.Submit(context.Background(), &api.SubmitRequest{
+	_, err = client.Submit(t.Context(), &api.SubmitRequest{
 		Challenge: challenge,
 		Pubkey:    pubKey,
 		Signature: []byte{},
 	})
 	req.ErrorIs(err, status.Error(codes.InvalidArgument, "invalid signature"))
 
-	powParams, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
+	powParams, err := client.PowParams(t.Context(), &api.PowParamsRequest{})
 	req.NoError(err)
 
 	signature := ed25519.Sign(privKey, challenge)
-	_, err = client.Submit(context.Background(), &api.SubmitRequest{
+	_, err = client.Submit(t.Context(), &api.SubmitRequest{
 		Challenge: challenge,
 		Pubkey:    pubKey,
 		PowParams: powParams.PowParams,
@@ -207,7 +207,7 @@ func TestSubmitSignatureVerification(t *testing.T) {
 
 func TestSubmitCertificateVerification(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
@@ -247,7 +247,7 @@ func TestSubmitCertificateVerification(t *testing.T) {
 	signature := ed25519.Sign(privKey, challenge)
 
 	t.Run("invalid certificate", func(t *testing.T) {
-		_, err = client.Submit(context.Background(), &api.SubmitRequest{
+		_, err = client.Submit(t.Context(), &api.SubmitRequest{
 			Challenge: challenge,
 			Pubkey:    pubKey,
 			Signature: signature,
@@ -264,7 +264,7 @@ func TestSubmitCertificateVerification(t *testing.T) {
 		certBytes, err := shared.EncodeCert(cert)
 		require.NoError(t, err)
 
-		_, err = client.Submit(context.Background(), &api.SubmitRequest{
+		_, err = client.Submit(t.Context(), &api.SubmitRequest{
 			Challenge: challenge,
 			Pubkey:    pubKey,
 			Signature: signature,
@@ -276,7 +276,7 @@ func TestSubmitCertificateVerification(t *testing.T) {
 		require.NoError(t, err)
 	})
 	t.Run("no certificate - fallback to PoW (invalid)", func(t *testing.T) {
-		_, err = client.Submit(context.Background(), &api.SubmitRequest{
+		_, err = client.Submit(t.Context(), &api.SubmitRequest{
 			Challenge: challenge,
 			Pubkey:    pubKey,
 			Signature: signature,
@@ -284,10 +284,10 @@ func TestSubmitCertificateVerification(t *testing.T) {
 		require.ErrorIs(t, err, status.Error(codes.InvalidArgument, "invalid proof of work parameters"))
 	})
 	t.Run("no certificate - fallback to PoW (valid)", func(t *testing.T) {
-		resp, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
+		resp, err := client.PowParams(t.Context(), &api.PowParamsRequest{})
 		require.NoError(t, err)
 		nonce, err := shared.FindSubmitPowNonce(
-			context.Background(),
+			t.Context(),
 			resp.PowParams.Challenge,
 			challenge,
 			pubKey,
@@ -295,7 +295,7 @@ func TestSubmitCertificateVerification(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		_, err = client.Submit(context.Background(), &api.SubmitRequest{
+		_, err = client.Submit(t.Context(), &api.SubmitRequest{
 			Nonce:     nonce,
 			Challenge: challenge,
 			Pubkey:    pubKey,
@@ -314,7 +314,7 @@ func TestLoadTrustedKeysAndSubmit(t *testing.T) {
 	userPubKey, userPrivKey, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
@@ -372,7 +372,7 @@ func TestLoadTrustedKeysAndSubmit(t *testing.T) {
 	require.Equal(t, 32, n)
 
 	// trusted keys are not loaded
-	_, err = client.Submit(context.Background(), &api.SubmitRequest{
+	_, err = client.Submit(t.Context(), &api.SubmitRequest{
 		Challenge: challenge,
 		Pubkey:    userPubKey,
 		Signature: ed25519.Sign(userPrivKey, challenge),
@@ -385,10 +385,10 @@ func TestLoadTrustedKeysAndSubmit(t *testing.T) {
 	require.ErrorContains(t, err, registration.ErrInvalidCertificate.Error())
 
 	// load trusted keys
-	_, err = configClient.ReloadTrustedKeys(context.Background(), &api.ReloadTrustedKeysRequest{})
+	_, err = configClient.ReloadTrustedKeys(t.Context(), &api.ReloadTrustedKeysRequest{})
 	require.NoError(t, err)
 
-	_, err = client.Submit(context.Background(), &api.SubmitRequest{
+	_, err = client.Submit(t.Context(), &api.SubmitRequest{
 		Challenge: challenge,
 		Pubkey:    userPubKey,
 		Signature: ed25519.Sign(userPrivKey, challenge),
@@ -405,7 +405,7 @@ func TestLoadTrustedKeysAndSubmit(t *testing.T) {
 func TestSubmitAndGetProof(t *testing.T) {
 	t.Parallel()
 	req := require.New(t)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
@@ -435,11 +435,11 @@ func TestSubmitAndGetProof(t *testing.T) {
 	req.NoError(err)
 	req.Equal(32, n)
 
-	powParams, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
+	powParams, err := client.PowParams(t.Context(), &api.PowParamsRequest{})
 	req.NoError(err)
 
 	signature := ed25519.Sign(privKey, challenge)
-	resp, err := client.Submit(context.Background(), &api.SubmitRequest{
+	resp, err := client.Submit(t.Context(), &api.SubmitRequest{
 		Challenge: challenge,
 		Pubkey:    pubKey,
 		PowParams: powParams.PowParams,
@@ -456,7 +456,7 @@ func TestSubmitAndGetProof(t *testing.T) {
 	// Query for the proof
 	var proof *api.ProofResponse
 	req.Eventually(func() bool {
-		proof, err = client.Proof(context.Background(), &api.ProofRequest{RoundId: resp.RoundId})
+		proof, err = client.Proof(t.Context(), &api.ProofRequest{RoundId: resp.RoundId})
 		return err == nil
 	}, 2*time.Second, time.Millisecond*100)
 
@@ -485,7 +485,7 @@ func TestSubmitAndGetProof(t *testing.T) {
 func TestCannotSubmitMoreThanMaxRoundMembers(t *testing.T) {
 	t.Parallel()
 	req := require.New(t)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
@@ -504,14 +504,14 @@ func TestCannotSubmitMoreThanMaxRoundMembers(t *testing.T) {
 		return srv.Start(ctx)
 	})
 
-	powParams, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
+	powParams, err := client.PowParams(t.Context(), &api.PowParamsRequest{})
 	req.NoError(err)
 
 	submitChallenge := func(ch []byte) error {
 		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 		req.NoError(err)
 		signature := ed25519.Sign(privKey, ch)
-		_, err = client.Submit(context.Background(), &api.SubmitRequest{
+		_, err = client.Submit(t.Context(), &api.SubmitRequest{
 			Challenge: ch,
 			Pubkey:    pubKey,
 			PowParams: powParams.PowParams,
@@ -543,7 +543,7 @@ func TestCannotSubmitMoreThanMaxRoundMembers(t *testing.T) {
 func TestSubmittingChallengeTwice(t *testing.T) {
 	t.Parallel()
 	req := require.New(t)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
@@ -565,11 +565,11 @@ func TestSubmittingChallengeTwice(t *testing.T) {
 	pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 	req.NoError(err)
 
-	powParams, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
+	powParams, err := client.PowParams(t.Context(), &api.PowParamsRequest{})
 	req.NoError(err)
 
 	submitChallenge := func(ch []byte) error {
-		_, err = client.Submit(context.Background(), &api.SubmitRequest{
+		_, err = client.Submit(t.Context(), &api.SubmitRequest{
 			Challenge: ch,
 			Pubkey:    pubKey,
 			PowParams: powParams.PowParams,
@@ -598,7 +598,7 @@ func TestSubmittingChallengeTwice(t *testing.T) {
 func TestSubmittingWithNeedByTimestamp(t *testing.T) {
 	t.Parallel()
 	req := require.New(t)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
@@ -622,13 +622,13 @@ func TestSubmittingWithNeedByTimestamp(t *testing.T) {
 	})
 	t.Cleanup(func() { assert.NoError(t, eg.Wait()) })
 
-	powParams, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
+	powParams, err := client.PowParams(t.Context(), &api.PowParamsRequest{})
 	req.NoError(err)
 
 	submitChallenge := func(ch []byte, deadline time.Time) error {
 		pubKey, privKey, err := ed25519.GenerateKey(rand.Reader)
 		req.NoError(err)
-		_, err = client.Submit(context.Background(), &api.SubmitRequest{
+		_, err = client.Submit(t.Context(), &api.SubmitRequest{
 			Challenge: ch,
 			Pubkey:    pubKey,
 			PowParams: powParams.PowParams,
@@ -664,7 +664,7 @@ func TestSubmittingWithNeedByTimestamp(t *testing.T) {
 func TestPersistingPowParams(t *testing.T) {
 	t.Parallel()
 	req := require.New(t)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
@@ -681,7 +681,7 @@ func TestPersistingPowParams(t *testing.T) {
 		return srv.Start(ctx)
 	})
 
-	resp, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
+	resp, err := client.PowParams(t.Context(), &api.PowParamsRequest{})
 	req.NoError(err)
 	req.EqualValues(cfg.Registration.PowDifficulty, resp.PowParams.Difficulty)
 
@@ -692,14 +692,14 @@ func TestPersistingPowParams(t *testing.T) {
 	req.NoError(srv.Close())
 
 	// Restart the server
-	ctx, cancel = context.WithCancel(context.Background())
+	ctx, cancel = context.WithCancel(t.Context())
 	defer cancel()
 	srv, client = spawnPoet(ctx, t, *cfg)
 	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
 	eg.Go(func() error {
 		return srv.Start(ctx)
 	})
-	resp, err = client.PowParams(context.Background(), &api.PowParamsRequest{})
+	resp, err = client.PowParams(t.Context(), &api.PowParamsRequest{})
 	req.NoError(err)
 	req.EqualValues(cfg.Registration.PowDifficulty, resp.PowParams.Difficulty)
 	req.Equal(powChallenge, resp.PowParams.Challenge)
@@ -708,7 +708,7 @@ func TestPersistingPowParams(t *testing.T) {
 func TestPersistingKeys(t *testing.T) {
 	t.Parallel()
 	req := require.New(t)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
@@ -724,7 +724,7 @@ func TestPersistingKeys(t *testing.T) {
 		return srv.Start(ctx)
 	})
 
-	info, err := client.Info(context.Background(), &api.InfoRequest{})
+	info, err := client.Info(t.Context(), &api.InfoRequest{})
 	req.NoError(err)
 
 	cancel()
@@ -732,7 +732,7 @@ func TestPersistingKeys(t *testing.T) {
 	req.NoError(srv.Close())
 
 	// Restart the server
-	ctx, cancel = context.WithCancel(context.Background())
+	ctx, cancel = context.WithCancel(t.Context())
 	defer cancel()
 	srv, client = spawnPoet(ctx, t, *cfg)
 	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
@@ -740,7 +740,7 @@ func TestPersistingKeys(t *testing.T) {
 	eg.Go(func() error {
 		return srv.Start(ctx)
 	})
-	info2, err := client.Info(context.Background(), &api.InfoRequest{})
+	info2, err := client.Info(t.Context(), &api.InfoRequest{})
 	req.NoError(err)
 
 	req.Equal(info.ServicePubkey, info2.ServicePubkey)
@@ -751,7 +751,7 @@ func TestLoadSubmits(t *testing.T) {
 		t.Skip("skipping load test in short mode")
 	}
 	req := require.New(t)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
@@ -764,7 +764,7 @@ func TestLoadSubmits(t *testing.T) {
 	cfg.RawRESTListener = randomHost
 	server.SetupConfig(cfg)
 
-	srv, err := server.New(context.Background(), *cfg)
+	srv, err := server.New(t.Context(), *cfg)
 	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
 	req.NoError(err)
 
@@ -798,11 +798,11 @@ func TestLoadSubmits(t *testing.T) {
 			_, err = rand.Read(challenge)
 			req.NoError(err)
 
-			powParams, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
+			powParams, err := client.PowParams(t.Context(), &api.PowParamsRequest{})
 			require.NoError(t, err)
 
 			signature := ed25519.Sign(privKey, challenge)
-			_, err = client.Submit(context.Background(), &api.SubmitRequest{
+			_, err = client.Submit(t.Context(), &api.SubmitRequest{
 				Challenge: challenge,
 				Pubkey:    pubKey,
 				PowParams: powParams.PowParams,
@@ -824,7 +824,7 @@ func TestLoadSubmits(t *testing.T) {
 func TestRegistrationOnlyMode(t *testing.T) {
 	t.Parallel()
 	req := require.New(t)
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	ctx = logging.NewContext(ctx, zaptest.NewLogger(t))
 
@@ -855,11 +855,11 @@ func TestRegistrationOnlyMode(t *testing.T) {
 	req.NoError(err)
 	req.Equal(32, n)
 
-	powParams, err := client.PowParams(context.Background(), &api.PowParamsRequest{})
+	powParams, err := client.PowParams(t.Context(), &api.PowParamsRequest{})
 	req.NoError(err)
 
 	signature := ed25519.Sign(privKey, challenge)
-	resp, err := client.Submit(context.Background(), &api.SubmitRequest{
+	resp, err := client.Submit(t.Context(), &api.SubmitRequest{
 		Challenge: challenge,
 		Pubkey:    pubKey,
 		PowParams: powParams.PowParams,
@@ -870,7 +870,7 @@ func TestRegistrationOnlyMode(t *testing.T) {
 	// Query for the proof
 	var proof *api.ProofResponse
 	req.Eventually(func() bool {
-		proof, err = client.Proof(context.Background(), &api.ProofRequest{RoundId: resp.RoundId})
+		proof, err = client.Proof(t.Context(), &api.ProofRequest{RoundId: resp.RoundId})
 		return err == nil
 	}, time.Second, time.Millisecond*10)
 
@@ -904,10 +904,9 @@ func TestConfiguringPrivateKey(t *testing.T) {
 
 	pubKey, privateKey, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
-	err = os.Setenv(server.KeyEnvVar, base64.StdEncoding.EncodeToString(privateKey))
-	require.NoError(t, err)
+	t.Setenv(server.KeyEnvVar, base64.StdEncoding.EncodeToString(privateKey))
 
-	srv := spawnPoetServer(context.Background(), t, *cfg)
+	srv := spawnPoetServer(t.Context(), t, *cfg)
 	t.Cleanup(func() { assert.NoError(t, srv.Close()) })
 	require.Equal(t, pubKey, srv.PublicKey())
 }
