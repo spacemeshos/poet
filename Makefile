@@ -13,13 +13,13 @@ GOTESTSUM_VERSION := v1.12.0
 GOSCALE_VERSION := v1.3.0
 MOCKGEN_VERSION := v0.5.0
 
-BUF_VERSION := 1.30.0
-PROTOC_VERSION = 26.0
+BUF_VERSION := 1.50.1
+PROTOC_VERSION = 29.4
 
-GRPC_JSON_PROXY_VERSION := v2.19.1
-PROTOC_GO_VERSION := v1.33.0
-PROTOC_GEN_GO_VERSION := v1.3.0
-PROTOC_OPENAPI_VERSION := v2.19.1
+GRPC_JSON_PROXY_VERSION := v2.26.3
+PROTOC_GO_VERSION := v1.36.6
+PROTOC_GEN_GO_VERSION := v1.5.1
+PROTOC_OPENAPI_VERSION := v2.26.3
 
 # Everything below this line is meant to be static, i.e. only adjust the above variables. ###
 
@@ -50,12 +50,8 @@ endif
 # messing up with global environment.
 export GOBIN := $(BIN_DIR)
 GOTESTSUM := $(GOBIN)/gotestsum
-GOLINES := $(GOBIN)/golines
 
 FUZZTIME ?= "10s"
-
-$(GOLINES):
-	@go install github.com/segmentio/golines@v0.11.0
 
 $(BIN_DIR)/mockgen:
 	@go install go.uber.org/mock/mockgen@$(MOCKGEN_VERSION)
@@ -92,7 +88,7 @@ test:
 	$(GOTESTSUM) -- -race -timeout 5m $(TEST_FLAGS) ./...
 .PHONY: test
 
-install: install-buf install-protoc $(GOLINES)
+install: install-buf install-protoc
 	@go mod download
 
 	@curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s $(GOLANGCI_LINT_VERSION)
@@ -112,14 +108,13 @@ test-tidy:
 	@git diff --exit-code || (git --no-pager diff && git checkout . && exit 1)
 .PHONY: test-tidy
 
-fmt: $(GOLINES)
+fmt:
 	@go fmt ./...
-	@$(GOLINES) -m 120 --shorten-comments -w .
 .PHONY: fmt
 
 test-fmt:
 	@git diff --quiet || (echo "\033[0;31mWorking directory not clean!\033[0m" && git --no-pager diff && exit 1)
-	# We expect `go fmt` and `golines` not to change anything, the test should fail otherwise
+	# We expect `go fmt` not to change anything, the test should fail otherwise
 	@make fmt
 	@git diff --exit-code || (git --no-pager diff && git checkout . && exit 1)
 .PHONY: test-fmt
