@@ -15,7 +15,7 @@ jobs:
       - name: checkout
         uses: actions/checkout@v4
       - name: set up go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           check-latest: true
           go-version-file: go.mod
@@ -33,7 +33,7 @@ jobs:
       - name: checkout
         uses: actions/checkout@v4
       - name: set up go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           check-latest: true
           go-version-file: go.mod
@@ -63,7 +63,7 @@ jobs:
       - name: checkout
         uses: actions/checkout@v4
       - name: set up go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           check-latest: true
           go-version-file: go.mod
@@ -91,7 +91,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: set up go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           check-latest: true
           go-version-file: go.mod
